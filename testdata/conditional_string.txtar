@@ -1,0 +1,58 @@
+Conditional on a string value: the field is used both as a condition and a value.
+
+-- values.yaml --
+name: my-app
+tier: frontend
+-- input.yaml --
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Values.name }}
+  labels:
+    app: {{ .Values.name }}
+    {{- if .Values.tier }}
+    tier: {{ .Values.tier }}
+    {{- end }}
+-- helm_output.yaml --
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: my-app
+  labels:
+    app: my-app
+    tier: frontend
+-- output.cue --
+import "struct"
+
+_nonzero: {
+	#arg?: _
+	[if #arg != _|_ {
+		[
+			if (#arg & int) != _|_ {#arg != 0},
+			if (#arg & string) != _|_ {#arg != ""},
+			if (#arg & float) != _|_ {#arg != 0.0},
+			if (#arg & bool) != _|_ {#arg},
+			if (#arg & [...]) != _|_ {len(#arg) > 0},
+			if (#arg & {...}) != _|_ {(#arg & struct.MaxFields(0)) == _|_},
+			false,
+		][0]
+	}, false][0]
+}
+
+#values: {
+	name?: _
+	tier?: _
+	...
+}
+
+apiVersion: "v1"
+kind: "ConfigMap"
+metadata: {
+	name: #values.name
+	labels: {
+		app: #values.name
+		if (_nonzero & {#arg: #values.tier, _}) {
+			tier: #values.tier
+		}
+	}
+}

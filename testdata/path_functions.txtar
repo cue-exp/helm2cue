@@ -1,0 +1,40 @@
+Path pipeline functions: base, dir, ext.
+
+-- values.yaml --
+filepath: /usr/local/bin/app.tar.gz
+-- input.yaml --
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test
+data:
+  basename: {{ .Values.filepath | base }}
+  dirname: {{ .Values.filepath | dir }}
+  extension: {{ .Values.filepath | ext }}
+-- helm_output.yaml --
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test
+data:
+  basename: app.tar.gz
+  dirname: /usr/local/bin
+  extension: .gz
+-- output.cue --
+import "path"
+
+#values: {
+	filepath?: _
+	...
+}
+
+apiVersion: "v1"
+kind: "ConfigMap"
+metadata: {
+	name: "test"
+}
+data: {
+	basename: path.Base(#values.filepath, path.Unix)
+	dirname: path.Dir(#values.filepath, path.Unix)
+	extension: path.Ext(#values.filepath, path.Unix)
+}

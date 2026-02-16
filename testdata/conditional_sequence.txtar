@@ -1,0 +1,76 @@
+If blocks wrapping sequence items.
+
+-- values.yaml --
+httpEnabled: true
+httpsEnabled: true
+-- helm_output.yaml --
+apiVersion: v1
+kind: Service
+metadata:
+  name: test
+spec:
+  ports:
+    - port: 80
+      name: http
+    - port: 443
+      name: https
+-- input.yaml --
+apiVersion: v1
+kind: Service
+metadata:
+  name: test
+spec:
+  ports:
+    {{- if .Values.httpEnabled }}
+    - port: 80
+      name: http
+    {{- end }}
+    {{- if .Values.httpsEnabled }}
+    - port: 443
+      name: https
+    {{- end }}
+-- output.cue --
+import "struct"
+
+_nonzero: {
+	#arg?: _
+	[if #arg != _|_ {
+		[
+			if (#arg & int) != _|_ {#arg != 0},
+			if (#arg & string) != _|_ {#arg != ""},
+			if (#arg & float) != _|_ {#arg != 0.0},
+			if (#arg & bool) != _|_ {#arg},
+			if (#arg & [...]) != _|_ {len(#arg) > 0},
+			if (#arg & {...}) != _|_ {(#arg & struct.MaxFields(0)) == _|_},
+			false,
+		][0]
+	}, false][0]
+}
+
+#values: {
+	httpEnabled?: _
+	httpsEnabled?: _
+	...
+}
+
+apiVersion: "v1"
+kind: "Service"
+metadata: {
+	name: "test"
+}
+spec: {
+	ports: [
+		if (_nonzero & {#arg: #values.httpEnabled, _}) {
+			{
+				port: 80
+				name: "http"
+			},
+		}
+		if (_nonzero & {#arg: #values.httpsEnabled, _}) {
+			{
+				port: 443
+				name: "https"
+			},
+		}
+	]
+}

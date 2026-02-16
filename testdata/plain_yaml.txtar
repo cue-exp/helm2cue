@@ -1,0 +1,27 @@
+Plain YAML with no template directives.
+
+-- values.yaml --
+{}
+-- helm_output.yaml --
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: my-config
+data:
+  key: value
+-- input.yaml --
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: my-config
+data:
+  key: value
+-- output.cue --
+apiVersion: "v1"
+kind: "ConfigMap"
+metadata: {
+	name: "my-config"
+}
+data: {
+	key: "value"
+}

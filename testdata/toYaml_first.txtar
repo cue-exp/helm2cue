@@ -1,0 +1,63 @@
+toYaml as first command in action (not just pipeline function).
+
+-- values.yaml --
+updateStrategy:
+  type: RollingUpdate
+resources:
+  limits:
+    cpu: 100m
+    memory: 128Mi
+-- helm_output.yaml --
+apiVersion: v1
+kind: Deployment
+spec:
+  strategy:
+    type: RollingUpdate
+  resources:
+    limits:
+      cpu: 100m
+      memory: 128Mi
+-- input.yaml --
+apiVersion: v1
+kind: Deployment
+spec:
+  {{- if .Values.updateStrategy }}
+  strategy: {{- toYaml .Values.updateStrategy | nindent 4 }}
+  {{- end }}
+  {{- if .Values.resources }}
+  resources: {{- toYaml .Values.resources | nindent 4 }}
+  {{- end }}
+-- output.cue --
+import "struct"
+
+_nonzero: {
+	#arg?: _
+	[if #arg != _|_ {
+		[
+			if (#arg & int) != _|_ {#arg != 0},
+			if (#arg & string) != _|_ {#arg != ""},
+			if (#arg & float) != _|_ {#arg != 0.0},
+			if (#arg & bool) != _|_ {#arg},
+			if (#arg & [...]) != _|_ {len(#arg) > 0},
+			if (#arg & {...}) != _|_ {(#arg & struct.MaxFields(0)) == _|_},
+			false,
+		][0]
+	}, false][0]
+}
+
+#values: {
+	updateStrategy?: _
+	resources?: _
+	...
+}
+
+apiVersion: "v1"
+kind: "Deployment"
+spec: {
+	if (_nonzero & {#arg: #values.updateStrategy, _}) {
+		strategy: #values.updateStrategy
+	}
+	if (_nonzero & {#arg: #values.resources, _}) {
+		resources: #values.resources
+	}
+}

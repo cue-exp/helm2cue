@@ -1,0 +1,30 @@
+Regex regexReplaceAll pipeline function.
+No semantic comparison: Sprig's piped argument order makes the piped value the
+replacement string, not the source. The CUE mapping treats the piped value as
+the source, matching the likely intent.
+
+-- values.yaml --
+name: hello-world-123
+-- input.yaml --
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test
+data:
+  replaced: {{ .Values.name | regexReplaceAll "[0-9]+" "NUM" }}
+-- output.cue --
+import "regexp"
+
+#values: {
+	name?: _
+	...
+}
+
+apiVersion: "v1"
+kind: "ConfigMap"
+metadata: {
+	name: "test"
+}
+data: {
+	replaced: regexp.ReplaceAll("[0-9]+", #values.name, "NUM")
+}

@@ -1,0 +1,29 @@
+Nested value references with defaults.
+
+-- values.yaml --
+config:
+  name: my-app
+-- input.yaml --
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Values.config.name | default "fallback" }}
+-- helm_output.yaml --
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: my-app
+-- output.cue --
+#values: {
+	config?: {
+		name: *"fallback" | _
+		...
+	}
+	...
+}
+
+apiVersion: "v1"
+kind: "ConfigMap"
+metadata: {
+	name: #values.config.name
+}

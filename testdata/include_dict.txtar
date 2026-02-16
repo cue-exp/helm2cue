@@ -1,0 +1,25 @@
+Include with dict context: field references from dict values are tracked.
+
+-- input.yaml --
+apiVersion: v1
+kind: Pod
+metadata:
+  name: test
+spec:
+  image: {{ include "common.images.image" (dict "imageRoot" .Values.image "global" .Values.global) }}
+-- output.cue --
+#values: {
+	image?: _
+	global?: _
+	...
+}
+_common_images_image: _
+
+apiVersion: "v1"
+kind: "Pod"
+metadata: {
+	name: "test"
+}
+spec: {
+	image: _common_images_image
+}

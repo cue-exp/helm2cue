@@ -1,0 +1,34 @@
+Basic include: scalar helper converted to hidden field reference.
+
+-- _helpers.tpl --
+{{- define "myapp.fullname" -}}
+{{- printf "%s-%s" .Release.Name .Chart.Name -}}
+{{- end -}}
+-- input.yaml --
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "myapp.fullname" . }}
+-- values.yaml --
+{}
+-- helm_output.yaml --
+apiVersion: v1
+kind: Service
+metadata:
+  name: test-test
+-- output.cue --
+#chart: {
+	Name?: _
+	...
+}
+#release: {
+	Name?: _
+	...
+}
+_myapp_fullname: "\(#release.Name)-\(#chart.Name)"
+
+apiVersion: "v1"
+kind: "Service"
+metadata: {
+	name: _myapp_fullname
+}

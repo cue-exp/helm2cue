@@ -1,0 +1,45 @@
+Include providing base labels with additional fields below.
+
+-- _helpers.tpl --
+{{- define "myapp.labels" -}}
+app: myapp
+{{- end -}}
+
+-- values.yaml --
+{}
+-- helm_output.yaml --
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test
+  labels:
+    app: myapp
+    extra: field
+data:
+  key: value
+-- input.yaml --
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test
+  labels: {{- include "myapp.labels" . | nindent 4 }}
+    extra: field
+data:
+  key: value
+-- output.cue --
+_myapp_labels: {
+	app: "myapp"
+}
+
+apiVersion: "v1"
+kind: "ConfigMap"
+metadata: {
+	name: "test"
+	labels: {
+		_myapp_labels
+		extra: "field"
+	}
+}
+data: {
+	key: "value"
+}
