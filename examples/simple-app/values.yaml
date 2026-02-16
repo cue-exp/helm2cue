@@ -1,0 +1,11 @@
+name: my-app
+replicas: 3
+image:
+  repository: nginx
+  tag: "1.25"
+ports:
+  - 80
+  - 443
+env: production
+serviceType: ClusterIP
+servicePort: 80

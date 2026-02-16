@@ -1,0 +1,32 @@
+List sortAlpha function.
+No semantic comparison: Helm renders Go slice format [a b c] while CUE
+produces a proper list.
+
+-- values.yaml --
+items:
+  - cherry
+  - apple
+  - banana
+-- input.yaml --
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test
+data:
+  sorted: {{ .Values.items | sortAlpha }}
+-- output.cue --
+import "list"
+
+#values: {
+	items?: _
+	...
+}
+
+apiVersion: "v1"
+kind: "ConfigMap"
+metadata: {
+	name: "test"
+}
+data: {
+	sorted: list.SortStrings(#values.items)
+}

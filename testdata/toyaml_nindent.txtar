@@ -1,0 +1,56 @@
+toYaml | nindent pipeline: embeds structured values directly.
+
+-- values.yaml --
+name: my-app
+resources:
+  limits:
+    cpu: 100m
+    memory: 128Mi
+  requests:
+    cpu: 50m
+    memory: 64Mi
+-- input.yaml --
+apiVersion: v1
+kind: Pod
+metadata:
+  name: {{ .Values.name }}
+spec:
+  containers:
+    - name: {{ .Values.name }}
+      resources:
+        {{- .Values.resources | toYaml | nindent 8 }}
+-- helm_output.yaml --
+apiVersion: v1
+kind: Pod
+metadata:
+  name: my-app
+spec:
+  containers:
+    - name: my-app
+      resources:
+        limits:
+          cpu: 100m
+          memory: 128Mi
+        requests:
+          cpu: 50m
+          memory: 64Mi
+-- output.cue --
+#values: {
+	name?: _
+	resources?: _
+	...
+}
+
+apiVersion: "v1"
+kind: "Pod"
+metadata: {
+	name: #values.name
+}
+spec: {
+	containers: [
+		{
+			name: #values.name
+			resources: #values.resources
+		},
+	]
+}

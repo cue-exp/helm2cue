@@ -1,0 +1,37 @@
+String join function.
+
+-- values.yaml --
+items:
+  - a
+  - b
+  - c
+-- input.yaml --
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test
+data:
+  joined: {{ .Values.items | join "," }}
+-- helm_output.yaml --
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test
+data:
+  joined: a,b,c
+-- output.cue --
+import "strings"
+
+#values: {
+	items?: _
+	...
+}
+
+apiVersion: "v1"
+kind: "ConfigMap"
+metadata: {
+	name: "test"
+}
+data: {
+	joined: strings.Join(#values.items, ",")
+}
