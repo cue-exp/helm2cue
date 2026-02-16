@@ -1,0 +1,39 @@
+Range with $key, $value destructuring over a map.
+
+-- values.yaml --
+labels:
+  app: myapp
+  env: production
+-- helm_output.yaml --
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test
+  labels:
+    app: myapp
+    env: production
+-- input.yaml --
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test
+  labels:
+    {{- range $key, $value := .Values.labels }}
+    {{ $key }}: {{ $value }}
+    {{- end }}
+-- output.cue --
+#values: {
+	labels?: _
+	...
+}
+
+apiVersion: "v1"
+kind: "ConfigMap"
+metadata: {
+	name: "test"
+	labels: {
+		for _key0, _val0 in #values.labels {
+			(_key0): _val0
+		}
+	}
+}

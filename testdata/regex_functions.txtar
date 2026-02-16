@@ -1,0 +1,37 @@
+Regex pipeline functions: regexMatch, regexFind.
+
+-- values.yaml --
+name: hello-world-123
+-- input.yaml --
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test
+data:
+  matches: {{ .Values.name | regexMatch "^hello" }}
+  found: {{ .Values.name | regexFind "[a-z]+" }}
+-- helm_output.yaml --
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test
+data:
+  matches: true
+  found: hello
+-- output.cue --
+import "regexp"
+
+#values: {
+	name?: _
+	...
+}
+
+apiVersion: "v1"
+kind: "ConfigMap"
+metadata: {
+	name: "test"
+}
+data: {
+	matches: regexp.Match("^hello", #values.name)
+	found: regexp.Find("[a-z]+", #values.name)
+}

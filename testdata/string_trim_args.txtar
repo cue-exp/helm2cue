@@ -1,0 +1,37 @@
+String trimPrefix and trimSuffix functions.
+
+-- values.yaml --
+name: prefix-hello-suffix
+-- input.yaml --
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test
+data:
+  trimPrefix: {{ .Values.name | trimPrefix "prefix-" }}
+  trimSuffix: {{ .Values.name | trimSuffix "-suffix" }}
+-- helm_output.yaml --
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test
+data:
+  trimPrefix: hello-suffix
+  trimSuffix: prefix-hello
+-- output.cue --
+import "strings"
+
+#values: {
+	name?: _
+	...
+}
+
+apiVersion: "v1"
+kind: "ConfigMap"
+metadata: {
+	name: "test"
+}
+data: {
+	trimPrefix: strings.TrimPrefix(#values.name, "prefix-")
+	trimSuffix: strings.TrimSuffix(#values.name, "-suffix")
+}

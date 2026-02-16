@@ -1,0 +1,23 @@
+Variable assignment and reference.
+
+-- _helpers.tpl --
+{{- define "myapp.labels" -}}
+app: myapp
+{{- end -}}
+
+-- input.yaml --
+apiVersion: v1
+kind: Service
+metadata:
+  {{- $labels := include "myapp.labels" . }}
+  labels: {{ $labels }}
+-- output.cue --
+_myapp_labels: {
+	app: "myapp"
+}
+
+apiVersion: "v1"
+kind: "Service"
+metadata: {
+	labels: _myapp_labels
+}

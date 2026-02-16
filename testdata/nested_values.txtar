@@ -1,0 +1,52 @@
+Nested value references should produce nested CUE struct declarations.
+
+-- values.yaml --
+config:
+  name: my-app
+  port: 8080
+  server:
+    host: localhost
+simple: hello
+-- input.yaml --
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Values.config.name }}
+data:
+  port: {{ .Values.config.port }}
+  host: {{ .Values.config.server.host }}
+  simple: {{ .Values.simple }}
+-- helm_output.yaml --
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: my-app
+data:
+  port: 8080
+  host: localhost
+  simple: hello
+-- output.cue --
+#values: {
+	config?: {
+		name?: _
+		port?: _
+		server?: {
+			host?: _
+			...
+		}
+		...
+	}
+	simple?: _
+	...
+}
+
+apiVersion: "v1"
+kind: "ConfigMap"
+metadata: {
+	name: #values.config.name
+}
+data: {
+	port: #values.config.port
+	host: #values.config.server.host
+	simple: #values.simple
+}

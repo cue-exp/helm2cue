@@ -1,0 +1,31 @@
+default with include call as default value argument.
+
+-- _helpers.tpl --
+{{- define "myapp.namespace" -}}
+default-ns
+{{- end -}}
+
+-- values.yaml --
+{}
+-- helm_output.yaml --
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  namespace: default-ns
+-- input.yaml --
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  namespace: {{ default (include "myapp.namespace" .) .Values.namespace }}
+-- output.cue --
+#values: {
+	namespace: *_myapp_namespace | _
+	...
+}
+_myapp_namespace: "default-ns"
+
+apiVersion: "v1"
+kind: "ConfigMap"
+metadata: {
+	namespace: #values.namespace
+}
