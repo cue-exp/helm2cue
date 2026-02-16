@@ -1,0 +1,24 @@
+Pipeline with quote function.
+No semantic comparison since quote changes YAML types.
+
+-- input.yaml --
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test
+data:
+  port: {{ .Values.port | quote }}
+-- output.cue --
+#values: {
+	port?: _
+	...
+}
+
+apiVersion: "v1"
+kind: "ConfigMap"
+metadata: {
+	name: "test"
+}
+data: {
+	port: "\(#values.port)"
+}

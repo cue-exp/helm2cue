@@ -1,0 +1,68 @@
+Whitespace trim markers ({{- and -}}) on structural constructs.
+Without trimming, these would produce blank lines in the YAML output.
+
+-- values.yaml --
+name: my-app
+tier: frontend
+hasTier: true
+-- input.yaml --
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Values.name }}
+  labels:
+    app: {{ .Values.name }}
+    {{- if .Values.hasTier }}
+    tier: {{ .Values.tier }}
+    {{- end }}
+data:
+  key: value
+-- helm_output.yaml --
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: my-app
+  labels:
+    app: my-app
+    tier: frontend
+data:
+  key: value
+-- output.cue --
+import "struct"
+
+_nonzero: {
+	#arg?: _
+	[if #arg != _|_ {
+		[
+			if (#arg & int) != _|_ {#arg != 0},
+			if (#arg & string) != _|_ {#arg != ""},
+			if (#arg & float) != _|_ {#arg != 0.0},
+			if (#arg & bool) != _|_ {#arg},
+			if (#arg & [...]) != _|_ {len(#arg) > 0},
+			if (#arg & {...}) != _|_ {(#arg & struct.MaxFields(0)) == _|_},
+			false,
+		][0]
+	}, false][0]
+}
+
+#values: {
+	name?: _
+	hasTier?: _
+	tier?: _
+	...
+}
+
+apiVersion: "v1"
+kind: "ConfigMap"
+metadata: {
+	name: #values.name
+	labels: {
+		app: #values.name
+		if (_nonzero & {#arg: #values.hasTier, _}) {
+			tier: #values.tier
+		}
+	}
+}
+data: {
+	key: "value"
+}

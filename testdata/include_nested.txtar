@@ -1,0 +1,38 @@
+Nested include: helper calling another helper.
+
+-- _helpers.tpl --
+{{- define "myapp.name" -}}
+{{- .Chart.Name -}}
+{{- end -}}
+{{- define "myapp.fullname" -}}
+{{- printf "%s-%s" .Release.Name (include "myapp.name" .) -}}
+{{- end -}}
+-- input.yaml --
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "myapp.fullname" . }}
+-- values.yaml --
+{}
+-- helm_output.yaml --
+apiVersion: v1
+kind: Service
+metadata:
+  name: test-test
+-- output.cue --
+#chart: {
+	Name?: _
+	...
+}
+#release: {
+	Name?: _
+	...
+}
+_myapp_fullname: "\(#release.Name)-\(_myapp_name)"
+_myapp_name: #chart.Name
+
+apiVersion: "v1"
+kind: "Service"
+metadata: {
+	name: _myapp_fullname
+}

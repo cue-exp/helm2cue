@@ -1,0 +1,28 @@
+YAML literal block (|-) followed by placeholder.
+
+-- _helpers.tpl --
+{{- define "myconfig" -}}
+server {
+  listen 80;
+}
+{{- end -}}
+
+-- input.yaml --
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: my-config
+data:
+  config.conf: |-
+    {{- include "myconfig" . | nindent 4 }}
+-- output.cue --
+_myconfig: "server { listen 80; }"
+
+apiVersion: "v1"
+kind: "ConfigMap"
+metadata: {
+	name: "my-config"
+}
+data: {
+	"config.conf": _myconfig
+}

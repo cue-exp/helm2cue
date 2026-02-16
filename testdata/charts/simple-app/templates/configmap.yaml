@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Values.name | default "app" }}
+  labels:
+    app: {{ .Values.name | quote }}
+data:
+  environment: {{ .Values.env | default "development" | quote }}
+  {{- if .Values.debug }}
+  logLevel: "debug"
+  {{- else }}
+  logLevel: "info"
+  {{- end }}

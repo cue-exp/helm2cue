@@ -1,0 +1,36 @@
+Type conversion functions: int, float64, atoi.
+No semantic comparison since CUE type constraints differ from Sprig runtime conversion.
+
+-- values.yaml --
+port: "8080"
+replicas: 3
+ratio: 1.5
+-- input.yaml --
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test
+data:
+  port: {{ .Values.port | atoi }}
+  replicas: {{ .Values.replicas | int }}
+  ratio: {{ .Values.ratio | float64 }}
+-- output.cue --
+import "strconv"
+
+#values: {
+	port?: _
+	replicas?: _
+	ratio?: _
+	...
+}
+
+apiVersion: "v1"
+kind: "ConfigMap"
+metadata: {
+	name: "test"
+}
+data: {
+	port: strconv.Atoi(#values.port)
+	replicas: int & #values.replicas
+	ratio: number & #values.ratio
+}

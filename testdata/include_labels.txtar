@@ -1,0 +1,44 @@
+Structural helper: produces a YAML mapping, used with toYaml | nindent.
+
+-- _helpers.tpl --
+{{- define "myapp.labels" -}}
+app: {{ .Chart.Name }}
+release: {{ .Release.Name }}
+{{- end -}}
+-- input.yaml --
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test
+  labels:
+    {{- include "myapp.labels" . | nindent 4 }}
+-- values.yaml --
+{}
+-- helm_output.yaml --
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test
+  labels:
+    app: test
+    release: test
+-- output.cue --
+#chart: {
+	Name?: _
+	...
+}
+#release: {
+	Name?: _
+	...
+}
+_myapp_labels: {
+	app: #chart.Name
+	release: #release.Name
+}
+
+apiVersion: "v1"
+kind: "ConfigMap"
+metadata: {
+	name: "test"
+	labels: _myapp_labels
+}

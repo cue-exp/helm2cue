@@ -1,0 +1,34 @@
+Required function in standalone and pipeline forms.
+
+-- values.yaml --
+name: my-app
+env: production
+-- input.yaml --
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ required "name is required" .Values.name }}
+data:
+  env: {{ .Values.env | required "env is required" }}
+-- helm_output.yaml --
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: my-app
+data:
+  env: production
+-- output.cue --
+#values: {
+	name?: _
+	env?: _
+	...
+}
+
+apiVersion: "v1"
+kind: "ConfigMap"
+metadata: {
+	name: #values.name // required: "name is required"
+}
+data: {
+	env: #values.env // required: "env is required"
+}

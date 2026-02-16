@@ -1,0 +1,34 @@
+Printf function with multiple arguments.
+
+-- values.yaml --
+app: myapp
+env: production
+-- input.yaml --
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ printf "%s-%s" .Values.app .Values.env }}
+data:
+  label: test
+-- helm_output.yaml --
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: myapp-production
+data:
+  label: test
+-- output.cue --
+#values: {
+	app?: _
+	env?: _
+	...
+}
+
+apiVersion: "v1"
+kind: "ConfigMap"
+metadata: {
+	name: "\(#values.app)-\(#values.env)"
+}
+data: {
+	label: "test"
+}

@@ -1,0 +1,23 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "simple-app.fullname" . }}
+  labels:
+    {{- include "simple-app.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicas | default 1 }}
+  selector:
+    matchLabels:
+      app: {{ .Values.name }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Values.name }}
+    spec:
+      containers:
+        - name: {{ .Values.name }}
+          image: {{ printf "%s:%s" .Values.image.repository .Values.image.tag }}
+          ports:
+            {{- range .Values.ports }}
+            - containerPort: {{ . }}
+            {{- end }}
