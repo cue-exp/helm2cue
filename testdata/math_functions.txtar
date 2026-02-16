@@ -1,0 +1,54 @@
+Math pipeline functions: ceil, floor, add, sub, mul, div, mod.
+
+-- values.yaml --
+ratio: 3.7
+count: 10
+-- input.yaml --
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test
+data:
+  ceiling: {{ .Values.ratio | ceil }}
+  floored: {{ .Values.ratio | floor }}
+  added: {{ .Values.count | add 5 }}
+  subtracted: {{ .Values.count | sub 3 }}
+  multiplied: {{ .Values.count | mul 2 }}
+  divided: {{ .Values.count | div 3 }}
+  modulo: {{ .Values.count | mod 3 }}
+-- helm_output.yaml --
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test
+data:
+  ceiling: 4
+  floored: 3
+  added: 15
+  subtracted: -7
+  multiplied: 20
+  divided: 0
+  modulo: 3
+-- output.cue --
+import "math"
+
+#values: {
+	ratio?: _
+	count?: _
+	...
+}
+
+apiVersion: "v1"
+kind: "ConfigMap"
+metadata: {
+	name: "test"
+}
+data: {
+	ceiling: math.Ceil(#values.ratio)
+	floored: math.Floor(#values.ratio)
+	added: (#values.count + 5)
+	subtracted: (3 - #values.count)
+	multiplied: (#values.count * 2)
+	divided: div(3, #values.count)
+	modulo: mod(3, #values.count)
+}

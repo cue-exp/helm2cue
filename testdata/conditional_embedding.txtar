@@ -1,0 +1,68 @@
+If block wrapping a standalone include (embedding in mapping).
+
+-- _helpers.tpl --
+{{- define "myapp.annotations" -}}
+checksum/config: abc123
+{{- end -}}
+
+-- values.yaml --
+enabled: true
+-- helm_output.yaml --
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test
+  annotations:
+    checksum/config: abc123
+data:
+  key: value
+-- input.yaml --
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test
+  annotations:
+    {{- if .Values.enabled }}
+    {{- include "myapp.annotations" . | nindent 4 }}
+    {{- end }}
+data:
+  key: value
+-- output.cue --
+import "struct"
+
+_nonzero: {
+	#arg?: _
+	[if #arg != _|_ {
+		[
+			if (#arg & int) != _|_ {#arg != 0},
+			if (#arg & string) != _|_ {#arg != ""},
+			if (#arg & float) != _|_ {#arg != 0.0},
+			if (#arg & bool) != _|_ {#arg},
+			if (#arg & [...]) != _|_ {len(#arg) > 0},
+			if (#arg & {...}) != _|_ {(#arg & struct.MaxFields(0)) == _|_},
+			false,
+		][0]
+	}, false][0]
+}
+
+#values: {
+	enabled?: _
+	...
+}
+_myapp_annotations: {
+	"checksum/config": "abc123"
+}
+
+apiVersion: "v1"
+kind: "ConfigMap"
+metadata: {
+	name: "test"
+	annotations: {
+		if (_nonzero & {#arg: #values.enabled, _}) {
+			_myapp_annotations
+		}
+	}
+}
+data: {
+	key: "value"
+}

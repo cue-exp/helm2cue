@@ -1,0 +1,42 @@
+Dynamic include: computed template name via print alongside static include.
+The dynamic name (print "myapp" ".fullname") concatenates to "myapp.fullname",
+which resolves through the _helpers lookup struct.
+
+-- _helpers.tpl --
+{{- define "myapp.fullname" -}}
+{{- printf "%s-%s" .Release.Name .Chart.Name -}}
+{{- end -}}
+-- input.yaml --
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "myapp.fullname" . }}
+  app: {{ include (print "myapp" ".fullname") . }}
+-- values.yaml --
+{}
+-- helm_output.yaml --
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test-test
+  app: test-test
+-- output.cue --
+#chart: {
+	Name?: _
+	...
+}
+#release: {
+	Name?: _
+	...
+}
+_myapp_fullname: "\(#release.Name)-\(#chart.Name)"
+_helpers: {
+	"myapp.fullname": _myapp_fullname
+}
+
+apiVersion: "v1"
+kind: "ConfigMap"
+metadata: {
+	name: _myapp_fullname
+	app: _helpers["myapp.fullname"]
+}

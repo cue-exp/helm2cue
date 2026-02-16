@@ -1,0 +1,49 @@
+Range over a list of structs, accessing fields.
+
+-- values.yaml --
+ports:
+  - name: http
+    port: 80
+  - name: https
+    port: 443
+-- input.yaml --
+apiVersion: v1
+kind: Service
+metadata:
+  name: test
+spec:
+  ports:
+  {{- range .Values.ports }}
+    - name: {{ .name }}
+      port: {{ .port }}
+  {{- end }}
+-- helm_output.yaml --
+apiVersion: v1
+kind: Service
+metadata:
+  name: test
+spec:
+  ports:
+    - name: http
+      port: 80
+    - name: https
+      port: 443
+-- output.cue --
+#values: {
+	ports?: _
+	...
+}
+
+apiVersion: "v1"
+kind: "Service"
+metadata: {
+	name: "test"
+}
+spec: {
+	ports: [
+		for _, _range0 in #values.ports {
+			name: _range0.name
+			port: _range0.port
+		}
+	]
+}
