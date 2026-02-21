@@ -102,20 +102,20 @@ type converter struct {
 	defaults           map[string][]fieldDefault // helmObj → defaults
 	fieldRefs          map[string][][]string     // helmObj → list of field paths referenced
 	rangeVarStack      []string                  // stack of range variable names for nested ranges
-	localVars          map[string]string          // $varName → CUE expression
+	localVars          map[string]string         // $varName → CUE expression
 	topLevelGuards     []string                  // CUE conditions wrapping entire output
 	imports            map[string]bool
 	hasConditions      bool // true if any if blocks or top-level guards exist
 
 	// Direct CUE emission state.
-	out             bytes.Buffer
-	stack           []frame
-	state           emitState
-	pendingKey      string // the key name when in statePendingKey
-	pendingKeyInd   int    // YAML indent of the pending key
-	deferredKV      *pendingResolution // non-nil when action resolved pendingKey but deeper content may follow
-	comments        map[string]string  // expr → trailing comment
-	inRangeBody     bool               // true when processing range body (suppresses list item struct wrapping)
+	out           bytes.Buffer
+	stack         []frame
+	state         emitState
+	pendingKey    string             // the key name when in statePendingKey
+	pendingKeyInd int                // YAML indent of the pending key
+	deferredKV    *pendingResolution // non-nil when action resolved pendingKey but deeper content may follow
+	comments      map[string]string  // expr → trailing comment
+	inRangeBody   bool               // true when processing range body (suppresses list item struct wrapping)
 
 	// Deferred action: action expression waiting to see if next text starts with ": " (dynamic key).
 	pendingActionExpr    string
@@ -124,28 +124,28 @@ type converter struct {
 	nextActionYamlIndent int // YAML indent hint from trailing whitespace line
 
 	// Helper template state (shared across main and sub-converters).
-	treeSet          map[string]*parse.Tree
-	helperExprs      map[string]string // template name → CUE hidden field name
-	helperCUE        map[string]string // CUE field name → CUE expression
-	helperOrder      []string          // deterministic emission order
-	undefinedHelpers    map[string]string // original template name → CUE name (referenced but not defined)
-	hasDynamicInclude  bool              // true if any include uses a computed template name
+	treeSet           map[string]*parse.Tree
+	helperExprs       map[string]string // template name → CUE hidden field name
+	helperCUE         map[string]string // CUE field name → CUE expression
+	helperOrder       []string          // deterministic emission order
+	undefinedHelpers  map[string]string // original template name → CUE name (referenced but not defined)
+	hasDynamicInclude bool              // true if any include uses a computed template name
 }
 
 // convertResult holds the structured output of converting a single template.
 type convertResult struct {
 	imports            map[string]bool
 	needsNonzero       bool
-	helpers            map[string]string    // CUE name → CUE expression
-	helperOrder        []string             // original template names, sorted
-	helperExprs        map[string]string    // original name → CUE name
-	undefinedHelpers   map[string]string    // original name → CUE name
+	helpers            map[string]string // CUE name → CUE expression
+	helperOrder        []string          // original template names, sorted
+	helperExprs        map[string]string // original name → CUE name
+	undefinedHelpers   map[string]string // original name → CUE name
 	hasDynamicInclude  bool
 	usedContextObjects map[string]bool
 	fieldRefs          map[string][][]string
 	defaults           map[string][]fieldDefault
 	topLevelGuards     []string
-	body               string               // template body only (no declarations)
+	body               string // template body only (no declarations)
 }
 
 // parseHelpers parses helper template files into a shared tree set.
@@ -719,7 +719,7 @@ func (c *converter) emitTextNode(text []byte) {
 	lines := strings.Split(s, "\n")
 
 	for i, rawLine := range lines {
-		isLastLine := (i == len(lines) - 1)
+		isLastLine := (i == len(lines)-1)
 		if strings.TrimSpace(rawLine) == "" {
 			// Record indent hint from trailing whitespace-only line.
 			if isLastLine && rawLine != "" {
@@ -2215,7 +2215,6 @@ func (c *converter) fieldToCUEInContext(ident []string) (string, string) {
 func (c *converter) addImport(pkg string) {
 	c.imports[pkg] = true
 }
-
 
 func buildFieldTree(refs [][]string, defs []fieldDefault) *fieldNode {
 	root := &fieldNode{childMap: make(map[string]*fieldNode)}
