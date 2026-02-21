@@ -297,3 +297,4 @@ go test -run TestConvertChart -v
 # Update golden files after intentional changes to conversion logic
 go test -update
 ```
+
