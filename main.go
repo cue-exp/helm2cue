@@ -18,33 +18,58 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"runtime/debug"
 	"strings"
 )
 
+const usageText = `usage: helm2cue <command> [arguments]
+
+Commands:
+    chart      convert a Helm chart directory to a CUE module
+    template   convert a single Helm template to CUE
+    version    print helm2cue version information
+
+Run "helm2cue help" for more information.
+`
+
 func main() {
-	// Chart-level mode: first arg is a directory.
-	if len(os.Args) >= 2 {
-		if info, err := os.Stat(os.Args[1]); err == nil && info.IsDir() {
-			if len(os.Args) != 3 {
-				fmt.Fprintf(os.Stderr, "usage: helm2cue <chart-dir> <output-dir>\n")
-				os.Exit(1)
-			}
-			if err := ConvertChart(os.Args[1], os.Args[2]); err != nil {
-				fmt.Fprintf(os.Stderr, "helm2cue: %v\n", err)
-				os.Exit(1)
-			}
-			return
-		}
+	if len(os.Args) < 2 {
+		fmt.Fprint(os.Stderr, usageText)
+		os.Exit(1)
 	}
 
-	var input []byte
-	var helpers [][]byte
-	var err error
+	switch os.Args[1] {
+	case "chart":
+		cmdChart(os.Args[2:])
+	case "template":
+		cmdTemplate(os.Args[2:])
+	case "version":
+		cmdVersion()
+	case "help", "-h", "--help":
+		fmt.Print(usageText)
+	default:
+		fmt.Fprintf(os.Stderr, "helm2cue: unknown command %q\n", os.Args[1])
+		fmt.Fprint(os.Stderr, usageText)
+		os.Exit(1)
+	}
+}
 
-	// Separate args: .tpl files are helpers, other file is the template,
-	// no file reads the template from stdin.
+func cmdChart(args []string) {
+	if len(args) != 2 {
+		fmt.Fprintf(os.Stderr, "usage: helm2cue chart <chart-dir> <output-dir>\n")
+		os.Exit(1)
+	}
+	if err := ConvertChart(args[0], args[1]); err != nil {
+		fmt.Fprintf(os.Stderr, "helm2cue: %v\n", err)
+		os.Exit(1)
+	}
+}
+
+func cmdTemplate(args []string) {
+	var helpers [][]byte
 	var templateFile string
-	for _, arg := range os.Args[1:] {
+
+	for _, arg := range args {
 		if strings.HasSuffix(arg, ".tpl") {
 			h, err := os.ReadFile(arg)
 			if err != nil {
@@ -61,6 +86,8 @@ func main() {
 		}
 	}
 
+	var input []byte
+	var err error
 	if templateFile != "" {
 		input, err = os.ReadFile(templateFile)
 	} else {
@@ -78,4 +105,40 @@ func main() {
 	}
 
 	os.Stdout.Write(output)
+}
+
+func cmdVersion() {
+	bi, ok := debug.ReadBuildInfo()
+	if !ok {
+		fmt.Println("helm2cue: version information unavailable")
+		return
+	}
+
+	version := bi.Main.Version
+	if version == "" {
+		version = "(devel)"
+	}
+	fmt.Printf("helm2cue %s\n", version)
+	fmt.Printf("go %s\n", bi.GoVersion)
+
+	var revision, timeVal, modified string
+	for _, s := range bi.Settings {
+		switch s.Key {
+		case "vcs.revision":
+			revision = s.Value
+		case "vcs.time":
+			timeVal = s.Value
+		case "vcs.modified":
+			modified = s.Value
+		}
+	}
+	if revision != "" {
+		fmt.Printf("commit %s\n", revision)
+	}
+	if timeVal != "" {
+		fmt.Printf("committed %s\n", timeVal)
+	}
+	if modified == "true" {
+		fmt.Println("modified true")
+	}
 }

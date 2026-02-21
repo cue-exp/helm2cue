@@ -16,10 +16,10 @@ go test ./...
 go test -run <pattern> -v
 go test -update
 go mod tidy
-go run . <file>
-go run . <helpers.tpl> <file>
-echo '...' | go run .
-echo '...' | go run . <helpers.tpl>
+go run . chart <dir> <out>
+go run . template [helpers.tpl] [file]
+echo '...' | go run . template [helpers.tpl]
+go run . version
 go vet ./...
 git status
 git diff
