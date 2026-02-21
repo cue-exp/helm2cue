@@ -1,11 +1,19 @@
-name: my-app
-replicas: 3
+replicaCount: 3
+
 image:
   repository: nginx
   tag: "1.25"
+  pullPolicy: IfNotPresent
+
+service:
+  type: ClusterIP
+  port: 80
+
 ports:
-  - 80
-  - 443
+  - name: http
+    containerPort: 80
+  - name: https
+    containerPort: 443
+
 env: production
-serviceType: ClusterIP
-servicePort: 80
+debug: false
