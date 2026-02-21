@@ -1,0 +1,11 @@
+name: Blank issue
+description: For anything else
+labels: ["Triage"]
+body:
+  - type: textarea
+    id: content
+    attributes:
+      label: Description
+      description: Describe your issue.
+    validations:
+      required: true

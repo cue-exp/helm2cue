@@ -1,0 +1,46 @@
+name: Bug report
+description: Create a report to help us improve
+labels: ["NeedsInvestigation", "Triage"]
+body:
+  - type: input
+    id: version
+    attributes:
+      label: helm2cue version
+      description: What version of helm2cue are you using? Paste the output of `go version -m $(which helm2cue)` or the commit hash.
+      placeholder: e.g. v0.1.0 or commit abc1234
+    validations:
+      required: true
+  - type: dropdown
+    id: latest
+    attributes:
+      label: Does this issue reproduce with the latest release?
+      options:
+        - "Yes"
+        - "No"
+        - Not sure
+    validations:
+      required: true
+  - type: textarea
+    id: what-did-you-do
+    attributes:
+      label: What did you do?
+      description: If possible, provide a recipe for reproducing the error. Include the Helm template input and the command you ran.
+      placeholder: |
+        Steps to reproduce:
+        1. Created a Helm template with ...
+        2. Ran `go run . template.yaml`
+        3. ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect to see?
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: What did you see instead?
+    validations:
+      required: true
