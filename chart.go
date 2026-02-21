@@ -145,6 +145,7 @@ func ConvertChart(chartDir, outDir string) error {
 	mergedFieldRefs := make(map[string][][]string)
 	mergedDefaults := make(map[string][]fieldDefault)
 	needsNonzero := false
+	needsTrunc := false
 	hasDynamicInclude := false
 
 	// Helper info comes from first result (all share the same treeSet).
@@ -164,6 +165,9 @@ func ConvertChart(chartDir, outDir string) error {
 		if r.needsNonzero {
 			needsNonzero = true
 		}
+		if r.needsTrunc {
+			needsTrunc = true
+		}
 		if r.hasDynamicInclude {
 			hasDynamicInclude = true
 		}
@@ -181,7 +185,7 @@ func ConvertChart(chartDir, outDir string) error {
 	}
 
 	// Write helpers.cue.
-	if err := writeHelpersCUE(outDir, pkgName, firstResult, needsNonzero, hasDynamicInclude); err != nil {
+	if err := writeHelpersCUE(outDir, pkgName, firstResult, needsNonzero, needsTrunc, hasDynamicInclude); err != nil {
 		return err
 	}
 
@@ -221,14 +225,57 @@ func ConvertChart(chartDir, outDir string) error {
 }
 
 // writeHelpersCUE writes helpers.cue with helper definitions.
-func writeHelpersCUE(outDir, pkgName string, r *convertResult, needsNonzero, hasDynamicInclude bool) error {
+func writeHelpersCUE(outDir, pkgName string, r *convertResult, needsNonzero, needsTrunc, hasDynamicInclude bool) error {
 	var buf bytes.Buffer
 	fmt.Fprintf(&buf, "package %s\n\n", pkgName)
 
-	// Helpers may need "struct" import for _nonzero.
+	// Collect all imports needed by helper expressions and built-in definitions.
+	helperImports := make(map[string]bool)
 	if needsNonzero {
-		buf.WriteString("import \"struct\"\n\n")
+		helperImports["struct"] = true
+	}
+	if needsTrunc {
+		helperImports["strings"] = true
+	}
+	for _, name := range r.helperOrder {
+		cueName := r.helperExprs[name]
+		if cueExpr, ok := r.helpers[cueName]; ok {
+			for pkg := range r.imports {
+				shortName := pkg
+				if idx := strings.LastIndex(pkg, "/"); idx >= 0 {
+					shortName = pkg[idx+1:]
+				}
+				if strings.Contains(cueExpr, shortName+".") {
+					helperImports[pkg] = true
+				}
+			}
+		}
+	}
+
+	if len(helperImports) > 0 {
+		var pkgs []string
+		for pkg := range helperImports {
+			pkgs = append(pkgs, pkg)
+		}
+		slices.Sort(pkgs)
+		if len(pkgs) == 1 {
+			fmt.Fprintf(&buf, "import %q\n\n", pkgs[0])
+		} else {
+			buf.WriteString("import (\n")
+			for _, pkg := range pkgs {
+				fmt.Fprintf(&buf, "\t%q\n", pkg)
+			}
+			buf.WriteString(")\n\n")
+		}
+	}
+
+	if needsNonzero {
 		buf.WriteString(nonzeroDef)
+		buf.WriteString("\n")
+	}
+
+	if needsTrunc {
+		buf.WriteString(truncDef)
 		buf.WriteString("\n")
 	}
 
@@ -236,7 +283,7 @@ func writeHelpersCUE(outDir, pkgName string, r *convertResult, needsNonzero, has
 		cueName := r.helperExprs[name]
 		if cueExpr, ok := r.helpers[cueName]; ok {
 			// Validate this helper in isolation before including it.
-			if err := validateHelperExpr(cueExpr); err != nil {
+			if err := validateHelperExpr(cueExpr, r.imports); err != nil {
 				fmt.Fprintf(&buf, "%s: _\n", cueName)
 			} else {
 				fmt.Fprintf(&buf, "%s: %s\n", cueName, cueExpr)

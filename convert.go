@@ -53,6 +53,18 @@ const nonzeroDef = `_nonzero: {
 }
 `
 
+// truncDef is the CUE definition for safe string truncation matching Helm's trunc semantics.
+// Helm's trunc returns the full string if it's shorter than the limit.
+const truncDef = `_trunc: {
+	#in: string
+	#n:  int
+	_r:  len(strings.Runes(#in))
+	out: string
+	if _r <= #n {out: #in}
+	if _r > #n {out: strings.SliceRunes(#in, 0, #n)}
+}
+`
+
 var identRe = regexp.MustCompile(`^[a-zA-Z_$][a-zA-Z0-9_$]*$`)
 
 // fieldDefault records a default value for a field path within a context object.
@@ -106,6 +118,7 @@ type converter struct {
 	topLevelGuards     []string                  // CUE conditions wrapping entire output
 	imports            map[string]bool
 	hasConditions      bool // true if any if blocks or top-level guards exist
+	needsTrunc         bool // true if trunc pipeline function is used
 
 	// Direct CUE emission state.
 	out           bytes.Buffer
@@ -136,6 +149,7 @@ type converter struct {
 type convertResult struct {
 	imports            map[string]bool
 	needsNonzero       bool
+	needsTrunc         bool
 	helpers            map[string]string // CUE name → CUE expression
 	helperOrder        []string          // original template names, sorted
 	helperExprs        map[string]string // original name → CUE name
@@ -229,6 +243,7 @@ func convertStructured(input []byte, templateName string, treeSet map[string]*pa
 	return &convertResult{
 		imports:            c.imports,
 		needsNonzero:       c.hasConditions || len(c.topLevelGuards) > 0,
+		needsTrunc:         c.needsTrunc,
 		helpers:            c.helperCUE,
 		helperOrder:        c.helperOrder,
 		helperExprs:        c.helperExprs,
@@ -275,6 +290,12 @@ func assembleSingleFile(r *convertResult) ([]byte, error) {
 	// Emit _nonzero if needed.
 	if r.needsNonzero {
 		final.WriteString(nonzeroDef)
+		final.WriteString("\n")
+	}
+
+	// Emit _trunc if needed.
+	if r.needsTrunc {
+		final.WriteString(truncDef)
 		final.WriteString("\n")
 	}
 
@@ -451,6 +472,11 @@ func (c *converter) convertHelperBody(nodes []parse.Node) (string, error) {
 	sub.flushDeferred()
 	sub.closeBlocksTo(-1)
 
+	// Propagate flags from sub-converter back to parent.
+	if sub.needsTrunc {
+		c.needsTrunc = true
+	}
+
 	body := strings.TrimSpace(sub.out.String())
 	if body == "" {
 		return `""`, nil
@@ -476,7 +502,7 @@ func (c *converter) convertHelperBody(nodes []parse.Node) (string, error) {
 
 	if hasFields {
 		result := "{\n" + indentBlock(body, "\t") + "\n}"
-		if err := validateHelperExpr(result); err != nil {
+		if err := validateHelperExpr(result, c.imports); err != nil {
 			return "", fmt.Errorf("helper body produced invalid CUE: %w", err)
 		}
 		return result, nil
@@ -1866,7 +1892,8 @@ func (c *converter) actionToCUE(n *parse.ActionNode) (expr string, helmObj strin
 				return "", "", err
 			}
 			c.addImport("strings")
-			expr = fmt.Sprintf("strings.SliceRunes(%s, 0, %s)", expr, arg[0])
+			c.needsTrunc = true
+			expr = fmt.Sprintf("(_trunc & {#in: %s, #n: %s}).out", expr, arg[0])
 		case "b64enc":
 			c.addImport("encoding/base64")
 			expr = fmt.Sprintf("base64.Encode(null, %s)", expr)
@@ -2272,7 +2299,7 @@ var helperExprDefRe = regexp.MustCompile(`(#[a-zA-Z][a-zA-Z0-9_]*)`)
 
 // validateHelperExpr checks whether a helper body expression is valid CUE
 // by stubbing out all referenced identifiers and definitions.
-func validateHelperExpr(expr string) error {
+func validateHelperExpr(expr string, imports map[string]bool) error {
 	refs := make(map[string]bool)
 	for _, m := range helperExprIdentRe.FindAllString(expr, -1) {
 		refs[m] = true
@@ -2282,6 +2309,32 @@ func validateHelperExpr(expr string) error {
 	}
 
 	var buf bytes.Buffer
+
+	// Include imports needed by the expression.
+	if len(imports) > 0 {
+		var pkgs []string
+		for pkg := range imports {
+			// Only include imports whose short name appears in the expression.
+			shortName := pkg
+			if idx := strings.LastIndex(pkg, "/"); idx >= 0 {
+				shortName = pkg[idx+1:]
+			}
+			if strings.Contains(expr, shortName+".") {
+				pkgs = append(pkgs, pkg)
+			}
+		}
+		slices.Sort(pkgs)
+		if len(pkgs) == 1 {
+			fmt.Fprintf(&buf, "import %q\n", pkgs[0])
+		} else if len(pkgs) > 1 {
+			buf.WriteString("import (\n")
+			for _, pkg := range pkgs {
+				fmt.Fprintf(&buf, "\t%q\n", pkg)
+			}
+			buf.WriteString(")\n")
+		}
+	}
+
 	for ref := range refs {
 		fmt.Fprintf(&buf, "%s: _\n", ref)
 	}
