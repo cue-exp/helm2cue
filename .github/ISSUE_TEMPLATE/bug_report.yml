@@ -2,12 +2,15 @@ name: Bug report
 description: Create a report to help us improve
 labels: ["NeedsInvestigation", "Triage"]
 body:
-  - type: input
+  - type: textarea
     id: version
     attributes:
       label: helm2cue version
-      description: What version of helm2cue are you using? Paste the output of `go version -m $(which helm2cue)` or the commit hash.
-      placeholder: e.g. v0.1.0 or commit abc1234
+      description: What version of helm2cue are you using? Paste the output of `helm2cue version`.
+      placeholder: |
+        helm2cue (devel)
+        go go1.24.0
+        commit abc1234...
     validations:
       required: true
   - type: dropdown
