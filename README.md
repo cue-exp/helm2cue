@@ -24,7 +24,7 @@ is a secondary question.
 Convert an entire Helm chart directory to a CUE module:
 
 ```bash
-helm2cue ./examples/simple-app ./examples/simple-app-cue
+helm2cue chart ./examples/simple-app ./examples/simple-app-cue
 ```
 
 This produces a ready-to-use CUE module:
@@ -63,13 +63,13 @@ Convert individual template files:
 
 ```
 # From a file
-helm2cue template.yaml
+helm2cue template template.yaml
 
 # From stdin
-cat template.yaml | helm2cue
+cat template.yaml | helm2cue template
 
 # With helper templates (_helpers.tpl)
-helm2cue _helpers.tpl template.yaml
+helm2cue template _helpers.tpl template.yaml
 ```
 
 Files ending in `.tpl` are treated as helper files containing `{{ define }}`
@@ -229,7 +229,7 @@ Helm built-in objects are mapped to CUE definitions:
 
 ## Testing
 
-Tests are run against Helm v4.1.1 and CUE v0.16.0.
+Tests are run against Helm v4.1.1 and CUE v0.16.0-alpha.2.
 
 ### Unit tests
 
