@@ -26,14 +26,44 @@ import (
 	"cuelang.org/go/cue/cuecontext"
 )
 
-// contextObjects maps Helm built-in object names to CUE definition names.
-var contextObjects = map[string]string{
-	"Values":       "#values",
-	"Release":      "#release",
-	"Chart":        "#chart",
-	"Capabilities": "#capabilities",
-	"Template":     "#template",
-	"Files":        "#files",
+// PipelineFunc describes how to convert a template pipeline function to CUE.
+type PipelineFunc struct {
+	// Nargs is the number of explicit arguments (beyond the piped value).
+	Nargs int
+
+	// Imports lists CUE packages needed when this function is used.
+	Imports []string
+
+	// Helpers lists CUE helper definitions to emit when this function is used.
+	Helpers []HelperDef
+
+	// Convert transforms (pipedExpr, args) → CUE expression.
+	// If nil, the function is a no-op (expr passes through unchanged).
+	Convert func(expr string, args []string) string
+
+	// Passthrough means the function also acts as a no-op when used in
+	// first-command position with a single argument: {{ func expr }}.
+	// The converter evaluates the argument and returns it directly.
+	Passthrough bool
+}
+
+// HelperDef is a named CUE helper definition that gets emitted when needed.
+type HelperDef struct {
+	Name    string   // e.g. "_trunc"
+	Def     string   // CUE definition text (full block)
+	Imports []string // CUE imports needed by this helper
+}
+
+// Config configures the text/template to CUE converter.
+type Config struct {
+	// ContextObjects maps top-level template field names to CUE definition
+	// names. E.g. {"Values": "#values", "Release": "#release"}.
+	ContextObjects map[string]string
+
+	// Funcs maps template function names to pipeline handlers.
+	// Built-in functions (default, include, required, printf, print,
+	// ternary) are handled by the core and should not be in this map.
+	Funcs map[string]PipelineFunc
 }
 
 // nonzeroDef is the CUE definition for truthiness checks matching Helm's falsy semantics.
@@ -50,18 +80,6 @@ const nonzeroDef = `_nonzero: {
 			false,
 		][0]
 	}, false][0]
-}
-`
-
-// truncDef is the CUE definition for safe string truncation matching Helm's trunc semantics.
-// Helm's trunc returns the full string if it's shorter than the limit.
-const truncDef = `_trunc: {
-	#in: string
-	#n:  int
-	_r:  len(strings.Runes(#in))
-	out: string
-	if _r <= #n {out: #in}
-	if _r > #n {out: strings.SliceRunes(#in, 0, #n)}
 }
 `
 
@@ -110,6 +128,7 @@ type pendingResolution struct {
 
 // converter holds state accumulated during template AST walking.
 type converter struct {
+	config             *Config
 	usedContextObjects map[string]bool
 	defaults           map[string][]fieldDefault // helmObj → defaults
 	fieldRefs          map[string][][]string     // helmObj → list of field paths referenced
@@ -117,8 +136,8 @@ type converter struct {
 	localVars          map[string]string         // $varName → CUE expression
 	topLevelGuards     []string                  // CUE conditions wrapping entire output
 	imports            map[string]bool
-	hasConditions      bool // true if any if blocks or top-level guards exist
-	needsTrunc         bool // true if trunc pipeline function is used
+	hasConditions      bool                 // true if any if blocks or top-level guards exist
+	usedHelpers        map[string]HelperDef // collected during conversion
 
 	// Direct CUE emission state.
 	out           bytes.Buffer
@@ -149,7 +168,7 @@ type converter struct {
 type convertResult struct {
 	imports            map[string]bool
 	needsNonzero       bool
-	needsTrunc         bool
+	usedHelpers        map[string]HelperDef
 	helpers            map[string]string // CUE name → CUE expression
 	helperOrder        []string          // original template names, sorted
 	helperExprs        map[string]string // original name → CUE name
@@ -180,7 +199,7 @@ func parseHelpers(helpers [][]byte) (map[string]*parse.Tree, map[string]bool, er
 
 // convertStructured converts a single template to structured output.
 // It takes a shared treeSet (from parseHelpers) and the set of helper file names.
-func convertStructured(input []byte, templateName string, treeSet map[string]*parse.Tree, helperFileNames map[string]bool) (*convertResult, error) {
+func convertStructured(cfg *Config, input []byte, templateName string, treeSet map[string]*parse.Tree, helperFileNames map[string]bool) (*convertResult, error) {
 	tmpl := parse.New(templateName)
 	tmpl.Mode = parse.SkipFuncCheck | parse.ParseComments
 	if _, err := tmpl.Parse(string(input), "{{", "}}", treeSet); err != nil {
@@ -193,11 +212,13 @@ func convertStructured(input []byte, templateName string, treeSet map[string]*pa
 	}
 
 	c := &converter{
+		config:             cfg,
 		usedContextObjects: make(map[string]bool),
 		defaults:           make(map[string][]fieldDefault),
 		fieldRefs:          make(map[string][][]string),
 		localVars:          make(map[string]string),
 		imports:            make(map[string]bool),
+		usedHelpers:        make(map[string]HelperDef),
 		comments:           make(map[string]string),
 		treeSet:            treeSet,
 		helperExprs:        make(map[string]string),
@@ -243,7 +264,7 @@ func convertStructured(input []byte, templateName string, treeSet map[string]*pa
 	return &convertResult{
 		imports:            c.imports,
 		needsNonzero:       c.hasConditions || len(c.topLevelGuards) > 0,
-		needsTrunc:         c.needsTrunc,
+		usedHelpers:        c.usedHelpers,
 		helpers:            c.helperCUE,
 		helperOrder:        c.helperOrder,
 		helperExprs:        c.helperExprs,
@@ -258,13 +279,18 @@ func convertStructured(input []byte, templateName string, treeSet map[string]*pa
 }
 
 // assembleSingleFile assembles a complete single-file CUE output from a convertResult.
-func assembleSingleFile(r *convertResult) ([]byte, error) {
+func assembleSingleFile(cfg *Config, r *convertResult) ([]byte, error) {
 	imports := make(map[string]bool)
 	for k, v := range r.imports {
 		imports[k] = v
 	}
 	if r.needsNonzero {
 		imports["struct"] = true
+	}
+	for _, h := range r.usedHelpers {
+		for _, pkg := range h.Imports {
+			imports[pkg] = true
+		}
 	}
 
 	var final bytes.Buffer
@@ -293,16 +319,16 @@ func assembleSingleFile(r *convertResult) ([]byte, error) {
 		final.WriteString("\n")
 	}
 
-	// Emit _trunc if needed.
-	if r.needsTrunc {
-		final.WriteString(truncDef)
+	// Emit used helper definitions.
+	for _, h := range r.usedHelpers {
+		final.WriteString(h.Def)
 		final.WriteString("\n")
 	}
 
 	// Emit context object declarations.
 	var decls []string
 	for helmObj := range r.usedContextObjects {
-		decls = append(decls, contextObjects[helmObj])
+		decls = append(decls, cfg.ContextObjects[helmObj])
 	}
 	slices.Sort(decls)
 
@@ -311,7 +337,7 @@ func assembleSingleFile(r *convertResult) ([]byte, error) {
 
 	if hasDecls || hasHelpers {
 		cueToHelm := make(map[string]string)
-		for h, c := range contextObjects {
+		for h, c := range cfg.ContextObjects {
 			cueToHelm[c] = h
 		}
 
@@ -412,18 +438,18 @@ func assembleSingleFile(r *convertResult) ([]byte, error) {
 	return result, nil
 }
 
-// Convert transforms a Helm-style YAML template into CUE.
+// Convert transforms a template YAML file into CUE using the given config.
 // Optional helpers contain {{ define }} blocks (typically from _helpers.tpl files).
-func Convert(input []byte, helpers ...[]byte) ([]byte, error) {
+func Convert(cfg *Config, input []byte, helpers ...[]byte) ([]byte, error) {
 	treeSet, helperFileNames, err := parseHelpers(helpers)
 	if err != nil {
 		return nil, err
 	}
-	r, err := convertStructured(input, "helm", treeSet, helperFileNames)
+	r, err := convertStructured(cfg, input, "helm", treeSet, helperFileNames)
 	if err != nil {
 		return nil, err
 	}
-	return assembleSingleFile(r)
+	return assembleSingleFile(cfg, r)
 }
 
 // helperToCUEName converts a Helm template name to a CUE hidden field name.
@@ -453,10 +479,12 @@ func (c *converter) convertHelperBody(nodes []parse.Node) (string, error) {
 	}
 
 	sub := &converter{
+		config:             c.config,
 		usedContextObjects: c.usedContextObjects,
 		defaults:           c.defaults,
 		fieldRefs:          c.fieldRefs,
 		imports:            c.imports,
+		usedHelpers:        c.usedHelpers,
 		treeSet:            c.treeSet,
 		helperExprs:        c.helperExprs,
 		helperCUE:          c.helperCUE,
@@ -471,11 +499,6 @@ func (c *converter) convertHelperBody(nodes []parse.Node) (string, error) {
 	sub.flushPendingAction()
 	sub.flushDeferred()
 	sub.closeBlocksTo(-1)
-
-	// Propagate flags from sub-converter back to parent.
-	if sub.needsTrunc {
-		c.needsTrunc = true
-	}
 
 	body := strings.TrimSpace(sub.out.String())
 	if body == "" {
@@ -621,7 +644,7 @@ func (c *converter) trackContextNode(node parse.Node) {
 	switch n := node.(type) {
 	case *parse.FieldNode:
 		if len(n.Ident) > 0 {
-			if _, ok := contextObjects[n.Ident[0]]; ok {
+			if _, ok := c.config.ContextObjects[n.Ident[0]]; ok {
 				c.usedContextObjects[n.Ident[0]] = true
 				if len(n.Ident) >= 2 {
 					c.fieldRefs[n.Ident[0]] = append(c.fieldRefs[n.Ident[0]], n.Ident[1:])
@@ -1413,7 +1436,7 @@ func (c *converter) pipeToFieldExpr(pipe *parse.PipeNode) (string, string, error
 		return "", "", fmt.Errorf("unsupported pipe: %s", pipe)
 	}
 	if f, ok := pipe.Cmds[0].Args[0].(*parse.FieldNode); ok {
-		expr, helmObj := fieldToCUE(f.Ident)
+		expr, helmObj := fieldToCUE(c.config.ContextObjects, f.Ident)
 		if helmObj != "" {
 			c.fieldRefs[helmObj] = append(c.fieldRefs[helmObj], f.Ident[1:])
 		}
@@ -1444,7 +1467,7 @@ func (c *converter) conditionNodeToExpr(node parse.Node) (string, error) {
 		return fmt.Sprintf("(_nonzero & {#arg: %s, _})", expr), nil
 	case *parse.VariableNode:
 		if len(n.Ident) >= 2 && n.Ident[0] == "$" {
-			expr, helmObj := fieldToCUE(n.Ident[1:])
+			expr, helmObj := fieldToCUE(c.config.ContextObjects, n.Ident[1:])
 			if helmObj != "" {
 				c.usedContextObjects[helmObj] = true
 				if len(n.Ident) >= 3 {
@@ -1479,7 +1502,7 @@ func (c *converter) conditionNodeToRawExpr(node parse.Node) (string, error) {
 		return expr, nil
 	case *parse.VariableNode:
 		if len(n.Ident) >= 2 && n.Ident[0] == "$" {
-			expr, helmObj := fieldToCUE(n.Ident[1:])
+			expr, helmObj := fieldToCUE(c.config.ContextObjects, n.Ident[1:])
 			if helmObj != "" {
 				c.usedContextObjects[helmObj] = true
 				if len(n.Ident) >= 3 {
@@ -1641,7 +1664,7 @@ func (c *converter) actionToCUE(n *parse.ActionNode) (expr string, helmObj strin
 			}
 		} else if v, ok := first.Args[0].(*parse.VariableNode); ok {
 			if len(v.Ident) >= 2 && v.Ident[0] == "$" {
-				expr, helmObj = fieldToCUE(v.Ident[1:])
+				expr, helmObj = fieldToCUE(c.config.ContextObjects, v.Ident[1:])
 				if helmObj != "" {
 					if len(v.Ident) >= 3 {
 						fieldPath = v.Ident[2:]
@@ -1666,17 +1689,6 @@ func (c *converter) actionToCUE(n *parse.ActionNode) (expr string, helmObj strin
 			break
 		}
 		switch id.Ident {
-		case "toYaml", "toJson", "toRawJson", "toPrettyJson", "fromYaml", "fromJson":
-			if len(first.Args) != 2 {
-				return "", "", fmt.Errorf("%s requires 1 argument, got %d", id.Ident, len(first.Args)-1)
-			}
-			expr, helmObj, err = c.nodeToExpr(first.Args[1])
-			if err != nil {
-				return "", "", fmt.Errorf("%s argument: %w", id.Ident, err)
-			}
-			if f, ok := first.Args[1].(*parse.FieldNode); ok && helmObj != "" && len(f.Ident) >= 2 {
-				fieldPath = f.Ident[1:]
-			}
 		case "default":
 			if len(first.Args) != 3 {
 				return "", "", fmt.Errorf("default requires 2 arguments, got %d", len(first.Args)-1)
@@ -1691,7 +1703,7 @@ func (c *converter) actionToCUE(n *parse.ActionNode) (expr string, helmObj strin
 			}
 			switch arg := first.Args[2].(type) {
 			case *parse.FieldNode:
-				expr, helmObj = fieldToCUE(arg.Ident)
+				expr, helmObj = fieldToCUE(c.config.ContextObjects, arg.Ident)
 				if helmObj != "" {
 					fieldPath = arg.Ident[1:]
 					c.fieldRefs[helmObj] = append(c.fieldRefs[helmObj], fieldPath)
@@ -1702,7 +1714,7 @@ func (c *converter) actionToCUE(n *parse.ActionNode) (expr string, helmObj strin
 				}
 			case *parse.VariableNode:
 				if len(arg.Ident) >= 2 && arg.Ident[0] == "$" {
-					expr, helmObj = fieldToCUE(arg.Ident[1:])
+					expr, helmObj = fieldToCUE(c.config.ContextObjects, arg.Ident[1:])
 					if helmObj != "" {
 						if len(arg.Ident) >= 3 {
 							fieldPath = arg.Ident[2:]
@@ -1742,7 +1754,7 @@ func (c *converter) actionToCUE(n *parse.ActionNode) (expr string, helmObj strin
 				return "", "", fmt.Errorf("required message: %w", err)
 			}
 			if f, ok := first.Args[2].(*parse.FieldNode); ok {
-				expr, helmObj = fieldToCUE(f.Ident)
+				expr, helmObj = fieldToCUE(c.config.ContextObjects, f.Ident)
 				if helmObj != "" {
 					fieldPath = f.Ident[1:]
 					c.fieldRefs[helmObj] = append(c.fieldRefs[helmObj], fieldPath)
@@ -1795,8 +1807,19 @@ func (c *converter) actionToCUE(n *parse.ActionNode) (expr string, helmObj strin
 			if falseObj != "" {
 				helmObj = falseObj
 			}
-		case "lookup", "tpl":
-			return "", "", fmt.Errorf("helm function %q has no CUE equivalent and cannot be converted", id.Ident)
+		default:
+			if pf, ok := c.config.Funcs[id.Ident]; ok && pf.Passthrough {
+				if len(first.Args) != 2 {
+					return "", "", fmt.Errorf("%s requires 1 argument, got %d", id.Ident, len(first.Args)-1)
+				}
+				expr, helmObj, err = c.nodeToExpr(first.Args[1])
+				if err != nil {
+					return "", "", fmt.Errorf("%s argument: %w", id.Ident, err)
+				}
+				if f, ok := first.Args[1].(*parse.FieldNode); ok && helmObj != "" && len(f.Ident) >= 2 {
+					fieldPath = f.Ident[1:]
+				}
+			}
 		}
 	}
 	if expr == "" {
@@ -1826,191 +1849,41 @@ func (c *converter) actionToCUE(n *parse.ActionNode) (expr string, helmObj strin
 					cueValue: defaultVal,
 				})
 			}
-		case "quote":
-			expr = fmt.Sprintf(`"\(%s)"`, expr)
-		case "toYaml", "toJson", "toString", "toRawJson", "toPrettyJson", "fromYaml", "fromJson":
-		case "nindent", "indent":
-		case "squote":
-			expr = fmt.Sprintf(`"'\(%s)'"`, expr)
-		case "upper":
-			c.addImport("strings")
-			expr = fmt.Sprintf("strings.ToUpper(%s)", expr)
-		case "lower":
-			c.addImport("strings")
-			expr = fmt.Sprintf("strings.ToLower(%s)", expr)
-		case "title":
-			c.addImport("strings")
-			expr = fmt.Sprintf("strings.ToTitle(%s)", expr)
-		case "trim":
-			c.addImport("strings")
-			expr = fmt.Sprintf("strings.TrimSpace(%s)", expr)
-		case "trimPrefix":
-			arg, err := c.extractPipelineArgs(cmd, 1)
-			if err != nil {
-				return "", "", err
-			}
-			c.addImport("strings")
-			expr = fmt.Sprintf("strings.TrimPrefix(%s, %s)", expr, arg[0])
-		case "trimSuffix":
-			arg, err := c.extractPipelineArgs(cmd, 1)
-			if err != nil {
-				return "", "", err
-			}
-			c.addImport("strings")
-			expr = fmt.Sprintf("strings.TrimSuffix(%s, %s)", expr, arg[0])
-		case "contains":
-			arg, err := c.extractPipelineArgs(cmd, 1)
-			if err != nil {
-				return "", "", err
-			}
-			c.addImport("strings")
-			expr = fmt.Sprintf("strings.Contains(%s, %s)", expr, arg[0])
-		case "hasPrefix":
-			arg, err := c.extractPipelineArgs(cmd, 1)
-			if err != nil {
-				return "", "", err
-			}
-			c.addImport("strings")
-			expr = fmt.Sprintf("strings.HasPrefix(%s, %s)", expr, arg[0])
-		case "hasSuffix":
-			arg, err := c.extractPipelineArgs(cmd, 1)
-			if err != nil {
-				return "", "", err
-			}
-			c.addImport("strings")
-			expr = fmt.Sprintf("strings.HasSuffix(%s, %s)", expr, arg[0])
-		case "replace":
-			arg, err := c.extractPipelineArgs(cmd, 2)
-			if err != nil {
-				return "", "", err
-			}
-			c.addImport("strings")
-			expr = fmt.Sprintf("strings.Replace(%s, %s, %s, -1)", expr, arg[0], arg[1])
-		case "trunc":
-			arg, err := c.extractPipelineArgs(cmd, 1)
-			if err != nil {
-				return "", "", err
-			}
-			c.addImport("strings")
-			c.needsTrunc = true
-			expr = fmt.Sprintf("(_trunc & {#in: %s, #n: %s}).out", expr, arg[0])
-		case "b64enc":
-			c.addImport("encoding/base64")
-			expr = fmt.Sprintf("base64.Encode(null, %s)", expr)
-		case "b64dec":
-			c.addImport("encoding/base64")
-			expr = fmt.Sprintf("base64.Decode(null, %s)", expr)
-		case "int", "int64":
-			expr = fmt.Sprintf("int & %s", expr)
-		case "float64":
-			expr = fmt.Sprintf("number & %s", expr)
-		case "atoi":
-			c.addImport("strconv")
-			expr = fmt.Sprintf("strconv.Atoi(%s)", expr)
 		case "required":
 			arg, err := c.extractPipelineArgs(cmd, 1)
 			if err != nil {
 				return "", "", err
 			}
 			c.comments[expr] = fmt.Sprintf("// required: %s", arg[0])
-		case "ceil":
-			c.addImport("math")
-			expr = fmt.Sprintf("math.Ceil(%s)", expr)
-		case "floor":
-			c.addImport("math")
-			expr = fmt.Sprintf("math.Floor(%s)", expr)
-		case "round":
-			c.addImport("math")
-			expr = fmt.Sprintf("math.Round(%s)", expr)
-		case "add":
-			arg, err := c.extractPipelineArgs(cmd, 1)
-			if err != nil {
-				return "", "", err
-			}
-			expr = fmt.Sprintf("(%s + %s)", expr, arg[0])
-		case "sub":
-			arg, err := c.extractPipelineArgs(cmd, 1)
-			if err != nil {
-				return "", "", err
-			}
-			expr = fmt.Sprintf("(%s - %s)", arg[0], expr)
-		case "mul":
-			arg, err := c.extractPipelineArgs(cmd, 1)
-			if err != nil {
-				return "", "", err
-			}
-			expr = fmt.Sprintf("(%s * %s)", expr, arg[0])
-		case "div":
-			arg, err := c.extractPipelineArgs(cmd, 1)
-			if err != nil {
-				return "", "", err
-			}
-			expr = fmt.Sprintf("div(%s, %s)", arg[0], expr)
-		case "mod":
-			arg, err := c.extractPipelineArgs(cmd, 1)
-			if err != nil {
-				return "", "", err
-			}
-			expr = fmt.Sprintf("mod(%s, %s)", arg[0], expr)
-		case "join":
-			arg, err := c.extractPipelineArgs(cmd, 1)
-			if err != nil {
-				return "", "", err
-			}
-			c.addImport("strings")
-			expr = fmt.Sprintf("strings.Join(%s, %s)", expr, arg[0])
-		case "sortAlpha":
-			c.addImport("list")
-			expr = fmt.Sprintf("list.SortStrings(%s)", expr)
-		case "concat":
-			c.addImport("list")
-			expr = fmt.Sprintf("list.Concat(%s)", expr)
-		case "first":
-			expr = fmt.Sprintf("%s[0]", expr)
-		case "append":
-			arg, err := c.extractPipelineArgs(cmd, 1)
-			if err != nil {
-				return "", "", err
-			}
-			expr = fmt.Sprintf("%s + [%s]", expr, arg[0])
-		case "regexMatch":
-			arg, err := c.extractPipelineArgs(cmd, 1)
-			if err != nil {
-				return "", "", err
-			}
-			c.addImport("regexp")
-			expr = fmt.Sprintf("regexp.Match(%s, %s)", arg[0], expr)
-		case "regexReplaceAll":
-			arg, err := c.extractPipelineArgs(cmd, 2)
-			if err != nil {
-				return "", "", err
-			}
-			c.addImport("regexp")
-			expr = fmt.Sprintf("regexp.ReplaceAll(%s, %s, %s)", arg[0], expr, arg[1])
-		case "regexFind":
-			arg, err := c.extractPipelineArgs(cmd, 1)
-			if err != nil {
-				return "", "", err
-			}
-			c.addImport("regexp")
-			expr = fmt.Sprintf("regexp.Find(%s, %s)", arg[0], expr)
-		case "base":
-			c.addImport("path")
-			expr = fmt.Sprintf("path.Base(%s, path.Unix)", expr)
-		case "dir":
-			c.addImport("path")
-			expr = fmt.Sprintf("path.Dir(%s, path.Unix)", expr)
-		case "ext":
-			c.addImport("path")
-			expr = fmt.Sprintf("path.Ext(%s, path.Unix)", expr)
-		case "sha256sum":
-			c.addImport("crypto/sha256")
-			c.addImport("encoding/hex")
-			expr = fmt.Sprintf("hex.Encode(sha256.Sum256(%s))", expr)
-		case "lookup", "tpl":
-			return "", "", fmt.Errorf("helm function %q has no CUE equivalent and cannot be converted", id.Ident)
 		default:
-			return "", "", fmt.Errorf("unsupported pipeline function: %s", id.Ident)
+			pf, ok := c.config.Funcs[id.Ident]
+			if !ok {
+				return "", "", fmt.Errorf("unsupported pipeline function: %s", id.Ident)
+			}
+			if pf.Convert == nil {
+				// No-op function (e.g. nindent, indent, toYaml in pipeline).
+				break
+			}
+			var args []string
+			if pf.Nargs > 0 {
+				var extractErr error
+				args, extractErr = c.extractPipelineArgs(cmd, pf.Nargs)
+				if extractErr != nil {
+					return "", "", extractErr
+				}
+			}
+			result := pf.Convert(expr, args)
+			if result == "" {
+				// Sentinel for unsupported functions (e.g. lookup, tpl).
+				return "", "", fmt.Errorf("function %q has no CUE equivalent and cannot be converted", id.Ident)
+			}
+			expr = result
+			for _, pkg := range pf.Imports {
+				c.addImport(pkg)
+			}
+			for _, h := range pf.Helpers {
+				c.usedHelpers[h.Name] = h
+			}
 		}
 	}
 
@@ -2154,7 +2027,7 @@ func (c *converter) nodeToExpr(node parse.Node) (string, string, error) {
 		return expr, helmObj, nil
 	case *parse.VariableNode:
 		if len(n.Ident) >= 2 && n.Ident[0] == "$" {
-			expr, helmObj := fieldToCUE(n.Ident[1:])
+			expr, helmObj := fieldToCUE(c.config.ContextObjects, n.Ident[1:])
 			if helmObj != "" {
 				c.fieldRefs[helmObj] = append(c.fieldRefs[helmObj], n.Ident[2:])
 				c.usedContextObjects[helmObj] = true
@@ -2214,7 +2087,7 @@ func nodeToCUELiteral(node parse.Node) (string, error) {
 	}
 }
 
-func fieldToCUE(ident []string) (string, string) {
+func fieldToCUE(contextObjects map[string]string, ident []string) (string, string) {
 	var helmObj string
 	if len(ident) > 0 {
 		if mapped, ok := contextObjects[ident[0]]; ok {
@@ -2227,8 +2100,8 @@ func fieldToCUE(ident []string) (string, string) {
 
 func (c *converter) fieldToCUEInContext(ident []string) (string, string) {
 	if len(ident) > 0 {
-		if _, ok := contextObjects[ident[0]]; ok {
-			return fieldToCUE(ident)
+		if _, ok := c.config.ContextObjects[ident[0]]; ok {
+			return fieldToCUE(c.config.ContextObjects, ident)
 		}
 	}
 	if len(c.rangeVarStack) > 0 {
@@ -2236,7 +2109,7 @@ func (c *converter) fieldToCUEInContext(ident []string) (string, string) {
 		prefixed := append([]string{rangeVar}, ident...)
 		return strings.Join(prefixed, "."), ""
 	}
-	return fieldToCUE(ident)
+	return fieldToCUE(c.config.ContextObjects, ident)
 }
 
 func (c *converter) addImport(pkg string) {

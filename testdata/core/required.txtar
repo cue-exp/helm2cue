@@ -1,0 +1,13 @@
+Required function with error message.
+
+-- input.yaml --
+name: {{ required "name is required" .input.name }}
+-- values.yaml --
+name: hello
+-- output.cue --
+#input: {
+	name?: _
+	...
+}
+
+name: #input.name // required: "name is required"

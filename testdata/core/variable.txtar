@@ -1,0 +1,14 @@
+Variable assignment and usage.
+
+-- input.yaml --
+{{- $x := .input.name }}
+name: {{ $x }}
+-- values.yaml --
+name: hello
+-- output.cue --
+#input: {
+	name?: _
+	...
+}
+
+name: #input.name

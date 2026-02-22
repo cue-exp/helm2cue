@@ -24,12 +24,66 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+	"text/template"
+	"text/template/parse"
 
 	"golang.org/x/tools/txtar"
 	"gopkg.in/yaml.v3"
 )
 
 var update = flag.Bool("update", false, "update golden files in testdata")
+
+// coreParseFuncs provides stub entries for functions accepted by the core
+// converter. The parse package doesn't pre-register text/template's
+// built-in functions (print, printf, etc.), so they must be listed here
+// alongside the converter's own built-ins (default, include, required).
+// Any function NOT in this map will cause a parse error, catching
+// accidental use of Sprig/Helm-only functions in core tests.
+var coreParseFuncs = map[string]any{
+	// text/template built-in functions
+	"and": (func())(nil), "or": (func())(nil), "not": (func())(nil),
+	"eq": (func())(nil), "ne": (func())(nil),
+	"lt": (func())(nil), "le": (func())(nil),
+	"gt": (func())(nil), "ge": (func())(nil),
+	"call": (func())(nil),
+	"html": (func())(nil), "js": (func())(nil), "urlquery": (func())(nil),
+	"index": (func())(nil), "slice": (func())(nil), "len": (func())(nil),
+	"print": (func())(nil), "printf": (func())(nil), "println": (func())(nil),
+	// Converter built-in functions (not in text/template, but handled
+	// natively by the converter without Config.Funcs entries).
+	"default": (func())(nil), "include": (func())(nil), "required": (func())(nil),
+}
+
+// coreExecFuncs provides real implementations of converter built-in functions
+// for executing core test templates via text/template.
+var coreExecFuncs = template.FuncMap{
+	"default": func(defaultVal, val any) any {
+		if val == nil {
+			return defaultVal
+		}
+		v := reflect.ValueOf(val)
+		switch v.Kind() {
+		case reflect.String:
+			if v.String() == "" {
+				return defaultVal
+			}
+		case reflect.Slice, reflect.Map:
+			if v.Len() == 0 {
+				return defaultVal
+			}
+		}
+		return val
+	},
+	"required": func(msg string, val any) (any, error) {
+		if val == nil {
+			return nil, fmt.Errorf("%s", msg)
+		}
+		if v := reflect.ValueOf(val); v.Kind() == reflect.String && v.String() == "" {
+			return nil, fmt.Errorf("%s", msg)
+		}
+		return val, nil
+	},
+}
 
 func TestConvert(t *testing.T) {
 	helmPath, err := exec.LookPath("helm")
@@ -90,7 +144,7 @@ func TestConvert(t *testing.T) {
 				}
 			}
 
-			got, err := Convert(input, helpers...)
+			got, err := Convert(HelmConfig(), input, helpers...)
 			if err != nil {
 				t.Fatalf("Convert() error: %v", err)
 			}
@@ -262,4 +316,173 @@ func yamlSemanticEqual(a, b []byte) error {
 		return fmt.Errorf("semantic mismatch:\n--- helm:\n%s\n--- cue:\n%s", a, b)
 	}
 	return nil
+}
+
+// coreTemplateExecute executes a template using Go's text/template with
+// values from valuesYAML passed as .input.
+func coreTemplateExecute(t *testing.T, input, valuesYAML []byte) []byte {
+	t.Helper()
+
+	var values any
+	if err := yaml.Unmarshal(valuesYAML, &values); err != nil {
+		t.Fatalf("parsing values.yaml: %v", err)
+	}
+
+	tmpl, err := template.New("test").Funcs(coreExecFuncs).Parse(string(input))
+	if err != nil {
+		t.Fatalf("parsing template: %v", err)
+	}
+
+	data := map[string]any{"input": values}
+	var buf bytes.Buffer
+	if err := tmpl.Execute(&buf, data); err != nil {
+		t.Fatalf("executing template: %v", err)
+	}
+
+	return buf.Bytes()
+}
+
+// cueExportCore runs cue export on generated CUE with values loaded as #input.
+func cueExportCore(t *testing.T, cueSrc, valuesYAML []byte) []byte {
+	t.Helper()
+
+	dir := t.TempDir()
+
+	cueFile := filepath.Join(dir, "output.cue")
+	if err := os.WriteFile(cueFile, cueSrc, 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	args := []string{"export", cueFile}
+
+	// Detect if #input is referenced in the CUE source.
+	defs := contextDefRe.FindAllStringSubmatch(string(cueSrc), -1)
+	for _, m := range defs {
+		if m[1] == "#input" {
+			valuesPath := filepath.Join(dir, "values.yaml")
+			if err := os.WriteFile(valuesPath, valuesYAML, 0o644); err != nil {
+				t.Fatal(err)
+			}
+			args = append(args, "-l", "#input:", valuesPath)
+			break
+		}
+	}
+
+	args = append(args, "--out", "yaml")
+
+	cmd := exec.Command("go", append([]string{"tool", "cue"}, args...)...)
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("cue export failed: %v\n%s\ncue source:\n%s", err, out, cueSrc)
+	}
+
+	return out
+}
+
+// testCoreConfig returns a non-Helm Config for testing the core converter.
+// It uses a single context object ("input" → "#input") with no Funcs,
+// proving the converter works generically without Helm-specific configuration.
+func testCoreConfig() *Config {
+	return &Config{
+		ContextObjects: map[string]string{
+			"input": "#input",
+		},
+		Funcs: map[string]PipelineFunc{},
+	}
+}
+
+func TestConvertCore(t *testing.T) {
+	files, err := filepath.Glob("testdata/core/*.txtar")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(files) == 0 {
+		t.Fatal("no testdata/core/*.txtar files found")
+	}
+
+	cfg := testCoreConfig()
+
+	for _, file := range files {
+		name := strings.TrimSuffix(filepath.Base(file), ".txtar")
+		t.Run(name, func(t *testing.T) {
+			ar, err := txtar.ParseFile(file)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			var input, expectedOutput, valuesYAML []byte
+			var helpers [][]byte
+			var hasOutput bool
+			for _, f := range ar.Files {
+				switch f.Name {
+				case "input.yaml":
+					input = f.Data
+				case "output.cue":
+					expectedOutput = f.Data
+					hasOutput = true
+				case "_helpers.tpl":
+					helpers = append(helpers, f.Data)
+				case "values.yaml":
+					valuesYAML = f.Data
+				}
+			}
+
+			if input == nil {
+				t.Fatal("missing input.yaml section")
+			}
+
+			// Validate that the input is valid text/template syntax.
+			// The parse package doesn't register text/template's built-in
+			// functions, so we provide stubs for those plus the functions
+			// the converter handles natively. This ensures the parser
+			// rejects genuinely unknown functions (like Sprig's ternary).
+			tmpl := parse.New("test")
+			tmpl.Mode = parse.ParseComments
+			if _, err := tmpl.Parse(string(input), "{{", "}}", make(map[string]*parse.Tree), coreParseFuncs); err != nil {
+				t.Fatalf("template parse failed: %v", err)
+			}
+
+			got, err := Convert(cfg, input, helpers...)
+			if err != nil {
+				t.Fatalf("Convert() error: %v", err)
+			}
+
+			if *update {
+				var newFiles []txtar.File
+				for _, f := range ar.Files {
+					if f.Name == "output.cue" {
+						continue
+					}
+					newFiles = append(newFiles, f)
+				}
+				newFiles = append(newFiles, txtar.File{
+					Name: "output.cue",
+					Data: got,
+				})
+				ar.Files = newFiles
+				if err := os.WriteFile(file, txtar.Format(ar), 0o644); err != nil {
+					t.Fatal(err)
+				}
+				return
+			}
+
+			if !hasOutput {
+				t.Fatal("missing output.cue section (run with -update to generate)")
+			}
+
+			if !bytes.Equal(got, expectedOutput) {
+				t.Errorf("output mismatch (-want +got):\n--- want:\n%s\n--- got:\n%s", expectedOutput, got)
+			}
+
+			// If values.yaml is provided, verify the generated CUE produces
+			// semantically equivalent output to executing the template.
+			if valuesYAML != nil {
+				templateOut := coreTemplateExecute(t, input, valuesYAML)
+				cueOut := cueExportCore(t, got, valuesYAML)
+				if err := yamlSemanticEqual(templateOut, cueOut); err != nil {
+					t.Errorf("cue export vs template: %v", err)
+				}
+			}
+		})
+	}
 }

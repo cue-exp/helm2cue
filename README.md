@@ -250,25 +250,41 @@ Helm built-in objects are mapped to CUE definitions:
 
 Tests are run against Helm v4.1.1 and CUE v0.16.0-alpha.2.
 
-### Unit tests
+### Core converter tests
 
-Test cases live in `testdata/*.txtar`. Each file uses the
+Core test cases live in `testdata/core/*.txtar` and are run by
+`TestConvertCore`. They prove the `text/template` to CUE converter works
+generically, without Helm-specific configuration. Each file uses the
 [txtar format](https://pkg.go.dev/golang.org/x/tools/txtar) with these
 sections:
 
-- `-- input.yaml --` — the Helm template input (required)
+- `-- input.yaml --` — the template input (required)
 - `-- output.cue --` — the expected CUE output (required; generated via `-update`)
 - `-- _helpers.tpl --` — helper templates containing `{{ define }}` blocks (optional)
-- `-- values.yaml --` — Helm values to use during validation (optional)
-- `-- helm_output.yaml --` — expected rendered output from `helm template` (optional)
+
+These tests use a test-specific config with a single context object
+(`"input"` mapped to `#input`) and no pipeline functions. Templates
+reference `.input.*` instead of `.Values.*` and are validated with Go's
+`text/template/parse` — not `helm template`. This exercises the core
+features (YAML emission, field references, if/else, range, default,
+required, printf, include, variables) without coupling to Helm
+names or Sprig functions.
+
+### Helm-specific tests
+
+Helm test cases live in `testdata/*.txtar` and are run by `TestConvert`.
+Each file uses the same txtar format with additional optional sections:
+
+- `-- values.yaml --` — Helm values to use during validation
+- `-- helm_output.yaml --` — expected rendered output from `helm template`
 
 Each test case:
 
 1. Runs `helm template` on the input to verify it is a valid Helm template.
    If `values.yaml` is present it is used as chart values. If
    `helm_output.yaml` is present, the rendered output is compared against it.
-2. Runs `Convert()` which produces CUE (including `#values: _` etc.
-   declarations) and validates it compiles.
+2. Runs `Convert()` with `HelmConfig()` which produces CUE (including
+   `#values: _` etc. declarations) and validates it compiles.
 3. Compares the CUE output against the `output.cue` golden file.
 4. If both `values.yaml` and `helm_output.yaml` are present, runs
    `cue export` on the generated CUE with values and any needed context
@@ -306,6 +322,12 @@ go test ./...
 
 # Run unit tests only (skip integration)
 go test -short ./...
+
+# Run core converter tests only (no Helm dependency)
+go test -run TestConvertCore -v
+
+# Run Helm-specific tests only
+go test -run TestConvert -v
 
 # Run integration tests only
 go test -run TestIntegration -v

@@ -1,0 +1,13 @@
+Default function with fallback value.
+
+-- input.yaml --
+name: {{ default "fallback" .input.name }}
+-- values.yaml --
+{}
+-- output.cue --
+#input: {
+	name: *"fallback" | _
+	...
+}
+
+name: #input.name

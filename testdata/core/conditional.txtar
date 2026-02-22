@@ -1,0 +1,34 @@
+Simple if conditional.
+
+-- input.yaml --
+{{- if .input.enabled }}
+enabled: true
+{{- end }}
+-- values.yaml --
+enabled: true
+-- output.cue --
+import "struct"
+
+_nonzero: {
+	#arg?: _
+	[if #arg != _|_ {
+		[
+			if (#arg & int) != _|_ {#arg != 0},
+			if (#arg & string) != _|_ {#arg != ""},
+			if (#arg & float) != _|_ {#arg != 0.0},
+			if (#arg & bool) != _|_ {#arg},
+			if (#arg & [...]) != _|_ {len(#arg) > 0},
+			if (#arg & {...}) != _|_ {(#arg & struct.MaxFields(0)) == _|_},
+			false,
+		][0]
+	}, false][0]
+}
+
+#input: {
+	enabled?: _
+	...
+}
+
+if (_nonzero & {#arg: #input.enabled, _}) {
+	enabled: true
+}
