@@ -34,6 +34,13 @@ type chartMetadata struct {
 	AppVersion string `yaml:"appVersion"`
 }
 
+// templateResult holds the conversion result for a single template file.
+type templateResult struct {
+	fieldName string
+	filename  string
+	result    *convertResult
+}
+
 // ConvertChart converts a Helm chart directory to a CUE module in outDir.
 func ConvertChart(chartDir, outDir string) error {
 	// 1. Parse Chart.yaml.
@@ -98,11 +105,6 @@ func ConvertChart(chartDir, outDir string) error {
 	slices.Sort(templateFiles)
 
 	// 5. Convert each template.
-	type templateResult struct {
-		fieldName string
-		filename  string
-		result    *convertResult
-	}
 	var results []templateResult
 	var warnings []string
 
@@ -179,7 +181,7 @@ func ConvertChart(chartDir, outDir string) error {
 	}
 
 	// Write cue.mod/module.cue.
-	moduleCUE := fmt.Sprintf("module: \"helm.local/%s\"\nlanguage: version: \"v0.12.0\"\n", meta.Name)
+	moduleCUE := fmt.Sprintf("module: \"helm.local/%s\"\nlanguage: {\n\tversion: \"v0.16.0\"\n}\n", meta.Name)
 	if err := os.WriteFile(filepath.Join(outDir, "cue.mod", "module.cue"), []byte(moduleCUE), 0o644); err != nil {
 		return fmt.Errorf("writing module.cue: %w", err)
 	}
@@ -191,6 +193,11 @@ func ConvertChart(chartDir, outDir string) error {
 
 	// Write values.cue.
 	if err := writeValuesCUE(outDir, pkgName, mergedFieldRefs["Values"], mergedDefaults["Values"]); err != nil {
+		return err
+	}
+
+	// Write data.cue (embeds values.yaml and release.yaml via @extern(embed)).
+	if err := writeDataCUE(outDir, pkgName); err != nil {
 		return err
 	}
 
@@ -206,12 +213,20 @@ func ConvertChart(chartDir, outDir string) error {
 		}
 	}
 
-	// 8. Copy values.yaml.
+	// Write results.cue (aggregates all templates into a list for yaml.MarshalStream).
+	if err := writeResultsCUE(outDir, pkgName, results); err != nil {
+		return err
+	}
+
+	// 8. Copy values.yaml and write empty release.yaml placeholder.
 	valuesPath := filepath.Join(chartDir, "values.yaml")
 	if valuesData, err := os.ReadFile(valuesPath); err == nil {
 		if err := os.WriteFile(filepath.Join(outDir, "values.yaml"), valuesData, 0o644); err != nil {
 			return fmt.Errorf("copying values.yaml: %w", err)
 		}
+	}
+	if err := os.WriteFile(filepath.Join(outDir, "release.yaml"), []byte{}, 0o644); err != nil {
+		return fmt.Errorf("writing release.yaml: %w", err)
 	}
 
 	// 9. Print summary to stderr.
@@ -349,6 +364,48 @@ func writeValuesCUE(outDir, pkgName string, refs [][]string, defs []fieldDefault
 	}
 
 	return os.WriteFile(filepath.Join(outDir, "values.cue"), buf.Bytes(), 0o644)
+}
+
+// writeDataCUE writes data.cue which uses @extern(embed) to embed
+// values.yaml and release.yaml, with @tag(release_name) for CLI injection.
+func writeDataCUE(outDir, pkgName string) error {
+	var buf bytes.Buffer
+	buf.WriteString("@extern(embed)\n\n")
+	fmt.Fprintf(&buf, "package %s\n\n", pkgName)
+	buf.WriteString("#values:  _ @embed(file=values.yaml)\n")
+	buf.WriteString("#release: _ @embed(file=release.yaml)\n")
+	buf.WriteString("#release: {\n")
+	buf.WriteString("\tName: _ @tag(release_name)\n")
+	buf.WriteString("}\n")
+
+	return os.WriteFile(filepath.Join(outDir, "data.cue"), buf.Bytes(), 0o644)
+}
+
+// writeResultsCUE writes results.cue which aggregates all template outputs
+// into a list. This enables producing a multi-document YAML stream similar to
+// `helm template` output via:
+//
+//	cue export . -t release_name=NAME --out text -e 'yaml.MarshalStream(results)'
+func writeResultsCUE(outDir, pkgName string, results []templateResult) error {
+	var buf bytes.Buffer
+	fmt.Fprintf(&buf, "package %s\n\n", pkgName)
+	buf.WriteString("results: [\n")
+	for _, tr := range results {
+		if len(tr.result.topLevelGuards) > 0 {
+			for _, guard := range tr.result.topLevelGuards {
+				fmt.Fprintf(&buf, "\tif %s {\n", guard)
+			}
+			fmt.Fprintf(&buf, "\t\t%s,\n", tr.fieldName)
+			for range tr.result.topLevelGuards {
+				buf.WriteString("\t},\n")
+			}
+		} else {
+			fmt.Fprintf(&buf, "\t%s,\n", tr.fieldName)
+		}
+	}
+	buf.WriteString("]\n")
+
+	return os.WriteFile(filepath.Join(outDir, "results.cue"), buf.Bytes(), 0o644)
 }
 
 // writeContextCUE writes context.cue with definitions for used context objects.
