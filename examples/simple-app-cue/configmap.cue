@@ -1,0 +1,19 @@
+package simple_app
+
+configmap: {
+	apiVersion: "v1"
+	kind: "ConfigMap"
+	metadata: {
+		name: _simple_app_fullname
+		labels: _simple_app_labels
+	}
+	data: {
+		environment: "\(#values.env)"
+		if (_nonzero & {#arg: #values.debug, _}) {
+			logLevel: "debug"
+		}
+		if !((_nonzero & {#arg: #values.debug, _})) {
+			logLevel: "info"
+		}
+	}
+}
