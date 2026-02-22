@@ -19,18 +19,24 @@ is a secondary question.
 
 ## Commands
 
-### `helm2cue chart <chart-dir> <output-dir>`
+```
+helm2cue chart <chart-dir> <output-dir>
+```
 
 Convert an entire Helm chart directory to a CUE module.
 
-### `helm2cue template [file ...]`
+```
+helm2cue template [file ...]
+```
 
 Convert individual template files. Files ending in `.tpl` are treated
 as helper files containing `{{ define }}` blocks. All other files are
 treated as the main template. Reads from stdin if no non-`.tpl`
 arguments are given. Generated CUE is printed to stdout.
 
-### `helm2cue version`
+```
+helm2cue version
+```
 
 Print version information.
 
