@@ -15,11 +15,17 @@
 package main
 
 import (
+	"bytes"
+	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
+
+	"gopkg.in/yaml.v3"
 )
 
 func TestConvertChart(t *testing.T) {
@@ -141,4 +147,151 @@ func TestTemplateFieldName(t *testing.T) {
 			t.Errorf("templateFieldName(%q) = %q, want %q", tt.input, got, tt.want)
 		}
 	}
+}
+
+// Command strings that must appear verbatim in README.md.
+const (
+	readmeHelmTemplate       = "helm template my-release ./examples/simple-app"
+	readmeHelmTemplateSingle = "helm template my-release ./examples/simple-app -s templates/configmap.yaml"
+	readmeChart              = "helm2cue chart ./examples/simple-app ./examples/simple-app-cue"
+	readmeCueExportSingle    = "cue export . -t release_name=my-release -e configmap --out yaml"
+	readmeCueExportAll       = "cue export . -t release_name=my-release --out text -e 'yaml.MarshalStream(results)'"
+)
+
+func TestReadmeExample(t *testing.T) {
+	// Verify command strings appear in README.md.
+	readme, err := os.ReadFile("README.md")
+	if err != nil {
+		t.Fatalf("reading README.md: %v", err)
+	}
+	for _, cmd := range []string{
+		readmeHelmTemplate,
+		readmeHelmTemplateSingle,
+		readmeChart,
+		readmeCueExportSingle,
+		readmeCueExportAll,
+	} {
+		if !strings.Contains(string(readme), cmd) {
+			t.Fatalf("README.md does not contain command %q — update README or test", cmd)
+		}
+	}
+
+	// Skip if helm is not available.
+	helmPath, err := exec.LookPath("helm")
+	if err != nil {
+		t.Skip("helm not found in PATH")
+	}
+
+	// Resolve the cue binary path.
+	cuePathOut, err := exec.Command("go", "tool", "-n", "cue").Output()
+	if err != nil {
+		t.Fatalf("go tool -n cue: %v", err)
+	}
+	cuePath := strings.TrimSpace(string(cuePathOut))
+
+	// Build helm2cue binary.
+	tmpDir := t.TempDir()
+	binPath := filepath.Join(tmpDir, "helm2cue")
+	buildCmd := exec.Command("go", "build", "-o", binPath, ".")
+	if out, err := buildCmd.CombinedOutput(); err != nil {
+		t.Fatalf("go build: %v\n%s", err, out)
+	}
+
+	// Run helm template (all resources).
+	helmCmd := exec.Command(helmPath, "template", "my-release", "./examples/simple-app")
+	helmOut, err := helmCmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("helm template: %v\n%s", err, helmOut)
+	}
+
+	// Run helm2cue chart.
+	cueOutDir := filepath.Join(tmpDir, "simple-app-cue")
+	chartCmd := exec.Command(binPath, "chart", "./examples/simple-app", cueOutDir)
+	if out, err := chartCmd.CombinedOutput(); err != nil {
+		t.Fatalf("helm2cue chart: %v\n%s", err, out)
+	}
+
+	// Run cue export (single resource).
+	exportSingleCmd := exec.Command(cuePath, "export", ".",
+		"-t", "release_name=my-release", "-e", "configmap", "--out", "yaml")
+	exportSingleCmd.Dir = cueOutDir
+	singleOut, err := exportSingleCmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("cue export (single): %v\n%s", err, singleOut)
+	}
+	if len(strings.TrimSpace(string(singleOut))) == 0 {
+		t.Fatal("cue export (single) produced empty output")
+	}
+
+	// Run cue export (all resources).
+	exportAllCmd := exec.Command(cuePath, "export", ".",
+		"-t", "release_name=my-release", "--out", "text",
+		"-e", "yaml.MarshalStream(results)")
+	exportAllCmd.Dir = cueOutDir
+	allOut, err := exportAllCmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("cue export (all): %v\n%s", err, allOut)
+	}
+
+	// Compare multi-document YAML streams.
+	if err := yamlStreamSemanticEqual(helmOut, allOut); err != nil {
+		t.Fatalf("output mismatch between helm template and cue export:\n%v", err)
+	}
+}
+
+// splitYAMLDocs decodes a multi-document YAML stream into a slice of
+// parsed values, skipping nil documents.
+func splitYAMLDocs(data []byte) ([]any, error) {
+	dec := yaml.NewDecoder(bytes.NewReader(data))
+	var docs []any
+	for {
+		var v any
+		err := dec.Decode(&v)
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return nil, err
+		}
+		if v == nil {
+			continue
+		}
+		docs = append(docs, v)
+	}
+	return docs, nil
+}
+
+// yamlStreamSemanticEqual compares two multi-document YAML streams for
+// semantic equality. Documents may appear in any order.
+func yamlStreamSemanticEqual(a, b []byte) error {
+	docsA, err := splitYAMLDocs(a)
+	if err != nil {
+		return fmt.Errorf("parsing first stream: %w", err)
+	}
+	docsB, err := splitYAMLDocs(b)
+	if err != nil {
+		return fmt.Errorf("parsing second stream: %w", err)
+	}
+	if len(docsA) != len(docsB) {
+		return fmt.Errorf("document count mismatch: %d vs %d\n--- stream a:\n%s\n--- stream b:\n%s",
+			len(docsA), len(docsB), a, b)
+	}
+	used := make([]bool, len(docsB))
+	for i, da := range docsA {
+		found := false
+		for j, db := range docsB {
+			if used[j] {
+				continue
+			}
+			if reflect.DeepEqual(da, db) {
+				used[j] = true
+				found = true
+				break
+			}
+		}
+		if !found {
+			return fmt.Errorf("document %d in first stream has no match in second stream:\n%v", i, da)
+		}
+	}
+	return nil
 }

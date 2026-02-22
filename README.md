@@ -17,12 +17,32 @@ to other `text/template` uses that target structured formats.
 Whether this also turns out to be a practical migration path from Helm to CUE
 is a secondary question.
 
-## Usage
+## Commands
+
+### `helm2cue chart <chart-dir> <output-dir>`
+
+Convert an entire Helm chart directory to a CUE module.
+
+### `helm2cue template [file ...]`
+
+Convert individual template files. Files ending in `.tpl` are treated
+as helper files containing `{{ define }}` blocks. All other files are
+treated as the main template. Reads from stdin if no non-`.tpl`
+arguments are given. Generated CUE is printed to stdout.
+
+### `helm2cue version`
+
+Print version information.
+
+## Example
+
+The `examples/simple-app` directory is a standard Helm chart. The
+steps below show how to render it with Helm, convert it to CUE, and
+export resources from the generated CUE module.
 
 ### Rendering the example chart with Helm
 
-The `examples/simple-app` directory is a standard Helm chart. You can render
-it with Helm to see what the templates produce:
+You can render it with Helm to see what the templates produce:
 
 ```bash
 helm template my-release ./examples/simple-app
@@ -34,9 +54,9 @@ Render a single template:
 helm template my-release ./examples/simple-app -s templates/configmap.yaml
 ```
 
-### Chart mode
+### Converting the chart to CUE
 
-Convert an entire Helm chart directory to a CUE module:
+Convert the chart to a CUE module:
 
 ```bash
 helm2cue chart ./examples/simple-app ./examples/simple-app-cue
@@ -59,6 +79,8 @@ simple-app-cue/
   release.yaml          # empty placeholder for @embed
 ```
 
+### Exporting from the CUE module
+
 Export a single resource:
 
 ```bash
@@ -72,25 +94,6 @@ Export all resources as a multi-document YAML stream (like `helm template`):
 cd examples/simple-app-cue
 cue export . -t release_name=my-release --out text -e 'yaml.MarshalStream(results)'
 ```
-
-### Single-template mode
-
-Convert individual template files:
-
-```
-# From a file
-helm2cue template template.yaml
-
-# From stdin
-cat template.yaml | helm2cue template
-
-# With helper templates (_helpers.tpl)
-helm2cue template _helpers.tpl template.yaml
-```
-
-Files ending in `.tpl` are treated as helper files containing `{{ define }}`
-blocks. All other file arguments are treated as the main template. The
-generated CUE is printed to stdout.
 
 ## How It Works
 
