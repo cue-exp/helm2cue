@@ -1,0 +1,15 @@
+Printf string formatting.
+
+-- input.yaml --
+fullname: {{ printf "%s-%s" .input.name .input.env }}
+-- values.yaml --
+name: hello
+env: prod
+-- output.cue --
+#input: {
+	name?: _
+	env?: _
+	...
+}
+
+fullname: "\(#input.name)-\(#input.env)"

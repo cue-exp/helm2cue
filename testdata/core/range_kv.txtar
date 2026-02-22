@@ -1,0 +1,22 @@
+Range over a map with key-value variables.
+
+-- input.yaml --
+labels:
+{{- range $k, $v := .input.labels }}
+  {{ $k }}: {{ $v }}
+{{- end }}
+-- values.yaml --
+labels:
+  app: myapp
+  env: prod
+-- output.cue --
+#input: {
+	labels?: _
+	...
+}
+
+labels: {
+	for _key0, _val0 in #input.labels {
+		(_key0): _val0
+	}
+}

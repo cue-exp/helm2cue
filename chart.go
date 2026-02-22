@@ -104,6 +104,8 @@ func ConvertChart(chartDir, outDir string) error {
 	}
 	slices.Sort(templateFiles)
 
+	cfg := HelmConfig()
+
 	// 5. Convert each template.
 	var results []templateResult
 	var warnings []string
@@ -123,7 +125,7 @@ func ConvertChart(chartDir, outDir string) error {
 		fieldName := templateFieldName(filename)
 		templateName := "chart_" + fieldName // unique per template
 
-		r, err := convertStructured(content, templateName, treeSet, helperFileNames)
+		r, err := convertStructured(cfg, content, templateName, treeSet, helperFileNames)
 		if err != nil {
 			warnings = append(warnings, fmt.Sprintf("skipping %s: %v", filename, err))
 			continue
@@ -147,7 +149,7 @@ func ConvertChart(chartDir, outDir string) error {
 	mergedFieldRefs := make(map[string][][]string)
 	mergedDefaults := make(map[string][]fieldDefault)
 	needsNonzero := false
-	needsTrunc := false
+	mergedUsedHelpers := make(map[string]HelperDef)
 	hasDynamicInclude := false
 
 	// Helper info comes from first result (all share the same treeSet).
@@ -167,8 +169,8 @@ func ConvertChart(chartDir, outDir string) error {
 		if r.needsNonzero {
 			needsNonzero = true
 		}
-		if r.needsTrunc {
-			needsTrunc = true
+		for k, v := range r.usedHelpers {
+			mergedUsedHelpers[k] = v
 		}
 		if r.hasDynamicInclude {
 			hasDynamicInclude = true
@@ -187,7 +189,7 @@ func ConvertChart(chartDir, outDir string) error {
 	}
 
 	// Write helpers.cue.
-	if err := writeHelpersCUE(outDir, pkgName, firstResult, needsNonzero, needsTrunc, hasDynamicInclude); err != nil {
+	if err := writeHelpersCUE(outDir, pkgName, firstResult, needsNonzero, mergedUsedHelpers, hasDynamicInclude); err != nil {
 		return err
 	}
 
@@ -240,7 +242,7 @@ func ConvertChart(chartDir, outDir string) error {
 }
 
 // writeHelpersCUE writes helpers.cue with helper definitions.
-func writeHelpersCUE(outDir, pkgName string, r *convertResult, needsNonzero, needsTrunc, hasDynamicInclude bool) error {
+func writeHelpersCUE(outDir, pkgName string, r *convertResult, needsNonzero bool, usedHelpers map[string]HelperDef, hasDynamicInclude bool) error {
 	var buf bytes.Buffer
 	fmt.Fprintf(&buf, "package %s\n\n", pkgName)
 
@@ -249,8 +251,10 @@ func writeHelpersCUE(outDir, pkgName string, r *convertResult, needsNonzero, nee
 	if needsNonzero {
 		helperImports["struct"] = true
 	}
-	if needsTrunc {
-		helperImports["strings"] = true
+	for _, h := range usedHelpers {
+		for _, pkg := range h.Imports {
+			helperImports[pkg] = true
+		}
 	}
 	for _, name := range r.helperOrder {
 		cueName := r.helperExprs[name]
@@ -289,8 +293,8 @@ func writeHelpersCUE(outDir, pkgName string, r *convertResult, needsNonzero, nee
 		buf.WriteString("\n")
 	}
 
-	if needsTrunc {
-		buf.WriteString(truncDef)
+	for _, h := range usedHelpers {
+		buf.WriteString(h.Def)
 		buf.WriteString("\n")
 	}
 

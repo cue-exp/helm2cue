@@ -1,0 +1,23 @@
+Range over a list.
+
+-- input.yaml --
+items:
+{{- range .input.items }}
+  - {{ . }}
+{{- end }}
+-- values.yaml --
+items:
+  - a
+  - b
+  - c
+-- output.cue --
+#input: {
+	items?: _
+	...
+}
+
+items: [
+	for _, _range0 in #input.items {
+		_range0
+	}
+]
