@@ -1,0 +1,15 @@
+package simple_app
+
+#chart: {
+	Name: "simple-app"
+	Version: "0.1.0"
+	AppVersion: "1.0.0"
+}
+#release: {
+	Name: _
+	Namespace: *"default" | string
+	Service: *"Helm" | string
+	IsUpgrade: *false | bool
+	IsInstall: *true | bool
+	Revision: *1 | int
+}

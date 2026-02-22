@@ -1,0 +1,51 @@
+package simple_app
+
+import (
+	"strings"
+	"struct"
+)
+
+_nonzero: {
+	#arg?: _
+	[if #arg != _|_ {
+		[
+			if (#arg & int) != _|_ {#arg != 0},
+			if (#arg & string) != _|_ {#arg != ""},
+			if (#arg & float) != _|_ {#arg != 0.0},
+			if (#arg & bool) != _|_ {#arg},
+			if (#arg & [...]) != _|_ {len(#arg) > 0},
+			if (#arg & {...}) != _|_ {(#arg & struct.MaxFields(0)) == _|_},
+			false,
+		][0]
+	}, false][0]
+}
+
+_trunc: {
+	#in: string
+	#n:  int
+	_r:  len(strings.Runes(#in))
+	out: string
+	if _r <= #n {out: #in}
+	if _r > #n {out: strings.SliceRunes(#in, 0, #n)}
+}
+
+_simple_app_chart: {
+	strings.TrimSuffix((_trunc & {#in: strings.Replace("\(#chart.Name)-\(#chart.Version)", "+", "_", -1), #n: 63}).out, "-")
+}
+_simple_app_fullname: {
+	strings.TrimSuffix((_trunc & {#in: "\(#release.Name)-\(#chart.Name)", #n: 63}).out, "-")
+}
+_simple_app_labels: {
+	"helm.sh/chart": _simple_app_chart
+	"app.kubernetes.io/name": _simple_app_name
+	"app.kubernetes.io/instance": #release.Name
+	"app.kubernetes.io/version": "\(#chart.AppVersion)"
+	"app.kubernetes.io/managed-by": "Helm"
+}
+_simple_app_name: {
+	strings.TrimSuffix((_trunc & {#in: #chart.Name, #n: 63}).out, "-")
+}
+_simple_app_selectorLabels: {
+	"app.kubernetes.io/name": _simple_app_name
+	"app.kubernetes.io/instance": #release.Name
+}

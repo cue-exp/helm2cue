@@ -43,8 +43,13 @@ Print version information.
 ## Example
 
 The `examples/simple-app` directory is a standard Helm chart. The
-steps below show how to render it with Helm, convert it to CUE, and
-export resources from the generated CUE module.
+generated CUE output is committed in
+[`examples/simple-app-cue`](examples/simple-app-cue/) so you can
+browse the result without running the tool. It is kept in sync via
+`go generate` (see [`gen.go`](gen.go)).
+
+The steps below show how to render the chart with Helm, convert it
+to CUE, and export resources from the generated CUE module.
 
 ### Rendering the example chart with Helm
 
