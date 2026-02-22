@@ -33,8 +33,9 @@ git push
 
 Follow the cue-lang/cue commit message conventions:
 
-- **Subject line**: `<package-path>: <lowercase description>` (no trailing period).
-  For changes spanning many packages use `all:`. For top-level files use no prefix.
+- **Subject line**: `<package-path>: <lowercase description>` (no trailing period,
+  **50 characters or fewer**). For changes spanning many packages use `all:`.
+  For top-level files use no prefix.
 - **Body**: plain text, complete sentences, wrapped at ~76 characters. Explain
   **why**, not just what.
 - **Issue references** go in the body before trailers: `Fixes #N`, `Updates #N`.
