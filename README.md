@@ -163,6 +163,22 @@ Helm built-in objects are mapped to CUE definitions:
 | `.Template` | `#template` |
 | `.Files` | `#files` |
 
+### Helper definitions
+
+The generated CUE includes utility definitions for operations that CUE's
+standard library does not yet provide as builtins:
+
+| Helper | Purpose |
+|---|---|
+| `_nonzero` | Tests whether a value is "truthy" (non-zero, non-empty, non-null), matching Go `text/template` semantics |
+| `_trunc` | Truncates a string to N runes, matching Helm's `trunc` semantics |
+| `_last` | Extracts the last element of a list |
+| `_compact` | Removes empty strings from a list |
+| `_uniq` | Removes duplicate elements from a list |
+
+These are natural candidates for CUE standard library builtins and will be
+removed once those exist.
+
 ## Conversion Mapping
 
 ### Template constructs

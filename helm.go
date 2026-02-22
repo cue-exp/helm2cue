@@ -17,7 +17,9 @@ package main
 import "fmt"
 
 // lastDef is the CUE definition for extracting the last element of a list.
-const lastDef = `_last: {
+const lastDef = `// _last extracts the last element of a list.
+// A natural candidate for a CUE standard library builtin.
+_last: {
 	#in: [_, ...]
 	_len: len(#in)
 	out:  #in[_len-1]
@@ -25,14 +27,18 @@ const lastDef = `_last: {
 `
 
 // compactDef is the CUE definition for removing empty strings from a list.
-const compactDef = `_compact: {
+const compactDef = `// _compact removes empty strings from a list.
+// A natural candidate for a CUE standard library builtin.
+_compact: {
 	#in: [...string]
 	out: [ for x in #in if x != "" {x}]
 }
 `
 
 // uniqDef is the CUE definition for removing duplicate elements from a list.
-const uniqDef = `_uniq: {
+const uniqDef = `// _uniq removes duplicate elements from a list.
+// A natural candidate for a CUE standard library builtin.
+_uniq: {
 	#in: [...]
 	out: [ for i, x in #in if !list.Contains(list.Slice(#in, 0, i), x) {x}]
 }
@@ -40,7 +46,10 @@ const uniqDef = `_uniq: {
 
 // truncDef is the CUE definition for safe string truncation matching Helm's trunc semantics.
 // Helm's trunc returns the full string if it's shorter than the limit.
-const truncDef = `_trunc: {
+const truncDef = `// _trunc truncates a string to N runes, matching Helm's
+// trunc semantics where shorter strings pass through.
+// A natural candidate for a CUE standard library builtin.
+_trunc: {
 	#in: string
 	#n:  int
 	_r:  len(strings.Runes(#in))

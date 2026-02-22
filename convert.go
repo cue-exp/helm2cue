@@ -67,7 +67,10 @@ type Config struct {
 }
 
 // nonzeroDef is the CUE definition for truthiness checks matching Helm's falsy semantics.
-const nonzeroDef = `_nonzero: {
+const nonzeroDef = `// _nonzero tests whether a value is "truthy" (non-zero,
+// non-empty, non-null), matching Go text/template semantics.
+// A natural candidate for a CUE standard library builtin.
+_nonzero: {
 	#arg?: _
 	[if #arg != _|_ {
 		[
@@ -315,13 +318,13 @@ func assembleSingleFile(cfg *Config, r *convertResult) ([]byte, error) {
 
 	// Emit _nonzero if needed.
 	if r.needsNonzero {
-		final.WriteString(nonzeroDef)
+		final.WriteString(stripCUEComments(nonzeroDef))
 		final.WriteString("\n")
 	}
 
 	// Emit used helper definitions.
 	for _, h := range r.usedHelpers {
-		final.WriteString(h.Def)
+		final.WriteString(stripCUEComments(h.Def))
 		final.WriteString("\n")
 	}
 
@@ -2566,4 +2569,18 @@ func writeIndent(w *bytes.Buffer, level int) {
 	for range level {
 		w.WriteByte('\t')
 	}
+}
+
+// stripCUEComments removes leading CUE comment lines (starting with "//")
+// from a definition string. This keeps per-template output concise while
+// chart-level helpers.cue retains the doc comments.
+func stripCUEComments(s string) string {
+	for strings.HasPrefix(s, "//") {
+		if i := strings.IndexByte(s, '\n'); i >= 0 {
+			s = s[i+1:]
+		} else {
+			return ""
+		}
+	}
+	return s
 }

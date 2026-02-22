@@ -7,6 +7,9 @@ import (
 	"struct"
 )
 
+// _nonzero tests whether a value is "truthy" (non-zero,
+// non-empty, non-null), matching Go text/template semantics.
+// A natural candidate for a CUE standard library builtin.
 _nonzero: {
 	#arg?: _
 	[if #arg != _|_ {
@@ -22,6 +25,9 @@ _nonzero: {
 	}, false][0]
 }
 
+// _trunc truncates a string to N runes, matching Helm's
+// trunc semantics where shorter strings pass through.
+// A natural candidate for a CUE standard library builtin.
 _trunc: {
 	#in: string
 	#n:  int
