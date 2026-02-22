@@ -43,11 +43,14 @@ func TestConvertChart(t *testing.T) {
 		"cue.mod/module.cue",
 		"helpers.cue",
 		"values.cue",
+		"data.cue",
 		"context.cue",
 		"deployment.cue",
 		"service.cue",
 		"configmap.cue",
+		"results.cue",
 		"values.yaml",
+		"release.yaml",
 	}
 	for _, f := range expectedFiles {
 		path := filepath.Join(outDir, f)
@@ -72,7 +75,7 @@ func TestConvertChart(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if !strings.HasPrefix(string(data), "package simple_app\n") {
+		if !strings.HasPrefix(string(data), "package simple_app\n") && !strings.Contains(string(data), "\npackage simple_app\n") {
 			t.Errorf("%s missing 'package simple_app' declaration, starts with:\n%s",
 				filepath.Base(f), string(data[:min(100, len(data))]))
 		}
@@ -85,14 +88,8 @@ func TestConvertChart(t *testing.T) {
 		t.Fatalf("cue vet failed: %v\n%s", err, out)
 	}
 
-	// Write a release name file for export (required since #release.Name is open).
-	releaseCUE := `#release: Name: "test"` + "\n"
-	if err := os.WriteFile(filepath.Join(outDir, "release_override.cue"), []byte("package simple_app\n\n"+releaseCUE), 0o644); err != nil {
-		t.Fatal(err)
-	}
-
-	// Run cue export with values.
-	exportCmd := exec.Command(cuePath, "export", ".", "-l", "#values:", "values.yaml", "--out", "yaml")
+	// Run cue export with embedded values and release name tag.
+	exportCmd := exec.Command(cuePath, "export", ".", "-t", "release_name=test", "--out", "yaml")
 	exportCmd.Dir = outDir
 	out, err := exportCmd.CombinedOutput()
 	if err != nil {
