@@ -19,6 +19,21 @@ is a secondary question.
 
 ## Usage
 
+### Rendering the example chart with Helm
+
+The `examples/simple-app` directory is a standard Helm chart. You can render
+it with Helm to see what the templates produce:
+
+```bash
+helm template my-release ./examples/simple-app
+```
+
+Render a single template:
+
+```bash
+helm template my-release ./examples/simple-app -s templates/configmap.yaml
+```
+
 ### Chart mode
 
 Convert an entire Helm chart directory to a CUE module:
@@ -37,24 +52,25 @@ simple-app-cue/
   configmap.cue         # configmap: { ... }
   helpers.cue           # _simple_app_fullname, _simple_app_labels, etc.
   values.cue            # #values: { name: *"app" | _, ... } (schema)
-  context.cue           # #release, #chart (from Chart.yaml)
+  data.cue              # @extern(embed) for values.yaml and release.yaml
+  context.cue           # #chart (from Chart.yaml)
+  results.cue           # results: [configmap, deployment, service]
   values.yaml           # copied from chart
+  release.yaml          # empty placeholder for @embed
 ```
 
 Export a single resource:
 
 ```bash
 cd examples/simple-app-cue
-cue export . -l '#values:' values.yaml -e configmap --out yaml
+cue export . -t release_name=my-release -e configmap --out yaml
 ```
 
-Some resources reference `#release.Name` which is left open. To export
-everything, provide a release name:
+Export all resources as a multi-document YAML stream (like `helm template`):
 
 ```bash
 cd examples/simple-app-cue
-printf 'package simple_app\n#release: Name: "my-release"\n' > release_name.cue
-cue export . -l '#values:' values.yaml --out yaml
+cue export . -t release_name=my-release --out text -e 'yaml.MarshalStream(results)'
 ```
 
 ### Single-template mode
@@ -99,6 +115,9 @@ In chart mode, the tool:
      template uses conditions
    - **Per-template `.cue` files** — each template body wrapped in a
      uniquely-named top-level field (e.g. `deployment: { ... }`)
+   - **`results.cue`** — a `results` list referencing all template fields,
+     for use with `yaml.MarshalStream(results)` to produce a multi-document
+     YAML stream like `helm template`
 5. Copies `values.yaml` into the output directory for use at export time.
 
 ### Template conversion
