@@ -149,6 +149,45 @@ Helm built-in objects are mapped to CUE definitions:
 | `.Template` | `#template` |
 | `.Files` | `#files` |
 
+### Core converter vs Helm layer
+
+The converter is split into two layers so that the `text/template` to CUE
+logic can be reused independently of Helm.
+
+The **core converter** (`convert.go`) handles constructs that are part of Go's
+`text/template` language: text nodes, field references, `if`/`else`, `range`,
+`with`, variables, `define`/`template`, and the built-in functions `printf` and
+`print`. It takes a `Config` that tells it how to map top-level template fields
+to CUE definitions (e.g. `.Values` → `#values`) and how to convert pipeline
+functions to CUE expressions. The core has no knowledge of Helm, Sprig, or any
+particular template system.
+
+The **Helm layer** (`helm.go`) provides `HelmConfig()`, which supplies the
+context object mappings (`.Values`, `.Release`, `.Chart`, etc.) and ~40
+Sprig/Helm pipeline function conversions (`quote`, `upper`, `trunc`, `toYaml`,
+etc.) via `Config.Funcs`.
+
+Three functions sit between these layers: **`default`**, **`required`**, and
+**`include`**. They are not `text/template` builtins — `default` and `required`
+come from Sprig, and `include` is a Helm addition — but they cannot be handled
+as simple pipeline functions because they affect the converter's structural
+output. `default` emits CUE default values (`*"v" | _`) on schema
+declarations. `required` annotates fields with validation comments. `include`
+resolves named helper templates to CUE hidden-field references. This structural
+integration means their handling logic lives in the core converter's AST walk,
+but it is gated on three `Config` fields:
+
+- `Config.BuiltinDefault` — when set (e.g. `"default"`), enables default-value
+  handling
+- `Config.BuiltinRequired` — when set (e.g. `"required"`), enables
+  required-field handling
+- `Config.BuiltinInclude` — when set (e.g. `"include"`), enables named-template
+  inclusion
+
+When these fields are empty, the corresponding logic is inactive. This lets
+the core converter be used for `text/template` systems that don't have these
+functions, while Helm (and potentially other systems) opt in by setting them.
+
 ## Conversion Mapping
 
 ### Template constructs
@@ -250,25 +289,42 @@ Helm built-in objects are mapped to CUE definitions:
 
 Tests are run against Helm v4.1.1 and CUE v0.16.0-alpha.2.
 
-### Unit tests
+### Core converter tests
 
-Test cases live in `testdata/*.txtar`. Each file uses the
+Core test cases live in `testdata/core/*.txtar` and are run by
+`TestConvertCore`. They prove the `text/template` to CUE converter works
+generically, without Helm-specific configuration. Each file uses the
 [txtar format](https://pkg.go.dev/golang.org/x/tools/txtar) with these
 sections:
 
-- `-- input.yaml --` — the Helm template input (required)
+- `-- input.yaml --` — the template input (required)
 - `-- output.cue --` — the expected CUE output (required; generated via `-update`)
 - `-- _helpers.tpl --` — helper templates containing `{{ define }}` blocks (optional)
-- `-- values.yaml --` — Helm values to use during validation (optional)
-- `-- helm_output.yaml --` — expected rendered output from `helm template` (optional)
+
+These tests use a test-specific config with a single context object
+(`"input"` mapped to `#input`), no pipeline functions, and no builtin
+overrides. Templates reference `.input.*` instead of `.Values.*` and
+are validated with Go's `text/template/parse` — not `helm template`.
+This exercises the core `text/template` features (YAML emission, field
+references, if/else, range, printf, variables) without coupling to
+Helm names or Sprig functions. Functions like `default`, `required`,
+and `include` are tested at the Helm level (see above).
+
+### Helm-specific tests
+
+Helm test cases live in `testdata/*.txtar` and are run by `TestConvert`.
+Each file uses the same txtar format with additional optional sections:
+
+- `-- values.yaml --` — Helm values to use during validation
+- `-- helm_output.yaml --` — expected rendered output from `helm template`
 
 Each test case:
 
 1. Runs `helm template` on the input to verify it is a valid Helm template.
    If `values.yaml` is present it is used as chart values. If
    `helm_output.yaml` is present, the rendered output is compared against it.
-2. Runs `Convert()` which produces CUE (including `#values: _` etc.
-   declarations) and validates it compiles.
+2. Runs `Convert()` with `HelmConfig()` which produces CUE (including
+   `#values: _` etc. declarations) and validates it compiles.
 3. Compares the CUE output against the `output.cue` golden file.
 4. If both `values.yaml` and `helm_output.yaml` are present, runs
    `cue export` on the generated CUE with values and any needed context
@@ -306,6 +362,12 @@ go test ./...
 
 # Run unit tests only (skip integration)
 go test -short ./...
+
+# Run core converter tests only (no Helm dependency)
+go test -run TestConvertCore -v
+
+# Run Helm-specific tests only
+go test -run TestConvert -v
 
 # Run integration tests only
 go test -run TestIntegration -v

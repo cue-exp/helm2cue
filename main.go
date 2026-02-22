@@ -98,7 +98,7 @@ func cmdTemplate(args []string) {
 		os.Exit(1)
 	}
 
-	output, err := Convert(input, helpers...)
+	output, err := Convert(HelmConfig(), input, helpers...)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "helm2cue: %v\n", err)
 		os.Exit(1)

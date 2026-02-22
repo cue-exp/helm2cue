@@ -1,0 +1,13 @@
+Field reference using core context object.
+
+-- input.yaml --
+name: {{ .input.name }}
+-- values.yaml --
+name: hello
+-- output.cue --
+#input: {
+	name?: _
+	...
+}
+
+name: #input.name

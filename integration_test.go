@@ -94,7 +94,7 @@ func testChart(t *testing.T, helmPath, chartDir string) {
 				t.Fatalf("reading template: %v", err)
 			}
 
-			cueSrc, err := Convert(content, helpers...)
+			cueSrc, err := Convert(HelmConfig(), content, helpers...)
 			if err != nil {
 				t.Skipf("Convert: %v", err)
 			}
