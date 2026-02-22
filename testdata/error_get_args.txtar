@@ -1,0 +1,6 @@
+get with wrong number of arguments: should error.
+
+-- input.yaml --
+data: {{ get .Values.labels }}
+-- error --
+get requires 2 arguments

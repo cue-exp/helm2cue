@@ -1,0 +1,6 @@
+max with fewer than 2 arguments: should error.
+
+-- input.yaml --
+data: {{ max .Values.a }}
+-- error --
+max requires at least 2 arguments

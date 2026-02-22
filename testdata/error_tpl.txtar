@@ -1,0 +1,7 @@
+tpl function: should error because dynamic template rendering
+has no static CUE equivalent.
+
+-- input.yaml --
+data: {{ .Values.template | tpl . }}
+-- error --
+"tpl" has no CUE equivalent and cannot be converted

@@ -1,0 +1,7 @@
+lookup function: should error because runtime Kubernetes API lookups
+have no static CUE equivalent.
+
+-- input.yaml --
+data: {{ .Values.name | lookup "v1" "ConfigMap" "default" "mymap" }}
+-- error --
+"lookup" has no CUE equivalent and cannot be converted

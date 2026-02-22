@@ -1,0 +1,6 @@
+dict with odd number of arguments: should error.
+
+-- input.yaml --
+data: {{ dict "key1" "val1" "key2" }}
+-- error --
+dict requires an even number of arguments

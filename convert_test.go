@@ -149,9 +149,9 @@ func TestConvert(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			var input, expectedOutput, valuesYAML, expectedHelmOutput []byte
+			var input, expectedOutput, valuesYAML, expectedHelmOutput, expectedError []byte
 			var helpers [][]byte
-			var hasOutput, hasHelmOutput bool
+			var hasOutput, hasHelmOutput, hasError bool
 			for _, f := range ar.Files {
 				switch f.Name {
 				case "input.yaml":
@@ -166,11 +166,28 @@ func TestConvert(t *testing.T) {
 					hasHelmOutput = true
 				case "_helpers.tpl":
 					helpers = append(helpers, f.Data)
+				case "error":
+					expectedError = f.Data
+					hasError = true
 				}
 			}
 
 			if input == nil {
 				t.Fatal("missing input.yaml section")
+			}
+
+			// If an error section is present, verify Convert returns
+			// an error containing the expected substring.
+			if hasError {
+				_, err := Convert(HelmConfig(), input, helpers...)
+				if err == nil {
+					t.Fatal("expected Convert() to fail, but it succeeded")
+				}
+				wantErr := strings.TrimSpace(string(expectedError))
+				if !strings.Contains(err.Error(), wantErr) {
+					t.Errorf("error mismatch:\n  want substring: %s\n  got: %s", wantErr, err)
+				}
+				return
 			}
 
 			// Validate that the input is a valid Helm template and
@@ -453,9 +470,9 @@ func TestConvertCore(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			var input, expectedOutput, valuesYAML []byte
+			var input, expectedOutput, valuesYAML, expectedError []byte
 			var helpers [][]byte
-			var hasOutput bool
+			var hasOutput, hasError bool
 			for _, f := range ar.Files {
 				switch f.Name {
 				case "input.yaml":
@@ -467,6 +484,9 @@ func TestConvertCore(t *testing.T) {
 					helpers = append(helpers, f.Data)
 				case "values.yaml":
 					valuesYAML = f.Data
+				case "error":
+					expectedError = f.Data
+					hasError = true
 				}
 			}
 
@@ -483,6 +503,20 @@ func TestConvertCore(t *testing.T) {
 			tmpl.Mode = parse.ParseComments
 			if _, err := tmpl.Parse(string(input), "{{", "}}", make(map[string]*parse.Tree), coreParseFuncs); err != nil {
 				t.Fatalf("template parse failed: %v", err)
+			}
+
+			// If an error section is present, verify Convert returns
+			// an error containing the expected substring.
+			if hasError {
+				_, err := Convert(cfg, input, helpers...)
+				if err == nil {
+					t.Fatal("expected Convert() to fail, but it succeeded")
+				}
+				wantErr := strings.TrimSpace(string(expectedError))
+				if !strings.Contains(err.Error(), wantErr) {
+					t.Errorf("error mismatch:\n  want substring: %s\n  got: %s", wantErr, err)
+				}
+				return
 			}
 
 			got, err := Convert(cfg, input, helpers...)

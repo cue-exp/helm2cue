@@ -1,0 +1,6 @@
+mergeOverwrite function: should error because CUE uses unification, not mutable merging.
+
+-- input.yaml --
+data: {{ mergeOverwrite .Values.a .Values.b }}
+-- error --
+"mergeOverwrite" has no CUE equivalent: CUE uses unification instead of mutable map merging

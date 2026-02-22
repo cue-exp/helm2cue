@@ -1,0 +1,6 @@
+min with fewer than 2 arguments: should error.
+
+-- input.yaml --
+data: {{ min .Values.a }}
+-- error --
+min requires at least 2 arguments

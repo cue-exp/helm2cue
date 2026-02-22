@@ -1,0 +1,6 @@
+set function: should error because CUE values are immutable.
+
+-- input.yaml --
+data: {{ .Values.labels | set "newkey" "newval" }}
+-- error --
+"set" has no CUE equivalent and cannot be converted

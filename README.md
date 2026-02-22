@@ -280,6 +280,7 @@ sections:
 - `-- input.yaml --` — the template input (required)
 - `-- output.cue --` — the expected CUE output (required; generated via `-update`)
 - `-- _helpers.tpl --` — helper templates containing `{{ define }}` blocks (optional)
+- `-- error --` — expected error substring (negative test; mutually exclusive with `output.cue`)
 
 These tests use a test-specific config with a single context object
 (`"input"` mapped to `#input`) and no pipeline functions. Templates
@@ -296,6 +297,7 @@ Each file uses the same txtar format with additional optional sections:
 
 - `-- values.yaml --` — Helm values to use during validation
 - `-- helm_output.yaml --` — expected rendered output from `helm template`
+- `-- error --` — expected error substring (negative test; see below)
 
 Each test case:
 
@@ -310,6 +312,15 @@ Each test case:
    objects (`#release`, `#chart`, etc.) and semantically compares the result
    with the helm template output. This verifies that the CUE, when given the
    same values, produces the same data as Helm.
+
+#### Error tests
+
+If `-- error --` is present instead of `-- output.cue --`, the test
+expects `Convert()` to fail and checks that the error message contains
+the given substring. This is used to verify that unsupported functions
+(`merge`, `set`, `lookup`, `tpl`) and invalid argument counts produce
+clear error messages. Error tests are named `error_*.txtar` by
+convention.
 
 ### Integration tests
 
