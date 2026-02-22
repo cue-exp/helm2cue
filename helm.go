@@ -16,6 +16,28 @@ package main
 
 import "fmt"
 
+// lastDef is the CUE definition for extracting the last element of a list.
+const lastDef = `_last: {
+	#in: [_, ...]
+	_len: len(#in)
+	out:  #in[_len-1]
+}
+`
+
+// compactDef is the CUE definition for removing empty strings from a list.
+const compactDef = `_compact: {
+	#in: [...string]
+	out: [ for x in #in if x != "" {x}]
+}
+`
+
+// uniqDef is the CUE definition for removing duplicate elements from a list.
+const uniqDef = `_uniq: {
+	#in: [...]
+	out: [ for i, x in #in if !list.Contains(list.Slice(#in, 0, i), x) {x}]
+}
+`
+
 // truncDef is the CUE definition for safe string truncation matching Helm's trunc semantics.
 // Helm's trunc returns the full string if it's shorter than the limit.
 const truncDef = `_trunc: {
@@ -297,6 +319,50 @@ func HelmConfig() *Config {
 				Imports: []string{"crypto/sha256", "encoding/hex"},
 				Convert: func(expr string, _ []string) string {
 					return fmt.Sprintf("hex.Encode(sha256.Sum256(%s))", expr)
+				},
+			},
+			"last": {
+				Helpers: []HelperDef{{
+					Name: "_last",
+					Def:  lastDef,
+				}},
+				Convert: func(expr string, _ []string) string {
+					return fmt.Sprintf("(_last & {#in: %s}).out", expr)
+				},
+			},
+			"compact": {
+				Helpers: []HelperDef{{
+					Name: "_compact",
+					Def:  compactDef,
+				}},
+				Convert: func(expr string, _ []string) string {
+					return fmt.Sprintf("(_compact & {#in: %s}).out", expr)
+				},
+			},
+			"uniq": {
+				Imports: []string{"list"},
+				Helpers: []HelperDef{{
+					Name:    "_uniq",
+					Def:     uniqDef,
+					Imports: []string{"list"},
+				}},
+				Convert: func(expr string, _ []string) string {
+					return fmt.Sprintf("(_uniq & {#in: %s}).out", expr)
+				},
+			},
+			"keys": {
+				Convert: func(expr string, _ []string) string {
+					return fmt.Sprintf("[ for k, _ in %s {k}]", expr)
+				},
+			},
+			"values": {
+				Convert: func(expr string, _ []string) string {
+					return fmt.Sprintf("[ for _, v in %s {v}]", expr)
+				},
+			},
+			"set": {
+				Convert: func(_ string, _ []string) string {
+					return "" // sentinel: handled specially as unsupported
 				},
 			},
 			"lookup": {

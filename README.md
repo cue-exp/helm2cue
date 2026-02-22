@@ -238,6 +238,20 @@ Helm built-in objects are mapped to CUE definitions:
 | `ext` | `path.Ext(expr, path.Unix)` | `path` |
 | `sha256sum` | `hex.Encode(sha256.Sum256(expr))` | `crypto/sha256`, `encoding/hex` |
 | `ternary` | `[if cond {trueVal}, falseVal][0]` | — |
+| `list` | `[arg1, arg2, ...]` (list literal) | — |
+| `last` | `(_last & {#in: expr}).out` | — |
+| `uniq` | `(_uniq & {#in: expr}).out` | `list` |
+| `compact` | `(_compact & {#in: expr}).out` | — |
+| `dict` | `{key: val, ...}` (struct literal) | — |
+| `get` | `map.key` or `map[key]` | — |
+| `hasKey` | `(_nonzero & {#arg: map.key, _})` | — |
+| `keys` | `[ for k, _ in expr {k}]` | — |
+| `values` | `[ for _, v in expr {v}]` | — |
+| `coalesce` | `[if nz(a) {a}, ..., last][0]` | — |
+| `max` | `list.Max([a, b])` | `list` |
+| `min` | `list.Min([a, b])` | `list` |
+| `set` | Not supported (descriptive error) | — |
+| `merge`, `mergeOverwrite` | Not supported (descriptive error) | — |
 
 ## Not Yet Implemented
 
@@ -248,11 +262,6 @@ Helm built-in objects are mapped to CUE definitions:
 
 ### Sprig functions
 
-- **List**: `list`, `last`, `uniq`, `compact`
-- **Map**: `dict`, `get`, `set`, `hasKey`, `keys`, `values`, `merge`,
-  `mergeOverwrite`
-- **Math**: `max`, `min` (CUE `list.Max`/`list.Min` work on lists, not scalars)
-- **Flow control**: `coalesce`
 - **Crypto**: `derivePassword`, `genCA` (runtime crypto operations)
 - **Date**: `now`, `date`, `dateModify` (runtime date operations)
 

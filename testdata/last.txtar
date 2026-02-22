@@ -1,0 +1,41 @@
+last function: return the last element of a list.
+
+-- values.yaml --
+items:
+  - first
+  - middle
+  - end
+-- input.yaml --
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test
+data:
+  tail: {{ .Values.items | last }}
+-- helm_output.yaml --
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test
+data:
+  tail: end
+-- output.cue --
+_last: {
+	#in: [_, ...]
+	_len: len(#in)
+	out:  #in[_len-1]
+}
+
+#values: {
+	items?: _
+	...
+}
+
+apiVersion: "v1"
+kind: "ConfigMap"
+metadata: {
+	name: "test"
+}
+data: {
+	tail: (_last & {#in: #values.items}).out
+}

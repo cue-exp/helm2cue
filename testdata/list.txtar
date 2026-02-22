@@ -1,0 +1,29 @@
+list function: construct a list from arguments.
+
+-- values.yaml --
+x: hello
+-- input.yaml --
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test
+data:
+  items: {{ list "a" "b" "c" }}
+  mixed: {{ list .Values.x "literal" }}
+  empty: {{ list }}
+-- output.cue --
+#values: {
+	x?: _
+	...
+}
+
+apiVersion: "v1"
+kind: "ConfigMap"
+metadata: {
+	name: "test"
+}
+data: {
+	items: ["a", "b", "c"]
+	mixed: [#values.x, "literal"]
+	empty: []
+}

@@ -1,0 +1,37 @@
+compact function: remove empty strings from a list.
+No semantic comparison: Helm renders Go slice format [a b] while CUE
+produces a proper list.
+
+-- values.yaml --
+items:
+  - alpha
+  - ""
+  - beta
+  - ""
+  - gamma
+-- input.yaml --
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test
+data:
+  filtered: {{ .Values.items | compact }}
+-- output.cue --
+_compact: {
+	#in: [...string]
+	out: [ for x in #in if x != "" {x}]
+}
+
+#values: {
+	items?: _
+	...
+}
+
+apiVersion: "v1"
+kind: "ConfigMap"
+metadata: {
+	name: "test"
+}
+data: {
+	filtered: (_compact & {#in: #values.items}).out
+}

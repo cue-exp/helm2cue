@@ -1,0 +1,31 @@
+keys and values functions: extract map keys or values.
+No semantic comparison: Helm renders Go slice format [k1 k2] while CUE
+produces a proper list.
+
+-- values.yaml --
+labels:
+  app: myapp
+  tier: frontend
+-- input.yaml --
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test
+data:
+  allkeys: {{ .Values.labels | keys }}
+  allvals: {{ .Values.labels | values }}
+-- output.cue --
+#values: {
+	labels?: _
+	...
+}
+
+apiVersion: "v1"
+kind: "ConfigMap"
+metadata: {
+	name: "test"
+}
+data: {
+	allkeys: [ for k, _ in #values.labels {k}]
+	allvals: [ for _, v in #values.labels {v}]
+}

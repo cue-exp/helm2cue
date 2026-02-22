@@ -1773,6 +1773,32 @@ func (c *converter) conditionPipeToExpr(pipe *parse.PipeNode) (string, error) {
 				return "", err
 			}
 			return "!(" + inner + ")", nil
+		case "hasKey":
+			if len(args) != 2 {
+				return "", fmt.Errorf("hasKey requires 2 arguments, got %d", len(args))
+			}
+			mapExpr, err := c.conditionNodeToRawExpr(args[0])
+			if err != nil {
+				return "", fmt.Errorf("hasKey map argument: %w", err)
+			}
+			keyNode, ok := args[1].(*parse.StringNode)
+			if !ok {
+				return "", fmt.Errorf("hasKey key must be a string literal")
+			}
+			return fmt.Sprintf("(_nonzero & {#arg: %s.%s, _})", mapExpr, cueKey(keyNode.Text)), nil
+		case "coalesce":
+			if len(args) < 1 {
+				return "", fmt.Errorf("coalesce requires at least 1 argument")
+			}
+			parts := make([]string, len(args))
+			for i, arg := range args {
+				expr, err := c.conditionNodeToExpr(arg)
+				if err != nil {
+					return "", err
+				}
+				parts[i] = expr
+			}
+			return strings.Join(parts, " || "), nil
 		case "include":
 			if len(args) < 1 {
 				return "", fmt.Errorf("include requires at least 1 argument")
@@ -1851,6 +1877,13 @@ func (c *converter) actionToCUE(n *parse.ActionNode) (expr string, helmObj strin
 				expr = c.rangeVarStack[len(c.rangeVarStack)-1]
 			} else {
 				return "", "", fmt.Errorf("{{ . }} outside range/with not supported")
+			}
+		} else if id, ok := first.Args[0].(*parse.IdentifierNode); ok {
+			switch id.Ident {
+			case "list":
+				expr = "[]"
+			case "dict":
+				expr = "{}"
 			}
 		}
 	case len(first.Args) >= 2:
@@ -1977,6 +2010,126 @@ func (c *converter) actionToCUE(n *parse.ActionNode) (expr string, helmObj strin
 			if falseObj != "" {
 				helmObj = falseObj
 			}
+		case "list":
+			var elems []string
+			for _, arg := range first.Args[1:] {
+				e, obj, err := c.nodeToExpr(arg)
+				if err != nil {
+					return "", "", fmt.Errorf("list argument: %w", err)
+				}
+				if obj != "" {
+					helmObj = obj
+				}
+				elems = append(elems, e)
+			}
+			expr = "[" + strings.Join(elems, ", ") + "]"
+		case "dict":
+			args := first.Args[1:]
+			if len(args)%2 != 0 {
+				return "", "", fmt.Errorf("dict requires an even number of arguments, got %d", len(args))
+			}
+			var parts []string
+			for i := 0; i < len(args); i += 2 {
+				keyNode, ok := args[i].(*parse.StringNode)
+				if !ok {
+					return "", "", fmt.Errorf("dict key must be a string literal")
+				}
+				valExpr, valObj, err := c.nodeToExpr(args[i+1])
+				if err != nil {
+					return "", "", fmt.Errorf("dict value: %w", err)
+				}
+				if valObj != "" {
+					helmObj = valObj
+				}
+				parts = append(parts, cueKey(keyNode.Text)+": "+valExpr)
+			}
+			expr = "{" + strings.Join(parts, ", ") + "}"
+		case "get":
+			if len(first.Args) != 3 {
+				return "", "", fmt.Errorf("get requires 2 arguments, got %d", len(first.Args)-1)
+			}
+			mapExpr, mapObj, err := c.nodeToExpr(first.Args[1])
+			if err != nil {
+				return "", "", fmt.Errorf("get map argument: %w", err)
+			}
+			if mapObj != "" {
+				helmObj = mapObj
+			}
+			if keyNode, ok := first.Args[2].(*parse.StringNode); ok {
+				if identRe.MatchString(keyNode.Text) {
+					expr = mapExpr + "." + keyNode.Text
+				} else {
+					expr = mapExpr + "[" + strconv.Quote(keyNode.Text) + "]"
+				}
+			} else {
+				keyExpr, _, err := c.nodeToExpr(first.Args[2])
+				if err != nil {
+					return "", "", fmt.Errorf("get key argument: %w", err)
+				}
+				expr = mapExpr + "[" + keyExpr + "]"
+			}
+		case "coalesce":
+			if len(first.Args) < 2 {
+				return "", "", fmt.Errorf("coalesce requires at least 1 argument")
+			}
+			c.hasConditions = true
+			args := first.Args[1:]
+			var elems []string
+			for i, arg := range args {
+				e, obj, err := c.nodeToExpr(arg)
+				if err != nil {
+					return "", "", fmt.Errorf("coalesce argument: %w", err)
+				}
+				if obj != "" {
+					helmObj = obj
+				}
+				if i < len(args)-1 {
+					condExpr, err := c.conditionNodeToExpr(arg)
+					if err != nil {
+						return "", "", fmt.Errorf("coalesce condition: %w", err)
+					}
+					elems = append(elems, fmt.Sprintf("if %s {%s}", condExpr, e))
+				} else {
+					elems = append(elems, e)
+				}
+			}
+			expr = "[" + strings.Join(elems, ", ") + "][0]"
+		case "max":
+			if len(first.Args) < 3 {
+				return "", "", fmt.Errorf("max requires at least 2 arguments, got %d", len(first.Args)-1)
+			}
+			var elems []string
+			for _, arg := range first.Args[1:] {
+				e, obj, err := c.nodeToExpr(arg)
+				if err != nil {
+					return "", "", fmt.Errorf("max argument: %w", err)
+				}
+				if obj != "" {
+					helmObj = obj
+				}
+				elems = append(elems, e)
+			}
+			c.addImport("list")
+			expr = "list.Max([" + strings.Join(elems, ", ") + "])"
+		case "min":
+			if len(first.Args) < 3 {
+				return "", "", fmt.Errorf("min requires at least 2 arguments, got %d", len(first.Args)-1)
+			}
+			var elems []string
+			for _, arg := range first.Args[1:] {
+				e, obj, err := c.nodeToExpr(arg)
+				if err != nil {
+					return "", "", fmt.Errorf("min argument: %w", err)
+				}
+				if obj != "" {
+					helmObj = obj
+				}
+				elems = append(elems, e)
+			}
+			c.addImport("list")
+			expr = "list.Min([" + strings.Join(elems, ", ") + "])"
+		case "merge", "mergeOverwrite":
+			return "", "", fmt.Errorf("function %q has no CUE equivalent: CUE uses unification instead of mutable map merging", id.Ident)
 		default:
 			if pf, ok := c.config.Funcs[id.Ident]; ok && pf.Passthrough {
 				if len(first.Args) != 2 {
@@ -2214,6 +2367,16 @@ func (c *converter) nodeToExpr(node parse.Node) (string, string, error) {
 		return strconv.Quote(n.Text), "", nil
 	case *parse.NumberNode:
 		return n.Text, "", nil
+	case *parse.BoolNode:
+		if n.True {
+			return "true", "", nil
+		}
+		return "false", "", nil
+	case *parse.DotNode:
+		if len(c.rangeVarStack) > 0 {
+			return c.rangeVarStack[len(c.rangeVarStack)-1], "", nil
+		}
+		return "", "", fmt.Errorf("{{ . }} outside range/with not supported")
 	case *parse.PipeNode:
 		if len(n.Cmds) == 1 && len(n.Cmds[0].Args) >= 2 {
 			if id, ok := n.Cmds[0].Args[0].(*parse.IdentifierNode); ok && id.Ident == "include" {
