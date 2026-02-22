@@ -1,0 +1,7 @@
+TryBot-Result+1: CUEcueckoo <cueckoo@cuelang.org>
+Code-Review+2: Chief Cueckoo <chief.cueckoo@gmail.com>
+Submitted-by: Paul Jolly <paul@myitcv.io>
+Submitted-at: Sun, 22 Feb 2026 19:52:08 +0000
+Reviewed-on: https://cue.gerrithub.io/c/cue-exp/helm2cue/+/1231882
+Project: cue-exp/helm2cue
+Branch: refs/heads/main
