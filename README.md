@@ -189,6 +189,8 @@ Helm built-in objects are mapped to CUE definitions:
 | `{{ include (print ...) . }}` | Dynamic lookup: `_helpers[nameExpr]` | Done |
 | `{{ if include "name" . }}` | Condition with `_nonzero` wrapping include result | Done |
 | `{{ template "name" . }}` | Reference to hidden field: `_name` | Done |
+| `{{ with .Values.x }}...{{ end }}` | CUE `if` guard with dot rebinding | Done |
+| `{{ with .Values.x }}...{{ else }}...{{ end }}` | Two `if` guards; `with` branch rebinds dot, `else` does not | Done |
 | `{{ lookup ... }}` | Not supported (descriptive error) | Error |
 | `{{ tpl ... }}` | Not supported (descriptive error) | Error |
 
@@ -241,7 +243,6 @@ Helm built-in objects are mapped to CUE definitions:
 
 ### Template constructs
 
-- **`with` blocks** — `{{ with .Values.x }}...{{ end }}` scoped context blocks
 - **`lookup`** — runtime Kubernetes API lookups have no static CUE equivalent
 - **`tpl`** — dynamic template rendering has no static CUE equivalent
 

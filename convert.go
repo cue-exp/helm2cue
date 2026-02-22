@@ -1105,6 +1105,8 @@ func (c *converter) processNode(node parse.Node) error {
 		return c.processIf(n)
 	case *parse.RangeNode:
 		return c.processRange(n)
+	case *parse.WithNode:
+		return c.processWith(n)
 	case *parse.TemplateNode:
 		expr, helmObj, err := c.handleInclude(n.Name, n.Pipe)
 		if err != nil {
@@ -1279,6 +1281,174 @@ func (c *converter) processIf(n *parse.IfNode) error {
 	}
 
 	return nil
+}
+
+func (c *converter) processWith(n *parse.WithNode) error {
+	c.hasConditions = true
+	c.flushPendingAction()
+
+	condition, negCondition, err := c.pipeToCUECondition(n.Pipe)
+	if err != nil {
+		return fmt.Errorf("with condition: %w", err)
+	}
+
+	// Extract raw CUE expression for dot rebinding.
+	rawExpr, err := c.withPipeToRawExpr(n.Pipe)
+	if err != nil {
+		return err
+	}
+
+	// Bind declared variable if present (e.g., {{ with $v := .expr }}).
+	if len(n.Pipe.Decl) > 0 {
+		c.localVars[n.Pipe.Decl[0].Ident[0]] = rawExpr
+	}
+
+	isList := isListBody(n.List.Nodes)
+	bodyIndent := peekBodyIndent(n.List.Nodes)
+
+	// Flush any deferred key-value before determining context.
+	if c.deferredKV != nil {
+		if bodyIndent >= 0 && bodyIndent > c.deferredKV.indent {
+			c.resolveDeferredAsBlock(bodyIndent)
+		} else {
+			c.flushDeferred()
+		}
+	}
+
+	// If we have a pending key, resolve it based on the body content.
+	if c.state == statePendingKey {
+		if c.pendingKey == "" {
+			c.state = stateNormal
+		} else if isList {
+			c.openPendingAsList(bodyIndent)
+		} else {
+			childIndent := bodyIndent
+			if childIndent < 0 {
+				childIndent = c.pendingKeyInd + 2
+			}
+			c.openPendingAsMapping(childIndent)
+		}
+	}
+
+	// Close outer blocks based on body indent.
+	if bodyIndent >= 0 {
+		c.closeBlocksTo(bodyIndent)
+	}
+
+	cueInd := c.currentCUEIndent()
+	inList := len(c.stack) > 0 && c.stack[len(c.stack)-1].isList
+
+	// Push raw expression for dot rebinding.
+	c.rangeVarStack = append(c.rangeVarStack, rawExpr)
+
+	// Emit the if guard.
+	writeIndent(&c.out, cueInd)
+	fmt.Fprintf(&c.out, "if %s {\n", condition)
+
+	// Process body.
+	savedStackLen := len(c.stack)
+	savedState := c.state
+	c.state = stateNormal
+
+	bodyCtxIndent := bodyIndent - 1
+	if bodyCtxIndent < -1 {
+		bodyCtxIndent = -1
+	}
+	c.stack = append(c.stack, frame{
+		yamlIndent: bodyCtxIndent,
+		cueIndent:  cueInd + 1,
+		isList:     inList && isList,
+	})
+
+	if err := c.processBodyNodes(n.List.Nodes); err != nil {
+		return err
+	}
+	c.flushPendingAction()
+	c.flushDeferred()
+
+	// Close all frames opened inside the body.
+	for len(c.stack) > savedStackLen+1 {
+		c.closeOneFrame()
+	}
+	if len(c.stack) > savedStackLen {
+		c.stack = c.stack[:savedStackLen]
+	}
+	c.state = savedState
+
+	writeIndent(&c.out, cueInd)
+	c.out.WriteString("}\n")
+
+	// Pop from rangeVarStack (no dot rebinding in else).
+	c.rangeVarStack = c.rangeVarStack[:len(c.rangeVarStack)-1]
+
+	// Handle else branch.
+	if n.ElseList != nil && len(n.ElseList.Nodes) > 0 {
+		writeIndent(&c.out, cueInd)
+		fmt.Fprintf(&c.out, "if %s {\n", negCondition)
+
+		elseIsList := isListBody(n.ElseList.Nodes)
+		elseBodyIndent := peekBodyIndent(n.ElseList.Nodes)
+		elseCtxIndent := elseBodyIndent - 1
+		if elseCtxIndent < -1 {
+			elseCtxIndent = -1
+		}
+
+		c.stack = append(c.stack, frame{
+			yamlIndent: elseCtxIndent,
+			cueIndent:  cueInd + 1,
+			isList:     inList && elseIsList,
+		})
+
+		if err := c.processBodyNodes(n.ElseList.Nodes); err != nil {
+			return err
+		}
+		c.flushPendingAction()
+		c.flushDeferred()
+
+		for len(c.stack) > savedStackLen+1 {
+			c.closeOneFrame()
+		}
+		if len(c.stack) > savedStackLen {
+			c.stack = c.stack[:savedStackLen]
+		}
+
+		writeIndent(&c.out, cueInd)
+		c.out.WriteString("}\n")
+	}
+
+	// Clean up declared variable.
+	if len(n.Pipe.Decl) > 0 {
+		delete(c.localVars, n.Pipe.Decl[0].Ident[0])
+	}
+
+	return nil
+}
+
+// withPipeToRawExpr extracts the raw CUE expression from a with pipe
+// for use in dot rebinding. The tracking of field references and context
+// objects is already handled by pipeToCUECondition.
+func (c *converter) withPipeToRawExpr(pipe *parse.PipeNode) (string, error) {
+	if len(pipe.Cmds) != 1 || len(pipe.Cmds[0].Args) != 1 {
+		return "", fmt.Errorf("with: unsupported pipe shape: %s", pipe)
+	}
+	switch a := pipe.Cmds[0].Args[0].(type) {
+	case *parse.FieldNode:
+		expr, _ := c.fieldToCUEInContext(a.Ident)
+		return expr, nil
+	case *parse.VariableNode:
+		if len(a.Ident) >= 2 && a.Ident[0] == "$" {
+			expr, _ := fieldToCUE(c.config.ContextObjects, a.Ident[1:])
+			return expr, nil
+		}
+		if len(a.Ident) == 1 && a.Ident[0] != "$" {
+			if localExpr, ok := c.localVars[a.Ident[0]]; ok {
+				return localExpr, nil
+			}
+		}
+		return "", fmt.Errorf("with: unsupported variable: %s", a)
+	default:
+		return "", fmt.Errorf("with: unsupported expression for dot rebinding: %s", pipe)
+	}
 }
 
 func (c *converter) processBodyNodes(nodes []parse.Node) error {
@@ -1680,7 +1850,7 @@ func (c *converter) actionToCUE(n *parse.ActionNode) (expr string, helmObj strin
 			if len(c.rangeVarStack) > 0 {
 				expr = c.rangeVarStack[len(c.rangeVarStack)-1]
 			} else {
-				return "", "", fmt.Errorf("{{ . }} outside range not supported")
+				return "", "", fmt.Errorf("{{ . }} outside range/with not supported")
 			}
 		}
 	case len(first.Args) >= 2:
