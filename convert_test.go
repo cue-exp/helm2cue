@@ -52,6 +52,10 @@ var coreParseFuncs = map[string]any{
 	// Converter built-in functions (not in text/template, but handled
 	// natively by the converter without Config.Funcs entries).
 	"default": (func())(nil), "include": (func())(nil), "required": (func())(nil),
+	"list": (func())(nil), "dict": (func())(nil), "get": (func())(nil),
+	"hasKey": (func())(nil), "coalesce": (func())(nil),
+	"max": (func())(nil), "min": (func())(nil),
+	"merge": (func())(nil), "mergeOverwrite": (func())(nil),
 }
 
 // coreExecFuncs provides real implementations of converter built-in functions
@@ -82,6 +86,45 @@ var coreExecFuncs = template.FuncMap{
 			return nil, fmt.Errorf("%s", msg)
 		}
 		return val, nil
+	},
+	"list": func(args ...any) []any {
+		return args
+	},
+	"dict": func(args ...any) map[string]any {
+		m := make(map[string]any)
+		for i := 0; i+1 < len(args); i += 2 {
+			if k, ok := args[i].(string); ok {
+				m[k] = args[i+1]
+			}
+		}
+		return m
+	},
+	"get": func(m map[string]any, key string) any {
+		return m[key]
+	},
+	"hasKey": func(m map[string]any, key string) bool {
+		_, ok := m[key]
+		return ok
+	},
+	"coalesce": func(args ...any) any {
+		for _, a := range args {
+			if a != nil {
+				v := reflect.ValueOf(a)
+				switch v.Kind() {
+				case reflect.String:
+					if v.String() != "" {
+						return a
+					}
+				case reflect.Slice, reflect.Map:
+					if v.Len() > 0 {
+						return a
+					}
+				default:
+					return a
+				}
+			}
+		}
+		return nil
 	},
 }
 

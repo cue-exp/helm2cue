@@ -1,0 +1,25 @@
+dict function: construct a struct from key-value pairs.
+
+-- values.yaml --
+x: myapp
+-- input.yaml --
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test
+data:
+  config: {{ dict "name" .Values.x "port" 8080 }}
+-- output.cue --
+#values: {
+	x?: _
+	...
+}
+
+apiVersion: "v1"
+kind: "ConfigMap"
+metadata: {
+	name: "test"
+}
+data: {
+	config: {name: #values.x, port: 8080}
+}

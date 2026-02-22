@@ -1,0 +1,39 @@
+max and min functions: compute maximum and minimum.
+
+-- values.yaml --
+a: 10
+b: 20
+-- input.yaml --
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test
+data:
+  biggest: {{ max .Values.a .Values.b }}
+  smallest: {{ min .Values.a .Values.b }}
+-- helm_output.yaml --
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test
+data:
+  biggest: 20
+  smallest: 10
+-- output.cue --
+import "list"
+
+#values: {
+	a?: _
+	b?: _
+	...
+}
+
+apiVersion: "v1"
+kind: "ConfigMap"
+metadata: {
+	name: "test"
+}
+data: {
+	biggest: list.Max([#values.a, #values.b])
+	smallest: list.Min([#values.a, #values.b])
+}
