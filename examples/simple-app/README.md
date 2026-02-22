@@ -10,3 +10,23 @@ following template features:
 - `default`, `quote`, `printf`
 - `trunc`, `trimSuffix`, `replace` (in helpers)
 - Nested `include` (labels helper includes chart and name helpers)
+
+## Rendering with Helm
+
+Render all templates:
+
+```bash
+helm template my-release ./examples/simple-app
+```
+
+Render a single template:
+
+```bash
+helm template my-release ./examples/simple-app -s templates/configmap.yaml
+```
+
+Override a value:
+
+```bash
+helm template my-release ./examples/simple-app --set debug=true
+```
