@@ -61,9 +61,36 @@ type Config struct {
 	ContextObjects map[string]string
 
 	// Funcs maps template function names to pipeline handlers.
-	// Built-in functions (default, include, required, printf, print,
-	// ternary) are handled by the core and should not be in this map.
+	// Core-handled functions should not be in this map. These include
+	// Go text/template builtins (printf, print) and Sprig/Helm
+	// functions with special semantics (default, include, required,
+	// ternary, list, dict, get, hasKey, coalesce, max, min, empty,
+	// merge). Use CoreFuncs to control which of these are enabled.
 	Funcs map[string]PipelineFunc
+
+	// CoreFuncs controls which core-handled functions are enabled.
+	// If nil, all core-handled functions are available (backward
+	// compatible for existing callers). If non-nil, only functions
+	// present in the set are allowed; others produce an
+	// "unsupported pipeline function" error.
+	CoreFuncs map[string]bool
+}
+
+// TemplateConfig returns a Config for converting pure Go text/template
+// files (no Helm or Sprig functions). Only Go's built-in template
+// functions (printf, print) are enabled as core functions; Sprig
+// functions like default, include, and ternary are rejected.
+func TemplateConfig() *Config {
+	return &Config{
+		ContextObjects: map[string]string{
+			"Values": "#values",
+		},
+		Funcs: map[string]PipelineFunc{},
+		CoreFuncs: map[string]bool{
+			"printf": true,
+			"print":  true,
+		},
+	}
 }
 
 // nonzeroDef is the CUE definition for truthiness checks matching Helm's falsy semantics.
@@ -165,6 +192,17 @@ type converter struct {
 	helperOrder       []string          // deterministic emission order
 	undefinedHelpers  map[string]string // original template name → CUE name (referenced but not defined)
 	hasDynamicInclude bool              // true if any include uses a computed template name
+}
+
+// isCoreFunc reports whether the named core-handled function is enabled
+// in the current configuration. If CoreFuncs is nil all core functions
+// are enabled (backward compatible). If non-nil, only listed names are
+// allowed.
+func (c *converter) isCoreFunc(name string) bool {
+	if c.config.CoreFuncs == nil {
+		return true
+	}
+	return c.config.CoreFuncs[name]
 }
 
 // convertResult holds the structured output of converting a single template.
@@ -1768,6 +1806,9 @@ func (c *converter) conditionPipeToExpr(pipe *parse.PipeNode) (string, error) {
 			ops := map[string]string{"eq": "==", "ne": "!=", "lt": "<", "gt": ">", "le": "<=", "ge": ">="}
 			return a + " " + ops[id.Ident] + " " + b, nil
 		case "empty":
+			if !c.isCoreFunc("empty") {
+				return "", fmt.Errorf("unsupported condition function: %s (not a text/template builtin)", id.Ident)
+			}
 			if len(args) != 1 {
 				return "", fmt.Errorf("empty requires 1 argument, got %d", len(args))
 			}
@@ -1777,6 +1818,9 @@ func (c *converter) conditionPipeToExpr(pipe *parse.PipeNode) (string, error) {
 			}
 			return "!(" + inner + ")", nil
 		case "hasKey":
+			if !c.isCoreFunc("hasKey") {
+				return "", fmt.Errorf("unsupported condition function: %s (not a text/template builtin)", id.Ident)
+			}
 			if len(args) != 2 {
 				return "", fmt.Errorf("hasKey requires 2 arguments, got %d", len(args))
 			}
@@ -1790,6 +1834,9 @@ func (c *converter) conditionPipeToExpr(pipe *parse.PipeNode) (string, error) {
 			}
 			return fmt.Sprintf("(_nonzero & {#arg: %s.%s, _})", mapExpr, cueKey(keyNode.Text)), nil
 		case "coalesce":
+			if !c.isCoreFunc("coalesce") {
+				return "", fmt.Errorf("unsupported condition function: %s (not a text/template builtin)", id.Ident)
+			}
 			if len(args) < 1 {
 				return "", fmt.Errorf("coalesce requires at least 1 argument")
 			}
@@ -1803,6 +1850,9 @@ func (c *converter) conditionPipeToExpr(pipe *parse.PipeNode) (string, error) {
 			}
 			return strings.Join(parts, " || "), nil
 		case "include":
+			if !c.isCoreFunc("include") {
+				return "", fmt.Errorf("unsupported condition function: %s (not a text/template builtin)", id.Ident)
+			}
 			if len(args) < 1 {
 				return "", fmt.Errorf("include requires at least 1 argument")
 			}
@@ -1852,6 +1902,7 @@ func (c *converter) actionToCUE(n *parse.ActionNode) (expr string, helmObj strin
 	}
 
 	var fieldPath []string
+	var gatedFunc string // set when a core func is rejected by CoreFuncs
 	first := pipe.Cmds[0]
 	switch {
 	case len(first.Args) == 1:
@@ -1884,9 +1935,17 @@ func (c *converter) actionToCUE(n *parse.ActionNode) (expr string, helmObj strin
 		} else if id, ok := first.Args[0].(*parse.IdentifierNode); ok {
 			switch id.Ident {
 			case "list":
-				expr = "[]"
+				if c.isCoreFunc("list") {
+					expr = "[]"
+				} else {
+					gatedFunc = "list"
+				}
 			case "dict":
-				expr = "{}"
+				if c.isCoreFunc("dict") {
+					expr = "{}"
+				} else {
+					gatedFunc = "dict"
+				}
 			}
 		}
 	case len(first.Args) >= 2:
@@ -1896,6 +1955,10 @@ func (c *converter) actionToCUE(n *parse.ActionNode) (expr string, helmObj strin
 		}
 		switch id.Ident {
 		case "default":
+			if !c.isCoreFunc("default") {
+				gatedFunc = "default"
+				break
+			}
 			if len(first.Args) != 3 {
 				return "", "", fmt.Errorf("default requires 2 arguments, got %d", len(first.Args)-1)
 			}
@@ -1952,6 +2015,10 @@ func (c *converter) actionToCUE(n *parse.ActionNode) (expr string, helmObj strin
 			}
 			expr = cueExpr
 		case "required":
+			if !c.isCoreFunc("required") {
+				gatedFunc = "required"
+				break
+			}
 			if len(first.Args) != 3 {
 				return "", "", fmt.Errorf("required requires 2 arguments, got %d", len(first.Args)-1)
 			}
@@ -1968,6 +2035,10 @@ func (c *converter) actionToCUE(n *parse.ActionNode) (expr string, helmObj strin
 				c.comments[expr] = fmt.Sprintf("// required: %s", msg)
 			}
 		case "include":
+			if !c.isCoreFunc("include") {
+				gatedFunc = "include"
+				break
+			}
 			if len(first.Args) < 2 {
 				return "", "", fmt.Errorf("include requires at least 2 arguments")
 			}
@@ -1990,6 +2061,10 @@ func (c *converter) actionToCUE(n *parse.ActionNode) (expr string, helmObj strin
 				expr = fmt.Sprintf("_helpers[%s]", nameExpr)
 			}
 		case "ternary":
+			if !c.isCoreFunc("ternary") {
+				gatedFunc = "ternary"
+				break
+			}
 			if len(first.Args) != 4 {
 				return "", "", fmt.Errorf("ternary requires 3 arguments, got %d", len(first.Args)-1)
 			}
@@ -2014,6 +2089,10 @@ func (c *converter) actionToCUE(n *parse.ActionNode) (expr string, helmObj strin
 				helmObj = falseObj
 			}
 		case "list":
+			if !c.isCoreFunc("list") {
+				gatedFunc = "list"
+				break
+			}
 			var elems []string
 			for _, arg := range first.Args[1:] {
 				e, obj, err := c.nodeToExpr(arg)
@@ -2027,6 +2106,10 @@ func (c *converter) actionToCUE(n *parse.ActionNode) (expr string, helmObj strin
 			}
 			expr = "[" + strings.Join(elems, ", ") + "]"
 		case "dict":
+			if !c.isCoreFunc("dict") {
+				gatedFunc = "dict"
+				break
+			}
 			args := first.Args[1:]
 			if len(args)%2 != 0 {
 				return "", "", fmt.Errorf("dict requires an even number of arguments, got %d", len(args))
@@ -2048,6 +2131,10 @@ func (c *converter) actionToCUE(n *parse.ActionNode) (expr string, helmObj strin
 			}
 			expr = "{" + strings.Join(parts, ", ") + "}"
 		case "get":
+			if !c.isCoreFunc("get") {
+				gatedFunc = "get"
+				break
+			}
 			if len(first.Args) != 3 {
 				return "", "", fmt.Errorf("get requires 2 arguments, got %d", len(first.Args)-1)
 			}
@@ -2072,6 +2159,10 @@ func (c *converter) actionToCUE(n *parse.ActionNode) (expr string, helmObj strin
 				expr = mapExpr + "[" + keyExpr + "]"
 			}
 		case "coalesce":
+			if !c.isCoreFunc("coalesce") {
+				gatedFunc = "coalesce"
+				break
+			}
 			if len(first.Args) < 2 {
 				return "", "", fmt.Errorf("coalesce requires at least 1 argument")
 			}
@@ -2098,6 +2189,10 @@ func (c *converter) actionToCUE(n *parse.ActionNode) (expr string, helmObj strin
 			}
 			expr = "[" + strings.Join(elems, ", ") + "][0]"
 		case "max":
+			if !c.isCoreFunc("max") {
+				gatedFunc = "max"
+				break
+			}
 			if len(first.Args) < 3 {
 				return "", "", fmt.Errorf("max requires at least 2 arguments, got %d", len(first.Args)-1)
 			}
@@ -2115,6 +2210,10 @@ func (c *converter) actionToCUE(n *parse.ActionNode) (expr string, helmObj strin
 			c.addImport("list")
 			expr = "list.Max([" + strings.Join(elems, ", ") + "])"
 		case "min":
+			if !c.isCoreFunc("min") {
+				gatedFunc = "min"
+				break
+			}
 			if len(first.Args) < 3 {
 				return "", "", fmt.Errorf("min requires at least 2 arguments, got %d", len(first.Args)-1)
 			}
@@ -2132,6 +2231,10 @@ func (c *converter) actionToCUE(n *parse.ActionNode) (expr string, helmObj strin
 			c.addImport("list")
 			expr = "list.Min([" + strings.Join(elems, ", ") + "])"
 		case "merge", "mergeOverwrite":
+			if !c.isCoreFunc(id.Ident) {
+				gatedFunc = id.Ident
+				break
+			}
 			return "", "", fmt.Errorf("function %q has no CUE equivalent: CUE uses unification instead of mutable map merging", id.Ident)
 		default:
 			if pf, ok := c.config.Funcs[id.Ident]; ok && pf.Passthrough {
@@ -2149,6 +2252,9 @@ func (c *converter) actionToCUE(n *parse.ActionNode) (expr string, helmObj strin
 		}
 	}
 	if expr == "" {
+		if gatedFunc != "" {
+			return "", "", fmt.Errorf("unsupported pipeline function: %s (not a text/template builtin)", gatedFunc)
+		}
 		return "", "", fmt.Errorf("unsupported template action: %s", n)
 	}
 
@@ -2160,28 +2266,36 @@ func (c *converter) actionToCUE(n *parse.ActionNode) (expr string, helmObj strin
 		if !ok {
 			return "", "", fmt.Errorf("unsupported pipeline function: %s", cmd)
 		}
+		handled := false
 		switch id.Ident {
 		case "default":
-			if len(cmd.Args) != 2 {
-				return "", "", fmt.Errorf("default in pipeline requires 1 argument")
-			}
-			defaultVal, err := nodeToCUELiteral(cmd.Args[1])
-			if err != nil {
-				return "", "", fmt.Errorf("default value: %w", err)
-			}
-			if helmObj != "" && fieldPath != nil {
-				c.defaults[helmObj] = append(c.defaults[helmObj], fieldDefault{
-					path:     fieldPath,
-					cueValue: defaultVal,
-				})
+			if c.isCoreFunc("default") {
+				if len(cmd.Args) != 2 {
+					return "", "", fmt.Errorf("default in pipeline requires 1 argument")
+				}
+				defaultVal, err := nodeToCUELiteral(cmd.Args[1])
+				if err != nil {
+					return "", "", fmt.Errorf("default value: %w", err)
+				}
+				if helmObj != "" && fieldPath != nil {
+					c.defaults[helmObj] = append(c.defaults[helmObj], fieldDefault{
+						path:     fieldPath,
+						cueValue: defaultVal,
+					})
+				}
+				handled = true
 			}
 		case "required":
-			arg, err := c.extractPipelineArgs(cmd, 1)
-			if err != nil {
-				return "", "", err
+			if c.isCoreFunc("required") {
+				arg, err := c.extractPipelineArgs(cmd, 1)
+				if err != nil {
+					return "", "", err
+				}
+				c.comments[expr] = fmt.Sprintf("// required: %s", arg[0])
+				handled = true
 			}
-			c.comments[expr] = fmt.Sprintf("// required: %s", arg[0])
 		default:
+			handled = true
 			pf, ok := c.config.Funcs[id.Ident]
 			if !ok {
 				return "", "", fmt.Errorf("unsupported pipeline function: %s", id.Ident)
@@ -2210,6 +2324,9 @@ func (c *converter) actionToCUE(n *parse.ActionNode) (expr string, helmObj strin
 			for _, h := range pf.Helpers {
 				c.usedHelpers[h.Name] = h
 			}
+		}
+		if !handled {
+			return "", "", fmt.Errorf("unsupported pipeline function: %s (not a text/template builtin)", id.Ident)
 		}
 	}
 
