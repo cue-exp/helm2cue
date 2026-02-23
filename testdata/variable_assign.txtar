@@ -17,7 +17,7 @@ _myapp_labels: {
 }
 
 apiVersion: "v1"
-kind: "Service"
+kind:       "Service"
 metadata: {
 	labels: _myapp_labels
 }

@@ -38,13 +38,13 @@ _nonzero: {
 }
 
 #values: {
-	name?: _
+	name?:    _
 	enabled?: _
 	...
 }
 
 apiVersion: "v1"
-kind: "ConfigMap"
+kind:       "ConfigMap"
 metadata: {
 	name: #values.name
 }

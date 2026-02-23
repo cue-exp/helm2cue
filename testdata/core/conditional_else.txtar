@@ -36,7 +36,7 @@ result: {
 	if (_nonzero & {#arg: #input.debug, _}) {
 		mode: "debug"
 	}
-	if !((_nonzero & {#arg: #input.debug, _})) {
+	if !(_nonzero & {#arg: #input.debug, _}) {
 		mode: "release"
 	}
 }

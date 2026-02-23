@@ -39,18 +39,18 @@ _nonzero: {
 }
 
 #values: {
-	name?: _
-	enabled?: _
+	name?:        _
+	enabled?:     _
 	maintenance?: _
 	...
 }
 
 apiVersion: "v1"
-kind: "ConfigMap"
+kind:       "ConfigMap"
 metadata: {
 	name: #values.name
 }
-if (_nonzero & {#arg: #values.enabled, _}) && !((_nonzero & {#arg: #values.maintenance, _})) {
+if (_nonzero & {#arg: #values.enabled, _}) && !(_nonzero & {#arg: #values.maintenance, _}) {
 	data: {
 		status: "running"
 	}

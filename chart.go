@@ -23,6 +23,7 @@ import (
 	"strconv"
 	"strings"
 
+	"cuelang.org/go/cue/format"
 	"cuelang.org/go/cue/parser"
 	"gopkg.in/yaml.v3"
 )
@@ -243,6 +244,15 @@ func ConvertChart(chartDir, outDir string) error {
 	return nil
 }
 
+// writeCUEFile formats CUE source and writes it to path.
+func writeCUEFile(path string, data []byte) error {
+	formatted, err := format.Source(data)
+	if err != nil {
+		return fmt.Errorf("formatting %s: %w", filepath.Base(path), err)
+	}
+	return os.WriteFile(path, formatted, 0o644)
+}
+
 // writeHelpersCUE writes helpers.cue with helper definitions.
 func writeHelpersCUE(outDir, pkgName string, r *convertResult, needsNonzero bool, usedHelpers map[string]HelperDef, hasDynamicInclude bool) error {
 	var buf bytes.Buffer
@@ -351,7 +361,7 @@ func writeHelpersCUE(outDir, pkgName string, r *convertResult, needsNonzero bool
 		buf.WriteString("}\n")
 	}
 
-	return os.WriteFile(filepath.Join(outDir, "helpers.cue"), buf.Bytes(), 0o644)
+	return writeCUEFile(filepath.Join(outDir, "helpers.cue"), buf.Bytes())
 }
 
 // writeValuesCUE writes values.cue with the #values schema.
@@ -371,7 +381,7 @@ func writeValuesCUE(outDir, pkgName string, refs [][]string, defs []fieldDefault
 		buf.WriteString("}\n")
 	}
 
-	return os.WriteFile(filepath.Join(outDir, "values.cue"), buf.Bytes(), 0o644)
+	return writeCUEFile(filepath.Join(outDir, "values.cue"), buf.Bytes())
 }
 
 // writeDataCUE writes data.cue which uses @extern(embed) to embed
@@ -387,7 +397,7 @@ func writeDataCUE(outDir, pkgName string) error {
 	buf.WriteString("\tName: _ @tag(release_name)\n")
 	buf.WriteString("}\n")
 
-	return os.WriteFile(filepath.Join(outDir, "data.cue"), buf.Bytes(), 0o644)
+	return writeCUEFile(filepath.Join(outDir, "data.cue"), buf.Bytes())
 }
 
 // writeResultsCUE writes results.cue which aggregates all template outputs
@@ -415,7 +425,7 @@ func writeResultsCUE(outDir, pkgName string, results []templateResult) error {
 	}
 	buf.WriteString("]\n")
 
-	return os.WriteFile(filepath.Join(outDir, "results.cue"), buf.Bytes(), 0o644)
+	return writeCUEFile(filepath.Join(outDir, "results.cue"), buf.Bytes())
 }
 
 // writeContextCUE writes context.cue with definitions for used context objects.
@@ -474,7 +484,7 @@ func writeContextCUE(outDir, pkgName string, meta chartMetadata, usedContextObje
 		}
 	}
 
-	return os.WriteFile(filepath.Join(outDir, "context.cue"), buf.Bytes(), 0o644)
+	return writeCUEFile(filepath.Join(outDir, "context.cue"), buf.Bytes())
 }
 
 // writeTemplateCUE writes a per-template .cue file with the body wrapped in a field.
@@ -544,7 +554,7 @@ func writeTemplateCUE(outDir, pkgName, fieldName string, r *convertResult) error
 		buf.WriteString("}\n")
 	}
 
-	return os.WriteFile(filepath.Join(outDir, fieldName+".cue"), buf.Bytes(), 0o644)
+	return writeCUEFile(filepath.Join(outDir, fieldName+".cue"), buf.Bytes())
 }
 
 // validateTemplateBody checks that a template body is syntactically valid CUE.

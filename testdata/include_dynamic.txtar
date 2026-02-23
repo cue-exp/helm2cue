@@ -35,8 +35,8 @@ _helpers: {
 }
 
 apiVersion: "v1"
-kind: "ConfigMap"
+kind:       "ConfigMap"
 metadata: {
 	name: _myapp_fullname
-	app: _helpers["myapp.fullname"]
+	app:  _helpers["myapp.fullname"]
 }

@@ -25,7 +25,7 @@ import "strings"
 }
 
 apiVersion: "v1"
-kind: "ConfigMap"
+kind:       "ConfigMap"
 metadata: {
 	name: "test"
 }

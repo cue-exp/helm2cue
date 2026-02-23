@@ -4,9 +4,9 @@ package simple_app
 
 deployment: {
 	apiVersion: "apps/v1"
-	kind: "Deployment"
+	kind:       "Deployment"
 	metadata: {
-		name: _simple_app_fullname
+		name:   _simple_app_fullname
 		labels: _simple_app_labels
 	}
 	spec: {
@@ -21,14 +21,14 @@ deployment: {
 			spec: {
 				containers: [
 					{
-						name: _simple_app_name
-						image: "\(#values.image.repository):\(#values.image.tag)"
+						name:            _simple_app_name
+						image:           "\(#values.image.repository):\(#values.image.tag)"
 						imagePullPolicy: #values.image.pullPolicy
 						ports: [
 							for _, _range0 in #values.ports {
-								name: _range0.name
+								name:          _range0.name
 								containerPort: _range0.containerPort
-							}
+							},
 						]
 					},
 				]

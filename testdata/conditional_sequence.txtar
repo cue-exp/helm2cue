@@ -48,13 +48,13 @@ _nonzero: {
 }
 
 #values: {
-	httpEnabled?: _
+	httpEnabled?:  _
 	httpsEnabled?: _
 	...
 }
 
 apiVersion: "v1"
-kind: "Service"
+kind:       "Service"
 metadata: {
 	name: "test"
 }
@@ -64,13 +64,13 @@ spec: {
 			{
 				port: 80
 				name: "http"
-			},
-		}
+			}
+		},
 		if (_nonzero & {#arg: #values.httpsEnabled, _}) {
 			{
 				port: 443
 				name: "https"
-			},
-		}
+			}
+		},
 	]
 }

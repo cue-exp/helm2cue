@@ -38,17 +38,17 @@ _nonzero: {
 }
 
 #values: {
-	name?: _
+	name?:  _
 	debug?: _
 	...
 }
 
 apiVersion: "v1"
-kind: "ConfigMap"
+kind:       "ConfigMap"
 metadata: {
 	name: #values.name
 }
-if !((_nonzero & {#arg: #values.debug, _})) {
+if !(_nonzero & {#arg: #values.debug, _}) {
 	data: {
 		env: "production"
 	}
