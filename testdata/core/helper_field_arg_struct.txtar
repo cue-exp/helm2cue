@@ -1,0 +1,32 @@
+Structural helper accessing argument fields, called with a field expression.
+
+-- _helpers.tpl --
+{{- define "labels" -}}
+app: {{ .name }}
+version: {{ .version }}
+{{- end -}}
+-- input.yaml --
+metadata:
+  labels: {{ include "labels" .input.meta }}
+-- output.cue --
+#input: {
+	meta?: {
+		name?:    _
+		version?: _
+		...
+	}
+	...
+}
+_labels: {
+	#arg: {
+		name?:    _
+		version?: _
+		...
+	}
+	app:     #arg.name
+	version: #arg.version
+}
+
+metadata: {
+	labels: _labels & {#arg: #input.meta, _}
+}

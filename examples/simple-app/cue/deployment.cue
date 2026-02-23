@@ -19,6 +19,7 @@ deployment: {
 				labels: _simple_app_selectorLabels
 			}
 			spec: {
+				serviceAccountName: _simple_app_serviceAccountName & {#arg: #values.serviceAccount, _}
 				containers: [
 					{
 						name:            _simple_app_name
