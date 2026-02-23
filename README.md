@@ -152,6 +152,17 @@ CUE is not whitespace-sensitive and `{ A } = A` for any `A`, so CUE blocks
 can be freely emitted around content without affecting semantics. This
 eliminates the need for a YAML parser intermediary.
 
+Six functions are handled by the core converter rather than as
+configurable pipeline functions. Three are deeply intrinsic because they
+shape the structure and semantics of the generated CUE: **`default`**
+(tracked across all templates to build the `#values` schema with CUE
+defaults), **`include`** (resolves named helper templates via the shared
+template graph), and **`required`** (emits CUE constraint annotations).
+The remaining three — **`printf`**, **`print`**, and **`ternary`** — are
+also core-handled because they require custom AST construction (e.g.
+format-string rewriting, conditional expressions) that does not fit the
+`PipelineFunc` interface used by configurable functions.
+
 Helm built-in objects are mapped to CUE definitions:
 
 | Helm Object | CUE Definition |
