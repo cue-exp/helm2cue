@@ -57,3 +57,10 @@ _simple_app_selectorLabels: {
 	"app.kubernetes.io/name":     _simple_app_name
 	"app.kubernetes.io/instance": #release.Name
 }
+_simple_app_serviceAccountName: {
+	#arg: {
+		name?: _
+		...
+	}
+	#arg.name
+}
