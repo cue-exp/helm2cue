@@ -75,6 +75,11 @@ type Config struct {
 	// present in the set are allowed; others produce an
 	// "unsupported pipeline function" error.
 	CoreFuncs map[string]bool
+
+	// RootExpr is the CUE expression used for bare {{ . }} at the
+	// top level (outside range/with). If empty, bare dot at the top
+	// level produces an error.
+	RootExpr string
 }
 
 // TemplateConfig returns a Config for converting pure Go text/template
@@ -86,7 +91,8 @@ func TemplateConfig() *Config {
 		ContextObjects: map[string]string{
 			"Values": "#values",
 		},
-		Funcs: map[string]PipelineFunc{},
+		Funcs:    map[string]PipelineFunc{},
+		RootExpr: "#values",
 		CoreFuncs: map[string]bool{
 			"printf": true,
 			"print":  true,
@@ -533,6 +539,16 @@ func (c *converter) convertHelperBody(nodes []parse.Node) (string, error) {
 		undefinedHelpers:   c.undefinedHelpers,
 		localVars:          make(map[string]string),
 		comments:           make(map[string]string),
+	}
+
+	// Inside helper bodies, bare {{ . }} refers to whatever the caller
+	// passes (e.g. via include). When the config has no RootExpr (like
+	// HelmConfig), use "_" (CUE top) since we don't know the argument
+	// type statically.
+	if sub.config.RootExpr == "" {
+		cfg := *sub.config
+		cfg.RootExpr = "_"
+		sub.config = &cfg
 	}
 
 	if err := sub.processNodes(nodes); err != nil {
@@ -1930,6 +1946,8 @@ func (c *converter) actionToCUE(n *parse.ActionNode) (expr string, helmObj strin
 		} else if _, ok := first.Args[0].(*parse.DotNode); ok {
 			if len(c.rangeVarStack) > 0 {
 				expr = c.rangeVarStack[len(c.rangeVarStack)-1]
+			} else if c.config.RootExpr != "" {
+				expr = c.config.RootExpr
 			} else {
 				return "", "", fmt.Errorf("{{ . }} outside range/with not supported")
 			}
@@ -2496,6 +2514,9 @@ func (c *converter) nodeToExpr(node parse.Node) (string, string, error) {
 	case *parse.DotNode:
 		if len(c.rangeVarStack) > 0 {
 			return c.rangeVarStack[len(c.rangeVarStack)-1], "", nil
+		}
+		if c.config.RootExpr != "" {
+			return c.config.RootExpr, "", nil
 		}
 		return "", "", fmt.Errorf("{{ . }} outside range/with not supported")
 	case *parse.PipeNode:

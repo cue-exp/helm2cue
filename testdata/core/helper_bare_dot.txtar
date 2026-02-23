@@ -1,0 +1,12 @@
+Helper that uses bare {{ . }} to pass through its argument.
+
+-- _helpers.tpl --
+{{- define "id" -}}
+{{ . }}
+{{- end -}}
+-- input.yaml --
+name: {{ include "id" . }}
+-- output.cue --
+_id: _
+
+name: _id
