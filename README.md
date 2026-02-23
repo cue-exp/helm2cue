@@ -9,10 +9,18 @@ definitions. CUE can express the same data more directly, with types, defaults,
 and constraints instead of string interpolation and whitespace wrangling. This
 project explores how far an automated conversion from one to the other can go.
 
+The underlying problem is not specific to Go or Helm. Conversations with people
+struggling with Jinja templates in the Python world (Ansible, SaltStack, etc.)
+helped motivate this work: any template language that generates structured data
+by splicing strings into YAML or JSON hits the same class of issues. Go's
+`text/template` is the starting point because it has a well-defined AST that
+can be walked programmatically, but the patterns explored here — mapping
+conditionals to guards, loops to comprehensions, defaults to CUE's default
+mechanism — should transfer to other template languages.
+
 Helm is a good test case because its templates exercise most of `text/template`
 — conditionals, range loops, nested defines, pipelines with Sprig functions —
-and produce structured YAML. If the approach works here, it should generalise
-to other `text/template` uses that target structured formats.
+and produce structured YAML.
 
 Whether this also turns out to be a practical migration path from Helm to CUE
 is a secondary question.
@@ -296,6 +304,42 @@ removed once those exist.
 
 - **Crypto**: `derivePassword`, `genCA` (runtime crypto operations)
 - **Date**: `now`, `date`, `dateModify` (runtime date operations)
+
+## Related Projects
+
+Despite its name, helm2cue is narrowly focused on one question: how do you
+convert a Go `text/template` to CUE? Helm charts are a convenient test case
+because they exercise most of `text/template`'s features, but the goal is
+general-purpose template conversion, not a complete Helm-to-CUE migration
+path. The approach should generalise to any use of `text/template` that
+targets structured output.
+
+The wider problem of "how do you manage Kubernetes configuration with CUE
+instead of Helm" is tackled by several existing projects, such as:
+
+- [Timoni](https://timoni.sh/) — a package manager for Kubernetes powered by
+  CUE. Timoni replaces Helm's Go templates with CUE's type system and
+  validation, and distributes modules as OCI artifacts.
+- [Holos](https://holos.run/) — a platform manager that uses CUE to configure
+  Helm charts, Kustomize bases, and plain manifests holistically, rendering
+  fully hydrated manifests for tools like ArgoCD or Flux to apply.
+- [cuelm](https://github.com/hofstadter-io/cuelm) — experiments with a pure
+  CUE implementation of Helm, part of the Hofstadter ecosystem.
+
+These projects address the end-to-end workflow: packaging, distribution,
+lifecycle management, multi-cluster coordination, and more. helm2cue does not
+try to replace or compete with them. If you are looking for a CUE-native
+alternative to Helm for managing Kubernetes deployments, those projects are
+worth exploring.
+
+There is also a [proposal within Helm itself](https://github.com/helm/helm/issues/13260)
+to adopt CUE for values validation, replacing the current JSON Schema support.
+That work is complementary: it would use CUE to validate and default chart
+values while keeping Go templates for rendering. helm2cue explores the other
+side of the coin — converting the templates themselves to CUE. If the Helm
+proposal progresses, the `#values` schema that helm2cue derives from template
+defaults could potentially serve as a starting point for a chart's CUE
+validation schema.
 
 ## Testing
 
