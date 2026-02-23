@@ -1,0 +1,14 @@
+name: myapp
+host: localhost
+port: 8080
+debug: true
+tls:
+  cert: /etc/ssl/cert.pem
+  key: /etc/ssl/key.pem
+labels:
+  app: myapp
+  env: production
+features:
+  - auth
+  - metrics
+  - tracing
