@@ -237,6 +237,7 @@ removed once those exist.
 | `{{/* comment */}}` | Dropped from output | Done |
 | `{{ define "name" }}...{{ end }}` | CUE hidden field: `_name: <expr>` | Done |
 | `{{ include "name" . }}` | Reference to hidden field: `_name` | Done |
+| `{{ include "name" .Values.x }}` | `_name & {#arg: #values.x, _}` with schema propagation | Done |
 | `{{ include "name" (dict ...) }}` | Reference with dict context tracking | Done |
 | `{{ include (print ...) . }}` | Dynamic lookup: `_helpers[nameExpr]` | Done |
 | `{{ if include "name" . }}` | Condition with `_nonzero` wrapping include result | Done |

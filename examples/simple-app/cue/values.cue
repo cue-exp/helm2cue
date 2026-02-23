@@ -6,6 +6,10 @@ package simple_app
 	env:          *"development" | _
 	debug?:       _
 	replicaCount: *1 | _
+	serviceAccount?: {
+		name?: _
+		...
+	}
 	image?: {
 		repository?: _
 		tag?:        _
