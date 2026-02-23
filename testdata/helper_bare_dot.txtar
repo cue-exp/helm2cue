@@ -1,0 +1,12 @@
+Helper that uses bare {{ . }} to pass through its argument.
+
+-- _helpers.tpl --
+{{- define "myapp.name" -}}
+{{ . }}
+{{- end -}}
+-- input.yaml --
+name: {{ include "myapp.name" . }}
+-- output.cue --
+_myapp_name: _
+
+name: _myapp_name
