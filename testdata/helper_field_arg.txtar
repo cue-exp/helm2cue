@@ -1,0 +1,33 @@
+Helper that uses bare {{ . }} called with a field expression .Values.name.
+
+-- _helpers.tpl --
+{{- define "myapp.name" -}}
+{{ . }}
+{{- end -}}
+-- input.yaml --
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "myapp.name" .Values.name }}
+-- values.yaml --
+name: my-app
+-- helm_output.yaml --
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: my-app
+-- output.cue --
+#values: {
+	name?: _
+	...
+}
+_myapp_name: {
+	#arg: _
+	#arg
+}
+
+apiVersion: "v1"
+kind:       "ConfigMap"
+metadata: {
+	name: _myapp_name & {#arg: #values.name, _}
+}

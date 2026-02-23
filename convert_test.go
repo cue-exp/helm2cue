@@ -579,6 +579,7 @@ func TestTemplateConfig(t *testing.T) {
 		{"printf", `x: {{ printf "%s-%s" .Values.a .Values.b }}`},
 		{"conditional", "{{ if .Values.x }}x: 1{{ end }}"},
 		{"with", "{{ with .Values.x }}val: {{ . }}{{ end }}"},
+		{"bare_dot", "name: {{ . }}"},
 	}
 	for _, tc := range okCases {
 		t.Run("ok/"+tc.name, func(t *testing.T) {
@@ -664,6 +665,32 @@ func TestTemplateConfig(t *testing.T) {
 		_, err := Convert(HelmConfig(), input)
 		if err != nil {
 			t.Fatalf("expected HelmConfig to accept default, got: %v", err)
+		}
+	})
+
+	// Verify bare dot at top level errors with HelmConfig (no RootExpr).
+	t.Run("helm_config_rejects_bare_dot", func(t *testing.T) {
+		input := []byte("name: {{ . }}")
+		_, err := Convert(HelmConfig(), input)
+		if err == nil {
+			t.Fatal("expected HelmConfig to reject bare dot, but it succeeded")
+		}
+		if !strings.Contains(err.Error(), "outside range/with not supported") {
+			t.Errorf("unexpected error: %v", err)
+		}
+	})
+
+	// Verify bare dot in a helper body succeeds with HelmConfig.
+	// The helper uses #arg so {{ . }} maps to #arg.
+	t.Run("helm_config_helper_bare_dot", func(t *testing.T) {
+		helper := []byte("{{- define \"myapp.name\" -}}{{ . }}{{- end -}}")
+		input := []byte("name: {{ include \"myapp.name\" . }}")
+		got, err := Convert(HelmConfig(), input, helper)
+		if err != nil {
+			t.Fatalf("expected success, got error: %v", err)
+		}
+		if !strings.Contains(string(got), "#arg") {
+			t.Errorf("expected helper definition with #arg, got:\n%s", got)
 		}
 	})
 }

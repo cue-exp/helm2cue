@@ -75,6 +75,11 @@ type Config struct {
 	// present in the set are allowed; others produce an
 	// "unsupported pipeline function" error.
 	CoreFuncs map[string]bool
+
+	// RootExpr is the CUE expression used for bare {{ . }} at the
+	// top level (outside range/with). If empty, bare dot at the top
+	// level produces an error.
+	RootExpr string
 }
 
 // TemplateConfig returns a Config for converting pure Go text/template
@@ -86,7 +91,8 @@ func TemplateConfig() *Config {
 		ContextObjects: map[string]string{
 			"Values": "#values",
 		},
-		Funcs: map[string]PipelineFunc{},
+		Funcs:    map[string]PipelineFunc{},
+		RootExpr: "#values",
 		CoreFuncs: map[string]bool{
 			"printf": true,
 			"print":  true,
@@ -164,6 +170,7 @@ type converter struct {
 	defaults           map[string][]fieldDefault // helmObj → defaults
 	fieldRefs          map[string][][]string     // helmObj → list of field paths referenced
 	rangeVarStack      []string                  // stack of range variable names for nested ranges
+	helperArgRefs      [][]string                // field paths accessed on #arg in helper bodies
 	localVars          map[string]string         // $varName → CUE expression
 	topLevelGuards     []string                  // CUE conditions wrapping entire output
 	imports            map[string]bool
@@ -535,6 +542,18 @@ func (c *converter) convertHelperBody(nodes []parse.Node) (string, error) {
 		comments:           make(map[string]string),
 	}
 
+	// Inside helper bodies, bare {{ . }} and {{ .field }} refer to
+	// whatever the caller passes via include. When the config has a
+	// RootExpr (like TemplateConfig), use that directly. Otherwise
+	// (HelmConfig, core config), push "#arg" onto the rangeVarStack
+	// so that {{ . }} → #arg and {{ .field }} → #arg.field, and
+	// track field accesses for schema generation.
+	useArg := sub.config.RootExpr == ""
+	if useArg {
+		sub.rangeVarStack = []string{"#arg"}
+		sub.helperArgRefs = [][]string{}
+	}
+
 	if err := sub.processNodes(nodes); err != nil {
 		return "", err
 	}
@@ -563,6 +582,23 @@ func (c *converter) convertHelperBody(nodes []parse.Node) (string, error) {
 			hasFields = true
 			break
 		}
+	}
+
+	// If #arg is referenced in the body, wrap with an #arg schema.
+	if useArg && strings.Contains(body, "#arg") {
+		schema := buildArgSchema(sub.helperArgRefs)
+		if hasFields {
+			result := "{\n\t#arg: " + schema + "\n" + indentBlock(body, "\t") + "\n}"
+			if err := validateHelperExpr(result, c.imports); err != nil {
+				return "", fmt.Errorf("helper body produced invalid CUE: %w", err)
+			}
+			return result, nil
+		}
+		result := "{\n\t#arg: " + schema + "\n\t" + body + "\n}"
+		if err := validateHelperExpr(result, c.imports); err != nil {
+			return "", fmt.Errorf("helper body produced invalid CUE: %w", err)
+		}
+		return result, nil
 	}
 
 	if hasFields {
@@ -639,16 +675,29 @@ func (c *converter) handleInclude(name string, pipe *parse.PipeNode) (string, st
 	return cueName, "", nil
 }
 
-func (c *converter) processIncludeContext(node parse.Node) error {
+// convertIncludeContext converts the context argument of an include call.
+// It returns a CUE expression for field references (to be unified as
+// & {#arg: expr}), or "" for dot/variable/pipe arguments that don't
+// need #arg unification.
+func (c *converter) convertIncludeContext(node parse.Node) (string, error) {
 	switch n := node.(type) {
 	case *parse.DotNode:
-		return nil
+		return "", nil
 	case *parse.VariableNode:
-		return nil
+		return "", nil
+	case *parse.FieldNode:
+		expr, helmObj := c.fieldToCUEInContext(n.Ident)
+		if helmObj != "" {
+			c.usedContextObjects[helmObj] = true
+			if len(n.Ident) >= 2 {
+				c.fieldRefs[helmObj] = append(c.fieldRefs[helmObj], n.Ident[1:])
+			}
+		}
+		return expr, nil
 	case *parse.PipeNode:
-		return c.processContextPipe(n)
+		return "", c.processContextPipe(n)
 	default:
-		return fmt.Errorf("include: unsupported context argument %s (only ., $, and dict/list are supported)", node)
+		return "", fmt.Errorf("include: unsupported context argument %s (only ., $, field references, and dict/list are supported)", node)
 	}
 }
 
@@ -1156,6 +1205,15 @@ func (c *converter) processNode(node parse.Node) error {
 		}
 		if helmObj != "" {
 			c.usedContextObjects[helmObj] = true
+		}
+		if n.Pipe != nil && len(n.Pipe.Cmds) == 1 && len(n.Pipe.Cmds[0].Args) == 1 {
+			argExpr, ctxErr := c.convertIncludeContext(n.Pipe.Cmds[0].Args[0])
+			if ctxErr != nil {
+				return ctxErr
+			}
+			if argExpr != "" {
+				expr = expr + " & {#arg: " + argExpr + ", _}"
+			}
 		}
 		c.emitActionExpr(expr, "")
 	case *parse.CommentNode:
@@ -1857,24 +1915,33 @@ func (c *converter) conditionPipeToExpr(pipe *parse.PipeNode) (string, error) {
 			if len(args) < 1 {
 				return "", fmt.Errorf("include requires at least 1 argument")
 			}
+			var argExpr string
 			if len(args) >= 2 {
-				if err := c.processIncludeContext(args[1]); err != nil {
-					return "", err
-				}
-			}
-			if nameNode, ok := args[0].(*parse.StringNode); ok {
-				inclExpr, _, err := c.handleInclude(nameNode.Text, nil)
+				var err error
+				argExpr, err = c.convertIncludeContext(args[1])
 				if err != nil {
 					return "", err
 				}
-				return fmt.Sprintf("(_nonzero & {#arg: %s, _})", inclExpr), nil
 			}
-			nameExpr, err := c.convertIncludeNameExpr(args[0])
-			if err != nil {
-				return "", err
+			var inclExpr string
+			if nameNode, ok := args[0].(*parse.StringNode); ok {
+				var err error
+				inclExpr, _, err = c.handleInclude(nameNode.Text, nil)
+				if err != nil {
+					return "", err
+				}
+			} else {
+				nameExpr, err := c.convertIncludeNameExpr(args[0])
+				if err != nil {
+					return "", err
+				}
+				c.hasDynamicInclude = true
+				inclExpr = fmt.Sprintf("_helpers[%s]", nameExpr)
 			}
-			c.hasDynamicInclude = true
-			return fmt.Sprintf("(_nonzero & {#arg: _helpers[%s], _})", nameExpr), nil
+			if argExpr != "" {
+				inclExpr = inclExpr + " & {#arg: " + argExpr + ", _}"
+			}
+			return fmt.Sprintf("(_nonzero & {#arg: %s, _})", inclExpr), nil
 		default:
 			return "", fmt.Errorf("unsupported condition function: %s", id.Ident)
 		}
@@ -1930,6 +1997,8 @@ func (c *converter) actionToCUE(n *parse.ActionNode) (expr string, helmObj strin
 		} else if _, ok := first.Args[0].(*parse.DotNode); ok {
 			if len(c.rangeVarStack) > 0 {
 				expr = c.rangeVarStack[len(c.rangeVarStack)-1]
+			} else if c.config.RootExpr != "" {
+				expr = c.config.RootExpr
 			} else {
 				return "", "", fmt.Errorf("{{ . }} outside range/with not supported")
 			}
@@ -2043,9 +2112,12 @@ func (c *converter) actionToCUE(n *parse.ActionNode) (expr string, helmObj strin
 			if len(first.Args) < 2 {
 				return "", "", fmt.Errorf("include requires at least 2 arguments")
 			}
+			var argExpr string
 			if len(first.Args) >= 3 {
-				if err := c.processIncludeContext(first.Args[2]); err != nil {
-					return "", "", err
+				var ctxErr error
+				argExpr, ctxErr = c.convertIncludeContext(first.Args[2])
+				if ctxErr != nil {
+					return "", "", ctxErr
 				}
 			}
 			if nameNode, ok := first.Args[1].(*parse.StringNode); ok {
@@ -2060,6 +2132,9 @@ func (c *converter) actionToCUE(n *parse.ActionNode) (expr string, helmObj strin
 				}
 				c.hasDynamicInclude = true
 				expr = fmt.Sprintf("_helpers[%s]", nameExpr)
+			}
+			if argExpr != "" {
+				expr = expr + " & {#arg: " + argExpr + ", _}"
 			}
 		case "ternary":
 			if !c.isCoreFunc(id.Ident) {
@@ -2497,26 +2572,41 @@ func (c *converter) nodeToExpr(node parse.Node) (string, string, error) {
 		if len(c.rangeVarStack) > 0 {
 			return c.rangeVarStack[len(c.rangeVarStack)-1], "", nil
 		}
+		if c.config.RootExpr != "" {
+			return c.config.RootExpr, "", nil
+		}
 		return "", "", fmt.Errorf("{{ . }} outside range/with not supported")
 	case *parse.PipeNode:
 		if len(n.Cmds) == 1 && len(n.Cmds[0].Args) >= 2 {
 			if id, ok := n.Cmds[0].Args[0].(*parse.IdentifierNode); ok && id.Ident == "include" {
+				var argExpr string
 				if len(n.Cmds[0].Args) >= 3 {
-					c.processIncludeContext(n.Cmds[0].Args[2])
+					var ctxErr error
+					argExpr, ctxErr = c.convertIncludeContext(n.Cmds[0].Args[2])
+					if ctxErr != nil {
+						return "", "", ctxErr
+					}
 				}
+				var inclExpr string
+				var helmObj string
 				if nameNode, ok := n.Cmds[0].Args[1].(*parse.StringNode); ok {
-					expr, helmObj, err := c.handleInclude(nameNode.Text, nil)
+					var err error
+					inclExpr, helmObj, err = c.handleInclude(nameNode.Text, nil)
 					if err != nil {
 						return "", "", err
 					}
-					return expr, helmObj, nil
+				} else {
+					nameExpr, err := c.convertIncludeNameExpr(n.Cmds[0].Args[1])
+					if err != nil {
+						return "", "", err
+					}
+					c.hasDynamicInclude = true
+					inclExpr = fmt.Sprintf("_helpers[%s]", nameExpr)
 				}
-				nameExpr, err := c.convertIncludeNameExpr(n.Cmds[0].Args[1])
-				if err != nil {
-					return "", "", err
+				if argExpr != "" {
+					inclExpr = inclExpr + " & {#arg: " + argExpr + ", _}"
 				}
-				c.hasDynamicInclude = true
-				return fmt.Sprintf("_helpers[%s]", nameExpr), "", nil
+				return inclExpr, helmObj, nil
 			}
 		}
 		return "", "", fmt.Errorf("unsupported pipe node: %s", node)
@@ -2560,6 +2650,9 @@ func (c *converter) fieldToCUEInContext(ident []string) (string, string) {
 	}
 	if len(c.rangeVarStack) > 0 {
 		rangeVar := c.rangeVarStack[len(c.rangeVarStack)-1]
+		if rangeVar == "#arg" && c.helperArgRefs != nil {
+			c.helperArgRefs = append(c.helperArgRefs, append([]string(nil), ident...))
+		}
 		prefixed := append([]string{rangeVar}, ident...)
 		return strings.Join(prefixed, "."), ""
 	}
@@ -2616,6 +2709,23 @@ func emitFieldNodes(w *bytes.Buffer, nodes []*fieldNode, indent int) {
 			fmt.Fprintf(w, "%s?: _\n", cueKey(n.name))
 		}
 	}
+}
+
+// buildArgSchema builds a CUE schema expression for #arg based on
+// collected field references. Returns "_" when no field refs exist
+// (bare {{ . }} only), otherwise a CUE struct with optional fields.
+func buildArgSchema(refs [][]string) string {
+	if len(refs) == 0 {
+		return "_"
+	}
+	root := buildFieldTree(refs, nil)
+	var buf bytes.Buffer
+	buf.WriteString("{\n")
+	emitFieldNodes(&buf, root.children, 2)
+	writeIndent(&buf, 2)
+	buf.WriteString("...\n")
+	buf.WriteString("\t}")
+	return buf.String()
 }
 
 // helperExprIdentRe matches hidden identifiers like _foo_bar in CUE expressions.

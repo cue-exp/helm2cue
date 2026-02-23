@@ -1,0 +1,19 @@
+Template directive ({{ template }}) with a field expression argument.
+
+-- _helpers.tpl --
+{{- define "myapp.name" -}}
+{{ . }}
+{{- end -}}
+-- input.yaml --
+name: {{ template "myapp.name" .Values.name }}
+-- output.cue --
+#values: {
+	name?: _
+	...
+}
+_myapp_name: {
+	#arg: _
+	#arg
+}
+
+name: _myapp_name & {#arg: #values.name, _}
