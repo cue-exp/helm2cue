@@ -44,7 +44,7 @@ _nonzero: {
 
 #values: {
 	service?: {
-		type?: _
+		type?:      _
 		clusterIP?: _
 		...
 	}
@@ -52,7 +52,7 @@ _nonzero: {
 }
 
 apiVersion: "v1"
-kind: "Service"
+kind:       "Service"
 spec: {
 	type: #values.service.type
 	if #values.service.type == "ClusterIP" {

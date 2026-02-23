@@ -32,13 +32,13 @@ metadata:
 	...
 }
 _myapp_labels: {
-	app: #chart.Name
+	app:     #chart.Name
 	release: #release.Name
 }
 
 apiVersion: "v1"
-kind: "ConfigMap"
+kind:       "ConfigMap"
 metadata: {
-	name: "test"
+	name:   "test"
 	labels: _myapp_labels
 }

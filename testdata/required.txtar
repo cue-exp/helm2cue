@@ -20,12 +20,12 @@ data:
 -- output.cue --
 #values: {
 	name?: _
-	env?: _
+	env?:  _
 	...
 }
 
 apiVersion: "v1"
-kind: "ConfigMap"
+kind:       "ConfigMap"
 metadata: {
 	name: #values.name // required: "name is required"
 }

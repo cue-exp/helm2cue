@@ -36,20 +36,20 @@ spec:
           memory: 64Mi
 -- output.cue --
 #values: {
-	name?: _
+	name?:      _
 	resources?: _
 	...
 }
 
 apiVersion: "v1"
-kind: "Pod"
+kind:       "Pod"
 metadata: {
 	name: #values.name
 }
 spec: {
 	containers: [
 		{
-			name: #values.name
+			name:      #values.name
 			resources: #values.resources
 		},
 	]

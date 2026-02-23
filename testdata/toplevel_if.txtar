@@ -39,13 +39,13 @@ _nonzero: {
 
 #values: {
 	enabled?: _
-	name?: _
+	name?:    _
 	...
 }
 
 if (_nonzero & {#arg: #values.enabled, _}) {
 	apiVersion: "v1"
-	kind: "ConfigMap"
+	kind:       "ConfigMap"
 	metadata: {
 		name: #values.name
 	}

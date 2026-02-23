@@ -25,7 +25,7 @@ data:
 }
 
 apiVersion: "v1"
-kind: "ConfigMap"
+kind:       "ConfigMap"
 metadata: {
 	name: "\(#values.app)-\(#values.env)"
 }

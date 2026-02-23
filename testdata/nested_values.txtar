@@ -41,12 +41,12 @@ data:
 }
 
 apiVersion: "v1"
-kind: "ConfigMap"
+kind:       "ConfigMap"
 metadata: {
 	name: #values.config.name
 }
 data: {
-	port: #values.config.port
-	host: #values.config.server.host
+	port:   #values.config.port
+	host:   #values.config.server.host
 	simple: #values.simple
 }

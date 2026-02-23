@@ -19,13 +19,13 @@ data:
   replicas: 3
 -- output.cue --
 #values: {
-	name?: _
+	name?:     _
 	replicas?: _
 	...
 }
 
 apiVersion: "v1"
-kind: "ConfigMap"
+kind:       "ConfigMap"
 metadata: {
 	name: #values.name
 }

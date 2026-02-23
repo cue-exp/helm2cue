@@ -35,7 +35,7 @@ spec:
 }
 
 apiVersion: "v1"
-kind: "Service"
+kind:       "Service"
 metadata: {
 	name: "test"
 }
@@ -44,6 +44,6 @@ spec: {
 		for _, _range0 in #values.ports {
 			name: _range0.name
 			port: _range0.port
-		}
+		},
 	]
 }

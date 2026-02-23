@@ -24,6 +24,7 @@ import (
 	"text/template/parse"
 
 	"cuelang.org/go/cue/cuecontext"
+	"cuelang.org/go/cue/format"
 )
 
 // PipelineFunc describes how to convert a template pipeline function to CUE.
@@ -470,10 +471,10 @@ func assembleSingleFile(cfg *Config, r *convertResult) ([]byte, error) {
 		final.WriteString("}\n")
 	}
 
-	// Validate the generated CUE.
-	result := final.Bytes()
-	if err := validateCUE(result); err != nil {
-		return nil, fmt.Errorf("generated invalid CUE:\n%s\nerror: %w", result, err)
+	// Format and validate the generated CUE.
+	result, err := format.Source(final.Bytes())
+	if err != nil {
+		return nil, fmt.Errorf("generated invalid CUE:\n%s\nerror: %w", final.Bytes(), err)
 	}
 
 	return result, nil

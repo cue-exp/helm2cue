@@ -25,7 +25,7 @@ metadata:
 _myapp_namespace: "default-ns"
 
 apiVersion: "v1"
-kind: "ConfigMap"
+kind:       "ConfigMap"
 metadata: {
 	namespace: #values.namespace
 }

@@ -21,7 +21,7 @@ import "list"
 
 _uniq: {
 	#in: [...]
-	out: [ for i, x in #in if !list.Contains(list.Slice(#in, 0, i), x) {x}]
+	out: [for i, x in #in if !list.Contains(list.Slice(#in, 0, i), x) {x}]
 }
 
 #values: {
@@ -30,7 +30,7 @@ _uniq: {
 }
 
 apiVersion: "v1"
-kind: "ConfigMap"
+kind:       "ConfigMap"
 metadata: {
 	name: "test"
 }

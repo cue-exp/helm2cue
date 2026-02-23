@@ -56,6 +56,10 @@ workflows: trybot: _repo.bashWorkflow & {
 					run:  "go generate ./..."
 				},
 				{
+					name: "Check CUE formatting"
+					run:  "go tool cue fmt --files --check ."
+				},
+				{
 					name: "Test"
 					run:  "go test ./..."
 				},

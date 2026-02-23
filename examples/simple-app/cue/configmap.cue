@@ -4,9 +4,9 @@ package simple_app
 
 configmap: {
 	apiVersion: "v1"
-	kind: "ConfigMap"
+	kind:       "ConfigMap"
 	metadata: {
-		name: _simple_app_fullname
+		name:   _simple_app_fullname
 		labels: _simple_app_labels
 	}
 	data: {
@@ -14,7 +14,7 @@ configmap: {
 		if (_nonzero & {#arg: #values.debug, _}) {
 			logLevel: "debug"
 		}
-		if !((_nonzero & {#arg: #values.debug, _})) {
+		if !(_nonzero & {#arg: #values.debug, _}) {
 			logLevel: "info"
 		}
 	}

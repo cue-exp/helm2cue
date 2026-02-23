@@ -18,19 +18,19 @@ data:
 import "strconv"
 
 #values: {
-	port?: _
+	port?:     _
 	replicas?: _
-	ratio?: _
+	ratio?:    _
 	...
 }
 
 apiVersion: "v1"
-kind: "ConfigMap"
+kind:       "ConfigMap"
 metadata: {
 	name: "test"
 }
 data: {
-	port: strconv.Atoi(#values.port)
+	port:     strconv.Atoi(#values.port)
 	replicas: int & #values.replicas
-	ratio: number & #values.ratio
+	ratio:    number & #values.ratio
 }

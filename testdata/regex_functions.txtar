@@ -27,11 +27,11 @@ import "regexp"
 }
 
 apiVersion: "v1"
-kind: "ConfigMap"
+kind:       "ConfigMap"
 metadata: {
 	name: "test"
 }
 data: {
 	matches: regexp.Match("^hello", #values.name)
-	found: regexp.Find("[a-z]+", #values.name)
+	found:   regexp.Find("[a-z]+", #values.name)
 }

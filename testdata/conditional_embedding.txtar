@@ -54,7 +54,7 @@ _myapp_annotations: {
 }
 
 apiVersion: "v1"
-kind: "ConfigMap"
+kind:       "ConfigMap"
 metadata: {
 	name: "test"
 	annotations: {
