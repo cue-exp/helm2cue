@@ -1,0 +1,12 @@
+Include with a field expression context argument.
+
+TODO: currently errors; next commit adds support.
+
+-- _helpers.tpl --
+{{- define "myapp.name" -}}
+{{ . }}
+{{- end -}}
+-- input.yaml --
+name: {{ include "myapp.name" .Values.name }}
+-- error --
+unsupported context argument
