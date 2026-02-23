@@ -13,6 +13,15 @@ body:
         commit abc1234...
     validations:
       required: true
+  - type: textarea
+    id: helm-version
+    attributes:
+      label: Helm version
+      description: If using the `chart` subcommand, what version of Helm are you using? Paste the output of `helm version`. Not required for `template` subcommand issues.
+      placeholder: |
+        version.BuildInfo{Version:"v4.1.1", ...}
+    validations:
+      required: false
   - type: dropdown
     id: latest
     attributes:
@@ -27,11 +36,19 @@ body:
     id: what-did-you-do
     attributes:
       label: What did you do?
-      description: If possible, provide a recipe for reproducing the error. Include the Helm template input and the command you ran.
+      description: |
+        Provide a recipe for reproducing the error. Include the template input and the command you ran.
+
+        For `chart` subcommand issues: please confirm that `helm template` succeeds on your chart before filing. helm2cue only supports charts that Helm itself can render.
       placeholder: |
-        Steps to reproduce:
-        1. Created a Helm template with ...
-        2. Ran `go run . template.yaml`
+        For chart issues:
+        1. `helm template my-release ./my-chart` succeeds with Helm vX.Y.Z
+        2. Ran `helm2cue chart ./my-chart ./output`
+        3. ...
+
+        For template issues:
+        1. Created a template file with ...
+        2. Ran `helm2cue template my-template.yaml`
         3. ...
     validations:
       required: true
