@@ -37,10 +37,12 @@ Convert an entire Helm chart directory to a CUE module.
 helm2cue template [file ...]
 ```
 
-Convert individual template files. Files ending in `.tpl` are treated
-as helper files containing `{{ define }}` blocks. All other files are
-treated as the main template. Reads from stdin if no non-`.tpl`
-arguments are given. Generated CUE is printed to stdout.
+Convert individual Go `text/template` files to CUE. Only Go's built-in
+template functions are supported; Helm/Sprig functions are rejected.
+Files ending in `.tpl` are treated as helper files containing
+`{{ define }}` blocks. All other files are treated as the main template.
+Reads from stdin if no non-`.tpl` arguments are given. Generated CUE is
+printed to stdout.
 
 ```
 helm2cue version
@@ -168,16 +170,18 @@ CUE is not whitespace-sensitive and `{ A } = A` for any `A`, so CUE blocks
 can be freely emitted around content without affecting semantics. This
 eliminates the need for a YAML parser intermediary.
 
-Six functions are handled by the core converter rather than as
-configurable pipeline functions. Three are deeply intrinsic because they
-shape the structure and semantics of the generated CUE: **`default`**
-(tracked across all templates to build the `#values` schema with CUE
-defaults), **`include`** (resolves named helper templates via the shared
-template graph), and **`required`** (emits CUE constraint annotations).
-The remaining three — **`printf`**, **`print`**, and **`ternary`** — are
-also core-handled because they require custom AST construction (e.g.
-format-string rewriting, conditional expressions) that does not fit the
-`PipelineFunc` interface used by configurable functions.
+Several functions are handled by the core converter rather than as
+configurable pipeline functions. Two are Go `text/template` builtins:
+**`printf`** and **`print`** (format-string rewriting that does not fit
+the `PipelineFunc` interface). The rest are Sprig/Helm functions that
+are core-handled because they shape the structure and semantics of the
+generated CUE: **`default`** (tracked across all templates to build the
+`#values` schema with CUE defaults), **`include`** (resolves named
+helper templates via the shared template graph), **`required`** (emits
+CUE constraint annotations), and **`ternary`** (conditional expressions).
+In `template` mode (pure `text/template`) only the Go builtins are
+enabled; the Sprig/Helm functions are rejected. In `chart` mode all
+core-handled functions are available.
 
 Helm built-in objects are mapped to CUE definitions:
 
@@ -242,7 +246,7 @@ removed once those exist.
 | `{{ lookup ... }}` | Not supported (descriptive error) | Error |
 | `{{ tpl ... }}` | Not supported (descriptive error) | Error |
 
-### Pipeline functions (Sprig)
+### Pipeline functions (Sprig, chart mode only)
 
 | Sprig Function | CUE Equivalent | Import |
 |---|---|---|

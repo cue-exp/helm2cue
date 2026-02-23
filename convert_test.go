@@ -440,8 +440,9 @@ func cueExportCore(t *testing.T, cueSrc, valuesYAML []byte) []byte {
 }
 
 // testCoreConfig returns a non-Helm Config for testing the core converter.
-// It uses a single context object ("input" → "#input") with no Funcs,
-// proving the converter works generically without Helm-specific configuration.
+// It uses a single context object ("input" → "#input") with no Funcs
+// and CoreFuncs nil (all core functions enabled), proving the converter
+// works generically without Helm-specific configuration.
 func testCoreConfig() *Config {
 	return &Config{
 		ContextObjects: map[string]string{
@@ -562,4 +563,107 @@ func TestConvertCore(t *testing.T) {
 			}
 		})
 	}
+}
+
+// TestTemplateConfig verifies that TemplateConfig() rejects Sprig/Helm
+// functions with clear error messages, while accepting Go builtins.
+func TestTemplateConfig(t *testing.T) {
+	cfg := TemplateConfig()
+
+	// Templates that should succeed (Go text/template builtins only).
+	okCases := []struct {
+		name  string
+		input string
+	}{
+		{"value_ref", "x: {{ .Values.name }}"},
+		{"printf", `x: {{ printf "%s-%s" .Values.a .Values.b }}`},
+		{"conditional", "{{ if .Values.x }}x: 1{{ end }}"},
+		{"with", "{{ with .Values.x }}val: {{ . }}{{ end }}"},
+	}
+	for _, tc := range okCases {
+		t.Run("ok/"+tc.name, func(t *testing.T) {
+			_, err := Convert(cfg, []byte(tc.input))
+			if err != nil {
+				t.Fatalf("expected success, got error: %v", err)
+			}
+		})
+	}
+
+	// Templates that should fail (Sprig/Helm functions).
+	errCases := []struct {
+		name    string
+		input   string
+		wantErr string
+	}{
+		{
+			"default_pipeline",
+			"x: {{ .Values.x | default \"hi\" }}",
+			"unsupported pipeline function: default",
+		},
+		{
+			"default_first_cmd",
+			`x: {{ default "fallback" .Values.name }}`,
+			"unsupported pipeline function: default (not a text/template builtin)",
+		},
+		{
+			"required",
+			`x: {{ required "msg" .Values.name }}`,
+			"unsupported pipeline function: required (not a text/template builtin)",
+		},
+		{
+			"include",
+			`x: {{ include "helper" . }}`,
+			"unsupported pipeline function: include (not a text/template builtin)",
+		},
+		{
+			"ternary",
+			`x: {{ ternary "a" "b" .Values.x }}`,
+			"unsupported pipeline function: ternary (not a text/template builtin)",
+		},
+		{
+			"list",
+			`x: {{ list "a" "b" }}`,
+			"unsupported pipeline function: list (not a text/template builtin)",
+		},
+		{
+			"dict",
+			`x: {{ dict "k" "v" }}`,
+			"unsupported pipeline function: dict (not a text/template builtin)",
+		},
+		{
+			"coalesce",
+			`x: {{ coalesce .Values.a .Values.b }}`,
+			"unsupported pipeline function: coalesce (not a text/template builtin)",
+		},
+		{
+			"empty_in_condition",
+			`{{ if empty .Values.x }}x: 1{{ end }}`,
+			"unsupported condition function: empty (not a text/template builtin)",
+		},
+		{
+			"hasKey_in_condition",
+			`{{ if hasKey .Values "x" }}x: 1{{ end }}`,
+			"unsupported condition function: hasKey (not a text/template builtin)",
+		},
+	}
+	for _, tc := range errCases {
+		t.Run("err/"+tc.name, func(t *testing.T) {
+			_, err := Convert(cfg, []byte(tc.input))
+			if err == nil {
+				t.Fatal("expected Convert() to fail, but it succeeded")
+			}
+			if !strings.Contains(err.Error(), tc.wantErr) {
+				t.Errorf("error mismatch:\n  want substring: %s\n  got: %s", tc.wantErr, err)
+			}
+		})
+	}
+
+	// Verify the same input succeeds with HelmConfig.
+	t.Run("helm_config_accepts_default", func(t *testing.T) {
+		input := []byte("x: {{ .Values.x | default \"hi\" }}")
+		_, err := Convert(HelmConfig(), input)
+		if err != nil {
+			t.Fatalf("expected HelmConfig to accept default, got: %v", err)
+		}
+	})
 }

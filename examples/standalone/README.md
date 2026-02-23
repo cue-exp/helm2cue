@@ -84,7 +84,8 @@ This produces the same output as the Go program.
 
 ## Note on `.Values`
 
-The `helm2cue template` subcommand expects the template context to use
-`.Values.xxx` field references. This is just a Go template field name — it does
-not imply any dependency on Helm. The example uses pure Go `text/template` with
-no Sprig or Helm-specific functions.
+The `helm2cue template` subcommand converts pure Go `text/template` files and
+expects the template context to use `.Values.xxx` field references. This is
+just a Go template field name — it does not imply any dependency on Helm.
+Helm/Sprig functions are not available in `template` mode (use `chart` mode
+for Helm charts).

@@ -26,7 +26,7 @@ const usageText = `usage: helm2cue <command> [arguments]
 
 Commands:
     chart      convert a Helm chart directory to a CUE module
-    template   convert a single Helm template to CUE
+    template   convert a Go text/template file to CUE
     version    print helm2cue version information
 
 Run "helm2cue help" for more information.
@@ -98,7 +98,7 @@ func cmdTemplate(args []string) {
 		os.Exit(1)
 	}
 
-	output, err := Convert(HelmConfig(), input, helpers...)
+	output, err := Convert(TemplateConfig(), input, helpers...)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "helm2cue: %v\n", err)
 		os.Exit(1)
