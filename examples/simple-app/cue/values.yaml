@@ -15,5 +15,9 @@ ports:
   - name: https
     containerPort: 443
 
+serviceAccount:
+  create: true
+  name: my-service-account
+
 env: production
 debug: false

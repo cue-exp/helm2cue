@@ -1,0 +1,28 @@
+Helper that accesses fields on its argument via {{ .name }} and {{ .version }},
+called with a field expression.
+
+-- _helpers.tpl --
+{{- define "labels" -}}
+app: {{ .name }}
+version: {{ .version }}
+{{- end -}}
+-- input.yaml --
+labels:
+  {{ include "labels" .input }}
+-- output.cue --
+#input: {
+	name?:    _
+	version?: _
+	...
+}
+_labels: {
+	#arg: {
+		name?:    _
+		version?: _
+		...
+	}
+	app:     #arg.name
+	version: #arg.version
+}
+
+labels: _labels & {#arg: #input, _}

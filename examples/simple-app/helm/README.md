@@ -5,6 +5,7 @@ as a test fixture and reference for the helm2cue converter, exercising the
 following template features:
 
 - `include` + `nindent` (labels, selectorLabels, fullname, name)
+- `include` with field expression arg (serviceAccountName helper)
 - `range` over structured values (ports)
 - `if`/`else` (debug flag)
 - `default`, `quote`, `printf`
