@@ -14,6 +14,7 @@ spec:
       labels:
         {{- include "simple-app.selectorLabels" . | nindent 8 }}
     spec:
+      serviceAccountName: {{ include "simple-app.serviceAccountName" .Values.serviceAccount }}
       containers:
         - name: {{ include "simple-app.name" . }}
           image: {{ printf "%s:%s" .Values.image.repository .Values.image.tag }}

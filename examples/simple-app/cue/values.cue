@@ -3,9 +3,10 @@
 package simple_app
 
 #values: {
-	env:          *"development" | _
-	debug?:       _
-	replicaCount: *1 | _
+	env:             *"development" | _
+	debug?:          _
+	replicaCount:    *1 | _
+	serviceAccount?: _
 	image?: {
 		repository?: _
 		tag?:        _
