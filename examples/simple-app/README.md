@@ -1,32 +1,10 @@
 # simple-app
 
-A minimal Helm chart that follows standard `helm create` conventions. It serves
-as a test fixture and reference for the helm2cue converter, exercising the
-following template features:
+A complete Helm-to-CUE conversion example using a minimal Helm chart.
 
-- `include` + `nindent` (labels, selectorLabels, fullname, name)
-- `range` over structured values (ports)
-- `if`/`else` (debug flag)
-- `default`, `quote`, `printf`
-- `trunc`, `trimSuffix`, `replace` (in helpers)
-- Nested `include` (labels helper includes chart and name helpers)
+| Directory | Contents |
+|-----------|----------|
+| [`helm/`](helm/) | Source Helm chart — a standard `helm create` layout with deployment, service, and configmap templates. |
+| [`cue/`](cue/) | Generated CUE module — produced by `helm2cue chart` and committed for browsing. |
 
-## Rendering with Helm
-
-Render all templates:
-
-```bash
-helm template my-release ./examples/simple-app
-```
-
-Render a single template:
-
-```bash
-helm template my-release ./examples/simple-app -s templates/configmap.yaml
-```
-
-Override a value:
-
-```bash
-helm template my-release ./examples/simple-app --set debug=true
-```
+See the READMEs in each subdirectory for details.

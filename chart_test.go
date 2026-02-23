@@ -151,9 +151,9 @@ func TestTemplateFieldName(t *testing.T) {
 
 // Command strings that must appear verbatim in README.md.
 const (
-	readmeHelmTemplate       = "helm template my-release ./examples/simple-app"
-	readmeHelmTemplateSingle = "helm template my-release ./examples/simple-app -s templates/configmap.yaml"
-	readmeChart              = "helm2cue chart ./examples/simple-app ./examples/simple-app-cue"
+	readmeHelmTemplate       = "helm template my-release ./examples/simple-app/helm"
+	readmeHelmTemplateSingle = "helm template my-release ./examples/simple-app/helm -s templates/configmap.yaml"
+	readmeChart              = "helm2cue chart ./examples/simple-app/helm ./examples/simple-app/cue"
 	readmeCueExportSingle    = "cue export . -t release_name=my-release -e configmap --out yaml"
 	readmeCueExportAll       = "cue export . -t release_name=my-release --out text -e 'yaml.MarshalStream(results)'"
 )
@@ -198,7 +198,7 @@ func TestReadmeExample(t *testing.T) {
 	}
 
 	// Run helm template (all resources).
-	helmCmd := exec.Command(helmPath, "template", "my-release", "./examples/simple-app")
+	helmCmd := exec.Command(helmPath, "template", "my-release", "./examples/simple-app/helm")
 	helmOut, err := helmCmd.CombinedOutput()
 	if err != nil {
 		t.Fatalf("helm template: %v\n%s", err, helmOut)
@@ -206,7 +206,7 @@ func TestReadmeExample(t *testing.T) {
 
 	// Run helm2cue chart.
 	cueOutDir := filepath.Join(tmpDir, "simple-app-cue")
-	chartCmd := exec.Command(binPath, "chart", "./examples/simple-app", cueOutDir)
+	chartCmd := exec.Command(binPath, "chart", "./examples/simple-app/helm", cueOutDir)
 	if out, err := chartCmd.CombinedOutput(); err != nil {
 		t.Fatalf("helm2cue chart: %v\n%s", err, out)
 	}

@@ -1,0 +1,21 @@
+server:
+  name: {{ template "fullname" . }}
+  address: {{ printf "%s:%d" .Values.host .Values.port }}
+{{- if .Values.debug }}
+  logLevel: debug
+{{- else }}
+  logLevel: info
+{{- end }}
+{{- with .Values.tls }}
+  tls:
+    cert: {{ .cert }}
+    key: {{ .key }}
+{{- end }}
+  labels:
+{{- range $key, $val := .Values.labels }}
+    {{ $key }}: {{ $val }}
+{{- end }}
+  features:
+{{- range .Values.features }}
+    - {{ . }}
+{{- end }}
