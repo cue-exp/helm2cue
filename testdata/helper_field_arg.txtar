@@ -1,0 +1,19 @@
+Helper that uses bare {{ . }} called with a field expression .Values.name.
+
+-- _helpers.tpl --
+{{- define "myapp.name" -}}
+{{ . }}
+{{- end -}}
+-- input.yaml --
+name: {{ include "myapp.name" .Values.name }}
+-- output.cue --
+#values: {
+	name?: _
+	...
+}
+_myapp_name: {
+	#arg: _
+	#arg
+}
+
+name: _myapp_name & {#arg: #values.name, _}
