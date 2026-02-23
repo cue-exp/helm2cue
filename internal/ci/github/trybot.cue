@@ -4,6 +4,8 @@ import (
 	"list"
 )
 
+_standaloneDir: "examples/standalone"
+
 // The trybot workflow.
 workflows: trybot: _repo.bashWorkflow & {
 	on: {
@@ -52,6 +54,30 @@ workflows: trybot: _repo.bashWorkflow & {
 				},
 				_repo.staticcheck,
 				_repo.goChecks,
+
+				// The standalone example is a separate Go module
+				// not covered by the root module's checks.
+				{
+					name:                "Tidy standalone example"
+					"working-directory": _standaloneDir
+					run:                 "go mod tidy -diff"
+				},
+				{
+					name:                "Generate standalone example"
+					"working-directory": _standaloneDir
+					run:                 "go generate ./..."
+				},
+				{
+					name:                "Vet standalone example"
+					"working-directory": _standaloneDir
+					run:                 "go vet ./..."
+				},
+				{
+					name:                "Test standalone example"
+					"working-directory": _standaloneDir
+					run:                 "go test ./..."
+				},
+
 				_repo.checkGitClean,
 			]
 		}

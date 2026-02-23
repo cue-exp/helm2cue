@@ -96,6 +96,18 @@ jobs:
       - run: |-
           go mod tidy -diff
           go vet ./...
+      - name: Tidy standalone example
+        working-directory: examples/standalone
+        run: go mod tidy -diff
+      - name: Generate standalone example
+        working-directory: examples/standalone
+        run: go generate ./...
+      - name: Vet standalone example
+        working-directory: examples/standalone
+        run: go vet ./...
+      - name: Test standalone example
+        working-directory: examples/standalone
+        run: go test ./...
       - if: always()
         name: Check that git is clean at the end of the job
         run: test -z "$(git status --porcelain)" || (git status; git diff; false)
