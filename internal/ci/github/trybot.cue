@@ -36,6 +36,16 @@ workflows: trybot: _repo.bashWorkflow & {
 
 				_repo.earlyChecks,
 
+				// TODO: remove this debug step once we understand the
+				// helm availability situation on CI runners.
+				{
+					name: "Debug: check helm availability"
+					run: """
+						which helm && helm version || echo "helm not found"
+						false
+						"""
+				},
+
 				{
 					name: "Verify"
 					run:  "go mod verify"

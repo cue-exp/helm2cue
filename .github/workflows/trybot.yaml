@@ -82,6 +82,10 @@ jobs:
         run: go env -w GOFLAGS=-count=1
       - name: Early git and code sanity checks
         run: go run cuelang.org/go/internal/ci/checks@v0.15.0
+      - name: 'Debug: check helm availability'
+        run: |-
+          which helm && helm version || echo "helm not found"
+          false
       - name: Verify
         run: go mod verify
       - name: Generate
