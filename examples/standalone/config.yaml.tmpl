@@ -1,0 +1,8 @@
+server:
+  host: {{ .Values.host }}
+  port: {{ .Values.port }}
+  logLevel: {{ .Values.logLevel | default "info" }}
+  features:
+  {{- range .Values.features }}
+    - {{ . }}
+  {{- end }}

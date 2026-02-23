@@ -1,0 +1,6 @@
+host: localhost
+port: 8080
+logLevel: debug
+features:
+  - auth
+  - metrics

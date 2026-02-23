@@ -48,43 +48,51 @@ helm2cue version
 
 Print version information.
 
-## Example
+## Examples
 
-The `examples/simple-app` directory is a standard Helm chart. The
-generated CUE output is committed in
-[`examples/simple-app-cue`](examples/simple-app-cue/) so you can
-browse the result without running the tool. It is kept in sync via
-`go generate` (see [`gen.go`](gen.go)).
+The [`examples/`](examples/) directory contains two examples. Both have
+their generated output committed so you can browse the result without
+running the tool. They are kept in sync via `go generate` (see
+[`gen.go`](gen.go)).
 
-The steps below show how to render the chart with Helm, convert it
-to CUE, and export resources from the generated CUE module.
+### Standalone template
 
-### Rendering the example chart with Helm
+[`examples/standalone/`](examples/standalone/) shows the core idea: a
+plain Go `text/template` (not Helm) converted to CUE. It includes a
+small Go program that executes the template, alongside the CUE
+equivalent produced by `helm2cue template`. See the
+[standalone README](examples/standalone/README.md) for details.
 
-You can render it with Helm to see what the templates produce:
+### Helm chart (simple-app)
+
+[`examples/simple-app/helm/`](examples/simple-app/helm/) is a standard
+Helm chart. The generated CUE output is in
+[`examples/simple-app/cue/`](examples/simple-app/cue/).
+
+#### Rendering the chart with Helm
+
+Render all templates:
 
 ```bash
-helm template my-release ./examples/simple-app
+helm template my-release ./examples/simple-app/helm
 ```
 
 Render a single template:
 
 ```bash
-helm template my-release ./examples/simple-app -s templates/configmap.yaml
+helm template my-release ./examples/simple-app/helm -s templates/configmap.yaml
 ```
 
-### Converting the chart to CUE
-
-Convert the chart to a CUE module:
+#### Converting the chart to CUE
 
 ```bash
-helm2cue chart ./examples/simple-app ./examples/simple-app-cue
+helm2cue chart ./examples/simple-app/helm ./examples/simple-app/cue
 ```
 
 This produces a ready-to-use CUE module:
 
 ```
-simple-app-cue/
+simple-app/cue/
   cue.mod/module.cue   # module: "helm.local/simple-app"
   deployment.cue        # deployment: { ... }
   service.cue           # service: { ... }
@@ -98,19 +106,19 @@ simple-app-cue/
   release.yaml          # empty placeholder for @embed
 ```
 
-### Exporting from the CUE module
+#### Exporting from the CUE module
 
 Export a single resource:
 
 ```bash
-cd examples/simple-app-cue
+cd examples/simple-app/cue
 cue export . -t release_name=my-release -e configmap --out yaml
 ```
 
 Export all resources as a multi-document YAML stream (like `helm template`):
 
 ```bash
-cd examples/simple-app-cue
+cd examples/simple-app/cue
 cue export . -t release_name=my-release --out text -e 'yaml.MarshalStream(results)'
 ```
 
