@@ -1,11 +1,11 @@
-Include with a field expression context argument.
+Template directive ({{ template }}) with a field expression argument.
 
 -- _helpers.tpl --
 {{- define "myapp.name" -}}
 {{ . }}
 {{- end -}}
 -- input.yaml --
-name: {{ include "myapp.name" .Values.name }}
+name: {{ template "myapp.name" .Values.name }}
 -- output.cue --
 #values: {
 	name?: _
