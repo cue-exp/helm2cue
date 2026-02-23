@@ -1806,7 +1806,7 @@ func (c *converter) conditionPipeToExpr(pipe *parse.PipeNode) (string, error) {
 			ops := map[string]string{"eq": "==", "ne": "!=", "lt": "<", "gt": ">", "le": "<=", "ge": ">="}
 			return a + " " + ops[id.Ident] + " " + b, nil
 		case "empty":
-			if !c.isCoreFunc("empty") {
+			if !c.isCoreFunc(id.Ident) {
 				return "", fmt.Errorf("unsupported condition function: %s (not a text/template builtin)", id.Ident)
 			}
 			if len(args) != 1 {
@@ -1818,7 +1818,7 @@ func (c *converter) conditionPipeToExpr(pipe *parse.PipeNode) (string, error) {
 			}
 			return "!(" + inner + ")", nil
 		case "hasKey":
-			if !c.isCoreFunc("hasKey") {
+			if !c.isCoreFunc(id.Ident) {
 				return "", fmt.Errorf("unsupported condition function: %s (not a text/template builtin)", id.Ident)
 			}
 			if len(args) != 2 {
@@ -1834,7 +1834,7 @@ func (c *converter) conditionPipeToExpr(pipe *parse.PipeNode) (string, error) {
 			}
 			return fmt.Sprintf("(_nonzero & {#arg: %s.%s, _})", mapExpr, cueKey(keyNode.Text)), nil
 		case "coalesce":
-			if !c.isCoreFunc("coalesce") {
+			if !c.isCoreFunc(id.Ident) {
 				return "", fmt.Errorf("unsupported condition function: %s (not a text/template builtin)", id.Ident)
 			}
 			if len(args) < 1 {
@@ -1850,7 +1850,7 @@ func (c *converter) conditionPipeToExpr(pipe *parse.PipeNode) (string, error) {
 			}
 			return strings.Join(parts, " || "), nil
 		case "include":
-			if !c.isCoreFunc("include") {
+			if !c.isCoreFunc(id.Ident) {
 				return "", fmt.Errorf("unsupported condition function: %s (not a text/template builtin)", id.Ident)
 			}
 			if len(args) < 1 {
@@ -1935,16 +1935,16 @@ func (c *converter) actionToCUE(n *parse.ActionNode) (expr string, helmObj strin
 		} else if id, ok := first.Args[0].(*parse.IdentifierNode); ok {
 			switch id.Ident {
 			case "list":
-				if c.isCoreFunc("list") {
+				if c.isCoreFunc(id.Ident) {
 					expr = "[]"
 				} else {
-					gatedFunc = "list"
+					gatedFunc = id.Ident
 				}
 			case "dict":
-				if c.isCoreFunc("dict") {
+				if c.isCoreFunc(id.Ident) {
 					expr = "{}"
 				} else {
-					gatedFunc = "dict"
+					gatedFunc = id.Ident
 				}
 			}
 		}
@@ -1955,8 +1955,8 @@ func (c *converter) actionToCUE(n *parse.ActionNode) (expr string, helmObj strin
 		}
 		switch id.Ident {
 		case "default":
-			if !c.isCoreFunc("default") {
-				gatedFunc = "default"
+			if !c.isCoreFunc(id.Ident) {
+				gatedFunc = id.Ident
 				break
 			}
 			if len(first.Args) != 3 {
@@ -2015,8 +2015,8 @@ func (c *converter) actionToCUE(n *parse.ActionNode) (expr string, helmObj strin
 			}
 			expr = cueExpr
 		case "required":
-			if !c.isCoreFunc("required") {
-				gatedFunc = "required"
+			if !c.isCoreFunc(id.Ident) {
+				gatedFunc = id.Ident
 				break
 			}
 			if len(first.Args) != 3 {
@@ -2035,8 +2035,8 @@ func (c *converter) actionToCUE(n *parse.ActionNode) (expr string, helmObj strin
 				c.comments[expr] = fmt.Sprintf("// required: %s", msg)
 			}
 		case "include":
-			if !c.isCoreFunc("include") {
-				gatedFunc = "include"
+			if !c.isCoreFunc(id.Ident) {
+				gatedFunc = id.Ident
 				break
 			}
 			if len(first.Args) < 2 {
@@ -2061,8 +2061,8 @@ func (c *converter) actionToCUE(n *parse.ActionNode) (expr string, helmObj strin
 				expr = fmt.Sprintf("_helpers[%s]", nameExpr)
 			}
 		case "ternary":
-			if !c.isCoreFunc("ternary") {
-				gatedFunc = "ternary"
+			if !c.isCoreFunc(id.Ident) {
+				gatedFunc = id.Ident
 				break
 			}
 			if len(first.Args) != 4 {
@@ -2089,8 +2089,8 @@ func (c *converter) actionToCUE(n *parse.ActionNode) (expr string, helmObj strin
 				helmObj = falseObj
 			}
 		case "list":
-			if !c.isCoreFunc("list") {
-				gatedFunc = "list"
+			if !c.isCoreFunc(id.Ident) {
+				gatedFunc = id.Ident
 				break
 			}
 			var elems []string
@@ -2106,8 +2106,8 @@ func (c *converter) actionToCUE(n *parse.ActionNode) (expr string, helmObj strin
 			}
 			expr = "[" + strings.Join(elems, ", ") + "]"
 		case "dict":
-			if !c.isCoreFunc("dict") {
-				gatedFunc = "dict"
+			if !c.isCoreFunc(id.Ident) {
+				gatedFunc = id.Ident
 				break
 			}
 			args := first.Args[1:]
@@ -2131,8 +2131,8 @@ func (c *converter) actionToCUE(n *parse.ActionNode) (expr string, helmObj strin
 			}
 			expr = "{" + strings.Join(parts, ", ") + "}"
 		case "get":
-			if !c.isCoreFunc("get") {
-				gatedFunc = "get"
+			if !c.isCoreFunc(id.Ident) {
+				gatedFunc = id.Ident
 				break
 			}
 			if len(first.Args) != 3 {
@@ -2159,8 +2159,8 @@ func (c *converter) actionToCUE(n *parse.ActionNode) (expr string, helmObj strin
 				expr = mapExpr + "[" + keyExpr + "]"
 			}
 		case "coalesce":
-			if !c.isCoreFunc("coalesce") {
-				gatedFunc = "coalesce"
+			if !c.isCoreFunc(id.Ident) {
+				gatedFunc = id.Ident
 				break
 			}
 			if len(first.Args) < 2 {
@@ -2189,8 +2189,8 @@ func (c *converter) actionToCUE(n *parse.ActionNode) (expr string, helmObj strin
 			}
 			expr = "[" + strings.Join(elems, ", ") + "][0]"
 		case "max":
-			if !c.isCoreFunc("max") {
-				gatedFunc = "max"
+			if !c.isCoreFunc(id.Ident) {
+				gatedFunc = id.Ident
 				break
 			}
 			if len(first.Args) < 3 {
@@ -2210,8 +2210,8 @@ func (c *converter) actionToCUE(n *parse.ActionNode) (expr string, helmObj strin
 			c.addImport("list")
 			expr = "list.Max([" + strings.Join(elems, ", ") + "])"
 		case "min":
-			if !c.isCoreFunc("min") {
-				gatedFunc = "min"
+			if !c.isCoreFunc(id.Ident) {
+				gatedFunc = id.Ident
 				break
 			}
 			if len(first.Args) < 3 {
@@ -2269,7 +2269,7 @@ func (c *converter) actionToCUE(n *parse.ActionNode) (expr string, helmObj strin
 		handled := false
 		switch id.Ident {
 		case "default":
-			if c.isCoreFunc("default") {
+			if c.isCoreFunc(id.Ident) {
 				if len(cmd.Args) != 2 {
 					return "", "", fmt.Errorf("default in pipeline requires 1 argument")
 				}
@@ -2286,7 +2286,7 @@ func (c *converter) actionToCUE(n *parse.ActionNode) (expr string, helmObj strin
 				handled = true
 			}
 		case "required":
-			if c.isCoreFunc("required") {
+			if c.isCoreFunc(id.Ident) {
 				arg, err := c.extractPipelineArgs(cmd, 1)
 				if err != nil {
 					return "", "", err
