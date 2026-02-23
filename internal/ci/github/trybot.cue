@@ -5,6 +5,7 @@ import (
 )
 
 _standaloneDir: "examples/standalone"
+_helmVersion:   "v4.1.1"
 
 // The trybot workflow.
 workflows: trybot: _repo.bashWorkflow & {
@@ -35,6 +36,16 @@ workflows: trybot: _repo.bashWorkflow & {
 				for v in _repo.setupCaches {v},
 
 				_repo.earlyChecks,
+
+				{
+					name: "Install Helm \(_helmVersion)"
+					uses: "azure/setup-helm@v4"
+					with: version: _helmVersion
+				},
+				{
+					name: "Helm version"
+					run:  "helm version"
+				},
 
 				{
 					name: "Verify"
