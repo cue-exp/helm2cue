@@ -19,7 +19,7 @@ data:
 -- output.cue --
 _compact: {
 	#in: [...string]
-	out: [ for x in #in if x != "" {x}]
+	out: [for x in #in if x != "" {x}]
 }
 
 #values: {
@@ -28,7 +28,7 @@ _compact: {
 }
 
 apiVersion: "v1"
-kind: "ConfigMap"
+kind:       "ConfigMap"
 metadata: {
 	name: "test"
 }

@@ -35,6 +35,6 @@ _nonzero: {
 if (_nonzero & {#arg: #input.config, _}) {
 	name: #input.config.name
 }
-if !((_nonzero & {#arg: #input.config, _})) {
+if !(_nonzero & {#arg: #input.config, _}) {
 	name: "default"
 }

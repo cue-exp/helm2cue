@@ -39,16 +39,16 @@ import "math"
 }
 
 apiVersion: "v1"
-kind: "ConfigMap"
+kind:       "ConfigMap"
 metadata: {
 	name: "test"
 }
 data: {
-	ceiling: math.Ceil(#values.ratio)
-	floored: math.Floor(#values.ratio)
-	added: (#values.count + 5)
+	ceiling:    math.Ceil(#values.ratio)
+	floored:    math.Floor(#values.ratio)
+	added:      (#values.count + 5)
 	subtracted: (3 - #values.count)
 	multiplied: (#values.count * 2)
-	divided: div(3, #values.count)
-	modulo: mod(3, #values.count)
+	divided:    div(3, #values.count)
+	modulo:     mod(3, #values.count)
 }

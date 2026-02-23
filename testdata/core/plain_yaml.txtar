@@ -9,7 +9,7 @@ data:
   key: value
 -- output.cue --
 apiVersion: "v1"
-kind: "ConfigMap"
+kind:       "ConfigMap"
 metadata: {
 	name: "my-config"
 }

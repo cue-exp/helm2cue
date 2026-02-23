@@ -44,16 +44,16 @@ _simple_app_fullname: {
 	strings.TrimSuffix((_trunc & {#in: "\(#release.Name)-\(#chart.Name)", #n: 63}).out, "-")
 }
 _simple_app_labels: {
-	"helm.sh/chart": _simple_app_chart
-	"app.kubernetes.io/name": _simple_app_name
-	"app.kubernetes.io/instance": #release.Name
-	"app.kubernetes.io/version": "\(#chart.AppVersion)"
+	"helm.sh/chart":                _simple_app_chart
+	"app.kubernetes.io/name":       _simple_app_name
+	"app.kubernetes.io/instance":   #release.Name
+	"app.kubernetes.io/version":    "\(#chart.AppVersion)"
 	"app.kubernetes.io/managed-by": "Helm"
 }
 _simple_app_name: {
 	strings.TrimSuffix((_trunc & {#in: #chart.Name, #n: 63}).out, "-")
 }
 _simple_app_selectorLabels: {
-	"app.kubernetes.io/name": _simple_app_name
+	"app.kubernetes.io/name":     _simple_app_name
 	"app.kubernetes.io/instance": #release.Name
 }

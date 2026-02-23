@@ -32,7 +32,7 @@ data:
 }
 
 apiVersion: "v1"
-kind: "ConfigMap"
+kind:       "ConfigMap"
 metadata: {
 	name: "test"
 }
@@ -40,6 +40,6 @@ data: {
 	items: [
 		for _, _range0 in #values.items {
 			_range0
-		}
+		},
 	]
 }

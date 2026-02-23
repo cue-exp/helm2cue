@@ -39,14 +39,14 @@ _nonzero: {
 }
 
 #values: {
-	name?: _
+	name?:  _
 	alpha?: _
-	beta?: _
+	beta?:  _
 	...
 }
 
 apiVersion: "v1"
-kind: "ConfigMap"
+kind:       "ConfigMap"
 metadata: {
 	name: #values.name
 }

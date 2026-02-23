@@ -19,12 +19,12 @@ data:
 -- output.cue --
 #values: {
 	name: *"fallback" | _
-	env: *"production" | _
+	env:  *"production" | _
 	...
 }
 
 apiVersion: "v1"
-kind: "ConfigMap"
+kind:       "ConfigMap"
 metadata: {
 	name: #values.name
 }

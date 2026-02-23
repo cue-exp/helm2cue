@@ -55,6 +55,13 @@ workflows: trybot: _repo.bashWorkflow & {
 					name: "Generate"
 					run:  "go generate ./..."
 				},
+				// No need for a standalone equivalent: the standalone
+				// example has no separate CUE module. If it did, we
+				// would need to run cue fmt there too.
+				{
+					name: "Check CUE formatting"
+					run:  "go tool cue fmt --files --check ."
+				},
 				{
 					name: "Test"
 					run:  "go test ./..."

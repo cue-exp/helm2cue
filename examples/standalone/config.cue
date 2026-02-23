@@ -16,30 +16,30 @@ _nonzero: {
 }
 
 #values: {
-	name?: _
-	host?: _
-	port?: _
-	debug?: _
-	tls?: _
-	labels?: _
+	name?:     _
+	host?:     _
+	port?:     _
+	debug?:    _
+	tls?:      _
+	labels?:   _
 	features?: _
 	...
 }
 _fullname: "\(#values.name)-server"
 
 server: {
-	name: _fullname
+	name:    _fullname
 	address: "\(#values.host):\(#values.port)"
 	if (_nonzero & {#arg: #values.debug, _}) {
 		logLevel: "debug"
 	}
-	if !((_nonzero & {#arg: #values.debug, _})) {
+	if !(_nonzero & {#arg: #values.debug, _}) {
 		logLevel: "info"
 	}
 	if (_nonzero & {#arg: #values.tls, _}) {
 		tls: {
 			cert: #values.tls.cert
-			key: #values.tls.key
+			key:  #values.tls.key
 		}
 	}
 	labels: {
@@ -50,6 +50,6 @@ server: {
 	features: [
 		for _, _range0 in #values.features {
 			_range0
-		}
+		},
 	]
 }
