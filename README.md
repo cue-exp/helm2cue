@@ -297,6 +297,40 @@ removed once those exist.
 - **Crypto**: `derivePassword`, `genCA` (runtime crypto operations)
 - **Date**: `now`, `date`, `dateModify` (runtime date operations)
 
+## Related Projects
+
+Despite its name, helm2cue is narrowly focused on one question: how do you
+convert a Go `text/template` to CUE? Helm charts are a convenient test case
+because they exercise most of `text/template`'s features, but the goal is
+template conversion, not a complete Helm-to-CUE migration path.
+
+The wider problem of "how do you manage Kubernetes configuration with CUE
+instead of Helm" is tackled by several existing projects:
+
+- [Timoni](https://timoni.sh/) — a package manager for Kubernetes powered by
+  CUE. Timoni replaces Helm's Go templates with CUE's type system and
+  validation, and distributes modules as OCI artifacts.
+- [Holos](https://holos.run/) — a platform manager that uses CUE to configure
+  Helm charts, Kustomize bases, and plain manifests holistically, rendering
+  fully hydrated manifests for tools like ArgoCD or Flux to apply.
+- [cuelm](https://github.com/hofstadter-io/cuelm) — experiments with a pure
+  CUE implementation of Helm, part of the Hofstadter ecosystem.
+
+These projects address the end-to-end workflow: packaging, distribution,
+lifecycle management, multi-cluster coordination, and more. helm2cue does not
+try to replace or compete with them. If you are looking for a CUE-native
+alternative to Helm for managing Kubernetes deployments, those projects are
+worth exploring.
+
+There is also a [proposal within Helm itself](https://github.com/helm/helm/issues/13260)
+to adopt CUE for values validation, replacing the current JSON Schema support.
+That work is complementary: it would use CUE to validate and default chart
+values while keeping Go templates for rendering. helm2cue explores the other
+side of the coin — converting the templates themselves to CUE. If the Helm
+proposal progresses, the `#values` schema that helm2cue derives from template
+defaults could potentially serve as a starting point for a chart's CUE
+validation schema.
+
 ## Testing
 
 Tests are run against Helm v4.1.1 and CUE v0.16.0-alpha.2.
