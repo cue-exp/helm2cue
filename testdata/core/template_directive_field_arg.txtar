@@ -1,4 +1,6 @@
 Template directive ({{ template }}) with a field expression argument.
+No round-trip validation: Go's {{ template }} writes directly to output,
+so it cannot be used inline in "key: {{ template ... }}" for execution.
 
 -- _helpers.tpl --
 {{- define "id" -}}

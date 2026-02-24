@@ -33,14 +33,11 @@ import (
 
 var update = flag.Bool("update", false, "update golden files in testdata")
 
-// coreParseFuncs provides stub entries for functions accepted by the core
-// converter. The parse package doesn't pre-register text/template's
-// built-in functions (print, printf, etc.), so they must be listed here
-// alongside the converter's own built-ins (default, include, required).
-// Any function NOT in this map will cause a parse error, catching
-// accidental use of Sprig/Helm-only functions in core tests.
+// coreParseFuncs provides stub entries for Go text/template built-in
+// functions. The parse package doesn't pre-register these, so they must
+// be listed here. Any function NOT in this map will cause a parse error,
+// catching accidental use of non-builtin functions in core tests.
 var coreParseFuncs = map[string]any{
-	// text/template built-in functions
 	"and": (func())(nil), "or": (func())(nil), "not": (func())(nil),
 	"eq": (func())(nil), "ne": (func())(nil),
 	"lt": (func())(nil), "le": (func())(nil),
@@ -49,83 +46,6 @@ var coreParseFuncs = map[string]any{
 	"html": (func())(nil), "js": (func())(nil), "urlquery": (func())(nil),
 	"index": (func())(nil), "slice": (func())(nil), "len": (func())(nil),
 	"print": (func())(nil), "printf": (func())(nil), "println": (func())(nil),
-	// Converter built-in functions (not in text/template, but handled
-	// natively by the converter without Config.Funcs entries).
-	"default": (func())(nil), "include": (func())(nil), "required": (func())(nil),
-	"list": (func())(nil), "dict": (func())(nil), "get": (func())(nil),
-	"hasKey": (func())(nil), "coalesce": (func())(nil),
-	"max": (func())(nil), "min": (func())(nil),
-	"merge": (func())(nil), "mergeOverwrite": (func())(nil),
-}
-
-// coreExecFuncs provides real implementations of converter built-in functions
-// for executing core test templates via text/template.
-var coreExecFuncs = template.FuncMap{
-	"default": func(defaultVal, val any) any {
-		if val == nil {
-			return defaultVal
-		}
-		v := reflect.ValueOf(val)
-		switch v.Kind() {
-		case reflect.String:
-			if v.String() == "" {
-				return defaultVal
-			}
-		case reflect.Slice, reflect.Map:
-			if v.Len() == 0 {
-				return defaultVal
-			}
-		}
-		return val
-	},
-	"required": func(msg string, val any) (any, error) {
-		if val == nil {
-			return nil, fmt.Errorf("%s", msg)
-		}
-		if v := reflect.ValueOf(val); v.Kind() == reflect.String && v.String() == "" {
-			return nil, fmt.Errorf("%s", msg)
-		}
-		return val, nil
-	},
-	"list": func(args ...any) []any {
-		return args
-	},
-	"dict": func(args ...any) map[string]any {
-		m := make(map[string]any)
-		for i := 0; i+1 < len(args); i += 2 {
-			if k, ok := args[i].(string); ok {
-				m[k] = args[i+1]
-			}
-		}
-		return m
-	},
-	"get": func(m map[string]any, key string) any {
-		return m[key]
-	},
-	"hasKey": func(m map[string]any, key string) bool {
-		_, ok := m[key]
-		return ok
-	},
-	"coalesce": func(args ...any) any {
-		for _, a := range args {
-			if a != nil {
-				v := reflect.ValueOf(a)
-				switch v.Kind() {
-				case reflect.String:
-					if v.String() != "" {
-						return a
-					}
-				case reflect.Slice, reflect.Map:
-					if v.Len() > 0 {
-						return a
-					}
-				default:
-					return a
-				}
-			}
-		}
-		return nil
-	},
 }
 
 func TestConvert(t *testing.T) {
@@ -388,7 +308,7 @@ func coreTemplateExecute(t *testing.T, input, valuesYAML []byte) []byte {
 		t.Fatalf("parsing values.yaml: %v", err)
 	}
 
-	tmpl, err := template.New("test").Funcs(coreExecFuncs).Parse(string(input))
+	tmpl, err := template.New("test").Parse(string(input))
 	if err != nil {
 		t.Fatalf("parsing template: %v", err)
 	}
@@ -441,14 +361,18 @@ func cueExportCore(t *testing.T, cueSrc, valuesYAML []byte) []byte {
 
 // testCoreConfig returns a non-Helm Config for testing the core converter.
 // It uses a single context object ("input" → "#input") with no Funcs
-// and CoreFuncs nil (all core functions enabled), proving the converter
-// works generically without Helm-specific configuration.
+// and CoreFuncs restricted to Go text/template builtins (printf, print),
+// matching TemplateConfig().
 func testCoreConfig() *Config {
 	return &Config{
 		ContextObjects: map[string]string{
 			"input": "#input",
 		},
 		Funcs: map[string]PipelineFunc{},
+		CoreFuncs: map[string]bool{
+			"printf": true,
+			"print":  true,
+		},
 	}
 }
 
@@ -495,17 +419,6 @@ func TestConvertCore(t *testing.T) {
 				t.Fatal("missing input.yaml section")
 			}
 
-			// Validate that the input is valid text/template syntax.
-			// The parse package doesn't register text/template's built-in
-			// functions, so we provide stubs for those plus the functions
-			// the converter handles natively. This ensures the parser
-			// rejects genuinely unknown functions (like Sprig's ternary).
-			tmpl := parse.New("test")
-			tmpl.Mode = parse.ParseComments
-			if _, err := tmpl.Parse(string(input), "{{", "}}", make(map[string]*parse.Tree), coreParseFuncs); err != nil {
-				t.Fatalf("template parse failed: %v", err)
-			}
-
 			// If an error section is present, verify Convert returns
 			// an error containing the expected substring.
 			if hasError {
@@ -518,6 +431,16 @@ func TestConvertCore(t *testing.T) {
 					t.Errorf("error mismatch:\n  want substring: %s\n  got: %s", wantErr, err)
 				}
 				return
+			}
+
+			// Validate that the input is valid text/template syntax
+			// using only Go builtins. This catches accidental use of
+			// non-builtin functions in positive core tests. Skipped
+			// for error tests which intentionally use such functions.
+			tmpl := parse.New("test")
+			tmpl.Mode = parse.ParseComments
+			if _, err := tmpl.Parse(string(input), "{{", "}}", make(map[string]*parse.Tree), coreParseFuncs); err != nil {
+				t.Fatalf("template parse failed: %v", err)
 			}
 
 			got, err := Convert(cfg, input, helpers...)

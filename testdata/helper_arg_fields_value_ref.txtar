@@ -1,0 +1,31 @@
+Helper that accesses fields on its argument, called with .Values
+(a top-level context object field expression).
+
+-- _helpers.tpl --
+{{- define "myapp.labels" -}}
+app: {{ .name }}
+version: {{ .version }}
+{{- end -}}
+-- input.yaml --
+metadata:
+  labels:
+    {{ include "myapp.labels" .Values | nindent 4 }}
+-- output.cue --
+#values: {
+	name?:    _
+	version?: _
+	...
+}
+_myapp_labels: {
+	#arg: {
+		name?:    _
+		version?: _
+		...
+	}
+	app:     #arg.name
+	version: #arg.version
+}
+
+metadata: {
+	labels: _myapp_labels & {#arg: #values, _}
+}
