@@ -19,7 +19,7 @@ metadata:
   namespace: {{ default (include "myapp.namespace" .) .Values.namespace }}
 -- output.cue --
 #values: {
-	namespace: *_myapp_namespace | _
+	namespace: *_myapp_namespace | bool | number | string | null
 	...
 }
 _myapp_namespace: "default-ns"

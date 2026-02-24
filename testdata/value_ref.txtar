@@ -19,8 +19,8 @@ data:
   replicas: 3
 -- output.cue --
 #values: {
-	name!:     _
-	replicas!: _
+	name!:     bool | number | string | null
+	replicas!: bool | number | string | null
 	...
 }
 

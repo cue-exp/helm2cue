@@ -37,7 +37,7 @@ _nonzero: {
 }
 
 #values: {
-	debug!: _
+	debug!: bool | number | string | null
 	...
 }
 

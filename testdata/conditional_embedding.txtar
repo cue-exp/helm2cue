@@ -46,7 +46,7 @@ _nonzero: {
 }
 
 #values: {
-	enabled?: _
+	enabled?: bool | number | string | null
 	...
 }
 _myapp_annotations: {

@@ -12,16 +12,16 @@ metadata:
 -- output.cue --
 #values: {
 	meta!: {
-		name!:    _
-		version!: _
+		name!:    bool | number | string | null
+		version!: bool | number | string | null
 		...
 	}
 	...
 }
 _myapp_labels: {
 	#arg: {
-		name?:    _
-		version?: _
+		name?:    bool | number | string | null
+		version?: bool | number | string | null
 		...
 	}
 	app:     #arg.name

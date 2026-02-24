@@ -22,11 +22,11 @@ metadata:
   app: test-test
 -- output.cue --
 #chart: {
-	Name!: _
+	Name!: bool | number | string | null
 	...
 }
 #release: {
-	Name!: _
+	Name!: bool | number | string | null
 	...
 }
 _myapp_fullname: "\(#release.Name)-\(#chart.Name)"
