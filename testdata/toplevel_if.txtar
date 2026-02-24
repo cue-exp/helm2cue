@@ -38,8 +38,8 @@ _nonzero: {
 }
 
 #values: {
-	enabled?: _
-	name!:    _
+	enabled?: bool | number | string | null
+	name!:    bool | number | string | null
 	...
 }
 

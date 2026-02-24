@@ -73,10 +73,10 @@ func HelmConfig() *Config {
 		},
 		Funcs: map[string]PipelineFunc{
 			// Serialization no-ops (passthrough in first-command position too).
-			"toYaml":       {Passthrough: true},
-			"toJson":       {Passthrough: true},
-			"toRawJson":    {Passthrough: true},
-			"toPrettyJson": {Passthrough: true},
+			"toYaml":       {Passthrough: true, NonScalar: true},
+			"toJson":       {Passthrough: true, NonScalar: true},
+			"toRawJson":    {Passthrough: true, NonScalar: true},
+			"toPrettyJson": {Passthrough: true, NonScalar: true},
 			"fromYaml":     {Passthrough: true},
 			"fromJson":     {Passthrough: true},
 			"toString":     {Passthrough: true},
@@ -256,31 +256,36 @@ func HelmConfig() *Config {
 				},
 			},
 			"join": {
-				Nargs:   1,
-				Imports: []string{"strings"},
+				Nargs:     1,
+				NonScalar: true,
+				Imports:   []string{"strings"},
 				Convert: func(expr string, args []string) string {
 					return fmt.Sprintf("strings.Join(%s, %s)", expr, args[0])
 				},
 			},
 			"sortAlpha": {
-				Imports: []string{"list"},
+				NonScalar: true,
+				Imports:   []string{"list"},
 				Convert: func(expr string, _ []string) string {
 					return fmt.Sprintf("list.SortStrings(%s)", expr)
 				},
 			},
 			"concat": {
-				Imports: []string{"list"},
+				NonScalar: true,
+				Imports:   []string{"list"},
 				Convert: func(expr string, _ []string) string {
 					return fmt.Sprintf("list.Concat(%s)", expr)
 				},
 			},
 			"first": {
+				NonScalar: true,
 				Convert: func(expr string, _ []string) string {
 					return fmt.Sprintf("%s[0]", expr)
 				},
 			},
 			"append": {
-				Nargs: 1,
+				Nargs:     1,
+				NonScalar: true,
 				Convert: func(expr string, args []string) string {
 					return fmt.Sprintf("%s + [%s]", expr, args[0])
 				},
@@ -331,6 +336,7 @@ func HelmConfig() *Config {
 				},
 			},
 			"last": {
+				NonScalar: true,
 				Helpers: []HelperDef{{
 					Name: "_last",
 					Def:  lastDef,
@@ -340,6 +346,7 @@ func HelmConfig() *Config {
 				},
 			},
 			"compact": {
+				NonScalar: true,
 				Helpers: []HelperDef{{
 					Name: "_compact",
 					Def:  compactDef,
@@ -349,7 +356,8 @@ func HelmConfig() *Config {
 				},
 			},
 			"uniq": {
-				Imports: []string{"list"},
+				NonScalar: true,
+				Imports:   []string{"list"},
 				Helpers: []HelperDef{{
 					Name:    "_uniq",
 					Def:     uniqDef,
@@ -360,11 +368,13 @@ func HelmConfig() *Config {
 				},
 			},
 			"keys": {
+				NonScalar: true,
 				Convert: func(expr string, _ []string) string {
 					return fmt.Sprintf("[ for k, _ in %s {k}]", expr)
 				},
 			},
 			"values": {
+				NonScalar: true,
 				Convert: func(expr string, _ []string) string {
 					return fmt.Sprintf("[ for _, v in %s {v}]", expr)
 				},

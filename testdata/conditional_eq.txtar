@@ -44,8 +44,8 @@ _nonzero: {
 
 #values: {
 	service?: {
-		type!:      _
-		clusterIP!: _
+		type!:      bool | number | string | null
+		clusterIP!: bool | number | string | null
 		...
 	}
 	...

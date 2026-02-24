@@ -18,9 +18,9 @@ data:
 import "strconv"
 
 #values: {
-	port!:     _
-	replicas!: _
-	ratio!:    _
+	port!:     bool | number | string | null
+	replicas!: bool | number | string | null
+	ratio!:    bool | number | string | null
 	...
 }
 

@@ -18,8 +18,8 @@ data:
   env: production
 -- output.cue --
 #values: {
-	name: *"fallback" | _
-	env:  *"production" | _
+	name: *"fallback" | bool | number | string | null
+	env:  *"production" | bool | number | string | null
 	...
 }
 

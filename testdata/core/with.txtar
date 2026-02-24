@@ -27,7 +27,7 @@ _nonzero: {
 
 #input: {
 	config?: {
-		name!: _
+		name!: bool | number | string | null
 		...
 	}
 	...

@@ -354,8 +354,8 @@ func TestValidateValuesAgainstSchema(t *testing.T) {
 func TestValidateSchema(t *testing.T) {
 	t.Run("valid", func(t *testing.T) {
 		schema := `#values: {
-	port?: _
-	name?: _
+	port?: bool | number | string | null
+	name?: bool | number | string | null
 	...
 }
 `
@@ -364,34 +364,24 @@ func TestValidateSchema(t *testing.T) {
 		}
 	})
 
-	// Known limitation: when all inferred fields are typed as _, CUE does
-	// not detect that a field is used as both a scalar and a struct across
-	// different templates. For example, one template uses .Values.person
-	// as a scalar while another accesses .Values.person.name, producing:
-	//
-	//   person?: _          (from the scalar use)
-	//   person?: { name?: _; ... }  (from the struct use)
-	//
-	// CUE unifies _ with {name?: _; ...} without error because _ is
-	// unconstrained. Once we emit richer type annotations (e.g. string
-	// vs struct), CUE will catch this conflict. This test documents the
-	// current behaviour so we notice when CUE (or our emitter) is fixed.
-	t.Run("scalar_vs_struct_not_yet_detected", func(t *testing.T) {
+	// Even with scalar leaf types, CUE does not error when two optional
+	// fields with conflicting types are declared. The unification produces
+	// an unfillable field (any concrete value would fail), but the schema
+	// itself is valid. In practice, the converter's buildFieldTree merges
+	// refs so this conflict does not arise in emitted schemas.
+	t.Run("scalar_vs_struct_not_detected", func(t *testing.T) {
 		schema := `#values: {
-	person?: _
+	person?: bool | number | string | null
 	person?: {
-		name?: _
+		name?: bool | number | string | null
 		...
 	}
 	...
 }
 `
 		err := validateSchema([]byte(schema))
-		// TODO: this should return an error once the schema emits
-		// type-level constraints (e.g. person?: string vs person?: {...}).
 		if err != nil {
-			t.Logf("CUE now detects scalar-vs-struct conflict (good!): %v", err)
-			t.Log("Update this test: change wantErr to true and remove the TODO.")
+			t.Errorf("validateSchema() unexpected error: %v", err)
 		}
 	})
 }
