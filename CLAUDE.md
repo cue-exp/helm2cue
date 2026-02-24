@@ -50,6 +50,13 @@ Follow the cue-lang/cue commit message conventions:
   `prepare-commit-msg`) and `Change-Id` (via `git-codereview commit-msg` hook).
   Do not add these manually.
 - **One commit per change.** Amend and force-push rather than adding fixup commits.
+- **Amending commits**: when amending, the existing `Change-Id` trailer **must
+  not change**. Gerrit uses `Change-Id` to identify a change across amended
+  commits (since the commit SHA changes on amend). Always use
+  `git commit --amend --no-gpg-sign --no-edit` (or `--amend --no-gpg-sign` if
+  the message needs updating) and never manually edit or remove the `Change-Id`
+  line. If you rewrite the commit message during an amend, preserve the
+  `Change-Id` trailer exactly as it was.
 
 ## Contribution Model
 
