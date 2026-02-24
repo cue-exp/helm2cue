@@ -29,7 +29,7 @@ _nonzero: {
 
 #input: {
 	config?: {
-		name?: _
+		name!: _
 		...
 	}
 	...

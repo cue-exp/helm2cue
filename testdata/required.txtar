@@ -19,8 +19,8 @@ data:
   env: production
 -- output.cue --
 #values: {
-	name?: _
-	env?:  _
+	name!: _
+	env!:  _
 	...
 }
 

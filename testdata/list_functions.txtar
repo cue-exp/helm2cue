@@ -21,7 +21,7 @@ data:
   head: cherry
 -- output.cue --
 #values: {
-	items?: _
+	items!: _
 	...
 }
 

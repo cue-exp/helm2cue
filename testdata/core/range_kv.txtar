@@ -11,7 +11,7 @@ labels:
   env: prod
 -- output.cue --
 #input: {
-	labels?: _
+	labels!: _
 	...
 }
 

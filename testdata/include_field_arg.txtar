@@ -8,7 +8,7 @@ Include with a field expression context argument.
 name: {{ include "myapp.name" .Values.name }}
 -- output.cue --
 #values: {
-	name?: _
+	name!: _
 	...
 }
 _myapp_name: {

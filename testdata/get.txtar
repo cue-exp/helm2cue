@@ -20,7 +20,7 @@ data:
   app: myapp
 -- output.cue --
 #values: {
-	labels?: _
+	labels!: _
 	...
 }
 

@@ -23,7 +23,7 @@ metadata:
     {{- end }}
 -- output.cue --
 #values: {
-	labels?: _
+	labels!: _
 	...
 }
 

@@ -23,8 +23,8 @@ data:
 import "list"
 
 #values: {
-	a?: _
-	b?: _
+	a!: _
+	b!: _
 	...
 }
 

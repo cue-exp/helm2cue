@@ -43,7 +43,7 @@ _nonzero: {
 
 #values: {
 	enabled?: _
-	name?:    _
+	name!:    _
 	...
 }
 _myapp_enabled: true

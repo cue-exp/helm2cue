@@ -12,7 +12,7 @@ items:
   - c
 -- output.cue --
 #input: {
-	items?: _
+	items!: _
 	...
 }
 

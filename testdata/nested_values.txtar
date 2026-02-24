@@ -28,15 +28,15 @@ data:
 -- output.cue --
 #values: {
 	config?: {
-		name?: _
-		port?: _
+		name!: _
+		port!: _
 		server?: {
-			host?: _
+			host!: _
 			...
 		}
 		...
 	}
-	simple?: _
+	simple!: _
 	...
 }
 

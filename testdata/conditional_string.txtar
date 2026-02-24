@@ -40,8 +40,8 @@ _nonzero: {
 }
 
 #values: {
-	name?: _
-	tier?: _
+	name!: _
+	tier!: _
 	...
 }
 

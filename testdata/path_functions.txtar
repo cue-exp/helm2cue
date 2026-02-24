@@ -24,7 +24,7 @@ data:
 import "path"
 
 #values: {
-	filepath?: _
+	filepath!: _
 	...
 }
 

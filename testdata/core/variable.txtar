@@ -7,7 +7,7 @@ name: {{ $x }}
 name: hello
 -- output.cue --
 #input: {
-	name?: _
+	name!: _
 	...
 }
 

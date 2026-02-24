@@ -23,7 +23,7 @@ data:
 import "strings"
 
 #values: {
-	items?: _
+	items!: _
 	...
 }
 

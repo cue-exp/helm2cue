@@ -134,6 +134,7 @@ type fieldNode struct {
 	children []*fieldNode
 	childMap map[string]*fieldNode
 	defVal   string // non-empty if this node has a default
+	required bool   // true if accessed as a value (not just a condition)
 }
 
 // frame tracks a YAML block context level for direct CUE emission.
@@ -176,6 +177,8 @@ type converter struct {
 	usedContextObjects map[string]bool
 	defaults           map[string][]fieldDefault // helmObj → defaults
 	fieldRefs          map[string][][]string     // helmObj → list of field paths referenced
+	requiredRefs       map[string][][]string     // helmObj → field paths accessed as values (not conditions)
+	suppressRequired   bool                      // true during condition processing
 	rangeVarStack      []rangeContext            // stack of dot-rebinding contexts for nested range/with
 	helperArgRefs      [][]string                // field paths accessed on #arg in helper bodies
 	helperArgFieldRefs map[string][][]string     // CUE helper name → field paths accessed on #arg
@@ -221,6 +224,15 @@ func (c *converter) isCoreFunc(name string) bool {
 	return c.config.CoreFuncs[name]
 }
 
+// trackFieldRef records a field reference and, unless suppressRequired
+// is set, also records it as a required (value-accessed) reference.
+func (c *converter) trackFieldRef(helmObj string, path []string) {
+	c.fieldRefs[helmObj] = append(c.fieldRefs[helmObj], path)
+	if !c.suppressRequired {
+		c.requiredRefs[helmObj] = append(c.requiredRefs[helmObj], path)
+	}
+}
+
 // convertResult holds the structured output of converting a single template.
 type convertResult struct {
 	imports            map[string]bool
@@ -233,6 +245,7 @@ type convertResult struct {
 	hasDynamicInclude  bool
 	usedContextObjects map[string]bool
 	fieldRefs          map[string][][]string
+	requiredRefs       map[string][][]string
 	defaults           map[string][]fieldDefault
 	topLevelGuards     []string
 	body               string // template body only (no declarations)
@@ -273,6 +286,7 @@ func convertStructured(cfg *Config, input []byte, templateName string, treeSet m
 		usedContextObjects: make(map[string]bool),
 		defaults:           make(map[string][]fieldDefault),
 		fieldRefs:          make(map[string][][]string),
+		requiredRefs:       make(map[string][][]string),
 		localVars:          make(map[string]string),
 		imports:            make(map[string]bool),
 		usedHelpers:        make(map[string]HelperDef),
@@ -334,6 +348,7 @@ func convertStructured(cfg *Config, input []byte, templateName string, treeSet m
 		hasDynamicInclude:  c.hasDynamicInclude,
 		usedContextObjects: c.usedContextObjects,
 		fieldRefs:          c.fieldRefs,
+		requiredRefs:       c.requiredRefs,
 		defaults:           c.defaults,
 		topLevelGuards:     c.topLevelGuards,
 		body:               c.out.String(),
@@ -407,11 +422,12 @@ func assembleSingleFile(cfg *Config, r *convertResult) ([]byte, error) {
 			helmObj := cueToHelm[cueDef]
 			defs := r.defaults[helmObj]
 			refs := r.fieldRefs[helmObj]
+			reqRefs := r.requiredRefs[helmObj]
 			if len(defs) == 0 && len(refs) == 0 {
 				fmt.Fprintf(&final, "%s: _\n", cueDef)
 			} else {
 				fmt.Fprintf(&final, "%s: {\n", cueDef)
-				root := buildFieldTree(refs, defs)
+				root := buildFieldTree(refs, defs, reqRefs)
 				emitFieldNodes(&final, root.children, 1)
 				writeIndent(&final, 1)
 				final.WriteString("...\n")
@@ -545,6 +561,7 @@ func (c *converter) convertHelperBody(nodes []parse.Node) (string, [][]string, e
 		usedContextObjects: c.usedContextObjects,
 		defaults:           c.defaults,
 		fieldRefs:          c.fieldRefs,
+		requiredRefs:       c.requiredRefs,
 		imports:            c.imports,
 		usedHelpers:        c.usedHelpers,
 		treeSet:            c.treeSet,
@@ -701,7 +718,7 @@ func (c *converter) propagateHelperArgRefs(cueName, helmObj string, basePath []s
 		combined := make([]string, len(basePath)+len(ref))
 		copy(combined, basePath)
 		copy(combined[len(basePath):], ref)
-		c.fieldRefs[helmObj] = append(c.fieldRefs[helmObj], combined)
+		c.trackFieldRef(helmObj, combined)
 	}
 }
 
@@ -722,7 +739,7 @@ func (c *converter) convertIncludeContext(node parse.Node) (argExpr string, helm
 		if ho != "" {
 			c.usedContextObjects[ho] = true
 			if len(n.Ident) >= 2 {
-				c.fieldRefs[ho] = append(c.fieldRefs[ho], n.Ident[1:])
+				c.trackFieldRef(ho, n.Ident[1:])
 			}
 		}
 		var bp []string
@@ -774,7 +791,7 @@ func (c *converter) trackContextNode(node parse.Node) {
 			if _, ok := c.config.ContextObjects[n.Ident[0]]; ok {
 				c.usedContextObjects[n.Ident[0]] = true
 				if len(n.Ident) >= 2 {
-					c.fieldRefs[n.Ident[0]] = append(c.fieldRefs[n.Ident[0]], n.Ident[1:])
+					c.trackFieldRef(n.Ident[0], n.Ident[1:])
 				}
 			}
 		}
@@ -1576,6 +1593,9 @@ func (c *converter) withPipeToRawExpr(pipe *parse.PipeNode) (string, error) {
 	if len(pipe.Cmds) != 1 || len(pipe.Cmds[0].Args) != 1 {
 		return "", fmt.Errorf("with: unsupported pipe shape: %s", pipe)
 	}
+	saved := c.suppressRequired
+	c.suppressRequired = true
+	defer func() { c.suppressRequired = saved }()
 	switch a := pipe.Cmds[0].Args[0].(type) {
 	case *parse.FieldNode:
 		expr, _ := c.fieldToCUEInContext(a.Ident)
@@ -1787,7 +1807,7 @@ func (c *converter) pipeToFieldExpr(pipe *parse.PipeNode) (string, string, error
 	if f, ok := pipe.Cmds[0].Args[0].(*parse.FieldNode); ok {
 		expr, helmObj := fieldToCUE(c.config.ContextObjects, f.Ident)
 		if helmObj != "" {
-			c.fieldRefs[helmObj] = append(c.fieldRefs[helmObj], f.Ident[1:])
+			c.trackFieldRef(helmObj, f.Ident[1:])
 		}
 		return expr, helmObj, nil
 	}
@@ -1795,7 +1815,10 @@ func (c *converter) pipeToFieldExpr(pipe *parse.PipeNode) (string, string, error
 }
 
 func (c *converter) pipeToCUECondition(pipe *parse.PipeNode) (string, string, error) {
+	saved := c.suppressRequired
+	c.suppressRequired = true
 	pos, err := c.conditionPipeToExpr(pipe)
+	c.suppressRequired = saved
 	if err != nil {
 		return "", "", err
 	}
@@ -1810,7 +1833,7 @@ func (c *converter) conditionNodeToExpr(node parse.Node) (string, error) {
 		if helmObj != "" {
 			c.usedContextObjects[helmObj] = true
 			if len(n.Ident) >= 2 {
-				c.fieldRefs[helmObj] = append(c.fieldRefs[helmObj], n.Ident[1:])
+				c.trackFieldRef(helmObj, n.Ident[1:])
 			}
 		}
 		return fmt.Sprintf("(_nonzero & {#arg: %s, _})", expr), nil
@@ -1820,7 +1843,7 @@ func (c *converter) conditionNodeToExpr(node parse.Node) (string, error) {
 			if helmObj != "" {
 				c.usedContextObjects[helmObj] = true
 				if len(n.Ident) >= 3 {
-					c.fieldRefs[helmObj] = append(c.fieldRefs[helmObj], n.Ident[2:])
+					c.trackFieldRef(helmObj, n.Ident[2:])
 				}
 			}
 			return fmt.Sprintf("(_nonzero & {#arg: %s, _})", expr), nil
@@ -1845,7 +1868,7 @@ func (c *converter) conditionNodeToRawExpr(node parse.Node) (string, error) {
 		if helmObj != "" {
 			c.usedContextObjects[helmObj] = true
 			if len(n.Ident) >= 2 {
-				c.fieldRefs[helmObj] = append(c.fieldRefs[helmObj], n.Ident[1:])
+				c.trackFieldRef(helmObj, n.Ident[1:])
 			}
 		}
 		return expr, nil
@@ -1855,7 +1878,7 @@ func (c *converter) conditionNodeToRawExpr(node parse.Node) (string, error) {
 			if helmObj != "" {
 				c.usedContextObjects[helmObj] = true
 				if len(n.Ident) >= 3 {
-					c.fieldRefs[helmObj] = append(c.fieldRefs[helmObj], n.Ident[2:])
+					c.trackFieldRef(helmObj, n.Ident[2:])
 				}
 			}
 			return expr, nil
@@ -2061,7 +2084,7 @@ func (c *converter) actionToCUE(n *parse.ActionNode) (expr string, helmObj strin
 			expr, helmObj = c.fieldToCUEInContext(f.Ident)
 			if helmObj != "" {
 				fieldPath = f.Ident[1:]
-				c.fieldRefs[helmObj] = append(c.fieldRefs[helmObj], fieldPath)
+				c.trackFieldRef(helmObj, fieldPath)
 			}
 		} else if v, ok := first.Args[0].(*parse.VariableNode); ok {
 			if len(v.Ident) >= 2 && v.Ident[0] == "$" {
@@ -2070,7 +2093,7 @@ func (c *converter) actionToCUE(n *parse.ActionNode) (expr string, helmObj strin
 					if len(v.Ident) >= 3 {
 						fieldPath = v.Ident[2:]
 					}
-					c.fieldRefs[helmObj] = append(c.fieldRefs[helmObj], fieldPath)
+					c.trackFieldRef(helmObj, fieldPath)
 				}
 			} else if len(v.Ident) == 1 && v.Ident[0] != "$" {
 				if localExpr, ok := c.localVars[v.Ident[0]]; ok {
@@ -2128,7 +2151,7 @@ func (c *converter) actionToCUE(n *parse.ActionNode) (expr string, helmObj strin
 				expr, helmObj = fieldToCUE(c.config.ContextObjects, arg.Ident)
 				if helmObj != "" {
 					fieldPath = arg.Ident[1:]
-					c.fieldRefs[helmObj] = append(c.fieldRefs[helmObj], fieldPath)
+					c.trackFieldRef(helmObj, fieldPath)
 					c.defaults[helmObj] = append(c.defaults[helmObj], fieldDefault{
 						path:     fieldPath,
 						cueValue: defaultVal,
@@ -2141,7 +2164,7 @@ func (c *converter) actionToCUE(n *parse.ActionNode) (expr string, helmObj strin
 						if len(arg.Ident) >= 3 {
 							fieldPath = arg.Ident[2:]
 						}
-						c.fieldRefs[helmObj] = append(c.fieldRefs[helmObj], fieldPath)
+						c.trackFieldRef(helmObj, fieldPath)
 						c.defaults[helmObj] = append(c.defaults[helmObj], fieldDefault{
 							path:     fieldPath,
 							cueValue: defaultVal,
@@ -2183,7 +2206,7 @@ func (c *converter) actionToCUE(n *parse.ActionNode) (expr string, helmObj strin
 				expr, helmObj = fieldToCUE(c.config.ContextObjects, f.Ident)
 				if helmObj != "" {
 					fieldPath = f.Ident[1:]
-					c.fieldRefs[helmObj] = append(c.fieldRefs[helmObj], fieldPath)
+					c.trackFieldRef(helmObj, fieldPath)
 				}
 				c.comments[expr] = fmt.Sprintf("// required: %s", msg)
 			}
@@ -2629,7 +2652,7 @@ func (c *converter) nodeToExpr(node parse.Node) (string, string, error) {
 	case *parse.FieldNode:
 		expr, helmObj := c.fieldToCUEInContext(n.Ident)
 		if helmObj != "" {
-			c.fieldRefs[helmObj] = append(c.fieldRefs[helmObj], n.Ident[1:])
+			c.trackFieldRef(helmObj, n.Ident[1:])
 			c.usedContextObjects[helmObj] = true
 		}
 		return expr, helmObj, nil
@@ -2637,7 +2660,7 @@ func (c *converter) nodeToExpr(node parse.Node) (string, string, error) {
 		if len(n.Ident) >= 2 && n.Ident[0] == "$" {
 			expr, helmObj := fieldToCUE(c.config.ContextObjects, n.Ident[1:])
 			if helmObj != "" {
-				c.fieldRefs[helmObj] = append(c.fieldRefs[helmObj], n.Ident[2:])
+				c.trackFieldRef(helmObj, n.Ident[2:])
 				c.usedContextObjects[helmObj] = true
 			}
 			return expr, helmObj, nil
@@ -2750,7 +2773,7 @@ func (c *converter) fieldToCUEInContext(ident []string) (string, string) {
 			fullPath := make([]string, len(top.basePath)+len(ident))
 			copy(fullPath, top.basePath)
 			copy(fullPath[len(top.basePath):], ident)
-			c.fieldRefs[top.helmObj] = append(c.fieldRefs[top.helmObj], fullPath)
+			c.trackFieldRef(top.helmObj, fullPath)
 			c.usedContextObjects[top.helmObj] = true
 		}
 		prefixed := append([]string{top.cueExpr}, ident...)
@@ -2763,7 +2786,7 @@ func (c *converter) addImport(pkg string) {
 	c.imports[pkg] = true
 }
 
-func buildFieldTree(refs [][]string, defs []fieldDefault) *fieldNode {
+func buildFieldTree(refs [][]string, defs []fieldDefault, requiredRefs [][]string) *fieldNode {
 	root := &fieldNode{childMap: make(map[string]*fieldNode)}
 	for _, ref := range refs {
 		node := root
@@ -2790,6 +2813,19 @@ func buildFieldTree(refs [][]string, defs []fieldDefault) *fieldNode {
 		}
 		node.defVal = d.cueValue
 	}
+	for _, ref := range requiredRefs {
+		node := root
+		for _, elem := range ref {
+			child, ok := node.childMap[elem]
+			if !ok {
+				break
+			}
+			node = child
+		}
+		if node != root {
+			node.required = true
+		}
+	}
 	return root
 }
 
@@ -2797,7 +2833,11 @@ func emitFieldNodes(w *bytes.Buffer, nodes []*fieldNode, indent int) {
 	for _, n := range nodes {
 		writeIndent(w, indent)
 		if len(n.children) > 0 {
-			fmt.Fprintf(w, "%s?: {\n", cueKey(n.name))
+			marker := "?"
+			if n.required {
+				marker = "!"
+			}
+			fmt.Fprintf(w, "%s%s: {\n", cueKey(n.name), marker)
 			emitFieldNodes(w, n.children, indent+1)
 			writeIndent(w, indent+1)
 			w.WriteString("...\n")
@@ -2806,7 +2846,11 @@ func emitFieldNodes(w *bytes.Buffer, nodes []*fieldNode, indent int) {
 		} else if n.defVal != "" {
 			fmt.Fprintf(w, "%s: *%s | _\n", cueKey(n.name), n.defVal)
 		} else {
-			fmt.Fprintf(w, "%s?: _\n", cueKey(n.name))
+			marker := "?"
+			if n.required {
+				marker = "!"
+			}
+			fmt.Fprintf(w, "%s%s: _\n", cueKey(n.name), marker)
 		}
 	}
 }
@@ -2818,7 +2862,7 @@ func buildArgSchema(refs [][]string) string {
 	if len(refs) == 0 {
 		return "_"
 	}
-	root := buildFieldTree(refs, nil)
+	root := buildFieldTree(refs, nil, nil)
 	var buf bytes.Buffer
 	buf.WriteString("{\n")
 	emitFieldNodes(&buf, root.children, 2)

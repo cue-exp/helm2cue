@@ -18,7 +18,7 @@ metadata:
   name: test
 -- output.cue --
 #chart: {
-	Name?: _
+	Name!: _
 	...
 }
 _myapp_name: #chart.Name

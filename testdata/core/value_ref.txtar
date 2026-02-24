@@ -6,7 +6,7 @@ name: {{ .input.name }}
 name: hello
 -- output.cue --
 #input: {
-	name?: _
+	name!: _
 	...
 }
 

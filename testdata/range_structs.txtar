@@ -30,7 +30,7 @@ spec:
       port: 443
 -- output.cue --
 #values: {
-	ports?: _
+	ports!: _
 	...
 }
 

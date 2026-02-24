@@ -16,7 +16,7 @@ data:
   allvals: {{ .Values.labels | values }}
 -- output.cue --
 #values: {
-	labels?: _
+	labels!: _
 	...
 }
 

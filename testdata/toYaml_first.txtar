@@ -46,8 +46,8 @@ _nonzero: {
 }
 
 #values: {
-	updateStrategy?: _
-	resources?:      _
+	updateStrategy!: _
+	resources!:      _
 	...
 }
 

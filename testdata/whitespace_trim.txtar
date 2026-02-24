@@ -46,9 +46,9 @@ _nonzero: {
 }
 
 #values: {
-	name?:    _
+	name!:    _
 	hasTier?: _
-	tier?:    _
+	tier!:    _
 	...
 }
 
