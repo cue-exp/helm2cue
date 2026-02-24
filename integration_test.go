@@ -64,31 +64,45 @@ func testChart(t *testing.T, helmPath, chartDir string) {
 
 	meta := parseChartMeta(t, filepath.Join(chartDir, "Chart.yaml"))
 
-	// Read .tpl helper files.
+	// Read .tpl helper files (including subcharts).
 	var helpers [][]byte
-	tplFiles, _ := filepath.Glob(filepath.Join(chartDir, "templates", "*.tpl"))
-	for _, tplPath := range tplFiles {
-		data, err := os.ReadFile(tplPath)
+	filepath.WalkDir(chartDir, func(path string, d os.DirEntry, err error) error {
+		if err != nil || d.IsDir() || !strings.HasSuffix(path, ".tpl") {
+			return nil
+		}
+		data, err := os.ReadFile(path)
 		if err != nil {
-			t.Fatalf("reading helper %s: %v", tplPath, err)
+			return nil
 		}
 		helpers = append(helpers, data)
-	}
+		return nil
+	})
 
-	templates, err := filepath.Glob(filepath.Join(chartDir, "templates", "*"))
-	if err != nil {
-		t.Fatal(err)
-	}
+	// Collect templates recursively.
+	templatesDir := filepath.Join(chartDir, "templates")
+	var templates []string
+	filepath.WalkDir(templatesDir, func(path string, d os.DirEntry, err error) error {
+		if err != nil || d.IsDir() {
+			return nil
+		}
+		ext := filepath.Ext(path)
+		if ext != ".yaml" && ext != ".yml" {
+			return nil
+		}
+		if filepath.Base(path) == "NOTES.txt" {
+			return nil
+		}
+		templates = append(templates, path)
+		return nil
+	})
 
 	for _, tmplPath := range templates {
-		filename := filepath.Base(tmplPath)
-
-		// Skip helper templates and NOTES.txt.
-		if strings.HasSuffix(filename, ".tpl") || filename == "NOTES.txt" {
-			continue
+		relPath, _ := filepath.Rel(templatesDir, tmplPath)
+		if relPath == "" {
+			relPath = filepath.Base(tmplPath)
 		}
 
-		t.Run(filename, func(t *testing.T) {
+		t.Run(relPath, func(t *testing.T) {
 			content, err := os.ReadFile(tmplPath)
 			if err != nil {
 				t.Fatalf("reading template: %v", err)
@@ -99,7 +113,7 @@ func testChart(t *testing.T, helmPath, chartDir string) {
 				t.Skipf("Convert: %v", err)
 			}
 
-			showTemplate := "templates/" + filename
+			showTemplate := "templates/" + relPath
 			helmOut, err := helmTemplateChart(helmPath, chartDir, releaseName, showTemplate)
 			if err != nil {
 				t.Skipf("helm template: %v", err)
