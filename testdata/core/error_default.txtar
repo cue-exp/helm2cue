@@ -1,0 +1,7 @@
+The default function is not a text/template builtin.
+Core tests reject it; use Helm-mode tests for default.
+
+-- input.yaml --
+name: {{ default "x" .input.name }}
+-- error --
+unsupported pipeline function: default (not a text/template builtin)

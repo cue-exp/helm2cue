@@ -15,6 +15,7 @@ go build ./...
 go test ./...
 go test -run <pattern> -v
 go test -update
+go generate ./...
 go mod tidy
 go run . chart <dir> <out>
 go run . template [helpers.tpl] [file]
@@ -26,7 +27,11 @@ git diff
 git log
 git add <files>
 git commit --no-gpg-sign
+git commit --amend --no-gpg-sign --no-edit
 git push
+git gofmt
+git checkout <ref>
+rm <files>
 ```
 
 ## Commit Messages
@@ -61,3 +66,23 @@ Follow the cue-lang/cue commit message conventions:
   current directory.
 - When adding a regression test for a bug fix, ensure the test fails without the
   fix.
+
+## Core vs Helm test split
+
+Core tests (`testdata/core/*.txtar`, run by `TestConvertCore`) must use **only
+Go `text/template` builtins** — no Helm/Sprig functions like `include`,
+`default`, `required`, `list`, `dict`, etc. The `testCoreConfig()` explicitly
+restricts `CoreFuncs` to `printf` and `print`, and the parse-validation step
+rejects any non-builtin function in positive tests.
+
+When adding or modifying core tests:
+- Do **not** use non-builtin functions. If a feature requires `include`,
+  `default`, `required`, or any Sprig/Helm function, add the test to
+  `testdata/*.txtar` (Helm tests) instead.
+- Error tests (`error_*.txtar`) may reference non-builtin functions to verify
+  they are rejected.
+- Core tests without `values.yaml` (no round-trip validation) must include a
+  comment in the txtar description explaining why.
+
+When adding or modifying Helm tests (`testdata/*.txtar`, run by `TestConvert`):
+- These use `HelmConfig()` and may use any supported Helm/Sprig function.

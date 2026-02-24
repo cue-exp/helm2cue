@@ -375,9 +375,8 @@ These tests use a test-specific config with a single context object
 (`"input"` mapped to `#input`) and no pipeline functions. Templates
 reference `.input.*` instead of `.Values.*` and are validated with Go's
 `text/template/parse` — not `helm template`. This exercises the core
-features (YAML emission, field references, if/else, range, default,
-required, printf, include, variables) without coupling to Helm
-names or Sprig functions.
+features (YAML emission, field references, if/else, range, printf,
+variables) without coupling to Helm names or Sprig functions.
 
 ### Helm-specific tests
 

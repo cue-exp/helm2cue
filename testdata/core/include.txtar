@@ -1,8 +1,0 @@
-Include with an undefined helper template.
-
--- input.yaml --
-label: {{ include "helper" . }}
--- output.cue --
-_helper: _
-
-label: _helper

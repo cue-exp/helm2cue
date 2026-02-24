@@ -1,0 +1,7 @@
+The include function is not a text/template builtin.
+Core tests reject it; use Helm-mode tests for include.
+
+-- input.yaml --
+name: {{ include "x" . }}
+-- error --
+unsupported pipeline function: include (not a text/template builtin)
