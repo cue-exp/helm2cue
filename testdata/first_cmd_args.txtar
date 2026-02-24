@@ -1,0 +1,30 @@
+Pipeline function with explicit args in first-command position.
+
+-- values.yaml --
+path: /api/
+-- input.yaml --
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test
+data:
+  path: {{ trimSuffix "/" .Values.path }}
+-- helm_output.yaml --
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test
+data:
+  path: /api
+-- output.cue --
+import "strings"
+
+#values: {
+	path!: bool | number | string | null
+	...
+}
+
+apiVersion: "v1"
+kind:       "ConfigMap"
+metadata: name: "test"
+data: path: strings.TrimSuffix(#values.path, "/")

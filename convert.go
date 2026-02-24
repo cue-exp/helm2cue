@@ -1667,6 +1667,11 @@ func (c *converter) withPipeToRawExpr(pipe *parse.PipeNode) (string, error) {
 			expr, _ := fieldToCUE(c.config.ContextObjects, a.Ident[1:])
 			return expr, nil
 		}
+		if len(a.Ident) >= 2 && a.Ident[0] != "$" {
+			if localExpr, ok := c.localVars[a.Ident[0]]; ok {
+				return localExpr + "." + strings.Join(a.Ident[1:], "."), nil
+			}
+		}
 		if len(a.Ident) == 1 && a.Ident[0] != "$" {
 			if localExpr, ok := c.localVars[a.Ident[0]]; ok {
 				return localExpr, nil
@@ -1877,6 +1882,16 @@ func (c *converter) pipeToFieldExpr(pipe *parse.PipeNode) (string, string, []str
 		}
 		return expr, helmObj, nil, nil
 	}
+	if v, ok := pipe.Cmds[0].Args[0].(*parse.VariableNode); ok {
+		if len(v.Ident) >= 2 && v.Ident[0] == "$" {
+			expr, helmObj := fieldToCUE(c.config.ContextObjects, v.Ident[1:])
+			if helmObj != "" {
+				c.trackFieldRef(helmObj, v.Ident[2:])
+				return expr, helmObj, v.Ident[2:], nil
+			}
+			return expr, helmObj, nil, nil
+		}
+	}
 	return "", "", nil, fmt.Errorf("unsupported node: %s", pipe.Cmds[0].Args[0])
 }
 
@@ -1914,6 +1929,12 @@ func (c *converter) conditionNodeToExpr(node parse.Node) (string, error) {
 			}
 			return fmt.Sprintf("(_nonzero & {#arg: %s, _})", expr), nil
 		}
+		if len(n.Ident) >= 2 && n.Ident[0] != "$" {
+			if localExpr, ok := c.localVars[n.Ident[0]]; ok {
+				expr := localExpr + "." + strings.Join(n.Ident[1:], ".")
+				return fmt.Sprintf("(_nonzero & {#arg: %s, _})", expr), nil
+			}
+		}
 		if len(n.Ident) == 1 && n.Ident[0] != "$" {
 			if localExpr, ok := c.localVars[n.Ident[0]]; ok {
 				return fmt.Sprintf("(_nonzero & {#arg: %s, _})", localExpr), nil
@@ -1948,6 +1969,11 @@ func (c *converter) conditionNodeToRawExpr(node parse.Node) (string, error) {
 				}
 			}
 			return expr, nil
+		}
+		if len(n.Ident) >= 2 && n.Ident[0] != "$" {
+			if localExpr, ok := c.localVars[n.Ident[0]]; ok {
+				return localExpr + "." + strings.Join(n.Ident[1:], "."), nil
+			}
 		}
 		if len(n.Ident) == 1 && n.Ident[0] != "$" {
 			if localExpr, ok := c.localVars[n.Ident[0]]; ok {
@@ -2270,6 +2296,10 @@ func (c *converter) actionToCUE(n *parse.ActionNode) (expr string, helmObj strin
 					}
 					c.trackFieldRef(helmObj, fieldPath)
 				}
+			} else if len(v.Ident) >= 2 && v.Ident[0] != "$" {
+				if localExpr, ok := c.localVars[v.Ident[0]]; ok {
+					expr = localExpr + "." + strings.Join(v.Ident[1:], ".")
+				}
 			} else if len(v.Ident) == 1 && v.Ident[0] != "$" {
 				if localExpr, ok := c.localVars[v.Ident[0]]; ok {
 					expr = localExpr
@@ -2297,6 +2327,16 @@ func (c *converter) actionToCUE(n *parse.ActionNode) (expr string, helmObj strin
 				} else {
 					gatedFunc = id.Ident
 				}
+			}
+		} else if s, ok := first.Args[0].(*parse.StringNode); ok {
+			expr = strconv.Quote(s.Text)
+		} else if num, ok := first.Args[0].(*parse.NumberNode); ok {
+			expr = num.Text
+		} else if b, ok := first.Args[0].(*parse.BoolNode); ok {
+			if b.True {
+				expr = "true"
+			} else {
+				expr = "false"
 			}
 		}
 	case len(first.Args) >= 2:
@@ -2344,6 +2384,10 @@ func (c *converter) actionToCUE(n *parse.ActionNode) (expr string, helmObj strin
 							path:     fieldPath,
 							cueValue: defaultVal,
 						})
+					}
+				} else if len(arg.Ident) >= 2 && arg.Ident[0] != "$" {
+					if localExpr, ok := c.localVars[arg.Ident[0]]; ok {
+						expr = localExpr + "." + strings.Join(arg.Ident[1:], ".")
 					}
 				} else if len(arg.Ident) == 1 && arg.Ident[0] != "$" {
 					if localExpr, ok := c.localVars[arg.Ident[0]]; ok {
@@ -2605,18 +2649,52 @@ func (c *converter) actionToCUE(n *parse.ActionNode) (expr string, helmObj strin
 			}
 			return "", "", fmt.Errorf("function %q has no CUE equivalent: CUE uses unification instead of mutable map merging", id.Ident)
 		default:
-			if pf, ok := c.config.Funcs[id.Ident]; ok && pf.Passthrough {
-				if len(first.Args) != 2 {
-					return "", "", fmt.Errorf("%s requires 1 argument, got %d", id.Ident, len(first.Args)-1)
-				}
-				expr, helmObj, err = c.nodeToExpr(first.Args[1])
-				if err != nil {
-					return "", "", fmt.Errorf("%s argument: %w", id.Ident, err)
-				}
-				if f, ok := first.Args[1].(*parse.FieldNode); ok && helmObj != "" && len(f.Ident) >= 2 {
-					fieldPath = f.Ident[1:]
-					if pf.NonScalar {
-						c.trackNonScalarRef(helmObj, fieldPath)
+			if pf, ok := c.config.Funcs[id.Ident]; ok {
+				if pf.Passthrough && len(first.Args) == 2 {
+					expr, helmObj, err = c.nodeToExpr(first.Args[1])
+					if err != nil {
+						return "", "", fmt.Errorf("%s argument: %w", id.Ident, err)
+					}
+					if f, ok := first.Args[1].(*parse.FieldNode); ok && helmObj != "" && len(f.Ident) >= 2 {
+						fieldPath = f.Ident[1:]
+						if pf.NonScalar {
+							c.trackNonScalarRef(helmObj, fieldPath)
+						}
+					}
+				} else if pf.Convert != nil && len(first.Args) == pf.Nargs+2 {
+					// Function with explicit args in first-command position:
+					// {{ func arg1 ... argN pipedValue }}
+					var args []string
+					for _, a := range first.Args[1 : 1+pf.Nargs] {
+						lit, litErr := nodeToCUELiteral(a)
+						if litErr != nil {
+							var exprStr string
+							exprStr, _, litErr = c.nodeToExpr(a)
+							if litErr != nil {
+								return "", "", fmt.Errorf("%s argument: %w", id.Ident, litErr)
+							}
+							lit = exprStr
+						}
+						args = append(args, lit)
+					}
+					pipedNode := first.Args[pf.Nargs+1]
+					var pipedErr error
+					expr, helmObj, pipedErr = c.nodeToExpr(pipedNode)
+					if pipedErr != nil {
+						return "", "", fmt.Errorf("%s argument: %w", id.Ident, pipedErr)
+					}
+					if f, ok := pipedNode.(*parse.FieldNode); ok && helmObj != "" && len(f.Ident) >= 2 {
+						fieldPath = f.Ident[1:]
+						if pf.NonScalar {
+							c.trackNonScalarRef(helmObj, fieldPath)
+						}
+					}
+					expr = pf.Convert(expr, args)
+					for _, pkg := range pf.Imports {
+						c.addImport(pkg)
+					}
+					for _, h := range pf.Helpers {
+						c.usedHelpers[h.Name] = h
 					}
 				}
 			}
@@ -2854,6 +2932,11 @@ func (c *converter) nodeToExpr(node parse.Node) (string, string, error) {
 				c.usedContextObjects[helmObj] = true
 			}
 			return expr, helmObj, nil
+		}
+		if len(n.Ident) >= 2 && n.Ident[0] != "$" {
+			if localExpr, ok := c.localVars[n.Ident[0]]; ok {
+				return localExpr + "." + strings.Join(n.Ident[1:], "."), "", nil
+			}
 		}
 		if len(n.Ident) == 1 && n.Ident[0] != "$" {
 			if localExpr, ok := c.localVars[n.Ident[0]]; ok {
