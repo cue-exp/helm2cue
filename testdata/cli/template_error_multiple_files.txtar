@@ -1,0 +1,10 @@
+# Multiple non-.tpl files should fail.
+! exec helm2cue template a.yaml b.yaml
+cmp stderr want-stderr
+
+-- a.yaml --
+x: 1
+-- b.yaml --
+y: 2
+-- want-stderr --
+helm2cue: multiple template files specified

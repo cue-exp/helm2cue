@@ -1,0 +1,27 @@
+# No args should print usage to stderr.
+! exec helm2cue
+cmp stderr want-stderr-noargs
+
+# Unknown command should fail.
+! exec helm2cue bogus
+cmp stderr want-stderr-bogus
+
+-- want-stderr-noargs --
+usage: helm2cue <command> [arguments]
+
+Commands:
+    chart      convert a Helm chart directory to a CUE module
+    template   convert a Go text/template file to CUE
+    version    print helm2cue version information
+
+Run "helm2cue help" for more information.
+-- want-stderr-bogus --
+helm2cue: unknown command "bogus"
+usage: helm2cue <command> [arguments]
+
+Commands:
+    chart      convert a Helm chart directory to a CUE module
+    template   convert a Go text/template file to CUE
+    version    print helm2cue version information
+
+Run "helm2cue help" for more information.

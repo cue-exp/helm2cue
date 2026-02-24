@@ -1,0 +1,6 @@
+# Non-existent chart directory should fail.
+! exec helm2cue chart nosuch outdir
+cmp stderr want-stderr
+
+-- want-stderr --
+helm2cue: reading Chart.yaml: open nosuch/Chart.yaml: no such file or directory
