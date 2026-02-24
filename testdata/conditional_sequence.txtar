@@ -48,8 +48,8 @@ _nonzero: {
 }
 
 #values: {
-	httpEnabled?:  _
-	httpsEnabled?: _
+	httpEnabled?:  bool | number | string | null
+	httpsEnabled?: bool | number | string | null
 	...
 }
 

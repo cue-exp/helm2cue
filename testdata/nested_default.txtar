@@ -16,7 +16,7 @@ metadata:
 -- output.cue --
 #values: {
 	config?: {
-		name: *"fallback" | _
+		name: *"fallback" | bool | number | string | null
 		...
 	}
 	...

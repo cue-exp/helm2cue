@@ -36,7 +36,7 @@ spec:
           memory: 64Mi
 -- output.cue --
 #values: {
-	name!:      _
+	name!:      bool | number | string | null
 	resources!: _
 	...
 }

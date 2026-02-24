@@ -16,13 +16,13 @@ _nonzero: {
 }
 
 #values: {
-	name!:  _
-	host!:  _
-	port!:  _
-	debug?: _
+	name!:  bool | number | string | null
+	host!:  bool | number | string | null
+	port!:  bool | number | string | null
+	debug?: bool | number | string | null
 	tls?: {
-		cert!: _
-		key!:  _
+		cert!: bool | number | string | null
+		key!:  bool | number | string | null
 		...
 	}
 	labels!:   _

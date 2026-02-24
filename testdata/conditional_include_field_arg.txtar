@@ -27,7 +27,7 @@ _nonzero: {
 }
 
 #values: {
-	name?: _
+	name?: bool | number | string | null
 	...
 }
 _myapp_name: {

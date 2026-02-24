@@ -12,14 +12,14 @@ metadata:
     {{ include "myapp.labels" .Values | nindent 4 }}
 -- output.cue --
 #values: {
-	name!:    _
-	version!: _
+	name!:    bool | number | string | null
+	version!: bool | number | string | null
 	...
 }
 _myapp_labels: {
 	#arg: {
-		name?:    _
-		version?: _
+		name?:    bool | number | string | null
+		version?: bool | number | string | null
 		...
 	}
 	app:     #arg.name

@@ -24,11 +24,11 @@ metadata:
     release: test
 -- output.cue --
 #chart: {
-	Name!: _
+	Name!: bool | number | string | null
 	...
 }
 #release: {
-	Name!: _
+	Name!: bool | number | string | null
 	...
 }
 _myapp_labels: {

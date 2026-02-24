@@ -40,8 +40,8 @@ _nonzero: {
 }
 
 #values: {
-	name!: _
-	tier!: _
+	name!: bool | number | string | null
+	tier!: bool | number | string | null
 	...
 }
 

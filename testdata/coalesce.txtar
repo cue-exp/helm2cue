@@ -36,8 +36,8 @@ _nonzero: {
 }
 
 #values: {
-	a!: _
-	b!: _
+	a!: bool | number | string | null
+	b!: bool | number | string | null
 	...
 }
 

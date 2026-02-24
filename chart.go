@@ -154,6 +154,7 @@ func ConvertChart(chartDir, outDir string) error {
 	mergedContextObjects := make(map[string]bool)
 	mergedFieldRefs := make(map[string][][]string)
 	mergedRequiredRefs := make(map[string][][]string)
+	mergedRangeRefs := make(map[string][][]string)
 	mergedDefaults := make(map[string][]fieldDefault)
 	needsNonzero := false
 	mergedUsedHelpers := make(map[string]HelperDef)
@@ -172,6 +173,9 @@ func ConvertChart(chartDir, outDir string) error {
 		}
 		for k, v := range r.requiredRefs {
 			mergedRequiredRefs[k] = append(mergedRequiredRefs[k], v...)
+		}
+		for k, v := range r.rangeRefs {
+			mergedRangeRefs[k] = append(mergedRangeRefs[k], v...)
 		}
 		for k, v := range r.defaults {
 			mergedDefaults[k] = append(mergedDefaults[k], v...)
@@ -204,7 +208,7 @@ func ConvertChart(chartDir, outDir string) error {
 	}
 
 	// Build the values schema and validate it.
-	schemaCUE := buildValuesSchemaCUE(mergedFieldRefs["Values"], mergedDefaults["Values"], mergedRequiredRefs["Values"])
+	schemaCUE := buildValuesSchemaCUE(mergedFieldRefs["Values"], mergedDefaults["Values"], mergedRequiredRefs["Values"], mergedRangeRefs["Values"])
 	var valWarnings []string
 	if err := validateSchema(schemaCUE); err != nil {
 		valWarnings = append(valWarnings, fmt.Sprintf("values schema inconsistency: %v", err))
@@ -391,13 +395,13 @@ func writeHelpersCUE(outDir, pkgName string, r *convertResult, needsNonzero bool
 
 // buildValuesSchemaCUE generates the #values schema block (without a package
 // header) from the merged field references, defaults, and required refs.
-func buildValuesSchemaCUE(refs [][]string, defs []fieldDefault, requiredRefs [][]string) []byte {
+func buildValuesSchemaCUE(refs [][]string, defs []fieldDefault, requiredRefs [][]string, rangeRefs [][]string) []byte {
 	var buf bytes.Buffer
 	if len(refs) == 0 && len(defs) == 0 {
 		buf.WriteString("#values: _\n")
 	} else {
 		buf.WriteString("#values: {\n")
-		root := buildFieldTree(refs, defs, requiredRefs)
+		root := buildFieldTree(refs, defs, requiredRefs, rangeRefs)
 		emitFieldNodes(&buf, root.children, 1)
 		writeIndent(&buf, 1)
 		buf.WriteString("...\n")
@@ -436,7 +440,7 @@ func validateValuesAgainstSchema(schemaCUE, valuesYAML []byte) error {
 	if err := schema.Err(); err != nil {
 		return err
 	}
-	schemaVal := schema.LookupDef("values")
+	schemaVal := schema.LookupPath(cue.MakePath(cue.Def("values")))
 
 	yamlFile, err := cueyaml.Extract("values.yaml", valuesYAML)
 	if err != nil {

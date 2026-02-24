@@ -38,8 +38,8 @@ _nonzero: {
 }
 
 #values: {
-	name!:        _
-	includeData?: _
+	name!:        bool | number | string | null
+	includeData?: bool | number | string | null
 	...
 }
 
