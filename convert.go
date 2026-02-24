@@ -163,13 +163,20 @@ type pendingResolution struct {
 	rawKey  bool // true for dynamic keys like (expr) — don't run through cueKey()
 }
 
+// rangeContext tracks what dot (.) refers to inside a with or range block.
+type rangeContext struct {
+	cueExpr  string   // CUE expression for dot rebinding (e.g. "#values.tls")
+	helmObj  string   // context object name (e.g. "Values"); empty if not context-derived
+	basePath []string // field path prefix within context object (e.g. ["tls"])
+}
+
 // converter holds state accumulated during template AST walking.
 type converter struct {
 	config             *Config
 	usedContextObjects map[string]bool
 	defaults           map[string][]fieldDefault // helmObj → defaults
 	fieldRefs          map[string][][]string     // helmObj → list of field paths referenced
-	rangeVarStack      []string                  // stack of range variable names for nested ranges
+	rangeVarStack      []rangeContext            // stack of dot-rebinding contexts for nested range/with
 	helperArgRefs      [][]string                // field paths accessed on #arg in helper bodies
 	helperArgFieldRefs map[string][][]string     // CUE helper name → field paths accessed on #arg
 	localVars          map[string]string         // $varName → CUE expression
@@ -557,7 +564,7 @@ func (c *converter) convertHelperBody(nodes []parse.Node) (string, [][]string, e
 	// track field accesses for schema generation.
 	useArg := sub.config.RootExpr == ""
 	if useArg {
-		sub.rangeVarStack = []string{"#arg"}
+		sub.rangeVarStack = []rangeContext{{cueExpr: "#arg"}}
 		sub.helperArgRefs = [][]string{}
 	}
 
@@ -1471,8 +1478,13 @@ func (c *converter) processWith(n *parse.WithNode) error {
 	cueInd := c.currentCUEIndent()
 	inList := len(c.stack) > 0 && c.stack[len(c.stack)-1].isList
 
-	// Push raw expression for dot rebinding.
-	c.rangeVarStack = append(c.rangeVarStack, rawExpr)
+	// Push context for dot rebinding inside the with body.
+	helmObj, basePath := c.withPipeContext(n.Pipe)
+	c.rangeVarStack = append(c.rangeVarStack, rangeContext{
+		cueExpr:  rawExpr,
+		helmObj:  helmObj,
+		basePath: basePath,
+	})
 
 	// Emit the if guard.
 	writeIndent(&c.out, cueInd)
@@ -1584,6 +1596,40 @@ func (c *converter) withPipeToRawExpr(pipe *parse.PipeNode) (string, error) {
 	}
 }
 
+// withPipeContext extracts the context object name and field path prefix
+// from a with pipe, so that sub-field accesses inside the with body can
+// be tracked as nested field references.
+func (c *converter) withPipeContext(pipe *parse.PipeNode) (helmObj string, basePath []string) {
+	if len(pipe.Cmds) != 1 || len(pipe.Cmds[0].Args) != 1 {
+		return "", nil
+	}
+	switch a := pipe.Cmds[0].Args[0].(type) {
+	case *parse.FieldNode:
+		if len(a.Ident) > 0 {
+			if _, ok := c.config.ContextObjects[a.Ident[0]]; ok {
+				return a.Ident[0], append([]string(nil), a.Ident[1:]...)
+			}
+		}
+		// Inside a context-derived with, extend the parent's base path.
+		if len(c.rangeVarStack) > 0 {
+			top := c.rangeVarStack[len(c.rangeVarStack)-1]
+			if top.helmObj != "" {
+				bp := make([]string, len(top.basePath)+len(a.Ident))
+				copy(bp, top.basePath)
+				copy(bp[len(top.basePath):], a.Ident)
+				return top.helmObj, bp
+			}
+		}
+	case *parse.VariableNode:
+		if len(a.Ident) >= 2 && a.Ident[0] == "$" {
+			if _, ok := c.config.ContextObjects[a.Ident[1]]; ok {
+				return a.Ident[1], append([]string(nil), a.Ident[2:]...)
+			}
+		}
+	}
+	return "", nil
+}
+
 func (c *converter) processBodyNodes(nodes []parse.Node) error {
 	for _, node := range nodes {
 		if err := c.processNode(node); err != nil {
@@ -1654,7 +1700,7 @@ func (c *converter) processRange(n *parse.RangeNode) error {
 	cueInd := c.currentCUEIndent()
 	inList := len(c.stack) > 0 && c.stack[len(c.stack)-1].isList
 
-	c.rangeVarStack = append(c.rangeVarStack, valName)
+	c.rangeVarStack = append(c.rangeVarStack, rangeContext{cueExpr: valName})
 
 	// Emit the for comprehension.
 	writeIndent(&c.out, cueInd)
@@ -2033,7 +2079,7 @@ func (c *converter) actionToCUE(n *parse.ActionNode) (expr string, helmObj strin
 			}
 		} else if _, ok := first.Args[0].(*parse.DotNode); ok {
 			if len(c.rangeVarStack) > 0 {
-				expr = c.rangeVarStack[len(c.rangeVarStack)-1]
+				expr = c.rangeVarStack[len(c.rangeVarStack)-1].cueExpr
 			} else if c.config.RootExpr != "" {
 				expr = c.config.RootExpr
 			} else {
@@ -2613,7 +2659,7 @@ func (c *converter) nodeToExpr(node parse.Node) (string, string, error) {
 		return "false", "", nil
 	case *parse.DotNode:
 		if len(c.rangeVarStack) > 0 {
-			return c.rangeVarStack[len(c.rangeVarStack)-1], "", nil
+			return c.rangeVarStack[len(c.rangeVarStack)-1].cueExpr, "", nil
 		}
 		if c.config.RootExpr != "" {
 			return c.config.RootExpr, "", nil
@@ -2696,11 +2742,18 @@ func (c *converter) fieldToCUEInContext(ident []string) (string, string) {
 		}
 	}
 	if len(c.rangeVarStack) > 0 {
-		rangeVar := c.rangeVarStack[len(c.rangeVarStack)-1]
-		if rangeVar == "#arg" && c.helperArgRefs != nil {
+		top := c.rangeVarStack[len(c.rangeVarStack)-1]
+		if top.cueExpr == "#arg" && c.helperArgRefs != nil {
 			c.helperArgRefs = append(c.helperArgRefs, append([]string(nil), ident...))
 		}
-		prefixed := append([]string{rangeVar}, ident...)
+		if top.helmObj != "" {
+			fullPath := make([]string, len(top.basePath)+len(ident))
+			copy(fullPath, top.basePath)
+			copy(fullPath[len(top.basePath):], ident)
+			c.fieldRefs[top.helmObj] = append(c.fieldRefs[top.helmObj], fullPath)
+			c.usedContextObjects[top.helmObj] = true
+		}
+		prefixed := append([]string{top.cueExpr}, ident...)
 		return strings.Join(prefixed, "."), ""
 	}
 	return fieldToCUE(c.config.ContextObjects, ident)
