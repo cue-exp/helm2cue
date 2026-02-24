@@ -351,12 +351,34 @@ Some functions that _are_ handled have gaps in specific usage patterns:
 
 ### CUE output validation failures
 
-Some templates convert but produce CUE that does not parse:
+Some templates convert without error but produce CUE that does not
+parse. These are structural issues in how the converter maps
+YAML+template interactions to CUE, not missing function support. The
+28 errors across integration tests (12 nginx, 16 kube-prometheus-stack)
+break down as follows:
 
-- **YAML flow syntax** — inline `{key: val}` and `[a, b]` inside
-  templates can produce CUE with missing commas or unexpected brackets
-- **Complex helper bodies** — helpers that mix YAML structure with
-  multiple template actions can produce conflicting CUE types
+- **`if` as value expression** (12 errors, all nginx) — a helper like
+  `common.fips.enabled` returns a conditional value
+  (`{{- if cond -}}true{{- end -}}`), which becomes
+  `if cond { true }`. CUE's `if` is a field comprehension, not a value
+  expression, so this produces `missing ',' in struct literal`
+- **YAML sibling keys nested into lists** (~6 errors) — when a YAML
+  list item has sibling keys (`apiGroups:`, `resources:`, `verbs:`),
+  the converter nests subsequent keys inside the first key's list
+  instead of making them struct fields within the list element
+- **`toYaml` splicing into list context** (~5 errors) — `toYaml`
+  output inserted mid-list cannot be tracked as list vs struct context,
+  producing `missing ',' in list literal`
+- **Multi-part string interpolation** (2 errors) — complex image
+  strings like `{{ $reg }}/{{ .repo }}:{{ .tag }}@sha256:{{ .sha }}`
+  fail to combine into a single CUE string interpolation, producing
+  stray tokens
+- **Range body boundary** (2 errors) — range over content that
+  produces multiple YAML documents closes the `for` comprehension
+  too early, leaving trailing content outside the loop
+- **Multi-document YAML `---` separator** (1 error) — the `---`
+  document separator is emitted as a string literal inside the
+  current structure instead of splitting documents
 
 ## Related Projects
 
