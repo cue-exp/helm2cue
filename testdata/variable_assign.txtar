@@ -12,12 +12,8 @@ metadata:
   {{- $labels := include "myapp.labels" . }}
   labels: {{ $labels }}
 -- output.cue --
-_myapp_labels: {
-	app: "myapp"
-}
+_myapp_labels: app: "myapp"
 
 apiVersion: "v1"
 kind:       "Service"
-metadata: {
-	labels: _myapp_labels
-}
+metadata: labels: _myapp_labels

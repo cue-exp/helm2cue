@@ -16,9 +16,5 @@ data:
 
 apiVersion: "v1"
 kind:       "ConfigMap"
-metadata: {
-	name: "test"
-}
-data: {
-	port: "'\(#values.port)'"
-}
+metadata: name: "test"
+data: port: "'\(#values.port)'"

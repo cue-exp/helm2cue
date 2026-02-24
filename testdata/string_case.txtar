@@ -24,9 +24,7 @@ import "strings"
 
 apiVersion: "v1"
 kind:       "ConfigMap"
-metadata: {
-	name: "test"
-}
+metadata: name: "test"
 data: {
 	upper: strings.ToUpper(#values.name)
 	lower: strings.ToLower(#values.env)

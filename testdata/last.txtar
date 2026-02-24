@@ -33,9 +33,5 @@ _last: {
 
 apiVersion: "v1"
 kind:       "ConfigMap"
-metadata: {
-	name: "test"
-}
-data: {
-	tail: (_last & {#in: #values.items}).out
-}
+metadata: name: "test"
+data: tail: (_last & {#in: #values.items}).out

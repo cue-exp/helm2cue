@@ -19,9 +19,7 @@ data:
 
 apiVersion: "v1"
 kind:       "ConfigMap"
-metadata: {
-	name: "test"
-}
+metadata: name: "test"
 data: {
 	items: ["a", "b", "c"]
 	mixed: [#values.x, "literal"]

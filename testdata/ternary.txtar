@@ -43,9 +43,7 @@ _nonzero: {
 
 apiVersion: "v1"
 kind:       "ConfigMap"
-metadata: {
-	name: "test"
-}
+metadata: name: "test"
 data: {
 	debug: "\([if (_nonzero & {#arg: #values.debug, _}) {"true"}, "false"][0])"
 	scheme: [if (_nonzero & {#arg: #values.debug, _}) {"https"}, "http"][0]

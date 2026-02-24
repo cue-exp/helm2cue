@@ -31,9 +31,5 @@ _uniq: {
 
 apiVersion: "v1"
 kind:       "ConfigMap"
-metadata: {
-	name: "test"
-}
-data: {
-	unique: (_uniq & {#in: #values.items}).out
-}
+metadata: name: "test"
+data: unique: (_uniq & {#in: #values.items}).out

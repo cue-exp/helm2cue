@@ -25,6 +25,4 @@ _myapp_name: #chart.Name
 
 apiVersion: "v1"
 kind:       "ConfigMap"
-metadata: {
-	name: _myapp_name
-}
+metadata: name: _myapp_name

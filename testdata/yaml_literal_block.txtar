@@ -20,9 +20,5 @@ _myconfig: "server { listen 80; }"
 
 apiVersion: "v1"
 kind:       "ConfigMap"
-metadata: {
-	name: "my-config"
-}
-data: {
-	"config.conf": _myconfig
-}
+metadata: name: "my-config"
+data: "config.conf": _myconfig

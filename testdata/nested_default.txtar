@@ -24,6 +24,4 @@ metadata:
 
 apiVersion: "v1"
 kind:       "ConfigMap"
-metadata: {
-	name: #values.config.name
-}
+metadata: name: #values.config.name

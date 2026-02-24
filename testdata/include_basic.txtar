@@ -29,6 +29,4 @@ _myapp_fullname: "\(#release.Name)-\(#chart.Name)"
 
 apiVersion: "v1"
 kind:       "Service"
-metadata: {
-	name: _myapp_fullname
-}
+metadata: name: _myapp_fullname

@@ -26,9 +26,7 @@ import "strconv"
 
 apiVersion: "v1"
 kind:       "ConfigMap"
-metadata: {
-	name: "test"
-}
+metadata: name: "test"
 data: {
 	port:     strconv.Atoi(#values.port)
 	replicas: int & #values.replicas

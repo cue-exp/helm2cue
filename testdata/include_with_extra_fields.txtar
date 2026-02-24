@@ -27,9 +27,7 @@ metadata:
 data:
   key: value
 -- output.cue --
-_myapp_labels: {
-	app: "myapp"
-}
+_myapp_labels: app: "myapp"
 
 apiVersion: "v1"
 kind:       "ConfigMap"
@@ -40,6 +38,4 @@ metadata: {
 		extra: "field"
 	}
 }
-data: {
-	key: "value"
-}
+data: key: "value"

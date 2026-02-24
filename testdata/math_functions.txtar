@@ -40,9 +40,7 @@ import "math"
 
 apiVersion: "v1"
 kind:       "ConfigMap"
-metadata: {
-	name: "test"
-}
+metadata: name: "test"
 data: {
 	ceiling:    math.Ceil(#values.ratio)
 	floored:    math.Floor(#values.ratio)

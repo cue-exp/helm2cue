@@ -44,11 +44,7 @@ _nonzero: {
 
 apiVersion: "v1"
 kind:       "ConfigMap"
-metadata: {
-	name: "test"
-}
+metadata: name: "test"
 if (_nonzero & {#arg: #values.config.debug, _}) {
-	data: {
-		debug: "enabled"
-	}
+	data: debug: "enabled"
 }

@@ -568,7 +568,7 @@ func assembleSingleFile(cfg *Config, r *convertResult) ([]byte, error) {
 	}
 
 	// Format and validate the generated CUE.
-	result, err := format.Source(final.Bytes())
+	result, err := format.Source(final.Bytes(), format.Simplify())
 	if err != nil {
 		return nil, fmt.Errorf("generated invalid CUE:\n%s\nerror: %w", final.Bytes(), err)
 	}

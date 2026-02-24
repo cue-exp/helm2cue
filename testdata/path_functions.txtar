@@ -30,9 +30,7 @@ import "path"
 
 apiVersion: "v1"
 kind:       "ConfigMap"
-metadata: {
-	name: "test"
-}
+metadata: name: "test"
 data: {
 	basename:  path.Base(#values.filepath, path.Unix)
 	dirname:   path.Dir(#values.filepath, path.Unix)
