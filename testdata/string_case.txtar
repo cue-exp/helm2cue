@@ -17,8 +17,8 @@ data:
 import "strings"
 
 #values: {
-	name!: _
-	env!:  _
+	name!: bool | number | string | null
+	env!:  bool | number | string | null
 	...
 }
 

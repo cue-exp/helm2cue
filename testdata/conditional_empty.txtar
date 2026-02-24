@@ -39,8 +39,8 @@ _nonzero: {
 }
 
 #values: {
-	loadBalancerSourceRanges?: _
-	optional?:                 _
+	loadBalancerSourceRanges?: bool | number | string | null
+	optional?:                 bool | number | string | null
 	...
 }
 

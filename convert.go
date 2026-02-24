@@ -46,6 +46,12 @@ type PipelineFunc struct {
 	// first-command position with a single argument: {{ func expr }}.
 	// The converter evaluates the argument and returns it directly.
 	Passthrough bool
+
+	// NonScalar indicates that the piped input value (or argument in
+	// first-command position) might be a struct, list, or other non-scalar
+	// type. When true, field references used as input to this function
+	// are not constrained to the scalar type in the schema.
+	NonScalar bool
 }
 
 // HelperDef is a named CUE helper definition that gets emitted when needed.
@@ -135,6 +141,7 @@ type fieldNode struct {
 	childMap map[string]*fieldNode
 	defVal   string // non-empty if this node has a default
 	required bool   // true if accessed as a value (not just a condition)
+	isRange  bool   // true if used as a range target (list/map/int)
 }
 
 // frame tracks a YAML block context level for direct CUE emission.
@@ -178,6 +185,7 @@ type converter struct {
 	defaults           map[string][]fieldDefault // helmObj → defaults
 	fieldRefs          map[string][][]string     // helmObj → list of field paths referenced
 	requiredRefs       map[string][][]string     // helmObj → field paths accessed as values (not conditions)
+	rangeRefs          map[string][][]string     // helmObj → field paths used as range targets
 	suppressRequired   bool                      // true during condition processing
 	rangeVarStack      []rangeContext            // stack of dot-rebinding contexts for nested range/with
 	helperArgRefs      [][]string                // field paths accessed on #arg in helper bodies
@@ -233,6 +241,15 @@ func (c *converter) trackFieldRef(helmObj string, path []string) {
 	}
 }
 
+// trackNonScalarRef marks a field path as potentially non-scalar
+// (struct, list, etc.) so that the schema emits _ instead of the
+// scalar type constraint.
+func (c *converter) trackNonScalarRef(helmObj string, path []string) {
+	if helmObj != "" && path != nil {
+		c.rangeRefs[helmObj] = append(c.rangeRefs[helmObj], path)
+	}
+}
+
 // convertResult holds the structured output of converting a single template.
 type convertResult struct {
 	imports            map[string]bool
@@ -246,6 +263,7 @@ type convertResult struct {
 	usedContextObjects map[string]bool
 	fieldRefs          map[string][][]string
 	requiredRefs       map[string][][]string
+	rangeRefs          map[string][][]string
 	defaults           map[string][]fieldDefault
 	topLevelGuards     []string
 	body               string // template body only (no declarations)
@@ -287,6 +305,7 @@ func convertStructured(cfg *Config, input []byte, templateName string, treeSet m
 		defaults:           make(map[string][]fieldDefault),
 		fieldRefs:          make(map[string][][]string),
 		requiredRefs:       make(map[string][][]string),
+		rangeRefs:          make(map[string][][]string),
 		localVars:          make(map[string]string),
 		imports:            make(map[string]bool),
 		usedHelpers:        make(map[string]HelperDef),
@@ -349,6 +368,7 @@ func convertStructured(cfg *Config, input []byte, templateName string, treeSet m
 		usedContextObjects: c.usedContextObjects,
 		fieldRefs:          c.fieldRefs,
 		requiredRefs:       c.requiredRefs,
+		rangeRefs:          c.rangeRefs,
 		defaults:           c.defaults,
 		topLevelGuards:     c.topLevelGuards,
 		body:               c.out.String(),
@@ -423,11 +443,12 @@ func assembleSingleFile(cfg *Config, r *convertResult) ([]byte, error) {
 			defs := r.defaults[helmObj]
 			refs := r.fieldRefs[helmObj]
 			reqRefs := r.requiredRefs[helmObj]
+			rngRefs := r.rangeRefs[helmObj]
 			if len(defs) == 0 && len(refs) == 0 {
 				fmt.Fprintf(&final, "%s: _\n", cueDef)
 			} else {
 				fmt.Fprintf(&final, "%s: {\n", cueDef)
-				root := buildFieldTree(refs, defs, reqRefs)
+				root := buildFieldTree(refs, defs, reqRefs, rngRefs)
 				emitFieldNodes(&final, root.children, 1)
 				writeIndent(&final, 1)
 				final.WriteString("...\n")
@@ -562,6 +583,7 @@ func (c *converter) convertHelperBody(nodes []parse.Node) (string, [][]string, e
 		defaults:           c.defaults,
 		fieldRefs:          c.fieldRefs,
 		requiredRefs:       c.requiredRefs,
+		rangeRefs:          c.rangeRefs,
 		imports:            c.imports,
 		usedHelpers:        c.usedHelpers,
 		treeSet:            c.treeSet,
@@ -1661,12 +1683,15 @@ func (c *converter) processBodyNodes(nodes []parse.Node) error {
 
 func (c *converter) processRange(n *parse.RangeNode) error {
 	c.flushPendingAction()
-	overExpr, helmObj, err := c.pipeToFieldExpr(n.Pipe)
+	overExpr, helmObj, fieldPath, err := c.pipeToFieldExpr(n.Pipe)
 	if err != nil {
 		return fmt.Errorf("range: %w", err)
 	}
 	if helmObj != "" {
 		c.usedContextObjects[helmObj] = true
+		if fieldPath != nil {
+			c.rangeRefs[helmObj] = append(c.rangeRefs[helmObj], fieldPath)
+		}
 	}
 
 	blockIdx := len(c.rangeVarStack)
@@ -1800,18 +1825,19 @@ func peekBodyIndent(nodes []parse.Node) int {
 	return -1
 }
 
-func (c *converter) pipeToFieldExpr(pipe *parse.PipeNode) (string, string, error) {
+func (c *converter) pipeToFieldExpr(pipe *parse.PipeNode) (string, string, []string, error) {
 	if len(pipe.Cmds) != 1 || len(pipe.Cmds[0].Args) != 1 {
-		return "", "", fmt.Errorf("unsupported pipe: %s", pipe)
+		return "", "", nil, fmt.Errorf("unsupported pipe: %s", pipe)
 	}
 	if f, ok := pipe.Cmds[0].Args[0].(*parse.FieldNode); ok {
 		expr, helmObj := fieldToCUE(c.config.ContextObjects, f.Ident)
 		if helmObj != "" {
 			c.trackFieldRef(helmObj, f.Ident[1:])
+			return expr, helmObj, f.Ident[1:], nil
 		}
-		return expr, helmObj, nil
+		return expr, helmObj, nil, nil
 	}
-	return "", "", fmt.Errorf("unsupported node: %s", pipe.Cmds[0].Args[0])
+	return "", "", nil, fmt.Errorf("unsupported node: %s", pipe.Cmds[0].Args[0])
 }
 
 func (c *converter) pipeToCUECondition(pipe *parse.PipeNode) (string, string, error) {
@@ -1984,6 +2010,13 @@ func (c *converter) conditionPipeToExpr(pipe *parse.PipeNode) (string, error) {
 			}
 			if len(args) != 2 {
 				return "", fmt.Errorf("hasKey requires 2 arguments, got %d", len(args))
+			}
+			// The map argument to hasKey is non-scalar (a map/struct).
+			if f, ok := args[0].(*parse.FieldNode); ok {
+				_, helmObj := c.fieldToCUEInContext(f.Ident)
+				if helmObj != "" && len(f.Ident) >= 2 {
+					c.trackNonScalarRef(helmObj, f.Ident[1:])
+				}
 			}
 			mapExpr, err := c.conditionNodeToRawExpr(args[0])
 			if err != nil {
@@ -2332,6 +2365,11 @@ func (c *converter) actionToCUE(n *parse.ActionNode) (expr string, helmObj strin
 			}
 			if mapObj != "" {
 				helmObj = mapObj
+				// The map argument to get is non-scalar (a map/struct).
+				refs := c.fieldRefs[mapObj]
+				if len(refs) > 0 {
+					c.trackNonScalarRef(mapObj, refs[len(refs)-1])
+				}
 			}
 			if keyNode, ok := first.Args[2].(*parse.StringNode); ok {
 				if identRe.MatchString(keyNode.Text) {
@@ -2435,6 +2473,9 @@ func (c *converter) actionToCUE(n *parse.ActionNode) (expr string, helmObj strin
 				}
 				if f, ok := first.Args[1].(*parse.FieldNode); ok && helmObj != "" && len(f.Ident) >= 2 {
 					fieldPath = f.Ident[1:]
+					if pf.NonScalar {
+						c.trackNonScalarRef(helmObj, fieldPath)
+					}
 				}
 			}
 		}
@@ -2487,6 +2528,9 @@ func (c *converter) actionToCUE(n *parse.ActionNode) (expr string, helmObj strin
 			pf, ok := c.config.Funcs[id.Ident]
 			if !ok {
 				return "", "", fmt.Errorf("unsupported pipeline function: %s", id.Ident)
+			}
+			if pf.NonScalar {
+				c.trackNonScalarRef(helmObj, fieldPath)
 			}
 			if pf.Convert == nil {
 				// No-op function (e.g. nindent, indent, toYaml in pipeline).
@@ -2786,7 +2830,11 @@ func (c *converter) addImport(pkg string) {
 	c.imports[pkg] = true
 }
 
-func buildFieldTree(refs [][]string, defs []fieldDefault, requiredRefs [][]string) *fieldNode {
+// cueScalarType is the CUE type for leaf fields that are known to be
+// YAML scalars (accessed via interpolation, not range).
+const cueScalarType = "bool | number | string | null"
+
+func buildFieldTree(refs [][]string, defs []fieldDefault, requiredRefs [][]string, rangeRefs [][]string) *fieldNode {
 	root := &fieldNode{childMap: make(map[string]*fieldNode)}
 	for _, ref := range refs {
 		node := root
@@ -2826,6 +2874,19 @@ func buildFieldTree(refs [][]string, defs []fieldDefault, requiredRefs [][]strin
 			node.required = true
 		}
 	}
+	for _, ref := range rangeRefs {
+		node := root
+		for _, elem := range ref {
+			child, ok := node.childMap[elem]
+			if !ok {
+				break
+			}
+			node = child
+		}
+		if node != root {
+			node.isRange = true
+		}
+	}
 	return root
 }
 
@@ -2844,13 +2905,21 @@ func emitFieldNodes(w *bytes.Buffer, nodes []*fieldNode, indent int) {
 			writeIndent(w, indent)
 			w.WriteString("}\n")
 		} else if n.defVal != "" {
-			fmt.Fprintf(w, "%s: *%s | _\n", cueKey(n.name), n.defVal)
+			leafType := cueScalarType
+			if n.isRange {
+				leafType = "_"
+			}
+			fmt.Fprintf(w, "%s: *%s | %s\n", cueKey(n.name), n.defVal, leafType)
 		} else {
 			marker := "?"
 			if n.required {
 				marker = "!"
 			}
-			fmt.Fprintf(w, "%s%s: _\n", cueKey(n.name), marker)
+			leafType := cueScalarType
+			if n.isRange {
+				leafType = "_"
+			}
+			fmt.Fprintf(w, "%s%s: %s\n", cueKey(n.name), marker, leafType)
 		}
 	}
 }
@@ -2862,7 +2931,7 @@ func buildArgSchema(refs [][]string) string {
 	if len(refs) == 0 {
 		return "_"
 	}
-	root := buildFieldTree(refs, nil, nil)
+	root := buildFieldTree(refs, nil, nil, nil)
 	var buf bytes.Buffer
 	buf.WriteString("{\n")
 	emitFieldNodes(&buf, root.children, 2)

@@ -38,8 +38,8 @@ _nonzero: {
 }
 
 #values: {
-	name!:  _
-	debug?: _
+	name!:  bool | number | string | null
+	debug?: bool | number | string | null
 	...
 }
 

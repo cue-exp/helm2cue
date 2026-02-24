@@ -19,8 +19,8 @@ data:
   label: test
 -- output.cue --
 #values: {
-	app!: _
-	env!: _
+	app!: bool | number | string | null
+	env!: bool | number | string | null
 	...
 }
 

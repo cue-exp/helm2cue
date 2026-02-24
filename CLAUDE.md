@@ -22,6 +22,7 @@ go run . template [helpers.tpl] [file]
 echo '...' | go run . template [helpers.tpl]
 go run . version
 go vet ./...
+go run honnef.co/go/tools/cmd/staticcheck ./...
 git status
 git diff
 git log

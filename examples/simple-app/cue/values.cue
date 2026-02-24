@@ -3,23 +3,23 @@
 package simple_app
 
 #values: {
-	env:          *"development" | _
-	debug?:       _
-	replicaCount: *1 | _
+	env:          *"development" | bool | number | string | null
+	debug?:       bool | number | string | null
+	replicaCount: *1 | bool | number | string | null
 	serviceAccount!: {
-		name!: _
+		name!: bool | number | string | null
 		...
 	}
 	image?: {
-		repository!: _
-		tag!:        _
-		pullPolicy:  *"IfNotPresent" | _
+		repository!: bool | number | string | null
+		tag!:        bool | number | string | null
+		pullPolicy:  *"IfNotPresent" | bool | number | string | null
 		...
 	}
 	ports!: _
 	service?: {
-		type: *"ClusterIP" | _
-		port: *80 | _
+		type: *"ClusterIP" | bool | number | string | null
+		port: *80 | bool | number | string | null
 		...
 	}
 	...

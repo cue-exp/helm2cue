@@ -20,7 +20,7 @@ data:
 import "strings"
 
 #values: {
-	name!: _
+	name!: bool | number | string | null
 	...
 }
 

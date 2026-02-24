@@ -39,9 +39,9 @@ _nonzero: {
 }
 
 #values: {
-	name!:        _
-	enabled?:     _
-	maintenance?: _
+	name!:        bool | number | string | null
+	enabled?:     bool | number | string | null
+	maintenance?: bool | number | string | null
 	...
 }
 

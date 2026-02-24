@@ -16,7 +16,7 @@ data:
 import "regexp"
 
 #values: {
-	name!: _
+	name!: bool | number | string | null
 	...
 }
 

@@ -28,7 +28,7 @@ _nonzero: {
 }
 
 #input: {
-	debug?: _
+	debug?: bool | number | string | null
 	...
 }
 

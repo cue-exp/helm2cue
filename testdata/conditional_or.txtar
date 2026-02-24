@@ -39,9 +39,9 @@ _nonzero: {
 }
 
 #values: {
-	name!:  _
-	alpha?: _
-	beta?:  _
+	name!:  bool | number | string | null
+	alpha?: bool | number | string | null
+	beta?:  bool | number | string | null
 	...
 }
 
