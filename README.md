@@ -354,14 +354,9 @@ Some functions that _are_ handled have gaps in specific usage patterns:
 Some templates convert without error but produce CUE that does not
 parse. These are structural issues in how the converter maps
 YAML+template interactions to CUE, not missing function support. The
-28 errors across integration tests (12 nginx, 16 kube-prometheus-stack)
+18 errors across integration tests (2 nginx, 16 kube-prometheus-stack)
 break down as follows:
 
-- **`if` as value expression** (12 errors, all nginx) — a helper like
-  `common.fips.enabled` returns a conditional value
-  (`{{- if cond -}}true{{- end -}}`), which becomes
-  `if cond { true }`. CUE's `if` is a field comprehension, not a value
-  expression, so this produces `missing ',' in struct literal`
 - **YAML sibling keys nested into lists** (~6 errors) — when a YAML
   list item has sibling keys (`apiGroups:`, `resources:`, `verbs:`),
   the converter nests subsequent keys inside the first key's list

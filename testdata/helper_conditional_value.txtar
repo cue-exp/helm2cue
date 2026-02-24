@@ -1,0 +1,55 @@
+Helper that conditionally returns a bare value (not fields) using if.
+CUE's if is a field comprehension, not a value expression, so the helper
+body must be wrapped in a struct literal.
+
+-- _helpers.tpl --
+{{- define "myapp.fips.enabled" -}}
+{{- if .Chart.Annotations.fips -}}
+true
+{{- end -}}
+{{- end -}}
+-- input.yaml --
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test
+data:
+  fips: {{ include "myapp.fips.enabled" . | quote }}
+-- values.yaml --
+{}
+-- output.cue --
+import "struct"
+
+_nonzero: {
+	#arg?: _
+	[if #arg != _|_ {
+		[
+			if (#arg & int) != _|_ {#arg != 0},
+			if (#arg & string) != _|_ {#arg != ""},
+			if (#arg & float) != _|_ {#arg != 0.0},
+			if (#arg & bool) != _|_ {#arg},
+			if (#arg & [...]) != _|_ {len(#arg) > 0},
+			if (#arg & {...}) != _|_ {(#arg & struct.MaxFields(0)) == _|_},
+			false,
+		][0]
+	}, false][0]
+}
+
+#chart: {
+	Annotations?: {
+		fips?: bool | number | string | null
+		...
+	}
+	...
+}
+_myapp_fips_enabled: [
+	if (_nonzero & {#arg: #chart.Annotations.fips, _}) {
+		true
+	},
+	"",
+][0]
+
+apiVersion: "v1"
+kind:       "ConfigMap"
+metadata: name: "test"
+data: fips: "\(_myapp_fips_enabled)"
