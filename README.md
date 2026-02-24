@@ -471,15 +471,22 @@ under `testdata/charts/`:
   `include`, `template`, `.Release.Name`, `.Chart.Name`). All templates pass.
 - **`nginx`** — bitnami/nginx v22.0.7, pulled via `testdata/charts/pull.sh`
   (including the `common` subchart dependency).
+- **`kube-prometheus-stack`** — prometheus-community/kube-prometheus-stack
+  v82.2.1, pulled via `testdata/charts/pull-kube-prometheus-stack.sh`. A
+  large chart with subdirectory templates, subchart helpers, and duplicate
+  helper definitions. Most templates are skipped due to unsupported
+  features (see [Not Yet Implemented](#not-yet-implemented)), but it
+  serves as a benchmark for tracking conversion coverage over time.
 
-`TestConvertChart` tests chart-level conversion on `simple-app`, verifying
-that the output is a valid CUE module that passes `cue vet` and
-`cue export`.
+`TestConvertChart` tests chart-level conversion on `simple-app` and
+`dup-helpers`, verifying that the output is a valid CUE module that
+passes `cue vet` and `cue export`.
 
-To re-fetch the nginx chart (e.g. to update the pinned version):
+To re-fetch the vendored charts (e.g. to update pinned versions):
 
 ```bash
 ./testdata/charts/pull.sh
+./testdata/charts/pull-kube-prometheus-stack.sh
 ```
 
 ### CLI end-to-end tests
