@@ -28,7 +28,10 @@ _nonzero: {
 }
 
 #input: {
-	config?: _
+	config?: {
+		name?: _
+		...
+	}
 	...
 }
 

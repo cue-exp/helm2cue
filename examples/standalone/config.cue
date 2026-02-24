@@ -16,11 +16,15 @@ _nonzero: {
 }
 
 #values: {
-	name?:     _
-	host?:     _
-	port?:     _
-	debug?:    _
-	tls?:      _
+	name?:  _
+	host?:  _
+	port?:  _
+	debug?: _
+	tls?: {
+		cert?: _
+		key?:  _
+		...
+	}
 	labels?:   _
 	features?: _
 	...
