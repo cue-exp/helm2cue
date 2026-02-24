@@ -1,0 +1,35 @@
+Variable assignment with literal values (number, string).
+
+-- values.yaml --
+name: test
+-- input.yaml --
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Values.name }}
+data:
+  {{- $port := 10252 }}
+  port: {{ $port }}
+  {{- $label := "app" }}
+  label: {{ $label }}
+-- helm_output.yaml --
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test
+data:
+  port: 10252
+  label: app
+-- output.cue --
+#values: {
+	name!: bool | number | string | null
+	...
+}
+
+apiVersion: "v1"
+kind:       "ConfigMap"
+metadata: name: #values.name
+data: {
+	port:  10252
+	label: "app"
+}

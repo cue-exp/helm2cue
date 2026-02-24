@@ -320,22 +320,16 @@ is a good stress test).
 - **`lookup`** — runtime Kubernetes API lookups have no static CUE equivalent
 - **`tpl`** — dynamic template rendering (`{{ tpl expr . }}`) evaluates a
   string as a template at runtime; no static CUE equivalent
-- **Variable assignment as standalone action** — `{{ $var := expr }}` at the
-  top level of a template (outside `range`/`with`); variables inside
-  `range`/`with` are already handled
-- **`until` in range** — `{{ range $i, $e := until N }}` generates an
-  integer sequence; neither `until` nor the two-variable range form are
-  supported yet
 - **`index` in conditions** — `{{ if (index .Values "key").field }}` uses
   bracket-style map access which the condition parser does not handle
-- **Variable in conditions** — `{{ if $var }}` where `$var` was assigned
-  earlier in the template
 - **Method calls in conditions** — e.g.
   `.Capabilities.APIVersions.Has "autoscaling/v2"` (method-style calls
   on context objects)
 
 ### Sprig functions not yet converted
 
+- **`until`** — `{{ range $i, $e := until N }}` generates an integer
+  sequence; neither `until` nor the two-variable range form are supported yet
 - **`kindIs`**, **`typeOf`** — runtime Go type introspection
 - **`splitList`** — split a string into a list by separator
 - **`omit`** — return a dict with specified keys removed
@@ -354,8 +348,6 @@ Some functions that _are_ handled have gaps in specific usage patterns:
   `printf ...`) or a keyword (`list`)
 - **`ternary`** — the function is recognised but fails in some contexts
   (e.g. when used in webhook configurations)
-- **`trimSuffix`** as standalone action — `{{ trimSuffix "/" .Values.x }}`
-  works when piped but not in first-command position
 
 ### CUE output validation failures
 
