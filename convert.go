@@ -1972,9 +1972,15 @@ func (c *converter) conditionNodeToRawExpr(node parse.Node) (string, error) {
 }
 
 func (c *converter) conditionPipeToExpr(pipe *parse.PipeNode) (string, error) {
-	if len(pipe.Cmds) != 1 {
-		return "", fmt.Errorf("unsupported multi-command condition: %s", pipe)
+	if len(pipe.Cmds) == 0 {
+		return "", fmt.Errorf("empty condition pipe: %s", pipe)
 	}
+
+	// Handle multi-command pipes like .Values.x | default false.
+	if len(pipe.Cmds) > 1 {
+		return c.conditionMultiCmdPipe(pipe)
+	}
+
 	cmd := pipe.Cmds[0]
 	if len(cmd.Args) == 0 {
 		return "", fmt.Errorf("empty condition command: %s", pipe)
@@ -2121,6 +2127,31 @@ func (c *converter) conditionPipeToExpr(pipe *parse.PipeNode) (string, error) {
 				inclExpr = inclExpr + " & {#arg: " + argExpr + ", _}"
 			}
 			return fmt.Sprintf("(_nonzero & {#arg: %s, _})", inclExpr), nil
+		case "semverCompare":
+			if !c.isCoreFunc(id.Ident) {
+				return "", fmt.Errorf("unsupported condition function: %s (not a text/template builtin)", id.Ident)
+			}
+			if len(args) != 2 {
+				return "", fmt.Errorf("semverCompare requires 2 arguments, got %d", len(args))
+			}
+			constraintNode, ok := args[0].(*parse.StringNode)
+			if !ok {
+				return "", fmt.Errorf("semverCompare constraint must be a string literal")
+			}
+			verExpr, err := c.conditionNodeToRawExpr(args[1])
+			if err != nil {
+				return "", fmt.Errorf("semverCompare version argument: %w", err)
+			}
+			c.usedHelpers["_semverCompare"] = HelperDef{
+				Name:    "_semverCompare",
+				Def:     semverCompareDef,
+				Imports: []string{"strings", "strconv"},
+			}
+			c.addImport("strings")
+			c.addImport("strconv")
+			return fmt.Sprintf(
+				"(_semverCompare & {#constraint: %s, #version: %s}).out",
+				strconv.Quote(constraintNode.Text), verExpr), nil
 		default:
 			return "", fmt.Errorf("unsupported condition function: %s", id.Ident)
 		}
@@ -2130,6 +2161,77 @@ func (c *converter) conditionPipeToExpr(pipe *parse.PipeNode) (string, error) {
 		return c.conditionNodeToExpr(cmd.Args[0])
 	}
 	return "", fmt.Errorf("unsupported condition: %s", cmd)
+}
+
+// conditionMultiCmdPipe handles multi-command pipes in conditions,
+// e.g. .Values.x | default false.
+func (c *converter) conditionMultiCmdPipe(pipe *parse.PipeNode) (string, error) {
+	// Process first command to get base expression (no _nonzero wrapping).
+	first := pipe.Cmds[0]
+	if len(first.Args) != 1 {
+		return "", fmt.Errorf("unsupported multi-command condition: %s", pipe)
+	}
+	expr, err := c.conditionNodeToRawExpr(first.Args[0])
+	if err != nil {
+		return "", err
+	}
+
+	// Track field info for default recording.
+	var helmObj string
+	var fieldPath []string
+	switch n := first.Args[0].(type) {
+	case *parse.FieldNode:
+		_, helmObj = c.fieldToCUEInContext(n.Ident)
+		if helmObj != "" && len(n.Ident) >= 2 {
+			fieldPath = n.Ident[1:]
+		}
+	case *parse.VariableNode:
+		if len(n.Ident) >= 2 && n.Ident[0] == "$" {
+			_, helmObj = fieldToCUE(c.config.ContextObjects, n.Ident[1:])
+			if helmObj != "" && len(n.Ident) >= 3 {
+				fieldPath = n.Ident[2:]
+			}
+		}
+	}
+
+	// Handle subsequent pipeline commands.
+	for _, cmd := range pipe.Cmds[1:] {
+		if len(cmd.Args) == 0 {
+			return "", fmt.Errorf("empty command in condition pipeline: %s", pipe)
+		}
+		id, ok := cmd.Args[0].(*parse.IdentifierNode)
+		if !ok {
+			return "", fmt.Errorf("unsupported multi-command condition: %s", pipe)
+		}
+		switch id.Ident {
+		case "default":
+			if !c.isCoreFunc(id.Ident) {
+				return "", fmt.Errorf("unsupported condition function: %s (not a text/template builtin)", id.Ident)
+			}
+			if len(cmd.Args) != 2 {
+				return "", fmt.Errorf("default in condition pipeline requires 1 argument")
+			}
+			defaultVal, litErr := nodeToCUELiteral(cmd.Args[1])
+			if litErr != nil {
+				defaultExpr, _, exprErr := c.nodeToExpr(cmd.Args[1])
+				if exprErr != nil {
+					return "", fmt.Errorf("default value: %w", litErr)
+				}
+				defaultVal = defaultExpr
+			}
+			if helmObj != "" && fieldPath != nil {
+				c.defaults[helmObj] = append(c.defaults[helmObj], fieldDefault{
+					path:     fieldPath,
+					cueValue: defaultVal,
+				})
+			}
+		default:
+			return "", fmt.Errorf("unsupported function in condition pipeline: %s", id.Ident)
+		}
+	}
+
+	// Wrap in _nonzero truthiness check.
+	return fmt.Sprintf("(_nonzero & {#arg: %s, _})", expr), nil
 }
 
 func textContent(nodes []parse.Node) string {
@@ -2542,9 +2644,13 @@ func (c *converter) actionToCUE(n *parse.ActionNode) (expr string, helmObj strin
 				if len(cmd.Args) != 2 {
 					return "", "", fmt.Errorf("default in pipeline requires 1 argument")
 				}
-				defaultVal, err := nodeToCUELiteral(cmd.Args[1])
-				if err != nil {
-					return "", "", fmt.Errorf("default value: %w", err)
+				defaultVal, litErr := nodeToCUELiteral(cmd.Args[1])
+				if litErr != nil {
+					defaultExpr, _, exprErr := c.nodeToExpr(cmd.Args[1])
+					if exprErr != nil {
+						return "", "", fmt.Errorf("default value: %w", litErr)
+					}
+					defaultVal = defaultExpr
 				}
 				if helmObj != "" && fieldPath != nil {
 					c.defaults[helmObj] = append(c.defaults[helmObj], fieldDefault{

@@ -59,6 +59,82 @@ _trunc: {
 }
 `
 
+// semverCompareDef is the CUE definition for evaluating simple semver
+// constraints, matching the subset of Helm's semverCompare used in
+// practice (single operator + version).
+const semverCompareDef = `_semverCompare: {
+	#constraint: string
+	#version:    string
+
+	// Detect operator prefix.
+	_opLen: [
+		if strings.HasPrefix(#constraint, ">=") {2},
+		if strings.HasPrefix(#constraint, "<=") {2},
+		if strings.HasPrefix(#constraint, "!=") {2},
+		if strings.HasPrefix(#constraint, ">") {1},
+		if strings.HasPrefix(#constraint, "<") {1},
+		if strings.HasPrefix(#constraint, "=") {1},
+		{0},
+	][0]
+	_op: [
+		if _opLen > 0 {strings.SliceRunes(#constraint, 0, _opLen)},
+		"=",
+	][0]
+	_cVer: [
+		if _opLen > 0 {strings.TrimSpace(strings.SliceRunes(#constraint, _opLen, len(strings.Runes(#constraint))))},
+		strings.TrimSpace(#constraint),
+	][0]
+
+	// Parse constraint version.
+	_cRaw:   strings.TrimPrefix(_cVer, "v")
+	_cParts: strings.Split(_cRaw, ".")
+	_cMajor: strconv.Atoi(_cParts[0])
+	_cMinorS: [if len(_cParts) > 1 {_cParts[1]}, "0"][0]
+	_cPatchFull: [if len(_cParts) > 2 {_cParts[2]}, "0"][0]
+	_cPatchParts: strings.Split(_cPatchFull, "-")
+	_cMinor: strconv.Atoi(_cMinorS)
+	_cPatch: strconv.Atoi(_cPatchParts[0])
+	_cPre: [if len(_cPatchParts) > 1 {_cPatchParts[1]}, ""][0]
+
+	// Parse input version.
+	_vRaw:   strings.TrimPrefix(strings.TrimSpace(#version), "v")
+	_vParts: strings.Split(_vRaw, ".")
+	_vMajor: strconv.Atoi(_vParts[0])
+	_vMinorS: [if len(_vParts) > 1 {_vParts[1]}, "0"][0]
+	_vPatchFull: [if len(_vParts) > 2 {_vParts[2]}, "0"][0]
+	_vPatchParts: strings.Split(_vPatchFull, "-")
+	_vMinor: strconv.Atoi(_vMinorS)
+	_vPatch: strconv.Atoi(_vPatchParts[0])
+	_vPre: [if len(_vPatchParts) > 1 {_vPatchParts[1]}, ""][0]
+
+	// Three-way comparison: -1 (less), 0 (equal), +1 (greater).
+	_cmp: [
+		if _vMajor < _cMajor {-1},
+		if _vMajor > _cMajor {1},
+		if _vMinor < _cMinor {-1},
+		if _vMinor > _cMinor {1},
+		if _vPatch < _cPatch {-1},
+		if _vPatch > _cPatch {1},
+		// Prerelease tie-break.
+		if _vPre == "" && _cPre != "" {1},
+		if _vPre != "" && _cPre == "" {-1},
+		if _vPre < _cPre {-1},
+		if _vPre > _cPre {1},
+		0,
+	][0]
+
+	// Apply operator.
+	out: [
+		if _op == ">=" {_cmp >= 0},
+		if _op == "<=" {_cmp <= 0},
+		if _op == ">" {_cmp > 0},
+		if _op == "<" {_cmp < 0},
+		if _op == "!=" {_cmp != 0},
+		_cmp == 0,
+	][0]
+}
+`
+
 // HelmConfig returns a Config with Helm-specific context objects and
 // Sprig pipeline functions.
 func HelmConfig() *Config {
