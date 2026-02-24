@@ -308,15 +308,65 @@ removed once those exist.
 
 ## Not Yet Implemented
 
+The following template constructs and functions are not yet converted.
+Templates using them are skipped with a warning. The gaps are grouped
+roughly by how often they appear in real charts (kube-prometheus-stack
+is a good stress test: 30/171 templates convert today).
+
 ### Template constructs
 
 - **`lookup`** — runtime Kubernetes API lookups have no static CUE equivalent
-- **`tpl`** — dynamic template rendering has no static CUE equivalent
+- **`tpl`** — dynamic template rendering (`{{ tpl expr . }}`) evaluates a
+  string as a template at runtime; no static CUE equivalent
+- **Variable assignment as standalone action** — `{{ $var := expr }}` at the
+  top level of a template (outside `range`/`with`); variables inside
+  `range`/`with` are already handled
+- **`until` in range** — `{{ range $i, $e := until N }}` generates an
+  integer sequence; neither `until` nor the two-variable range form are
+  supported yet
+- **`index` in conditions** — `{{ if (index .Values "key").field }}` uses
+  bracket-style map access which the condition parser does not handle
+- **Variable in conditions** — `{{ if $var }}` where `$var` was assigned
+  earlier in the template
+- **Method calls in conditions** — e.g.
+  `.Capabilities.APIVersions.Has "autoscaling/v2"` (method-style calls
+  on context objects)
 
-### Sprig functions
+### Sprig functions not yet converted
 
+- **`semverCompare`** — semantic version comparison
+  (`{{ if semverCompare ">=1.19-0" .Capabilities.KubeVersion.GitVersion }}`);
+  this is the single largest gap in kube-prometheus-stack (77/141 skipped
+  templates)
+- **`kindIs`**, **`typeOf`** — runtime Go type introspection
+- **`splitList`** — split a string into a list by separator
+- **`omit`** — return a dict with specified keys removed
+- **`mustRegexReplaceAllLiteral`** — literal (non-regex) variant of
+  `regexReplaceAll`
 - **Crypto**: `derivePassword`, `genCA` (runtime crypto operations)
 - **Date**: `now`, `date`, `dateModify` (runtime date operations)
+
+### Core-handled function gaps
+
+Some functions that _are_ handled have gaps in specific usage patterns:
+
+- **`default`** with non-literal fallback — `default` works when the
+  fallback is a literal (`"x"`, `true`, `80`), but fails when it is a
+  pipeline expression (`.Values.x`), a function call (`include ...`,
+  `printf ...`), or a keyword (`list`)
+- **`ternary`** — the function is recognised but fails in some contexts
+  (e.g. when used in webhook configurations)
+- **`trimSuffix`** as standalone action — `{{ trimSuffix "/" .Values.x }}`
+  works when piped but not in first-command position
+
+### CUE output validation failures
+
+Some templates convert but produce CUE that does not parse:
+
+- **YAML flow syntax** — inline `{key: val}` and `[a, b]` inside
+  templates can produce CUE with missing commas or unexpected brackets
+- **Complex helper bodies** — helpers that mix YAML structure with
+  multiple template actions can produce conflicting CUE types
 
 ## Related Projects
 
