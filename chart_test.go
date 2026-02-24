@@ -261,6 +261,141 @@ func splitYAMLDocs(data []byte) ([]any, error) {
 	return docs, nil
 }
 
+func TestValidateValuesAgainstSchema(t *testing.T) {
+	tests := []struct {
+		name    string
+		schema  string
+		values  string
+		wantErr bool
+	}{
+		{
+			name: "valid_matching_values",
+			schema: `#values: {
+	port?: _
+	name?: _
+	...
+}
+`,
+			values:  "port: 8080\nname: myapp\n",
+			wantErr: false,
+		},
+		{
+			name: "missing_required_field",
+			schema: `#values: {
+	port!: _
+	...
+}
+`,
+			values:  "name: myapp\n",
+			wantErr: true,
+		},
+		{
+			name: "extra_fields_allowed",
+			schema: `#values: {
+	port?: _
+	...
+}
+`,
+			values:  "port: 8080\nextra: true\n",
+			wantErr: false,
+		},
+		{
+			name: "optional_field_absent",
+			schema: `#values: {
+	port?: _
+	name?: _
+	...
+}
+`,
+			values:  "port: 8080\n",
+			wantErr: false,
+		},
+		{
+			name: "empty_values",
+			schema: `#values: {
+	port?: _
+	...
+}
+`,
+			values:  "",
+			wantErr: false,
+		},
+		{
+			name:    "no_schema_fields",
+			schema:  "#values: _\n",
+			values:  "anything: goes\n",
+			wantErr: false,
+		},
+		{
+			name: "scalar_where_struct_expected",
+			schema: `#values: {
+	server?: {
+		port?: _
+		...
+	}
+	...
+}
+`,
+			values:  "server: plain-string\n",
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validateValuesAgainstSchema([]byte(tt.schema), []byte(tt.values))
+			if (err != nil) != tt.wantErr {
+				t.Errorf("validateValuesAgainstSchema() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestValidateSchema(t *testing.T) {
+	t.Run("valid", func(t *testing.T) {
+		schema := `#values: {
+	port?: _
+	name?: _
+	...
+}
+`
+		if err := validateSchema([]byte(schema)); err != nil {
+			t.Errorf("validateSchema() unexpected error: %v", err)
+		}
+	})
+
+	// Known limitation: when all inferred fields are typed as _, CUE does
+	// not detect that a field is used as both a scalar and a struct across
+	// different templates. For example, one template uses .Values.person
+	// as a scalar while another accesses .Values.person.name, producing:
+	//
+	//   person?: _          (from the scalar use)
+	//   person?: { name?: _; ... }  (from the struct use)
+	//
+	// CUE unifies _ with {name?: _; ...} without error because _ is
+	// unconstrained. Once we emit richer type annotations (e.g. string
+	// vs struct), CUE will catch this conflict. This test documents the
+	// current behaviour so we notice when CUE (or our emitter) is fixed.
+	t.Run("scalar_vs_struct_not_yet_detected", func(t *testing.T) {
+		schema := `#values: {
+	person?: _
+	person?: {
+		name?: _
+		...
+	}
+	...
+}
+`
+		err := validateSchema([]byte(schema))
+		// TODO: this should return an error once the schema emits
+		// type-level constraints (e.g. person?: string vs person?: {...}).
+		if err != nil {
+			t.Logf("CUE now detects scalar-vs-struct conflict (good!): %v", err)
+			t.Log("Update this test: change wantErr to true and remove the TODO.")
+		}
+	})
+}
+
 // yamlStreamSemanticEqual compares two multi-document YAML streams for
 // semantic equality. Documents may appear in any order.
 func yamlStreamSemanticEqual(a, b []byte) error {

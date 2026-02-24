@@ -23,8 +23,11 @@ import (
 	"strconv"
 	"strings"
 
+	"cuelang.org/go/cue"
+	"cuelang.org/go/cue/cuecontext"
 	"cuelang.org/go/cue/format"
 	"cuelang.org/go/cue/parser"
+	cueyaml "cuelang.org/go/encoding/yaml"
 	"gopkg.in/yaml.v3"
 )
 
@@ -200,8 +203,24 @@ func ConvertChart(chartDir, outDir string) error {
 		return err
 	}
 
+	// Build the values schema and validate it.
+	schemaCUE := buildValuesSchemaCUE(mergedFieldRefs["Values"], mergedDefaults["Values"], mergedRequiredRefs["Values"])
+	var valWarnings []string
+	if err := validateSchema(schemaCUE); err != nil {
+		valWarnings = append(valWarnings, fmt.Sprintf("values schema inconsistency: %v", err))
+	}
+
+	// Read values.yaml early for both validation and later copying.
+	valuesPath := filepath.Join(chartDir, "values.yaml")
+	valuesData, valuesErr := os.ReadFile(valuesPath)
+	if valuesErr == nil {
+		if err := validateValuesAgainstSchema(schemaCUE, valuesData); err != nil {
+			valWarnings = append(valWarnings, fmt.Sprintf("values.yaml does not satisfy inferred schema: %v", err))
+		}
+	}
+
 	// Write values.cue.
-	if err := writeValuesCUE(outDir, pkgName, mergedFieldRefs["Values"], mergedDefaults["Values"], mergedRequiredRefs["Values"]); err != nil {
+	if err := writeValuesCUE(outDir, pkgName, schemaCUE); err != nil {
 		return err
 	}
 
@@ -228,8 +247,7 @@ func ConvertChart(chartDir, outDir string) error {
 	}
 
 	// 8. Copy values.yaml and write empty release.yaml placeholder.
-	valuesPath := filepath.Join(chartDir, "values.yaml")
-	if valuesData, err := os.ReadFile(valuesPath); err == nil {
+	if valuesErr == nil {
 		if err := os.WriteFile(filepath.Join(outDir, "values.yaml"), valuesData, 0o644); err != nil {
 			return fmt.Errorf("copying values.yaml: %w", err)
 		}
@@ -240,6 +258,9 @@ func ConvertChart(chartDir, outDir string) error {
 
 	// 9. Print summary to stderr.
 	for _, w := range warnings {
+		fmt.Fprintf(os.Stderr, "warning: %s\n", w)
+	}
+	for _, w := range valWarnings {
 		fmt.Fprintf(os.Stderr, "warning: %s\n", w)
 	}
 	fmt.Fprintf(os.Stderr, "converted %d/%d templates from %s\n",
@@ -368,12 +389,10 @@ func writeHelpersCUE(outDir, pkgName string, r *convertResult, needsNonzero bool
 	return writeCUEFile(filepath.Join(outDir, "helpers.cue"), buf.Bytes())
 }
 
-// writeValuesCUE writes values.cue with the #values schema.
-func writeValuesCUE(outDir, pkgName string, refs [][]string, defs []fieldDefault, requiredRefs [][]string) error {
+// buildValuesSchemaCUE generates the #values schema block (without a package
+// header) from the merged field references, defaults, and required refs.
+func buildValuesSchemaCUE(refs [][]string, defs []fieldDefault, requiredRefs [][]string) []byte {
 	var buf bytes.Buffer
-	buf.WriteString(generatedHeader)
-	fmt.Fprintf(&buf, "package %s\n\n", pkgName)
-
 	if len(refs) == 0 && len(defs) == 0 {
 		buf.WriteString("#values: _\n")
 	} else {
@@ -384,8 +403,49 @@ func writeValuesCUE(outDir, pkgName string, refs [][]string, defs []fieldDefault
 		buf.WriteString("...\n")
 		buf.WriteString("}\n")
 	}
+	return buf.Bytes()
+}
 
+// writeValuesCUE writes values.cue with the #values schema.
+func writeValuesCUE(outDir, pkgName string, schemaCUE []byte) error {
+	var buf bytes.Buffer
+	buf.WriteString(generatedHeader)
+	fmt.Fprintf(&buf, "package %s\n\n", pkgName)
+	buf.Write(schemaCUE)
 	return writeCUEFile(filepath.Join(outDir, "values.cue"), buf.Bytes())
+}
+
+// validateSchema compiles the schema CUE and checks it for internal
+// consistency using CUE's own unification.
+func validateSchema(schemaCUE []byte) error {
+	ctx := cuecontext.New()
+	v := ctx.CompileBytes(schemaCUE)
+	if err := v.Err(); err != nil {
+		return err
+	}
+	return v.Validate()
+}
+
+// validateValuesAgainstSchema validates that valuesYAML satisfies the
+// constraints in schemaCUE. It uses CUE unification: the YAML is parsed
+// into a CUE value, unified with the #values definition from the schema,
+// and the result is validated.
+func validateValuesAgainstSchema(schemaCUE, valuesYAML []byte) error {
+	ctx := cuecontext.New()
+	schema := ctx.CompileBytes(schemaCUE)
+	if err := schema.Err(); err != nil {
+		return err
+	}
+	schemaVal := schema.LookupDef("values")
+
+	yamlFile, err := cueyaml.Extract("values.yaml", valuesYAML)
+	if err != nil {
+		return fmt.Errorf("parsing values.yaml: %w", err)
+	}
+	yamlAsCUE := ctx.BuildFile(yamlFile)
+
+	unified := schemaVal.Unify(yamlAsCUE)
+	return unified.Validate(cue.Concrete(true))
 }
 
 // writeDataCUE writes data.cue which uses @extern(embed) to embed

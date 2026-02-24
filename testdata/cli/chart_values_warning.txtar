@@ -1,0 +1,30 @@
+# Chart where values.yaml conflicts with the inferred schema.
+# The template accesses .Values.server.port (struct), but values.yaml
+# has server as a plain string. Conversion should still succeed with a
+# warning on stderr.
+exec helm2cue chart chartdir outdir
+stderr 'values.yaml does not satisfy inferred schema'
+stderr 'converted 1/1 templates'
+exists outdir/deployment.cue
+
+-- chartdir/Chart.yaml --
+apiVersion: v2
+name: warn-test
+version: 0.1.0
+
+-- chartdir/templates/deployment.yaml --
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: test
+spec:
+  replicas: 1
+  template:
+    spec:
+      containers:
+        - name: app
+          ports:
+            - containerPort: {{ .Values.server.port }}
+
+-- chartdir/values.yaml --
+server: plain-string
