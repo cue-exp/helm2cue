@@ -1,0 +1,3 @@
+# Non-existent chart directory should fail.
+! exec helm2cue chart nosuch outdir
+stderr 'nosuch'

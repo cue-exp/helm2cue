@@ -1,0 +1,7 @@
+# No args should print usage to stderr.
+! exec helm2cue
+stderr 'usage:'
+
+# Unknown command should fail.
+! exec helm2cue bogus
+stderr 'unknown command'

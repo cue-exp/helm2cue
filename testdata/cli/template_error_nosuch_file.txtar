@@ -1,0 +1,3 @@
+# Non-existent file should fail.
+! exec helm2cue template nosuch.yaml
+stderr 'nosuch.yaml'

@@ -432,6 +432,25 @@ To re-fetch the nginx chart (e.g. to update the pinned version):
 ./testdata/charts/pull.sh
 ```
 
+### CLI end-to-end tests
+
+CLI tests live in `testdata/cli/*.txtar` and are run by `TestCLI`. They use
+[testscript](https://pkg.go.dev/github.com/rogpeppe/go-internal/testscript)
+to exercise the `helm2cue` binary as a whole — argument parsing,
+stdin/stdout/stderr routing, exit codes, and error formatting — without
+building a separate binary (the command runs in-process via `TestMain`).
+
+Each `.txtar` file is a self-contained scenario that invokes `helm2cue`
+with `exec` and asserts on stdout/stderr content. Current coverage
+includes:
+
+- **`template` subcommand**: file input, file with helper, stdin input
+- **`template` errors**: multiple template files, non-existent file,
+  unsupported Sprig/Helm function
+- **`chart` errors**: missing arguments, non-existent chart directory
+- **`version` subcommand**: prints version information
+- **Usage/unknown command**: no arguments, unknown subcommand
+
 ### Workflow
 
 ```bash
@@ -452,6 +471,9 @@ go test -run TestIntegration -v
 
 # Run chart conversion tests
 go test -run TestConvertChart -v
+
+# Run CLI end-to-end tests
+go test -run TestCLI -v
 
 # Update golden files after intentional changes to conversion logic
 go test -update

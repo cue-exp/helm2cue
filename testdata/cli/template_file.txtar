@@ -1,0 +1,8 @@
+# Convert a template file to CUE.
+exec helm2cue template config.yaml
+stdout '#values:'
+stdout 'host:'
+
+-- config.yaml --
+name: {{ .Values.name }}
+host: {{ .Values.host }}

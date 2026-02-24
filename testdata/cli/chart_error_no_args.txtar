@@ -1,0 +1,3 @@
+# chart with no args should print usage.
+! exec helm2cue chart
+stderr 'usage:'

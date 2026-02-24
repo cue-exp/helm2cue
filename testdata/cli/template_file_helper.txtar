@@ -1,0 +1,12 @@
+# Convert a template file with a helper.
+exec helm2cue template _helpers.tpl config.yaml
+stdout '#values:'
+stdout 'name:'
+
+-- _helpers.tpl --
+{{- define "greeting" -}}
+hello-{{- printf "%s" .Values.name -}}
+{{- end -}}
+-- config.yaml --
+name: {{ template "greeting" . }}
+host: {{ .Values.host }}

@@ -1,0 +1,7 @@
+# Sprig/Helm functions should be rejected in template mode.
+stdin input.yaml
+! exec helm2cue template
+stderr 'unsupported pipeline function: default'
+
+-- input.yaml --
+name: {{ default "x" .Values.name }}
