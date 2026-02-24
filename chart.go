@@ -112,12 +112,23 @@ func ConvertChart(chartDir, outDir string, opts ChartOptions) error {
 		return fmt.Errorf("parsing helpers: %w", err)
 	}
 
-	// 4. Collect templates: templates/*.yaml, templates/*.yml (skip .tpl, NOTES.txt).
+	// 4. Collect templates: templates/**/*.yaml, templates/**/*.yml (skip .tpl, NOTES.txt).
+	templatesDir := filepath.Join(chartDir, "templates")
 	var templateFiles []string
-	for _, ext := range []string{"*.yaml", "*.yml"} {
-		matches, _ := filepath.Glob(filepath.Join(chartDir, "templates", ext))
-		templateFiles = append(templateFiles, matches...)
-	}
+	filepath.WalkDir(templatesDir, func(path string, d os.DirEntry, err error) error {
+		if err != nil || d.IsDir() {
+			return nil
+		}
+		ext := filepath.Ext(path)
+		if ext != ".yaml" && ext != ".yml" {
+			return nil
+		}
+		if filepath.Base(path) == "NOTES.txt" {
+			return nil
+		}
+		templateFiles = append(templateFiles, path)
+		return nil
+	})
 	slices.Sort(templateFiles)
 
 	cfg := HelmConfig()
@@ -127,33 +138,36 @@ func ConvertChart(chartDir, outDir string, opts ChartOptions) error {
 	var warnings []string
 
 	for _, tmplPath := range templateFiles {
-		filename := filepath.Base(tmplPath)
-		if filename == "NOTES.txt" {
-			continue
+		// Use path relative to templates/ for display and field naming,
+		// so subdirectory templates get unique names (e.g. alertmanager/service.yaml
+		// becomes alertmanager_service, distinct from prometheus/service.yaml).
+		relPath, _ := filepath.Rel(templatesDir, tmplPath)
+		if relPath == "" {
+			relPath = filepath.Base(tmplPath)
 		}
 
 		content, err := os.ReadFile(tmplPath)
 		if err != nil {
-			warnings = append(warnings, fmt.Sprintf("skipping %s: %v", filename, err))
+			warnings = append(warnings, fmt.Sprintf("skipping %s: %v", relPath, err))
 			continue
 		}
 
-		fieldName := templateFieldName(filename)
+		fieldName := templateFieldName(relPath)
 		templateName := "chart_" + fieldName // unique per template
 
 		r, err := convertStructured(cfg, content, templateName, treeSet, helperFileNames)
 		if err != nil {
-			warnings = append(warnings, fmt.Sprintf("skipping %s: %v", filename, err))
+			warnings = append(warnings, fmt.Sprintf("skipping %s: %v", relPath, err))
 			continue
 		}
 
 		// Validate the template body is valid CUE.
 		if err := validateTemplateBody(r); err != nil {
-			warnings = append(warnings, fmt.Sprintf("skipping %s: %v", filename, err))
+			warnings = append(warnings, fmt.Sprintf("skipping %s: %v", relPath, err))
 			continue
 		}
 
-		results = append(results, templateResult{fieldName, filename, r})
+		results = append(results, templateResult{fieldName, relPath, r})
 	}
 
 	if len(results) == 0 {
