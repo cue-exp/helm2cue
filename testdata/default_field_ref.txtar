@@ -1,0 +1,27 @@
+Pipeline default with field reference fallback.
+
+-- values.yaml --
+primary: hello
+fallback: world
+-- input.yaml --
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Values.primary | default .Values.fallback }}
+-- helm_output.yaml --
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: hello
+-- output.cue --
+#values: {
+	primary:   *#values.fallback | bool | number | string | null
+	fallback!: bool | number | string | null
+	...
+}
+
+apiVersion: "v1"
+kind:       "ConfigMap"
+metadata: {
+	name: #values.primary
+}

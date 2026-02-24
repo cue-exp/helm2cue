@@ -202,6 +202,7 @@ standard library does not yet provide as builtins:
 | Helper | Purpose |
 |---|---|
 | `_nonzero` | Tests whether a value is "truthy" (non-zero, non-empty, non-null), matching Go `text/template` semantics |
+| `_semverCompare` | Evaluates simple semver operator constraints (`>=`, `<=`, `>`, `<`, `!=`, `=`) against a version string |
 | `_trunc` | Truncates a string to N runes, matching Helm's `trunc` semantics |
 | `_last` | Extracts the last element of a list |
 | `_compact` | Removes empty strings from a list |
@@ -301,6 +302,7 @@ removed once those exist.
 | `keys` | `[ for k, _ in expr {k}]` | — |
 | `values` | `[ for _, v in expr {v}]` | — |
 | `coalesce` | `[if nz(a) {a}, ..., last][0]` | — |
+| `semverCompare` | `(_semverCompare & {#constraint: ..., #version: ...}).out` | `strings`, `strconv` |
 | `max` | `list.Max([a, b])` | `list` |
 | `min` | `list.Min([a, b])` | `list` |
 | `set` | Not supported (descriptive error) | — |
@@ -311,7 +313,7 @@ removed once those exist.
 The following template constructs and functions are not yet converted.
 Templates using them are skipped with a warning. The gaps are grouped
 roughly by how often they appear in real charts (kube-prometheus-stack
-is a good stress test: 30/171 templates convert today).
+is a good stress test).
 
 ### Template constructs
 
@@ -334,10 +336,6 @@ is a good stress test: 30/171 templates convert today).
 
 ### Sprig functions not yet converted
 
-- **`semverCompare`** — semantic version comparison
-  (`{{ if semverCompare ">=1.19-0" .Capabilities.KubeVersion.GitVersion }}`);
-  this is the single largest gap in kube-prometheus-stack (77/141 skipped
-  templates)
 - **`kindIs`**, **`typeOf`** — runtime Go type introspection
 - **`splitList`** — split a string into a list by separator
 - **`omit`** — return a dict with specified keys removed
@@ -351,9 +349,9 @@ is a good stress test: 30/171 templates convert today).
 Some functions that _are_ handled have gaps in specific usage patterns:
 
 - **`default`** with non-literal fallback — `default` works when the
-  fallback is a literal (`"x"`, `true`, `80`), but fails when it is a
-  pipeline expression (`.Values.x`), a function call (`include ...`,
-  `printf ...`), or a keyword (`list`)
+  fallback is a literal (`"x"`, `true`, `80`) or a field reference
+  (`.Values.x`), but fails when it is a function call (`include ...`,
+  `printf ...`) or a keyword (`list`)
 - **`ternary`** — the function is recognised but fails in some contexts
   (e.g. when used in webhook configurations)
 - **`trimSuffix`** as standalone action — `{{ trimSuffix "/" .Values.x }}`
