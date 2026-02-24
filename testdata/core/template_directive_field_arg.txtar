@@ -10,7 +10,7 @@ so it cannot be used inline in "key: {{ template ... }}" for execution.
 name: {{ template "id" .input.name }}
 -- output.cue --
 #input: {
-	name?: _
+	name!: _
 	...
 }
 _id: {

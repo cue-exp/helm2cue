@@ -27,7 +27,7 @@ _last: {
 }
 
 #values: {
-	items?: _
+	items!: _
 	...
 }
 

@@ -11,7 +11,7 @@ data:
   config: {{ dict "name" .Values.x "port" 8080 }}
 -- output.cue --
 #values: {
-	x?: _
+	x!: _
 	...
 }
 

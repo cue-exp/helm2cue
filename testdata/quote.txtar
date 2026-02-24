@@ -10,7 +10,7 @@ data:
   port: {{ .Values.port | quote }}
 -- output.cue --
 #values: {
-	port?: _
+	port!: _
 	...
 }
 

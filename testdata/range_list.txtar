@@ -27,7 +27,7 @@ data:
     - three
 -- output.cue --
 #values: {
-	items?: _
+	items!: _
 	...
 }
 

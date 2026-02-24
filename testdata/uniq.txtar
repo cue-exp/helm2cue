@@ -25,7 +25,7 @@ _uniq: {
 }
 
 #values: {
-	items?: _
+	items!: _
 	...
 }
 

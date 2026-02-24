@@ -150,6 +150,7 @@ func ConvertChart(chartDir, outDir string) error {
 	// 6. Merge across all results.
 	mergedContextObjects := make(map[string]bool)
 	mergedFieldRefs := make(map[string][][]string)
+	mergedRequiredRefs := make(map[string][][]string)
 	mergedDefaults := make(map[string][]fieldDefault)
 	needsNonzero := false
 	mergedUsedHelpers := make(map[string]HelperDef)
@@ -165,6 +166,9 @@ func ConvertChart(chartDir, outDir string) error {
 		}
 		for k, v := range r.fieldRefs {
 			mergedFieldRefs[k] = append(mergedFieldRefs[k], v...)
+		}
+		for k, v := range r.requiredRefs {
+			mergedRequiredRefs[k] = append(mergedRequiredRefs[k], v...)
 		}
 		for k, v := range r.defaults {
 			mergedDefaults[k] = append(mergedDefaults[k], v...)
@@ -197,7 +201,7 @@ func ConvertChart(chartDir, outDir string) error {
 	}
 
 	// Write values.cue.
-	if err := writeValuesCUE(outDir, pkgName, mergedFieldRefs["Values"], mergedDefaults["Values"]); err != nil {
+	if err := writeValuesCUE(outDir, pkgName, mergedFieldRefs["Values"], mergedDefaults["Values"], mergedRequiredRefs["Values"]); err != nil {
 		return err
 	}
 
@@ -365,7 +369,7 @@ func writeHelpersCUE(outDir, pkgName string, r *convertResult, needsNonzero bool
 }
 
 // writeValuesCUE writes values.cue with the #values schema.
-func writeValuesCUE(outDir, pkgName string, refs [][]string, defs []fieldDefault) error {
+func writeValuesCUE(outDir, pkgName string, refs [][]string, defs []fieldDefault, requiredRefs [][]string) error {
 	var buf bytes.Buffer
 	buf.WriteString(generatedHeader)
 	fmt.Fprintf(&buf, "package %s\n\n", pkgName)
@@ -374,7 +378,7 @@ func writeValuesCUE(outDir, pkgName string, refs [][]string, defs []fieldDefault
 		buf.WriteString("#values: _\n")
 	} else {
 		buf.WriteString("#values: {\n")
-		root := buildFieldTree(refs, defs)
+		root := buildFieldTree(refs, defs, requiredRefs)
 		emitFieldNodes(&buf, root.children, 1)
 		writeIndent(&buf, 1)
 		buf.WriteString("...\n")

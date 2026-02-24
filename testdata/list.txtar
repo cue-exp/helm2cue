@@ -13,7 +13,7 @@ data:
   empty: {{ list }}
 -- output.cue --
 #values: {
-	x?: _
+	x!: _
 	...
 }
 

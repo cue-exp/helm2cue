@@ -12,8 +12,8 @@ metadata:
     {{ include "myapp.labels" .Values | nindent 4 }}
 -- output.cue --
 #values: {
-	name?:    _
-	version?: _
+	name!:    _
+	version!: _
 	...
 }
 _myapp_labels: {

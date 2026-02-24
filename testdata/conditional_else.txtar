@@ -38,7 +38,7 @@ _nonzero: {
 }
 
 #values: {
-	name?:  _
+	name!:  _
 	debug?: _
 	...
 }

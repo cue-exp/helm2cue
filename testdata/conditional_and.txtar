@@ -39,7 +39,7 @@ _nonzero: {
 }
 
 #values: {
-	name?:    _
+	name!:    _
 	enabled?: _
 	ready?:   _
 	...

@@ -36,8 +36,8 @@ spec:
           memory: 64Mi
 -- output.cue --
 #values: {
-	name?:      _
-	resources?: _
+	name!:      _
+	resources!: _
 	...
 }
 

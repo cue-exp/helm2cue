@@ -16,17 +16,17 @@ _nonzero: {
 }
 
 #values: {
-	name?:  _
-	host?:  _
-	port?:  _
+	name!:  _
+	host!:  _
+	port!:  _
 	debug?: _
 	tls?: {
-		cert?: _
-		key?:  _
+		cert!: _
+		key!:  _
 		...
 	}
-	labels?:   _
-	features?: _
+	labels!:   _
+	features!: _
 	...
 }
 _fullname: "\(#values.name)-server"

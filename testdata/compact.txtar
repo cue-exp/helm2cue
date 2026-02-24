@@ -23,7 +23,7 @@ _compact: {
 }
 
 #values: {
-	items?: _
+	items!: _
 	...
 }
 

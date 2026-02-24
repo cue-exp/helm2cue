@@ -6,17 +6,17 @@ package simple_app
 	env:          *"development" | _
 	debug?:       _
 	replicaCount: *1 | _
-	serviceAccount?: {
-		name?: _
+	serviceAccount!: {
+		name!: _
 		...
 	}
 	image?: {
-		repository?: _
-		tag?:        _
+		repository!: _
+		tag!:        _
 		pullPolicy:  *"IfNotPresent" | _
 		...
 	}
-	ports?: _
+	ports!: _
 	service?: {
 		type: *"ClusterIP" | _
 		port: *80 | _

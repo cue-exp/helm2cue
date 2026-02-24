@@ -8,7 +8,7 @@ Template directive ({{ template }}) with a field expression argument.
 name: {{ template "myapp.name" .Values.name }}
 -- output.cue --
 #values: {
-	name?: _
+	name!: _
 	...
 }
 _myapp_name: {
