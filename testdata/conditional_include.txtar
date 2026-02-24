@@ -46,7 +46,12 @@ _nonzero: {
 	name!:    bool | number | string | null
 	...
 }
-_myapp_enabled: true
+_myapp_enabled: [
+	if (_nonzero & {#arg: #values.enabled, _}) {
+		true
+	},
+	"",
+][0]
 
 apiVersion: "v1"
 kind:       "ConfigMap"

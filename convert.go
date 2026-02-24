@@ -654,6 +654,33 @@ func (c *converter) convertHelperBody(nodes []parse.Node) (string, [][]string, e
 	sub.closeBlocksTo(-1)
 
 	body := strings.TrimSpace(sub.out.String())
+
+	// processNodes may extract top-level if guards (via detectTopLevelIf)
+	// instead of emitting them as if blocks. In helper bodies these guards
+	// must wrap the body explicitly so the conditional is preserved.
+	if len(sub.topLevelGuards) > 0 {
+		c.hasConditions = true
+		var wrapped bytes.Buffer
+		indent := 0
+		for _, guard := range sub.topLevelGuards {
+			writeIndent(&wrapped, indent)
+			fmt.Fprintf(&wrapped, "if %s {\n", guard)
+			indent++
+		}
+		for _, line := range strings.Split(body, "\n") {
+			if line != "" {
+				writeIndent(&wrapped, indent)
+			}
+			wrapped.WriteString(line)
+			wrapped.WriteByte('\n')
+		}
+		for i := len(sub.topLevelGuards) - 1; i >= 0; i-- {
+			writeIndent(&wrapped, i)
+			wrapped.WriteString("}\n")
+		}
+		body = strings.TrimSpace(wrapped.String())
+	}
+
 	if body == "" {
 		return `""`, nil, nil
 	}
@@ -664,6 +691,11 @@ func (c *converter) convertHelperBody(nodes []parse.Node) (string, [][]string, e
 	for _, line := range lines {
 		trimmed := strings.TrimSpace(line)
 		if trimmed == "" || trimmed == "}" || trimmed == "{" {
+			continue
+		}
+		// Skip comprehension guards — a ": " inside an if/for condition
+		// is part of the expression, not a field definition.
+		if strings.HasPrefix(trimmed, "if ") || strings.HasPrefix(trimmed, "for ") {
 			continue
 		}
 		if colonIdx := strings.Index(trimmed, ": "); colonIdx > 0 {
@@ -677,7 +709,10 @@ func (c *converter) convertHelperBody(nodes []parse.Node) (string, [][]string, e
 	}
 
 	// If #arg is referenced in the body, wrap with an #arg schema.
-	if useArg && strings.Contains(body, "#arg") {
+	// Exclude false positives from the _nonzero condition pattern
+	// ({#arg: value, _}) which uses #arg as a struct field name.
+	bodyForArgCheck := strings.ReplaceAll(body, "{#arg:", "{_:")
+	if useArg && strings.Contains(bodyForArgCheck, "#arg") {
 		argRefs := sub.helperArgRefs
 		schema := buildArgSchema(argRefs)
 		if hasFields {
@@ -696,6 +731,18 @@ func (c *converter) convertHelperBody(nodes []parse.Node) (string, [][]string, e
 
 	if hasFields {
 		result := "{\n" + indentBlock(body, "\t") + "\n}"
+		if err := validateHelperExpr(result, c.imports); err != nil {
+			return "", nil, fmt.Errorf("helper body produced invalid CUE: %w", err)
+		}
+		return result, nil, nil
+	}
+
+	// Value-producing comprehensions: wrap in a list comprehension with
+	// "" default. In Helm, a helper that produces no output returns "".
+	// CUE's if/for are field comprehensions (not value expressions), so
+	// [if cond {value}, ""][0] gives value when true, "" when false.
+	if strings.HasPrefix(body, "if ") || strings.HasPrefix(body, "for ") {
+		result := "[\n" + indentBlock(body, "\t") + ",\n\t\"\",\n][0]"
 		if err := validateHelperExpr(result, c.imports); err != nil {
 			return "", nil, fmt.Errorf("helper body produced invalid CUE: %w", err)
 		}
