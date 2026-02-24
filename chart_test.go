@@ -40,7 +40,7 @@ func TestConvertChart(t *testing.T) {
 	chartDir := "testdata/charts/simple-app"
 	outDir := t.TempDir()
 
-	if err := ConvertChart(chartDir, outDir); err != nil {
+	if err := ConvertChart(chartDir, outDir, ChartOptions{}); err != nil {
 		t.Fatalf("ConvertChart: %v", err)
 	}
 
@@ -100,6 +100,56 @@ func TestConvertChart(t *testing.T) {
 	out, err := exportCmd.CombinedOutput()
 	if err != nil {
 		// Log all .cue file contents for debugging.
+		for _, f := range cueFiles {
+			data, _ := os.ReadFile(f)
+			t.Logf("--- %s ---\n%s", filepath.Base(f), data)
+		}
+		t.Fatalf("cue export failed: %v\n%s", err, out)
+	}
+	if len(strings.TrimSpace(string(out))) == 0 {
+		t.Error("cue export produced empty output")
+	}
+}
+
+// TestConvertChartDupHelpers verifies that a chart with duplicate helper
+// definitions across the main chart and a subchart converts successfully.
+// This reproduces the scenario seen in charts like kube-prometheus-stack
+// where vendored subcharts redefine the same helpers.
+func TestConvertChartDupHelpers(t *testing.T) {
+	cuePathOut, err := exec.Command("go", "tool", "-n", "cue").Output()
+	if err != nil {
+		t.Fatalf("go tool -n cue: %v", err)
+	}
+	cuePath := strings.TrimSpace(string(cuePathOut))
+
+	chartDir := "testdata/charts/dup-helpers"
+	outDir := t.TempDir()
+
+	if err := ConvertChart(chartDir, outDir, ChartOptions{}); err != nil {
+		t.Fatalf("ConvertChart: %v", err)
+	}
+
+	// Verify key output files exist.
+	for _, f := range []string{"helpers.cue", "values.cue", "deployment.cue"} {
+		path := filepath.Join(outDir, f)
+		if _, err := os.Stat(path); os.IsNotExist(err) {
+			t.Errorf("expected file %s does not exist", f)
+		}
+	}
+
+	// Run cue vet on the output.
+	vetCmd := exec.Command(cuePath, "vet", "-c=false", "./...")
+	vetCmd.Dir = outDir
+	if out, err := vetCmd.CombinedOutput(); err != nil {
+		t.Fatalf("cue vet failed: %v\n%s", err, out)
+	}
+
+	// Run cue export with a release name.
+	exportCmd := exec.Command(cuePath, "export", ".", "-t", "release_name=test", "--out", "yaml")
+	exportCmd.Dir = outDir
+	out, err := exportCmd.CombinedOutput()
+	if err != nil {
+		cueFiles, _ := filepath.Glob(filepath.Join(outDir, "*.cue"))
 		for _, f := range cueFiles {
 			data, _ := os.ReadFile(f)
 			t.Logf("--- %s ---\n%s", filepath.Base(f), data)

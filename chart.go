@@ -47,8 +47,18 @@ type templateResult struct {
 	result    *convertResult
 }
 
+// ChartOptions configures chart conversion behavior.
+type ChartOptions struct {
+	// AllowDuplicateHelpers controls how conflicting helper template
+	// definitions are handled. When false (the default), identical
+	// duplicate definitions are silently deduplicated but conflicting
+	// definitions cause an error. When true, the last definition wins
+	// (with a warning to stderr).
+	AllowDuplicateHelpers bool
+}
+
 // ConvertChart converts a Helm chart directory to a CUE module in outDir.
-func ConvertChart(chartDir, outDir string) error {
+func ConvertChart(chartDir, outDir string, opts ChartOptions) error {
 	// 1. Parse Chart.yaml.
 	metaData, err := os.ReadFile(filepath.Join(chartDir, "Chart.yaml"))
 	if err != nil {
@@ -97,7 +107,7 @@ func ConvertChart(chartDir, outDir string) error {
 	}
 
 	// 3. Parse all helpers once.
-	treeSet, helperFileNames, err := parseHelpers(helperData)
+	treeSet, helperFileNames, err := parseHelpers(helperData, opts.AllowDuplicateHelpers)
 	if err != nil {
 		return fmt.Errorf("parsing helpers: %w", err)
 	}

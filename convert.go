@@ -17,6 +17,7 @@ package main
 import (
 	"bytes"
 	"fmt"
+	"os"
 	"regexp"
 	"slices"
 	"strconv"
@@ -270,15 +271,53 @@ type convertResult struct {
 }
 
 // parseHelpers parses helper template files into a shared tree set.
-func parseHelpers(helpers [][]byte) (map[string]*parse.Tree, map[string]bool, error) {
+// When multiple files define the same template name, identical bodies
+// are silently deduplicated. Conflicting bodies cause an error unless
+// allowDup is true, in which case the last definition wins.
+func parseHelpers(helpers [][]byte, allowDup bool) (map[string]*parse.Tree, map[string]bool, error) {
 	treeSet := make(map[string]*parse.Tree)
 	helperFileNames := make(map[string]bool)
 	for i, helper := range helpers {
 		name := fmt.Sprintf("helper%d", i)
 		helperFileNames[name] = true
+
+		// First pass: parse into an isolated tree set to discover
+		// which template names this file defines.
+		iso := make(map[string]*parse.Tree)
 		ht := parse.New(name)
 		ht.Mode = parse.SkipFuncCheck | parse.ParseComments
-		if _, err := ht.Parse(string(helper), "{{", "}}", treeSet); err != nil {
+		if _, err := ht.Parse(string(helper), "{{", "}}", iso); err != nil {
+			return nil, nil, fmt.Errorf("parsing helper %d: %w", i, err)
+		}
+
+		// Check for duplicates against the shared tree set.
+		for tname, newTree := range iso {
+			if tname == name {
+				// The file's own top-level tree; never a conflict.
+				continue
+			}
+			existing, ok := treeSet[tname]
+			if !ok {
+				continue
+			}
+			if existing.Root.String() == newTree.Root.String() {
+				// Identical body — delete from shared set so
+				// the real parse below doesn't hit a conflict.
+				delete(treeSet, tname)
+				continue
+			}
+			if !allowDup {
+				return nil, nil, fmt.Errorf("conflicting definitions for template %q", tname)
+			}
+			// Last-one-wins: warn and remove the earlier definition.
+			fmt.Fprintf(os.Stderr, "warning: duplicate helper %q: using last definition\n", tname)
+			delete(treeSet, tname)
+		}
+
+		// Second pass: parse into the shared tree set (now conflict-free).
+		ht2 := parse.New(name)
+		ht2.Mode = parse.SkipFuncCheck | parse.ParseComments
+		if _, err := ht2.Parse(string(helper), "{{", "}}", treeSet); err != nil {
 			return nil, nil, fmt.Errorf("parsing helper %d: %w", i, err)
 		}
 	}
@@ -540,7 +579,7 @@ func assembleSingleFile(cfg *Config, r *convertResult) ([]byte, error) {
 // Convert transforms a template YAML file into CUE using the given config.
 // Optional helpers contain {{ define }} blocks (typically from _helpers.tpl files).
 func Convert(cfg *Config, input []byte, helpers ...[]byte) ([]byte, error) {
-	treeSet, helperFileNames, err := parseHelpers(helpers)
+	treeSet, helperFileNames, err := parseHelpers(helpers, false)
 	if err != nil {
 		return nil, err
 	}

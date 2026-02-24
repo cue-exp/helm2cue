@@ -3,4 +3,4 @@
 cmp stderr want-stderr
 
 -- want-stderr --
-usage: helm2cue chart <chart-dir> <output-dir>
+usage: helm2cue chart [-allow-duplicate-helpers] <chart-dir> <output-dir>

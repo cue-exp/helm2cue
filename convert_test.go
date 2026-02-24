@@ -73,20 +73,20 @@ func TestConvert(t *testing.T) {
 			var helpers [][]byte
 			var hasOutput, hasHelmOutput, hasError bool
 			for _, f := range ar.Files {
-				switch f.Name {
-				case "input.yaml":
+				switch {
+				case f.Name == "input.yaml":
 					input = f.Data
-				case "output.cue":
+				case f.Name == "output.cue":
 					expectedOutput = f.Data
 					hasOutput = true
-				case "values.yaml":
+				case f.Name == "values.yaml":
 					valuesYAML = f.Data
-				case "helm_output.yaml":
+				case f.Name == "helm_output.yaml":
 					expectedHelmOutput = f.Data
 					hasHelmOutput = true
-				case "_helpers.tpl":
+				case strings.HasSuffix(f.Name, ".tpl"):
 					helpers = append(helpers, f.Data)
-				case "error":
+				case f.Name == "error":
 					expectedError = f.Data
 					hasError = true
 				}
@@ -399,17 +399,17 @@ func TestConvertCore(t *testing.T) {
 			var helpers [][]byte
 			var hasOutput, hasError bool
 			for _, f := range ar.Files {
-				switch f.Name {
-				case "input.yaml":
+				switch {
+				case f.Name == "input.yaml":
 					input = f.Data
-				case "output.cue":
+				case f.Name == "output.cue":
 					expectedOutput = f.Data
 					hasOutput = true
-				case "_helpers.tpl":
+				case strings.HasSuffix(f.Name, ".tpl"):
 					helpers = append(helpers, f.Data)
-				case "values.yaml":
+				case f.Name == "values.yaml":
 					valuesYAML = f.Data
-				case "error":
+				case f.Name == "error":
 					expectedError = f.Data
 					hasError = true
 				}

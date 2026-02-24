@@ -15,6 +15,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"io"
 	"os"
@@ -61,11 +62,20 @@ func main1() int {
 }
 
 func cmdChart(args []string) int {
-	if len(args) != 2 {
-		fmt.Fprintf(os.Stderr, "usage: helm2cue chart <chart-dir> <output-dir>\n")
+	fs := flag.NewFlagSet("chart", flag.ContinueOnError)
+	fs.SetOutput(os.Stderr)
+	allowDup := fs.Bool("allow-duplicate-helpers", false, "allow conflicting helper definitions (last wins)")
+	if err := fs.Parse(args); err != nil {
 		return 1
 	}
-	if err := ConvertChart(args[0], args[1]); err != nil {
+	if fs.NArg() != 2 {
+		fmt.Fprintf(os.Stderr, "usage: helm2cue chart [-allow-duplicate-helpers] <chart-dir> <output-dir>\n")
+		return 1
+	}
+	opts := ChartOptions{
+		AllowDuplicateHelpers: *allowDup,
+	}
+	if err := ConvertChart(fs.Arg(0), fs.Arg(1), opts); err != nil {
 		fmt.Fprintf(os.Stderr, "helm2cue: %v\n", err)
 		return 1
 	}

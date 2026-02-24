@@ -1,0 +1,17 @@
+Duplicate helper definitions with different bodies should error.
+
+-- _helpers1.tpl --
+{{- define "myapp.name" -}}
+{{- .Release.Name -}}
+{{- end -}}
+-- _helpers2.tpl --
+{{- define "myapp.name" -}}
+{{- .Chart.Name -}}
+{{- end -}}
+-- input.yaml --
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "myapp.name" . }}
+-- error --
+conflicting definitions for template "myapp.name"

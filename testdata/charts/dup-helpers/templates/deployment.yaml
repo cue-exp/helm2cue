@@ -1,0 +1,13 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "dup-helpers.name" . }}
+  labels:
+    {{- include "dup-helpers.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  template:
+    spec:
+      containers:
+        - name: {{ include "dup-helpers.name" . }}
+          image: {{ .Values.image }}
