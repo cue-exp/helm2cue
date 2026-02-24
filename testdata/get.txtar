@@ -26,9 +26,5 @@ data:
 
 apiVersion: "v1"
 kind:       "ConfigMap"
-metadata: {
-	name: "test"
-}
-data: {
-	app: #values.labels.app
-}
+metadata: name: "test"
+data: app: #values.labels.app

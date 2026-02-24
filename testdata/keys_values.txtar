@@ -22,9 +22,7 @@ data:
 
 apiVersion: "v1"
 kind:       "ConfigMap"
-metadata: {
-	name: "test"
-}
+metadata: name: "test"
 data: {
 	allkeys: [for k, _ in #values.labels {k}]
 	allvals: [for _, v in #values.labels {v}]

@@ -63,6 +63,4 @@ metadata: {
 		}
 	}
 }
-data: {
-	key: "value"
-}
+data: key: "value"

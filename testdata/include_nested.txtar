@@ -33,6 +33,4 @@ _myapp_name:     #chart.Name
 
 apiVersion: "v1"
 kind:       "Service"
-metadata: {
-	name: _myapp_fullname
-}
+metadata: name: _myapp_fullname

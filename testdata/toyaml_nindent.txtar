@@ -43,14 +43,10 @@ spec:
 
 apiVersion: "v1"
 kind:       "Pod"
-metadata: {
-	name: #values.name
-}
-spec: {
-	containers: [
-		{
-			name:      #values.name
-			resources: #values.resources
-		},
-	]
-}
+metadata: name: #values.name
+spec: containers: [
+	{
+		name:      #values.name
+		resources: #values.resources
+	},
+]

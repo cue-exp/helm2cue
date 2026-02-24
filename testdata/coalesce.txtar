@@ -43,9 +43,5 @@ _nonzero: {
 
 apiVersion: "v1"
 kind:       "ConfigMap"
-metadata: {
-	name: "test"
-}
-data: {
-	result: [if (_nonzero & {#arg: #values.a, _}) {#values.a}, if (_nonzero & {#arg: #values.b, _}) {#values.b}, "default"][0]
-}
+metadata: name: "test"
+data: result: [if (_nonzero & {#arg: #values.a, _}) {#values.a}, if (_nonzero & {#arg: #values.b, _}) {#values.b}, "default"][0]

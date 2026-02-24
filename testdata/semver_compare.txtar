@@ -120,11 +120,7 @@ _semverCompare: {
 
 apiVersion: "v1"
 kind:       "ConfigMap"
-metadata: {
-	name: "test"
-}
+metadata: name: "test"
 if (_semverCompare & {#constraint: ">= 1.19.0-0", #version: #capabilities.KubeVersion.Version}).out && (_nonzero & {#arg: #values.enabled, _}) {
-	data: {
-		status: "active"
-	}
+	data: status: "active"
 }

@@ -27,9 +27,5 @@ data:
 
 apiVersion: "v1"
 kind:       "ConfigMap"
-metadata: {
-	name: "test"
-}
-data: {
-	head: #values.items[0]
-}
+metadata: name: "test"
+data: head: #values.items[0]

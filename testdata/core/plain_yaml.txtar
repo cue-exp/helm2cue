@@ -11,9 +11,5 @@ data:
 -- output.cue --
 apiVersion: "v1"
 kind:       "ConfigMap"
-metadata: {
-	name: "my-config"
-}
-data: {
-	key: "value"
-}
+metadata: name: "my-config"
+data: key: "value"

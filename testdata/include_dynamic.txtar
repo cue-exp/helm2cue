@@ -30,9 +30,7 @@ metadata:
 	...
 }
 _myapp_fullname: "\(#release.Name)-\(#chart.Name)"
-_helpers: {
-	"myapp.fullname": _myapp_fullname
-}
+_helpers: "myapp.fullname": _myapp_fullname
 
 apiVersion: "v1"
 kind:       "ConfigMap"

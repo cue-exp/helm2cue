@@ -47,11 +47,7 @@ _nonzero: {
 
 apiVersion: "v1"
 kind:       "ConfigMap"
-metadata: {
-	name: #values.name
-}
+metadata: name: #values.name
 if (_nonzero & {#arg: #values.alpha, _}) || (_nonzero & {#arg: #values.beta, _}) {
-	data: {
-		status: "enabled"
-	}
+	data: status: "enabled"
 }

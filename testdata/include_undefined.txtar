@@ -10,6 +10,4 @@ _common_names_fullname: _
 
 apiVersion: "v1"
 kind:       "ConfigMap"
-metadata: {
-	name: _common_names_fullname
-}
+metadata: name: _common_names_fullname

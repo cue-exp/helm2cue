@@ -20,6 +20,4 @@ _myapp_labels: {
 	version: #arg.version
 }
 
-metadata: {
-	labels: _myapp_labels
-}
+metadata: labels: _myapp_labels
