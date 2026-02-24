@@ -1233,8 +1233,9 @@ func yamlScalarToCUE(s string) string {
 		return "[]"
 	}
 
-	if (strings.HasPrefix(s, `"`) && strings.HasSuffix(s, `"`)) ||
-		(strings.HasPrefix(s, `'`) && strings.HasSuffix(s, `'`)) {
+	if len(s) >= 2 &&
+		((strings.HasPrefix(s, `"`) && strings.HasSuffix(s, `"`)) ||
+			(strings.HasPrefix(s, `'`) && strings.HasSuffix(s, `'`))) {
 		inner := s[1 : len(s)-1]
 		return strconv.Quote(inner)
 	}
