@@ -1,0 +1,6 @@
+# chart with no args should print usage.
+! exec helm2cue chart
+cmp stderr want-stderr
+
+-- want-stderr --
+usage: helm2cue chart <chart-dir> <output-dir>

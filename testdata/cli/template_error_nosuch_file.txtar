@@ -1,0 +1,6 @@
+# Non-existent file should fail.
+! exec helm2cue template nosuch.yaml
+cmp stderr want-stderr
+
+-- want-stderr --
+helm2cue: open nosuch.yaml: no such file or directory

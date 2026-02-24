@@ -1,0 +1,3 @@
+# Version should succeed and print helm2cue.
+exec helm2cue version
+stdout 'helm2cue'

@@ -1,0 +1,8 @@
+# Convert a template from stdin.
+stdin input.yaml
+exec helm2cue template
+stdout '#values:'
+stdout 'name:'
+
+-- input.yaml --
+name: {{ .Values.name }}

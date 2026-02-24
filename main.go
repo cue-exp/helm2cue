@@ -33,39 +33,46 @@ Run "helm2cue help" for more information.
 `
 
 func main() {
+	os.Exit(main1())
+}
+
+func main1() int {
 	if len(os.Args) < 2 {
 		fmt.Fprint(os.Stderr, usageText)
-		os.Exit(1)
+		return 1
 	}
 
 	switch os.Args[1] {
 	case "chart":
-		cmdChart(os.Args[2:])
+		return cmdChart(os.Args[2:])
 	case "template":
-		cmdTemplate(os.Args[2:])
+		return cmdTemplate(os.Args[2:])
 	case "version":
 		cmdVersion()
+		return 0
 	case "help", "-h", "--help":
 		fmt.Print(usageText)
+		return 0
 	default:
 		fmt.Fprintf(os.Stderr, "helm2cue: unknown command %q\n", os.Args[1])
 		fmt.Fprint(os.Stderr, usageText)
-		os.Exit(1)
+		return 1
 	}
 }
 
-func cmdChart(args []string) {
+func cmdChart(args []string) int {
 	if len(args) != 2 {
 		fmt.Fprintf(os.Stderr, "usage: helm2cue chart <chart-dir> <output-dir>\n")
-		os.Exit(1)
+		return 1
 	}
 	if err := ConvertChart(args[0], args[1]); err != nil {
 		fmt.Fprintf(os.Stderr, "helm2cue: %v\n", err)
-		os.Exit(1)
+		return 1
 	}
+	return 0
 }
 
-func cmdTemplate(args []string) {
+func cmdTemplate(args []string) int {
 	var helpers [][]byte
 	var templateFile string
 
@@ -74,13 +81,13 @@ func cmdTemplate(args []string) {
 			h, err := os.ReadFile(arg)
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "helm2cue: %v\n", err)
-				os.Exit(1)
+				return 1
 			}
 			helpers = append(helpers, h)
 		} else {
 			if templateFile != "" {
 				fmt.Fprintf(os.Stderr, "helm2cue: multiple template files specified\n")
-				os.Exit(1)
+				return 1
 			}
 			templateFile = arg
 		}
@@ -95,16 +102,17 @@ func cmdTemplate(args []string) {
 	}
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "helm2cue: %v\n", err)
-		os.Exit(1)
+		return 1
 	}
 
 	output, err := Convert(TemplateConfig(), input, helpers...)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "helm2cue: %v\n", err)
-		os.Exit(1)
+		return 1
 	}
 
 	os.Stdout.Write(output)
+	return 0
 }
 
 func cmdVersion() {
