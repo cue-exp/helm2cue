@@ -20,10 +20,10 @@ mechanism — should transfer to other template languages.
 
 Helm is a good test case because its templates exercise most of `text/template`
 — conditionals, range loops, nested defines, pipelines with Sprig functions —
-and produce structured YAML.
-
-Whether this also turns out to be a practical migration path from Helm to CUE
-is a secondary question.
+and produce structured YAML. The goal is not to replace Helm; Helm's value lies
+in packaging, distribution, and lifecycle management, which are orthogonal to
+how templates are written. helm2cue is only concerned with the template
+conversion question.
 
 ## Commands
 
@@ -371,9 +371,14 @@ Some templates convert but produce CUE that does not parse:
 Despite its name, helm2cue is narrowly focused on one question: how do you
 convert a Go `text/template` to CUE? Helm charts are a convenient test case
 because they exercise most of `text/template`'s features, but the goal is
-general-purpose template conversion, not a complete Helm-to-CUE migration
-path. The approach should generalise to any use of `text/template` that
-targets structured output.
+general-purpose template conversion. The approach should generalise to any use
+of `text/template` that targets structured output.
+
+Helm is much more than its templates: it is a popular packaging and
+distribution mechanism with lifecycle management, repository hosting,
+dependency resolution, and a large ecosystem of published charts. None of that
+is in scope here. helm2cue does not aim to replace Helm or provide a migration
+path away from it — those are fundamentally different problems.
 
 The wider problem of "how do you manage Kubernetes configuration with CUE
 instead of Helm" is tackled by several existing projects, such as:
@@ -387,11 +392,9 @@ instead of Helm" is tackled by several existing projects, such as:
 - [cuelm](https://github.com/hofstadter-io/cuelm) — experiments with a pure
   CUE implementation of Helm, part of the Hofstadter ecosystem.
 
-These projects address the end-to-end workflow: packaging, distribution,
-lifecycle management, multi-cluster coordination, and more. helm2cue does not
-try to replace or compete with them. If you are looking for a CUE-native
-alternative to Helm for managing Kubernetes deployments, those projects are
-worth exploring.
+These projects address the end-to-end workflow that Helm provides. If you are
+looking for a CUE-native alternative to Helm for managing Kubernetes
+deployments, those projects are worth exploring.
 
 There is also a [proposal within Helm itself](https://github.com/helm/helm/issues/13260)
 to adopt CUE for values validation, replacing the current JSON Schema support.
