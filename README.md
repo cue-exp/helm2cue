@@ -361,7 +361,7 @@ Some functions that _are_ handled have gaps in specific usage patterns:
 Some templates convert without error but produce CUE that does not
 parse. These are structural issues in how the converter maps
 YAML+template interactions to CUE, not missing function support. The
-18 errors across integration tests (2 nginx, 16 kube-prometheus-stack)
+17 errors across integration tests (2 nginx, 15 kube-prometheus-stack)
 break down as follows:
 
 - **YAML sibling keys nested into lists** (~6 errors) — when a YAML
@@ -378,9 +378,6 @@ break down as follows:
 - **Range body boundary** (2 errors) — range over content that
   produces multiple YAML documents closes the `for` comprehension
   too early, leaving trailing content outside the loop
-- **Multi-document YAML `---` separator** (1 error) — the `---`
-  document separator is emitted as a string literal inside the
-  current structure instead of splitting documents
 
 ## Related Projects
 
