@@ -56,6 +56,10 @@ type ChartOptions struct {
 	// definitions cause an error. When true, the last definition wins
 	// (with a warning to stderr).
 	AllowDuplicateHelpers bool
+
+	// Logf, if non-nil, receives warnings and the summary line that
+	// would otherwise be printed to stderr.
+	Logf func(format string, args ...any)
 }
 
 // ConvertChart converts a Helm chart directory to a CUE module in outDir.
@@ -296,14 +300,20 @@ func ConvertChart(chartDir, outDir string, opts ChartOptions) error {
 		return fmt.Errorf("writing release.yaml: %w", err)
 	}
 
-	// 9. Print summary to stderr.
+	// 9. Print summary to stderr (or opts.Logf if set).
+	logf := opts.Logf
+	if logf == nil {
+		logf = func(format string, args ...any) {
+			fmt.Fprintf(os.Stderr, format, args...)
+		}
+	}
 	for _, w := range warnings {
-		fmt.Fprintf(os.Stderr, "warning: %s\n", w)
+		logf("warning: %s\n", w)
 	}
 	for _, w := range valWarnings {
-		fmt.Fprintf(os.Stderr, "warning: %s\n", w)
+		logf("warning: %s\n", w)
 	}
-	fmt.Fprintf(os.Stderr, "converted %d/%d templates from %s\n",
+	logf("converted %d/%d templates from %s\n",
 		len(results), totalDocs, meta.Name)
 
 	return nil

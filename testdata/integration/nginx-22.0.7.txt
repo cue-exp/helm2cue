@@ -1,0 +1,51 @@
+-- ConvertChart --
+warning: skipping context-includes-configmap.yaml (doc 0): parsing template: template: chart_context_includes_configmap_0:19: unexpected EOF
+warning: skipping context-includes-configmap.yaml (doc 1): parsing template: template: chart_context_includes_configmap_1:1: unexpected {{end}}
+warning: skipping context-includes-configmap.yaml (doc 2): parsing template: template: chart_context_includes_configmap_2:1: unexpected {{end}}
+warning: skipping deployment.yaml (doc 0): printf argument 1: unsupported pipe node: int (default .Values.containerPorts.http .Values.metrics.port)
+warning: skipping extra-list.yaml (doc 0): parsing template: template: chart_extra_list_0:7: unexpected EOF
+warning: skipping extra-list.yaml (doc 1): parsing template: template: chart_extra_list_1:2: unexpected {{end}}
+warning: skipping health-ingress.yaml (doc 0): missing ',' in list literal (and 4 more errors)
+warning: skipping ingress-tls-secret.yaml (doc 0): parsing template: template: chart_ingress_tls_secret_0:22: unexpected EOF
+warning: skipping ingress-tls-secret.yaml (doc 1): parsing template: template: chart_ingress_tls_secret_1:1: unexpected {{end}}
+warning: skipping ingress-tls-secret.yaml (doc 2): parsing template: template: chart_ingress_tls_secret_2:1: unexpected {{end}}
+warning: skipping ingress-tls-secret.yaml (doc 3): parsing template: template: chart_ingress_tls_secret_3:1: unexpected {{end}}
+warning: skipping ingress-tls-secret.yaml (doc 4): parsing template: template: chart_ingress_tls_secret_4:1: unexpected {{end}}
+warning: skipping ingress.yaml (doc 0): unsupported template action: {{(tpl .Values.ingress.hostname .) | quote}}
+warning: skipping networkpolicy.yaml (doc 0): expected 'EOF', found '}'
+warning: skipping tls-secret.yaml (doc 0): unsupported template action: {{$ca := genCA "nginx-ca" 365}}
+warning: values schema inconsistency: #values.metrics.prometheusRule.namespace: reference "_common_names_namespace" not found (and 4 more errors)
+warning: values.yaml does not satisfy inferred schema: #values.metrics.prometheusRule.namespace: reference "_common_names_namespace" not found (and 4 more errors)
+converted 8/23 templates from nginx
+-- cue vet --
+exit status 1
+results: reference "hpa" not found:
+    ./results.cue:7:3
+results: reference "pdb" not found:
+    ./results.cue:10:3
+results: reference "prometheusrules" not found:
+    ./results.cue:13:3
+results: reference "server_block_configmap" not found:
+    ./results.cue:16:3
+results: reference "serviceaccount" not found:
+    ./results.cue:19:3
+results: reference "servicemonitor" not found:
+    ./results.cue:22:3
+results: reference "stream_server_block_configmap" not found:
+    ./results.cue:25:3
+-- cue export --
+exit status 1
+results: reference "hpa" not found:
+    ./results.cue:7:3
+results: reference "pdb" not found:
+    ./results.cue:10:3
+results: reference "prometheusrules" not found:
+    ./results.cue:13:3
+results: reference "server_block_configmap" not found:
+    ./results.cue:16:3
+results: reference "serviceaccount" not found:
+    ./results.cue:19:3
+results: reference "servicemonitor" not found:
+    ./results.cue:22:3
+results: reference "stream_server_block_configmap" not found:
+    ./results.cue:25:3
