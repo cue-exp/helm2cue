@@ -333,6 +333,8 @@ is a good stress test).
 - **`kindIs`**, **`typeOf`** — runtime Go type introspection
 - **`splitList`** — split a string into a list by separator
 - **`omit`** — return a dict with specified keys removed
+- **`dig`** — nested map traversal with a default
+  (`{{ dig "key" "subkey" "fallback" .Values }}`)
 - **`mustRegexReplaceAllLiteral`** — literal (non-regex) variant of
   `regexReplaceAll`
 - **Crypto**: `derivePassword`, `genCA` (runtime crypto operations)
@@ -343,9 +345,14 @@ is a good stress test).
 Some functions that _are_ handled have gaps in specific usage patterns:
 
 - **`default`** with non-literal fallback — `default` works when the
-  fallback is a literal (`"x"`, `true`, `80`) or a field reference
-  (`.Values.x`), but fails when it is a function call (`include ...`,
-  `printf ...`) or a keyword (`list`)
+  fallback is a literal (`"x"`, `true`, `80`), a field reference
+  (`.Values.x`), or a `printf`/`print` call, but fails when it is an
+  `include` call or a keyword (`list`)
+- **Functions in sub-expression position** — when a function call
+  appears nested inside another expression (e.g. as an argument to
+  `default`), only `printf`, `print`, and `include` are recognised.
+  Other functions in that position produce an "unsupported pipe node"
+  error. Each function requires an explicit case in `nodeToExpr`
 - **`ternary`** — the function is recognised but fails in some contexts
   (e.g. when used in webhook configurations)
 

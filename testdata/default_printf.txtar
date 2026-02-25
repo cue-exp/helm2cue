@@ -1,0 +1,24 @@
+Pipeline with default value that uses printf as fallback.
+
+-- _helpers.tpl --
+-- values.yaml --
+image:
+  tag: "latest"
+-- helm_output.yaml --
+tag: latest
+-- input.yaml --
+tag: {{ .Values.image.tag | default (printf "v%s" .Chart.AppVersion) }}
+-- output.cue --
+#chart: {
+	AppVersion!: bool | number | string | null
+	...
+}
+#values: {
+	image?: {
+		tag: *"v\(#chart.AppVersion)" | bool | number | string | null
+		...
+	}
+	...
+}
+
+tag: #values.image.tag
