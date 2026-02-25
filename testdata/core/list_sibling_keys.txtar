@@ -1,0 +1,44 @@
+Test that sibling mapping keys in a list-item struct
+close the preceding key's sub-list correctly.
+
+-- input.yaml --
+rules:
+- apiGroups:
+  - apps
+  resources:
+  - deployments
+  verbs:
+  - get
+  - list
+- apiGroups:
+  - ""
+  resources:
+  - pods
+  verbs:
+  - watch
+-- output.cue --
+rules: [
+	{
+		apiGroups: [
+			"apps",
+		]
+		resources: [
+			"deployments",
+		]
+		verbs: [
+			"get",
+			"list",
+		]
+	},
+	{
+		apiGroups: [
+			"",
+		]
+		resources: [
+			"pods",
+		]
+		verbs: [
+			"watch",
+		]
+	},
+]
