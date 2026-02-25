@@ -20,6 +20,16 @@ data:
 -- output.cue --
 import "struct"
 
+#values: {
+	a!: bool | number | string | null
+	b!: bool | number | string | null
+	...
+}
+
+apiVersion: "v1"
+kind:       "ConfigMap"
+metadata: name: "test"
+data: result: [if (_nonzero & {#arg: #values.a, _}) {#values.a}, if (_nonzero & {#arg: #values.b, _}) {#values.b}, "default"][0]
 _nonzero: {
 	#arg?: _
 	[if #arg != _|_ {
@@ -34,14 +44,3 @@ _nonzero: {
 		][0]
 	}, false][0]
 }
-
-#values: {
-	a!: bool | number | string | null
-	b!: bool | number | string | null
-	...
-}
-
-apiVersion: "v1"
-kind:       "ConfigMap"
-metadata: name: "test"
-data: result: [if (_nonzero & {#arg: #values.a, _}) {#values.a}, if (_nonzero & {#arg: #values.b, _}) {#values.b}, "default"][0]

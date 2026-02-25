@@ -13,15 +13,6 @@ import (
 	"text/template"
 )
 
-_tplContext: {
-	Capabilities: #capabilities
-	Chart:        #chart
-	Files:        #files
-	Release:      #release
-	Template:     #template
-	Values:       #values
-}
-
 #capabilities: _
 #chart:        _
 #files:        _
@@ -33,3 +24,11 @@ _tplContext: {
 }
 
 data: "\(yaml.Unmarshal(template.Execute(#values.greeting, _tplContext)))"
+_tplContext: {
+	Capabilities: #capabilities
+	Chart:        #chart
+	Files:        #files
+	Release:      #release
+	Template:     #template
+	Values:       #values
+}

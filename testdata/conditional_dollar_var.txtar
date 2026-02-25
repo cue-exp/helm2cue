@@ -22,6 +22,18 @@ data:
 -- output.cue --
 import "struct"
 
+#values: {
+	name!:    bool | number | string | null
+	enabled?: bool | number | string | null
+	...
+}
+
+apiVersion: "v1"
+kind:       "ConfigMap"
+metadata: name: #values.name
+if (_nonzero & {#arg: #values.enabled, _}) {
+	data: active: "yes"
+}
 _nonzero: {
 	#arg?: _
 	[if #arg != _|_ {
@@ -35,17 +47,4 @@ _nonzero: {
 			false,
 		][0]
 	}, false][0]
-}
-
-#values: {
-	name!:    bool | number | string | null
-	enabled?: bool | number | string | null
-	...
-}
-
-apiVersion: "v1"
-kind:       "ConfigMap"
-metadata: name: #values.name
-if (_nonzero & {#arg: #values.enabled, _}) {
-	data: active: "yes"
 }

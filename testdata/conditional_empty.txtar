@@ -23,21 +23,6 @@ spec:
 -- output.cue --
 import "struct"
 
-_nonzero: {
-	#arg?: _
-	[if #arg != _|_ {
-		[
-			if (#arg & int) != _|_ {#arg != 0},
-			if (#arg & string) != _|_ {#arg != ""},
-			if (#arg & float) != _|_ {#arg != 0.0},
-			if (#arg & bool) != _|_ {#arg},
-			if (#arg & [...]) != _|_ {len(#arg) > 0},
-			if (#arg & {...}) != _|_ {(#arg & struct.MaxFields(0)) == _|_},
-			false,
-		][0]
-	}, false][0]
-}
-
 #values: {
 	loadBalancerSourceRanges?: bool | number | string | null
 	optional?:                 bool | number | string | null
@@ -55,4 +40,18 @@ spec: {
 	if !(_nonzero & {#arg: #values.optional, _}) {
 		optional: "default-value"
 	}
+}
+_nonzero: {
+	#arg?: _
+	[if #arg != _|_ {
+		[
+			if (#arg & int) != _|_ {#arg != 0},
+			if (#arg & string) != _|_ {#arg != ""},
+			if (#arg & float) != _|_ {#arg != 0.0},
+			if (#arg & bool) != _|_ {#arg},
+			if (#arg & [...]) != _|_ {len(#arg) > 0},
+			if (#arg & {...}) != _|_ {(#arg & struct.MaxFields(0)) == _|_},
+			false,
+		][0]
+	}, false][0]
 }

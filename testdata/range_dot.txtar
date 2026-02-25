@@ -18,6 +18,18 @@ metadata:
 -- output.cue --
 import "struct"
 
+#values: {
+	customAnnotations?: bool | number | string | null
+	...
+}
+
+metadata: annotations: {
+	if (_nonzero & {#arg: #values.customAnnotations, _}) {
+		for _key1, _val1 in #values.customAnnotations {
+			(_key1): _val1
+		}
+	}
+}
 _nonzero: {
 	#arg?: _
 	[if #arg != _|_ {
@@ -31,17 +43,4 @@ _nonzero: {
 			false,
 		][0]
 	}, false][0]
-}
-
-#values: {
-	customAnnotations?: bool | number | string | null
-	...
-}
-
-metadata: annotations: {
-	if (_nonzero & {#arg: #values.customAnnotations, _}) {
-		for _key1, _val1 in #values.customAnnotations {
-			(_key1): _val1
-		}
-	}
 }

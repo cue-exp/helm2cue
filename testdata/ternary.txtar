@@ -21,6 +21,18 @@ data:
 -- output.cue --
 import "struct"
 
+#values: {
+	debug!: bool | number | string | null
+	...
+}
+
+apiVersion: "v1"
+kind:       "ConfigMap"
+metadata: name: "test"
+data: {
+	debug: "\([if (_nonzero & {#arg: #values.debug, _}) {"true"}, "false"][0])"
+	scheme: [if (_nonzero & {#arg: #values.debug, _}) {"https"}, "http"][0]
+}
 _nonzero: {
 	#arg?: _
 	[if #arg != _|_ {
@@ -34,17 +46,4 @@ _nonzero: {
 			false,
 		][0]
 	}, false][0]
-}
-
-#values: {
-	debug!: bool | number | string | null
-	...
-}
-
-apiVersion: "v1"
-kind:       "ConfigMap"
-metadata: name: "test"
-data: {
-	debug: "\([if (_nonzero & {#arg: #values.debug, _}) {"true"}, "false"][0])"
-	scheme: [if (_nonzero & {#arg: #values.debug, _}) {"https"}, "http"][0]
 }

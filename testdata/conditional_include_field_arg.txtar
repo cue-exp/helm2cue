@@ -11,6 +11,18 @@ label: present
 -- output.cue --
 import "struct"
 
+#values: {
+	name?: bool | number | string | null
+	...
+}
+_myapp_name: {
+	#arg: _
+	#arg
+}
+
+if (_nonzero & {#arg: _myapp_name & {#arg: #values.name, _}, _}) {
+	label: "present"
+}
 _nonzero: {
 	#arg?: _
 	[if #arg != _|_ {
@@ -24,17 +36,4 @@ _nonzero: {
 			false,
 		][0]
 	}, false][0]
-}
-
-#values: {
-	name?: bool | number | string | null
-	...
-}
-_myapp_name: {
-	#arg: _
-	#arg
-}
-
-if (_nonzero & {#arg: _myapp_name & {#arg: #values.name, _}, _}) {
-	label: "present"
 }

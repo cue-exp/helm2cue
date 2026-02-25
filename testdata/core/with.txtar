@@ -10,6 +10,17 @@ config:
 -- output.cue --
 import "struct"
 
+#input: {
+	config?: {
+		name!: bool | number | string | null
+		...
+	}
+	...
+}
+
+if (_nonzero & {#arg: #input.config, _}) {
+	name: #input.config.name
+}
 _nonzero: {
 	#arg?: _
 	[if #arg != _|_ {
@@ -23,16 +34,4 @@ _nonzero: {
 			false,
 		][0]
 	}, false][0]
-}
-
-#input: {
-	config?: {
-		name!: bool | number | string | null
-		...
-	}
-	...
-}
-
-if (_nonzero & {#arg: #input.config, _}) {
-	name: #input.config.name
 }

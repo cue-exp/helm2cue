@@ -19,11 +19,6 @@ data:
 -- output.cue --
 import "list"
 
-_uniq: {
-	#in: [...]
-	out: [for i, x in #in if !list.Contains(list.Slice(#in, 0, i), x) {x}]
-}
-
 #values: {
 	items!: _
 	...
@@ -33,3 +28,7 @@ apiVersion: "v1"
 kind:       "ConfigMap"
 metadata: name: "test"
 data: unique: (_uniq & {#in: #values.items}).out
+_uniq: {
+	#in: [...]
+	out: [for i, x in #in if !list.Contains(list.Slice(#in, 0, i), x) {x}]
+}

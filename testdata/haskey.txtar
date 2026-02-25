@@ -22,6 +22,17 @@ data:
 -- output.cue --
 import "struct"
 
+#values: {
+	config?: _
+	...
+}
+
+apiVersion: "v1"
+kind:       "ConfigMap"
+metadata: name: "test"
+if (_nonzero & {#arg: #values.config.debug, _}) {
+	data: debug: "enabled"
+}
 _nonzero: {
 	#arg?: _
 	[if #arg != _|_ {
@@ -35,16 +46,4 @@ _nonzero: {
 			false,
 		][0]
 	}, false][0]
-}
-
-#values: {
-	config?: _
-	...
-}
-
-apiVersion: "v1"
-kind:       "ConfigMap"
-metadata: name: "test"
-if (_nonzero & {#arg: #values.config.debug, _}) {
-	data: debug: "enabled"
 }

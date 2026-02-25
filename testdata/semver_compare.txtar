@@ -19,6 +19,24 @@ import (
 	"struct"
 )
 
+#capabilities: {
+	KubeVersion?: {
+		Version?: bool | number | string | null
+		...
+	}
+	...
+}
+#values: {
+	enabled?: bool | number | string | null
+	...
+}
+
+apiVersion: "v1"
+kind:       "ConfigMap"
+metadata: name: "test"
+if (_semverCompare & {#constraint: ">= 1.19.0-0", #version: #capabilities.KubeVersion.Version}).out && (_nonzero & {#arg: #values.enabled, _}) {
+	data: status: "active"
+}
 _nonzero: {
 	#arg?: _
 	[if #arg != _|_ {
@@ -104,23 +122,4 @@ _semverCompare: {
 		if _op == "!=" {_cmp != 0},
 		_cmp == 0,
 	][0]
-}
-
-#capabilities: {
-	KubeVersion?: {
-		Version?: bool | number | string | null
-		...
-	}
-	...
-}
-#values: {
-	enabled?: bool | number | string | null
-	...
-}
-
-apiVersion: "v1"
-kind:       "ConfigMap"
-metadata: name: "test"
-if (_semverCompare & {#constraint: ">= 1.19.0-0", #version: #capabilities.KubeVersion.Version}).out && (_nonzero & {#arg: #values.enabled, _}) {
-	data: status: "active"
 }

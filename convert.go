@@ -457,18 +457,6 @@ func assembleSingleFile(cfg *Config, r *convertResult) ([]byte, error) {
 		}
 	}
 
-	// Emit _nonzero if needed.
-	if r.needsNonzero {
-		final.WriteString(stripCUEComments(nonzeroDef))
-		final.WriteString("\n")
-	}
-
-	// Emit used helper definitions.
-	for _, h := range r.usedHelpers {
-		final.WriteString(stripCUEComments(h.Def))
-		final.WriteString("\n")
-	}
-
 	// Emit context object declarations.
 	var decls []string
 	for helmObj := range r.usedContextObjects {
@@ -573,6 +561,18 @@ func assembleSingleFile(cfg *Config, r *convertResult) ([]byte, error) {
 	for i := len(r.topLevelGuards) - 1; i >= 0; i-- {
 		writeIndent(&final, i)
 		final.WriteString("}\n")
+	}
+
+	// Emit _nonzero if needed.
+	if r.needsNonzero {
+		final.WriteString(stripCUEComments(nonzeroDef))
+		final.WriteString("\n")
+	}
+
+	// Emit used helper definitions.
+	for _, h := range r.usedHelpers {
+		final.WriteString(stripCUEComments(h.Def))
+		final.WriteString("\n")
 	}
 
 	// Format and validate the generated CUE.
