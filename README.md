@@ -417,6 +417,12 @@ proposal progresses, the `#values` schema that helm2cue derives from template
 defaults could potentially serve as a starting point for a chart's CUE
 validation schema.
 
+[helm-schema](https://github.com/dadav/helm-schema) takes a different approach
+to the values schema problem: it derives a JSON Schema from annotations in
+`values.yaml` itself, rather than walking the templates. The two approaches are
+complementary — helm-schema captures what a chart author explicitly documents,
+while helm2cue infers the schema from how values are actually used in templates.
+
 ## Testing
 
 Tests are run against Helm v4.1.1 and CUE v0.16.0-alpha.2.
