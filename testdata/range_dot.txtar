@@ -1,0 +1,47 @@
+Range with $key, $value := . inside a with block.
+No round-trip validation: with block constrains the type as scalar,
+but the values are a struct (known type-narrowing limitation).
+
+-- _helpers.tpl --
+-- values.yaml --
+customAnnotations:
+  foo: bar
+  baz: qux
+-- input.yaml --
+metadata:
+  annotations:
+    {{- with .Values.customAnnotations }}
+    {{- range $key, $value := . }}
+    {{ $key }}: {{ $value }}
+    {{- end }}
+    {{- end }}
+-- output.cue --
+import "struct"
+
+_nonzero: {
+	#arg?: _
+	[if #arg != _|_ {
+		[
+			if (#arg & int) != _|_ {#arg != 0},
+			if (#arg & string) != _|_ {#arg != ""},
+			if (#arg & float) != _|_ {#arg != 0.0},
+			if (#arg & bool) != _|_ {#arg},
+			if (#arg & [...]) != _|_ {len(#arg) > 0},
+			if (#arg & {...}) != _|_ {(#arg & struct.MaxFields(0)) == _|_},
+			false,
+		][0]
+	}, false][0]
+}
+
+#values: {
+	customAnnotations?: bool | number | string | null
+	...
+}
+
+metadata: annotations: {
+	if (_nonzero & {#arg: #values.customAnnotations, _}) {
+		for _key1, _val1 in #values.customAnnotations {
+			(_key1): _val1
+		}
+	}
+}

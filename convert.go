@@ -2057,6 +2057,12 @@ func (c *converter) pipeToFieldExpr(pipe *parse.PipeNode) (string, string, []str
 			return expr, helmObj, nil, nil
 		}
 	}
+	if _, ok := pipe.Cmds[0].Args[0].(*parse.DotNode); ok {
+		if len(c.rangeVarStack) > 0 {
+			return c.rangeVarStack[len(c.rangeVarStack)-1].cueExpr, "", nil, nil
+		}
+		return "", "", nil, fmt.Errorf("{{ . }} outside range/with not supported")
+	}
 	return "", "", nil, fmt.Errorf("unsupported node: %s", pipe.Cmds[0].Args[0])
 }
 
@@ -3127,40 +3133,51 @@ func (c *converter) nodeToExpr(node parse.Node) (string, string, error) {
 		}
 		return "", "", fmt.Errorf("{{ . }} outside range/with not supported")
 	case *parse.PipeNode:
-		if len(n.Cmds) == 1 && len(n.Cmds[0].Args) >= 2 {
-			if id, ok := n.Cmds[0].Args[0].(*parse.IdentifierNode); ok && id.Ident == "include" {
-				var argExpr, ctxHelmObj string
-				var ctxBasePath []string
-				if len(n.Cmds[0].Args) >= 3 {
-					var ctxErr error
-					argExpr, ctxHelmObj, ctxBasePath, ctxErr = c.convertIncludeContext(n.Cmds[0].Args[2])
-					if ctxErr != nil {
-						return "", "", ctxErr
+		if len(n.Cmds) == 1 && len(n.Cmds[0].Args) >= 1 {
+			if id, ok := n.Cmds[0].Args[0].(*parse.IdentifierNode); ok {
+				switch id.Ident {
+				case "printf":
+					return c.convertPrintf(n.Cmds[0].Args[1:])
+				case "print":
+					expr, err := c.convertPrint(n.Cmds[0].Args[1:])
+					return expr, "", err
+				case "include":
+					if len(n.Cmds[0].Args) < 2 {
+						return "", "", fmt.Errorf("include requires at least a template name")
 					}
-				}
-				var inclExpr string
-				var helmObj string
-				if nameNode, ok := n.Cmds[0].Args[1].(*parse.StringNode); ok {
-					var err error
-					inclExpr, helmObj, err = c.handleInclude(nameNode.Text, nil)
-					if err != nil {
-						return "", "", err
+					var argExpr, ctxHelmObj string
+					var ctxBasePath []string
+					if len(n.Cmds[0].Args) >= 3 {
+						var ctxErr error
+						argExpr, ctxHelmObj, ctxBasePath, ctxErr = c.convertIncludeContext(n.Cmds[0].Args[2])
+						if ctxErr != nil {
+							return "", "", ctxErr
+						}
 					}
-				} else {
-					nameExpr, err := c.convertIncludeNameExpr(n.Cmds[0].Args[1])
-					if err != nil {
-						return "", "", err
+					var inclExpr string
+					var helmObj string
+					if nameNode, ok := n.Cmds[0].Args[1].(*parse.StringNode); ok {
+						var err error
+						inclExpr, helmObj, err = c.handleInclude(nameNode.Text, nil)
+						if err != nil {
+							return "", "", err
+						}
+					} else {
+						nameExpr, err := c.convertIncludeNameExpr(n.Cmds[0].Args[1])
+						if err != nil {
+							return "", "", err
+						}
+						c.hasDynamicInclude = true
+						inclExpr = fmt.Sprintf("_helpers[%s]", nameExpr)
 					}
-					c.hasDynamicInclude = true
-					inclExpr = fmt.Sprintf("_helpers[%s]", nameExpr)
+					if ctxHelmObj != "" {
+						c.propagateHelperArgRefs(inclExpr, ctxHelmObj, ctxBasePath)
+					}
+					if argExpr != "" {
+						inclExpr = inclExpr + " & {#arg: " + argExpr + ", _}"
+					}
+					return inclExpr, helmObj, nil
 				}
-				if ctxHelmObj != "" {
-					c.propagateHelperArgRefs(inclExpr, ctxHelmObj, ctxBasePath)
-				}
-				if argExpr != "" {
-					inclExpr = inclExpr + " & {#arg: " + argExpr + ", _}"
-				}
-				return inclExpr, helmObj, nil
 			}
 		}
 		return "", "", fmt.Errorf("unsupported pipe node: %s", node)
