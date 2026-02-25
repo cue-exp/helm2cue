@@ -70,8 +70,9 @@ Follow the cue-lang/cue commit message conventions:
 ## Rules
 
 - Do not use commands like `cat` to read or write files; use the dedicated tools.
-- Do not write to temporary folders like /tmp; place temporary files under the
-  current directory.
+- Place temporary files (e.g. chart conversion output) under `tmp/` in the repo
+  root. This directory is gitignored. Do not use `/tmp` or other system temp
+  directories.
 - When adding a regression test for a bug fix, ensure the test fails without the
   fix.
 
