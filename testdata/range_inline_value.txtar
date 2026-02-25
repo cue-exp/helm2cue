@@ -1,0 +1,36 @@
+Range with inline text+action interpolation on list items.
+Reproduces cue-exp/helm2cue#6: "- --{{ $key }}={{ $value }}" was
+previously mishandled because the "=" text node destroyed the frame stack.
+
+-- _helpers.tpl --
+-- values.yaml --
+extraArgs:
+  port: "8080"
+  verbose: "true"
+-- helm_output.yaml --
+spec:
+  args:
+    - --port=8080
+    - --verbose=true
+  name: test
+-- input.yaml --
+spec:
+  args:
+    {{- range $key, $value := .Values.extraArgs }}
+    - --{{ $key }}={{ $value }}
+    {{- end }}
+  name: test
+-- output.cue --
+#values: {
+	extraArgs!: _
+	...
+}
+
+spec: {
+	args: [
+		for _key0, _val0 in #values.extraArgs {
+			"--\(_key0)=\(_val0)"
+		},
+	]
+	name: "test"
+}

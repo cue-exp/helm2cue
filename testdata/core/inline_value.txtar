@@ -1,0 +1,15 @@
+Inline text+action interpolation in key-value and bare-value positions.
+Tests that text fragments interleaved with actions on a single YAML line
+produce CUE string interpolation expressions.
+
+-- input.yaml --
+greeting: hello-{{ printf "%s" .input.name }}-world
+-- values.yaml --
+name: alice
+-- output.cue --
+#input: {
+	name!: bool | number | string | null
+	...
+}
+
+greeting: "hello-\(#input.name)-world"

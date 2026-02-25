@@ -213,6 +213,13 @@ type converter struct {
 	pendingActionCUEInd  int // CUE indent when the action was deferred
 	nextActionYamlIndent int // YAML indent hint from trailing whitespace line
 
+	// Inline interpolation state: when text and actions are interleaved
+	// on a single YAML line, accumulate fragments for CUE string
+	// interpolation (e.g. "- --{{ $key }}={{ $value }}" → "--\(_key0)=\(_val0)").
+	inlineParts      []string // non-nil when inline mode is active
+	inlineSuffix     string   // appended after closing quote (e.g. "," for list items)
+	nextNodeIsInline bool     // true when next sibling is an action/text node (not a control structure)
+
 	// Helper template state (shared across main and sub-converters).
 	treeSet           map[string]*parse.Tree
 	helperExprs       map[string]string // template name → CUE hidden field name
@@ -388,6 +395,7 @@ func convertStructured(cfg *Config, input []byte, templateName string, treeSet m
 	if err := c.processNodes(root.Nodes); err != nil {
 		return nil, err
 	}
+	c.finalizeInline()
 	c.flushPendingAction()
 	c.flushDeferred()
 	c.closeBlocksTo(-1)
@@ -649,6 +657,7 @@ func (c *converter) convertHelperBody(nodes []parse.Node) (string, [][]string, e
 	if err := sub.processNodes(nodes); err != nil {
 		return "", nil, err
 	}
+	sub.finalizeInline()
 	sub.flushPendingAction()
 	sub.flushDeferred()
 	sub.closeBlocksTo(-1)
@@ -986,6 +995,29 @@ func (c *converter) flushDeferred() {
 	c.out.WriteByte('\n')
 }
 
+// finalizeInline completes an in-progress inline interpolation by joining
+// the accumulated fragments into a CUE string interpolation expression.
+func (c *converter) finalizeInline() {
+	if c.inlineParts == nil {
+		return
+	}
+	result := `"` + strings.Join(c.inlineParts, "") + `"` + c.inlineSuffix
+	c.inlineParts = nil
+	c.inlineSuffix = ""
+	c.out.WriteString(result)
+	c.out.WriteByte('\n')
+}
+
+// inlineExpr wraps a CUE expression for embedding in a string interpolation.
+// If the expression is already a CUE string literal, its content is inlined
+// directly to avoid nested interpolation.
+func inlineExpr(expr string) string {
+	if len(expr) >= 2 && expr[0] == '"' && expr[len(expr)-1] == '"' {
+		return expr[1 : len(expr)-1]
+	}
+	return `\(` + expr + `)`
+}
+
 // resolveDeferredAsBlock converts a deferred key-value into a block with embedding.
 func (c *converter) resolveDeferredAsBlock(childYamlIndent int) {
 	if c.deferredKV == nil {
@@ -1015,6 +1047,37 @@ func (c *converter) emitTextNode(text []byte) {
 	if s == "" {
 		return
 	}
+
+	// Handle inline continuation: if inline accumulation is active,
+	// append text up to the first newline, then finalize.
+	if c.inlineParts != nil {
+		// Flush any pending action into the inline parts (safety net).
+		if c.pendingActionExpr != "" {
+			c.inlineParts = append(c.inlineParts, inlineExpr(c.pendingActionExpr))
+			c.pendingActionExpr = ""
+			c.pendingActionComment = ""
+		}
+		idx := strings.IndexByte(s, '\n')
+		if idx < 0 {
+			// Entire text is inline continuation.
+			c.inlineParts = append(c.inlineParts, escapeCUEString(s))
+			return
+		}
+		// Append the tail up to the first newline, then finalize.
+		if idx > 0 {
+			c.inlineParts = append(c.inlineParts, escapeCUEString(s[:idx]))
+		}
+		c.finalizeInline()
+		s = s[idx:] // continue with remaining text (starts with \n)
+		if strings.TrimSpace(s) == "" {
+			return
+		}
+	}
+
+	// Whether the last line continues into the next AST node:
+	// text does not end with a newline AND the next sibling is an
+	// action/text node (not a control structure like {{- end }}).
+	textContinuesInline := len(s) > 0 && s[len(s)-1] != '\n' && c.nextNodeIsInline
 
 	lines := strings.Split(s, "\n")
 
@@ -1092,10 +1155,11 @@ func (c *converter) emitTextNode(text []byte) {
 
 		cueInd := c.currentCUEIndent()
 		trimmed := strings.TrimSpace(content)
+		continuesInline := isLastLine && textContinuesInline
 
 		// Parse the line.
 		if strings.HasPrefix(content, "- ") {
-			c.processListItem(content, yamlIndent, cueInd, isLastLine)
+			c.processListItem(content, yamlIndent, cueInd, isLastLine, continuesInline)
 		} else if colonIdx := strings.Index(content, ": "); colonIdx > 0 {
 			key := content[:colonIdx]
 			val := strings.TrimRight(content[colonIdx+2:], " \t")
@@ -1109,6 +1173,11 @@ func (c *converter) emitTextNode(text []byte) {
 				c.state = statePendingKey
 				c.pendingKey = key
 				c.pendingKeyInd = yamlIndent
+			} else if continuesInline && val != "" {
+				// Value continues into next AST node — start inline accumulation.
+				writeIndent(&c.out, cueInd)
+				fmt.Fprintf(&c.out, "%s: ", cueKey(key))
+				c.inlineParts = []string{escapeCUEString(val)}
 			} else {
 				writeIndent(&c.out, cueInd)
 				fmt.Fprintf(&c.out, "%s: %s\n", cueKey(key), yamlScalarToCUE(val))
@@ -1118,6 +1187,10 @@ func (c *converter) emitTextNode(text []byte) {
 			c.state = statePendingKey
 			c.pendingKey = key
 			c.pendingKeyInd = yamlIndent
+		} else if continuesInline {
+			// Bare value continues into next AST node — start inline accumulation.
+			writeIndent(&c.out, cueInd)
+			c.inlineParts = []string{escapeCUEString(trimmed)}
 		} else {
 			// Bare value or embedded expression.
 			writeIndent(&c.out, cueInd)
@@ -1155,12 +1228,12 @@ func (c *converter) openPendingAsMapping(childYamlIndent int) {
 }
 
 // processListItem handles a YAML list item line (starts with "- ").
-func (c *converter) processListItem(trimmed string, yamlIndent, cueInd int, isLastLine bool) {
+func (c *converter) processListItem(trimmed string, yamlIndent, cueInd int, isLastLine, continuesInline bool) {
 	content := strings.TrimPrefix(trimmed, "- ")
 
 	// In range body, list items emit directly without { }, wrapping.
 	if c.inRangeBody {
-		c.processRangeListItem(content, yamlIndent, cueInd, isLastLine)
+		c.processRangeListItem(content, yamlIndent, cueInd, isLastLine, continuesInline)
 		return
 	}
 
@@ -1216,6 +1289,11 @@ func (c *converter) processListItem(trimmed string, yamlIndent, cueInd int, isLa
 		c.state = statePendingKey
 		c.pendingKey = ""
 		c.pendingKeyInd = yamlIndent
+	} else if continuesInline {
+		// Scalar list item continues into next AST node — start inline.
+		writeIndent(&c.out, cueInd)
+		c.inlineParts = []string{escapeCUEString(strings.TrimSpace(content))}
+		c.inlineSuffix = ","
 	} else {
 		// Simple scalar list item.
 		writeIndent(&c.out, cueInd)
@@ -1224,7 +1302,7 @@ func (c *converter) processListItem(trimmed string, yamlIndent, cueInd int, isLa
 }
 
 // processRangeListItem handles list items inside a range body — emits directly without { }, wrapping.
-func (c *converter) processRangeListItem(content string, yamlIndent, cueInd int, isLastLine bool) {
+func (c *converter) processRangeListItem(content string, yamlIndent, cueInd int, isLastLine, continuesInline bool) {
 	itemContentIndent := yamlIndent + 2
 
 	if colonIdx := strings.Index(content, ": "); colonIdx > 0 {
@@ -1249,6 +1327,10 @@ func (c *converter) processRangeListItem(content string, yamlIndent, cueInd int,
 		c.state = statePendingKey
 		c.pendingKey = ""
 		c.pendingKeyInd = yamlIndent
+	} else if continuesInline {
+		// Scalar value continues into next AST node — start inline.
+		writeIndent(&c.out, cueInd)
+		c.inlineParts = []string{escapeCUEString(strings.TrimSpace(content))}
 	} else {
 		// Simple scalar value — emit directly.
 		writeIndent(&c.out, cueInd)
@@ -1308,7 +1390,8 @@ func (c *converter) processNodes(nodes []parse.Node) error {
 		c.topLevelGuards = append(c.topLevelGuards, condition)
 		return c.processNodes(ifNode.List.Nodes)
 	}
-	for _, node := range nodes {
+	for i, node := range nodes {
+		c.nextNodeIsInline = i+1 < len(nodes) && isInlineNode(nodes[i+1])
 		if err := c.processNode(node); err != nil {
 			return err
 		}
@@ -1335,6 +1418,17 @@ func detectTopLevelIf(nodes []parse.Node) *parse.IfNode {
 		}
 	}
 	return ifNode
+}
+
+// isInlineNode reports whether a node can continue an inline text+action
+// sequence on the same YAML line. Control structures (if/range/with) and
+// comments cannot; actions, text, and template calls can.
+func isInlineNode(node parse.Node) bool {
+	switch node.(type) {
+	case *parse.ActionNode, *parse.TextNode, *parse.TemplateNode:
+		return true
+	}
+	return false
 }
 
 func (c *converter) processNode(node parse.Node) error {
@@ -1400,6 +1494,12 @@ func (c *converter) processNode(node parse.Node) error {
 
 // emitActionExpr emits a CUE expression from a template action.
 func (c *converter) emitActionExpr(expr string, comment string) {
+	// If inline accumulation is active, append the expression.
+	if c.inlineParts != nil {
+		c.inlineParts = append(c.inlineParts, inlineExpr(expr))
+		return
+	}
+
 	// Flush any previously deferred action and key-value.
 	c.flushPendingAction()
 	c.flushDeferred()
@@ -1438,6 +1538,7 @@ func (c *converter) emitActionExpr(expr string, comment string) {
 
 func (c *converter) processIf(n *parse.IfNode) error {
 	c.hasConditions = true
+	c.finalizeInline()
 	c.flushPendingAction()
 
 	condition, negCondition, err := c.pipeToCUECondition(n.Pipe)
@@ -1504,6 +1605,7 @@ func (c *converter) processIf(n *parse.IfNode) error {
 	if err := c.processBodyNodes(n.List.Nodes); err != nil {
 		return err
 	}
+	c.finalizeInline()
 	c.flushPendingAction()
 	c.flushDeferred()
 
@@ -1541,6 +1643,7 @@ func (c *converter) processIf(n *parse.IfNode) error {
 		if err := c.processBodyNodes(n.ElseList.Nodes); err != nil {
 			return err
 		}
+		c.finalizeInline()
 		c.flushPendingAction()
 		c.flushDeferred()
 
@@ -1560,6 +1663,7 @@ func (c *converter) processIf(n *parse.IfNode) error {
 
 func (c *converter) processWith(n *parse.WithNode) error {
 	c.hasConditions = true
+	c.finalizeInline()
 	c.flushPendingAction()
 
 	condition, negCondition, err := c.pipeToCUECondition(n.Pipe)
@@ -1643,6 +1747,7 @@ func (c *converter) processWith(n *parse.WithNode) error {
 	if err := c.processBodyNodes(n.List.Nodes); err != nil {
 		return err
 	}
+	c.finalizeInline()
 	c.flushPendingAction()
 	c.flushDeferred()
 
@@ -1682,6 +1787,7 @@ func (c *converter) processWith(n *parse.WithNode) error {
 		if err := c.processBodyNodes(n.ElseList.Nodes); err != nil {
 			return err
 		}
+		c.finalizeInline()
 		c.flushPendingAction()
 		c.flushDeferred()
 
@@ -1774,7 +1880,8 @@ func (c *converter) withPipeContext(pipe *parse.PipeNode) (helmObj string, baseP
 }
 
 func (c *converter) processBodyNodes(nodes []parse.Node) error {
-	for _, node := range nodes {
+	for i, node := range nodes {
+		c.nextNodeIsInline = i+1 < len(nodes) && isInlineNode(nodes[i+1])
 		if err := c.processNode(node); err != nil {
 			return err
 		}
@@ -1783,6 +1890,7 @@ func (c *converter) processBodyNodes(nodes []parse.Node) error {
 }
 
 func (c *converter) processRange(n *parse.RangeNode) error {
+	c.finalizeInline()
 	c.flushPendingAction()
 	overExpr, helmObj, fieldPath, err := c.pipeToFieldExpr(n.Pipe)
 	if err != nil {
@@ -1879,6 +1987,7 @@ func (c *converter) processRange(n *parse.RangeNode) error {
 	if err := c.processBodyNodes(n.List.Nodes); err != nil {
 		return err
 	}
+	c.finalizeInline()
 	c.flushPendingAction()
 	c.flushDeferred()
 	c.inRangeBody = savedRangeBody
