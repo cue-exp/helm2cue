@@ -1,0 +1,30 @@
+Range over a list of structs, accessing fields.
+
+-- input.yaml --
+items:
+{{- range .input.items }}
+  - name: {{ .name }}
+    value: {{ .value }}
+{{- end }}
+-- values.yaml --
+items:
+  - name: foo
+    value: bar
+  - name: baz
+    value: qux
+-- output.cue --
+#input: {
+	items!: [...{
+		name!:  bool | number | string | null
+		value!: bool | number | string | null
+		...
+	}]
+	...
+}
+
+items: [
+	for _, _range0 in #input.items {
+		name:  _range0.name
+		value: _range0.value
+	},
+]

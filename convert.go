@@ -2069,7 +2069,12 @@ func (c *converter) processRange(n *parse.RangeNode) error {
 	cueInd := c.currentCUEIndent()
 	inList := len(c.stack) > 0 && c.stack[len(c.stack)-1].isList
 
-	c.rangeVarStack = append(c.rangeVarStack, rangeContext{cueExpr: valName})
+	ctx := rangeContext{cueExpr: valName}
+	if isList && helmObj != "" && fieldPath != nil {
+		ctx.helmObj = helmObj
+		ctx.basePath = fieldPath
+	}
+	c.rangeVarStack = append(c.rangeVarStack, ctx)
 
 	// Emit the for comprehension.
 	writeIndent(&c.out, cueInd)
@@ -3424,12 +3429,20 @@ func emitFieldNodes(w *bytes.Buffer, nodes []*fieldNode, indent int) {
 			if n.required {
 				marker = "!"
 			}
-			fmt.Fprintf(w, "%s%s: {\n", cueKey(n.name), marker)
+			if n.isRange {
+				fmt.Fprintf(w, "%s%s: [...{\n", cueKey(n.name), marker)
+			} else {
+				fmt.Fprintf(w, "%s%s: {\n", cueKey(n.name), marker)
+			}
 			emitFieldNodes(w, n.children, indent+1)
 			writeIndent(w, indent+1)
 			w.WriteString("...\n")
 			writeIndent(w, indent)
-			w.WriteString("}\n")
+			if n.isRange {
+				w.WriteString("}]\n")
+			} else {
+				w.WriteString("}\n")
+			}
 		} else if n.defVal != "" {
 			leafType := cueScalarType
 			if n.isRange {
