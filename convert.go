@@ -1071,6 +1071,16 @@ func (c *converter) emitTextNode(text []byte) {
 		// Close blocks whose content is deeper than this line.
 		c.closeBlocksTo(yamlIndent)
 
+		// If the top frame is a list at the same indent and the line
+		// is not a list item, the list is complete and this line is a
+		// sibling key in the parent struct.
+		if len(c.stack) > 0 {
+			top := c.stack[len(c.stack)-1]
+			if top.isList && top.yamlIndent == yamlIndent && !strings.HasPrefix(content, "- ") {
+				c.closeOneFrame()
+			}
+		}
+
 		// If we had a pending key from previous text and this line is deeper, resolve it.
 		if c.state == statePendingKey {
 			if strings.HasPrefix(content, "- ") {
