@@ -586,16 +586,131 @@ func assembleSingleFile(cfg *Config, r *convertResult) ([]byte, error) {
 
 // Convert transforms a template YAML file into CUE using the given config.
 // Optional helpers contain {{ define }} blocks (typically from _helpers.tpl files).
+// If the input contains multiple YAML documents (separated by ---), each
+// document is converted separately and wrapped in document_N fields.
 func Convert(cfg *Config, input []byte, helpers ...[]byte) ([]byte, error) {
 	treeSet, helperFileNames, err := parseHelpers(helpers, false)
 	if err != nil {
 		return nil, err
 	}
-	r, err := convertStructured(cfg, input, "helm", treeSet, helperFileNames)
-	if err != nil {
-		return nil, err
+
+	docs := splitYAMLDocuments(input)
+	if len(docs) <= 1 {
+		// Single document — original behavior.
+		doc := input
+		if len(docs) == 1 {
+			doc = docs[0]
+		}
+		r, err := convertStructured(cfg, doc, "helm", treeSet, helperFileNames)
+		if err != nil {
+			return nil, err
+		}
+		return assembleSingleFile(cfg, r)
 	}
-	return assembleSingleFile(cfg, r)
+
+	// Multiple documents — convert each and merge.
+	var results []*convertResult
+	for i, doc := range docs {
+		templateName := fmt.Sprintf("helm_document_%d", i)
+		r, err := convertStructured(cfg, doc, templateName, treeSet, helperFileNames)
+		if err != nil {
+			return nil, fmt.Errorf("document %d: %w", i, err)
+		}
+		results = append(results, r)
+	}
+
+	merged := mergeConvertResults(results)
+	return assembleSingleFile(cfg, merged)
+}
+
+// mergeConvertResults merges multiple convertResults (from multi-document
+// templates) into a single result with each document's body wrapped in
+// a document_N field.
+func mergeConvertResults(results []*convertResult) *convertResult {
+	merged := &convertResult{
+		imports:            make(map[string]bool),
+		usedHelpers:        make(map[string]HelperDef),
+		usedContextObjects: make(map[string]bool),
+		fieldRefs:          make(map[string][][]string),
+		requiredRefs:       make(map[string][][]string),
+		rangeRefs:          make(map[string][][]string),
+		defaults:           make(map[string][]fieldDefault),
+	}
+
+	var body bytes.Buffer
+	for i, r := range results {
+		for k, v := range r.imports {
+			merged.imports[k] = v
+		}
+		if r.needsNonzero {
+			merged.needsNonzero = true
+		}
+		for k, v := range r.usedHelpers {
+			merged.usedHelpers[k] = v
+		}
+		for k := range r.usedContextObjects {
+			merged.usedContextObjects[k] = true
+		}
+		for k, v := range r.fieldRefs {
+			merged.fieldRefs[k] = append(merged.fieldRefs[k], v...)
+		}
+		for k, v := range r.requiredRefs {
+			merged.requiredRefs[k] = append(merged.requiredRefs[k], v...)
+		}
+		for k, v := range r.rangeRefs {
+			merged.rangeRefs[k] = append(merged.rangeRefs[k], v...)
+		}
+		for k, v := range r.defaults {
+			merged.defaults[k] = append(merged.defaults[k], v...)
+		}
+		if r.hasDynamicInclude {
+			merged.hasDynamicInclude = true
+		}
+
+		// Take helper info from the first result (all share the same treeSet).
+		if i == 0 {
+			merged.helpers = r.helpers
+			merged.helperOrder = r.helperOrder
+			merged.helperExprs = r.helperExprs
+			merged.undefinedHelpers = r.undefinedHelpers
+		}
+
+		// Wrap each document body in a document_N field.
+		docBody := strings.TrimRight(r.body, "\n")
+		if docBody == "" {
+			continue
+		}
+
+		fieldName := fmt.Sprintf("document_%d", i)
+
+		// Handle top-level guards for this document.
+		indent := 0
+		if len(r.topLevelGuards) > 0 {
+			for _, guard := range r.topLevelGuards {
+				writeIndent(&body, indent)
+				fmt.Fprintf(&body, "if %s {\n", guard)
+				indent++
+			}
+		}
+
+		writeIndent(&body, indent)
+		fmt.Fprintf(&body, "%s: {\n", fieldName)
+		for _, line := range strings.Split(docBody, "\n") {
+			writeIndent(&body, indent+1)
+			body.WriteString(line)
+			body.WriteByte('\n')
+		}
+		writeIndent(&body, indent)
+		body.WriteString("}\n")
+
+		for j := len(r.topLevelGuards) - 1; j >= 0; j-- {
+			writeIndent(&body, j)
+			body.WriteString("}\n")
+		}
+	}
+
+	merged.body = body.String()
+	return merged
 }
 
 // helperToCUEName converts a Helm template name to a CUE hidden field name.

@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"slices"
 	"strconv"
 	"strings"
@@ -136,6 +137,7 @@ func ConvertChart(chartDir, outDir string, opts ChartOptions) error {
 	// 5. Convert each template.
 	var results []templateResult
 	var warnings []string
+	totalDocs := 0
 
 	for _, tmplPath := range templateFiles {
 		// Use path relative to templates/ for display and field naming,
@@ -149,25 +151,35 @@ func ConvertChart(chartDir, outDir string, opts ChartOptions) error {
 		content, err := os.ReadFile(tmplPath)
 		if err != nil {
 			warnings = append(warnings, fmt.Sprintf("skipping %s: %v", relPath, err))
+			totalDocs++
 			continue
 		}
 
 		fieldName := templateFieldName(relPath)
-		templateName := "chart_" + fieldName // unique per template
+		docs := splitYAMLDocuments(content)
 
-		r, err := convertStructured(cfg, content, templateName, treeSet, helperFileNames)
-		if err != nil {
-			warnings = append(warnings, fmt.Sprintf("skipping %s: %v", relPath, err))
-			continue
+		for i, doc := range docs {
+			totalDocs++
+			docFieldName := fieldName
+			if len(docs) > 1 {
+				docFieldName = fmt.Sprintf("%s_%d", fieldName, i)
+			}
+			templateName := "chart_" + docFieldName
+
+			r, err := convertStructured(cfg, doc, templateName, treeSet, helperFileNames)
+			if err != nil {
+				warnings = append(warnings, fmt.Sprintf("skipping %s (doc %d): %v", relPath, i, err))
+				continue
+			}
+
+			// Validate the template body is valid CUE.
+			if err := validateTemplateBody(r); err != nil {
+				warnings = append(warnings, fmt.Sprintf("skipping %s (doc %d): %v", relPath, i, err))
+				continue
+			}
+
+			results = append(results, templateResult{docFieldName, relPath, r})
 		}
-
-		// Validate the template body is valid CUE.
-		if err := validateTemplateBody(r); err != nil {
-			warnings = append(warnings, fmt.Sprintf("skipping %s: %v", relPath, err))
-			continue
-		}
-
-		results = append(results, templateResult{fieldName, relPath, r})
 	}
 
 	if len(results) == 0 {
@@ -292,9 +304,40 @@ func ConvertChart(chartDir, outDir string, opts ChartOptions) error {
 		fmt.Fprintf(os.Stderr, "warning: %s\n", w)
 	}
 	fmt.Fprintf(os.Stderr, "converted %d/%d templates from %s\n",
-		len(results), len(results)+len(warnings), meta.Name)
+		len(results), totalDocs, meta.Name)
 
 	return nil
+}
+
+var (
+	yamlDocSep    = regexp.MustCompile(`(?m)^---\s*$`)
+	yamlLeadingRe = regexp.MustCompile(`(?m)^(\s*#[^\n]*|\s*)\n`)
+)
+
+// splitYAMLDocuments splits raw template bytes on YAML document
+// separator lines (^---) and strips leading blank lines and YAML
+// comment lines from each fragment. Empty fragments (from a leading
+// ---) are dropped. Single-document files return one fragment.
+func splitYAMLDocuments(content []byte) [][]byte {
+	parts := yamlDocSep.Split(string(content), -1)
+	var docs [][]byte
+	for _, p := range parts {
+		// Strip leading blank/comment lines.
+		s := p
+		for {
+			loc := yamlLeadingRe.FindStringIndex(s)
+			if loc == nil || loc[0] != 0 {
+				break
+			}
+			s = s[loc[1]:]
+		}
+		s = strings.TrimRight(s, "\n\t ")
+		if s == "" {
+			continue
+		}
+		docs = append(docs, []byte(s+"\n"))
+	}
+	return docs
 }
 
 // writeCUEFile formats CUE source and writes it to path.
