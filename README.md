@@ -477,31 +477,20 @@ convention.
 ### Integration tests
 
 Integration tests live in `integration_test.go` and are skipped with `-short`.
-They exercise single-template conversion by iterating over chart directories
-under `testdata/charts/`:
 
-- **`simple-app`** — a hand-crafted chart using supported constructs
-  (value refs, `default`, `quote`, `if`/`else`, `range`, `printf`,
-  `include`, `template`, `.Release.Name`, `.Chart.Name`). All templates pass.
-- **`nginx`** — bitnami/nginx v22.0.7, pulled via `testdata/charts/pull.sh`
-  (including the `common` subchart dependency).
-- **`kube-prometheus-stack`** — prometheus-community/kube-prometheus-stack
-  v82.2.1, pulled via `testdata/charts/pull-kube-prometheus-stack.sh`. A
-  large chart with subdirectory templates, subchart helpers, and duplicate
-  helper definitions. Most templates are skipped due to unsupported
-  features (see [Not Yet Implemented](#not-yet-implemented)), but it
-  serves as a benchmark for tracking conversion coverage over time.
+`TestIntegration` exercises single-template conversion by iterating over
+chart directories under `testdata/charts/` (`simple-app`, `dup-helpers`).
+
+`TestConvertChartIntegration` pulls real-world charts at test time via
+`helm pull` (requires `helm` in PATH) and verifies that `ConvertChart`
+produces valid CUE output that passes `cue vet` and `cue export`:
+
+- **nginx** — bitnami/nginx v22.0.7
+- **kube-prometheus-stack** — prometheus-community v82.2.1
 
 `TestConvertChart` tests chart-level conversion on `simple-app` and
 `dup-helpers`, verifying that the output is a valid CUE module that
 passes `cue vet` and `cue export`.
-
-To re-fetch the vendored charts (e.g. to update pinned versions):
-
-```bash
-./testdata/charts/pull.sh
-./testdata/charts/pull-kube-prometheus-stack.sh
-```
 
 ### CLI end-to-end tests
 
