@@ -2933,6 +2933,27 @@ func (c *converter) actionToCUE(n *parse.ActionNode) (expr string, helmObj strin
 			}
 			c.addImport("list")
 			expr = "list.Min([" + strings.Join(elems, ", ") + "])"
+		case "tpl":
+			if !c.isCoreFunc(id.Ident) {
+				gatedFunc = id.Ident
+				break
+			}
+			if len(first.Args) != 3 {
+				return "", "", fmt.Errorf("tpl requires 2 arguments, got %d", len(first.Args)-1)
+			}
+			tmplExpr, tmplObj, tmplErr := c.convertTplArg(first.Args[1])
+			if tmplErr != nil {
+				return "", "", fmt.Errorf("tpl template argument: %w", tmplErr)
+			}
+			c.convertTplContext(first.Args[2])
+			c.addImport("encoding/yaml")
+			c.addImport("text/template")
+			h := c.tplContextDef()
+			c.usedHelpers[h.Name] = h
+			expr = fmt.Sprintf("yaml.Unmarshal(template.Execute(%s, _tplContext))", tmplExpr)
+			if tmplObj != "" {
+				helmObj = tmplObj
+			}
 		case "merge", "mergeOverwrite":
 			if !c.isCoreFunc(id.Ident) {
 				gatedFunc = id.Ident
@@ -3036,6 +3057,19 @@ func (c *converter) actionToCUE(n *parse.ActionNode) (expr string, helmObj strin
 					return "", "", err
 				}
 				c.comments[expr] = fmt.Sprintf("// required: %s", arg[0])
+				handled = true
+			}
+		case "tpl":
+			if c.isCoreFunc(id.Ident) {
+				if len(cmd.Args) != 2 {
+					return "", "", fmt.Errorf("tpl in pipeline requires 1 argument (context)")
+				}
+				c.convertTplContext(cmd.Args[1])
+				c.addImport("encoding/yaml")
+				c.addImport("text/template")
+				h := c.tplContextDef()
+				c.usedHelpers[h.Name] = h
+				expr = fmt.Sprintf("yaml.Unmarshal(template.Execute(%s, _tplContext))", expr)
 				handled = true
 			}
 		default:
@@ -3297,12 +3331,124 @@ func (c *converter) nodeToExpr(node parse.Node) (string, string, error) {
 						inclExpr = inclExpr + " & {#arg: " + argExpr + ", _}"
 					}
 					return inclExpr, helmObj, nil
+				case "tpl":
+					if len(n.Cmds[0].Args) != 3 {
+						return "", "", fmt.Errorf("tpl requires 2 arguments")
+					}
+					tmplExpr, tmplObj, tmplErr := c.convertTplArg(n.Cmds[0].Args[1])
+					if tmplErr != nil {
+						return "", "", fmt.Errorf("tpl template argument: %w", tmplErr)
+					}
+					c.convertTplContext(n.Cmds[0].Args[2])
+					c.addImport("encoding/yaml")
+					c.addImport("text/template")
+					h := c.tplContextDef()
+					c.usedHelpers[h.Name] = h
+					return fmt.Sprintf("yaml.Unmarshal(template.Execute(%s, _tplContext))", tmplExpr), tmplObj, nil
 				}
 			}
 		}
 		return "", "", fmt.Errorf("unsupported pipe node: %s", node)
 	default:
 		return "", "", fmt.Errorf("unsupported node type: %s", node)
+	}
+}
+
+// convertTplArg converts the template expression argument of tpl.
+// For simple nodes it delegates to nodeToExpr. For PipeNode, it walks
+// the commands to detect toYaml and wraps in yaml.Marshal if needed.
+func (c *converter) convertTplArg(node parse.Node) (string, string, error) {
+	pn, ok := node.(*parse.PipeNode)
+	if !ok {
+		return c.nodeToExpr(node)
+	}
+
+	if len(pn.Cmds) == 0 {
+		return "", "", fmt.Errorf("tpl: empty pipeline")
+	}
+
+	// Look for toYaml in the pipeline.
+	hasToYaml := false
+	var valueNode parse.Node
+
+	first := pn.Cmds[0]
+	if len(first.Args) >= 1 {
+		if id, isIdent := first.Args[0].(*parse.IdentifierNode); isIdent {
+			if id.Ident == "toYaml" {
+				hasToYaml = true
+				if len(first.Args) < 2 {
+					return "", "", fmt.Errorf("tpl: toYaml requires an argument")
+				}
+				valueNode = first.Args[1]
+			} else {
+				// Other function in first position — delegate.
+				return c.nodeToExpr(node)
+			}
+		} else {
+			// First arg is a value; check rest for toYaml.
+			valueNode = first.Args[0]
+			for _, cmd := range pn.Cmds[1:] {
+				if len(cmd.Args) >= 1 {
+					if id, isIdent := cmd.Args[0].(*parse.IdentifierNode); isIdent && id.Ident == "toYaml" {
+						hasToYaml = true
+					}
+				}
+			}
+		}
+	}
+
+	if valueNode == nil {
+		return "", "", fmt.Errorf("tpl: could not determine value expression")
+	}
+
+	expr, helmObj, err := c.nodeToExpr(valueNode)
+	if err != nil {
+		return "", "", err
+	}
+
+	if hasToYaml {
+		c.addImport("encoding/yaml")
+		// Mark the field as non-scalar since it's being serialized.
+		if f, ok := valueNode.(*parse.FieldNode); ok && helmObj != "" && len(f.Ident) >= 2 {
+			c.trackNonScalarRef(helmObj, f.Ident[1:])
+		}
+		expr = fmt.Sprintf("yaml.Marshal(%s)", expr)
+	}
+
+	return expr, helmObj, nil
+}
+
+// convertTplContext marks all configured context objects as used,
+// since the template string evaluated by tpl could reference any of
+// them at runtime.
+func (c *converter) convertTplContext(node parse.Node) {
+	for helmObj := range c.config.ContextObjects {
+		c.usedContextObjects[helmObj] = true
+	}
+}
+
+// tplContextDef builds a HelperDef for _tplContext, mapping Helm
+// context field names to their CUE definitions.
+func (c *converter) tplContextDef() HelperDef {
+	var buf bytes.Buffer
+	buf.WriteString("_tplContext: {\n")
+
+	// Sort for deterministic output.
+	var helmNames []string
+	for name := range c.config.ContextObjects {
+		helmNames = append(helmNames, name)
+	}
+	slices.Sort(helmNames)
+
+	for _, name := range helmNames {
+		cueDef := c.config.ContextObjects[name]
+		fmt.Fprintf(&buf, "\t%s: %s\n", cueKey(name), cueDef)
+	}
+	buf.WriteString("}\n")
+
+	return HelperDef{
+		Name: "_tplContext",
+		Def:  buf.String(),
 	}
 }
 

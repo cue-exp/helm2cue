@@ -1,0 +1,36 @@
+tpl with toYaml in template expression: toYaml serializes
+structured data before tpl evaluates it. No helm round-trip
+since tpl with toYaml produces multi-line output that is
+hard to validate inline.
+
+-- input.yaml --
+data: {{ tpl (toYaml .Values.sel) . }}
+-- values.yaml --
+sel:
+  app: myapp
+-- output.cue --
+import (
+	"encoding/yaml"
+	"text/template"
+)
+
+_tplContext: {
+	Capabilities: #capabilities
+	Chart:        #chart
+	Files:        #files
+	Release:      #release
+	Template:     #template
+	Values:       #values
+}
+
+#capabilities: _
+#chart:        _
+#files:        _
+#release:      _
+#template:     _
+#values: {
+	sel!: _
+	...
+}
+
+data: yaml.Unmarshal(template.Execute(yaml.Marshal(#values.sel), _tplContext))

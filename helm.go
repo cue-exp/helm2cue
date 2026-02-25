@@ -465,11 +465,6 @@ func HelmConfig() *Config {
 					return "" // sentinel: handled specially as unsupported
 				},
 			},
-			"tpl": {
-				Convert: func(_ string, _ []string) string {
-					return "" // sentinel: handled specially as unsupported
-				},
-			},
 		},
 	}
 }

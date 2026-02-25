@@ -264,6 +264,33 @@ func cueExport(t *testing.T, cueSrc, valuesYAML []byte) []byte {
 		args = append(args, p)
 	}
 
+	if usedDefs["#capabilities"] {
+		data := "#capabilities: {\n\tKubeVersion: {\n\t\tVersion: \"v1.25.0\"\n\t\tMajor: \"1\"\n\t\tMinor: \"25\"\n\t}\n\tAPIVersions: [\"v1\"]\n}\n"
+		p := filepath.Join(dir, "capabilities.cue")
+		if err := os.WriteFile(p, []byte(data), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		args = append(args, p)
+	}
+
+	if usedDefs["#template"] {
+		data := "#template: {\n\tName: \"test\"\n\tBasePath: \"test/templates\"\n}\n"
+		p := filepath.Join(dir, "template.cue")
+		if err := os.WriteFile(p, []byte(data), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		args = append(args, p)
+	}
+
+	if usedDefs["#files"] {
+		data := "#files: {}\n"
+		p := filepath.Join(dir, "files.cue")
+		if err := os.WriteFile(p, []byte(data), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		args = append(args, p)
+	}
+
 	if usedDefs["#values"] {
 		valuesPath := filepath.Join(dir, "values.yaml")
 		if err := os.WriteFile(valuesPath, valuesYAML, 0o644); err != nil {

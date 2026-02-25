@@ -245,8 +245,9 @@ removed once those exist.
 | `{{ template "name" . }}` | Reference to hidden field: `_name` | Done |
 | `{{ with .Values.x }}...{{ end }}` | CUE `if` guard with dot rebinding | Done |
 | `{{ with .Values.x }}...{{ else }}...{{ end }}` | Two `if` guards; `with` branch rebinds dot, `else` does not | Done |
+| `{{ tpl .Values.x . }}` | `yaml.Unmarshal(template.Execute(#values.x, _tplContext))` | Done |
+| `{{ tpl (toYaml .Values.x) . }}` | Wraps value in `yaml.Marshal(...)` before `template.Execute` | Done |
 | `{{ lookup ... }}` | Not supported (descriptive error) | Error |
-| `{{ tpl ... }}` | Not supported (descriptive error) | Error |
 
 ### Pipeline functions (Sprig, chart mode only)
 
@@ -318,8 +319,6 @@ is a good stress test).
 ### Template constructs
 
 - **`lookup`** — runtime Kubernetes API lookups have no static CUE equivalent
-- **`tpl`** — dynamic template rendering (`{{ tpl expr . }}`) evaluates a
-  string as a template at runtime; no static CUE equivalent
 - **`index` in conditions** — `{{ if (index .Values "key").field }}` uses
   bracket-style map access which the condition parser does not handle
 - **Method calls in conditions** — e.g.
@@ -350,8 +349,8 @@ Some functions that _are_ handled have gaps in specific usage patterns:
   `include` call or a keyword (`list`)
 - **Functions in sub-expression position** — when a function call
   appears nested inside another expression (e.g. as an argument to
-  `default`), only `printf`, `print`, and `include` are recognised.
-  Other functions in that position produce an "unsupported pipe node"
+  `default`), only `printf`, `print`, `include`, and `tpl` are
+  recognised. Other functions in that position produce an "unsupported pipe node"
   error. Each function requires an explicit case in `nodeToExpr`
 - **`ternary`** — the function is recognised but fails in some contexts
   (e.g. when used in webhook configurations)
@@ -470,7 +469,7 @@ Each test case:
 If `-- error --` is present instead of `-- output.cue --`, the test
 expects `Convert()` to fail and checks that the error message contains
 the given substring. This is used to verify that unsupported functions
-(`merge`, `set`, `lookup`, `tpl`) and invalid argument counts produce
+(`merge`, `set`, `lookup`) and invalid argument counts produce
 clear error messages. Error tests are named `error_*.txtar` by
 convention.
 

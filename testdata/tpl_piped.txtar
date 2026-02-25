@@ -1,0 +1,34 @@
+tpl in pipeline position: piped value is treated as the template
+string. This form does not work with Helm's actual tpl function
+(where piped value is the last arg), but we convert it usefully.
+
+-- input.yaml --
+data: {{ .Values.greeting | tpl . }}
+-- values.yaml --
+greeting: hello
+-- output.cue --
+import (
+	"encoding/yaml"
+	"text/template"
+)
+
+_tplContext: {
+	Capabilities: #capabilities
+	Chart:        #chart
+	Files:        #files
+	Release:      #release
+	Template:     #template
+	Values:       #values
+}
+
+#capabilities: _
+#chart:        _
+#files:        _
+#release:      _
+#template:     _
+#values: {
+	greeting!: bool | number | string | null
+	...
+}
+
+data: yaml.Unmarshal(template.Execute(#values.greeting, _tplContext))

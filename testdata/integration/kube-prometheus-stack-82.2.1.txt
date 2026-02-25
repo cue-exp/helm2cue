@@ -1,90 +1,89 @@
 -- ConvertChart --
-warning: skipping alertmanager/alertmanager.yaml (doc 0): unsupported template action: {{tpl .Values.alertmanager.alertmanagerSpec.serviceName .}}
+warning: skipping alertmanager/alertmanager.yaml (doc 0): tpl template argument: unsupported pipe node: index .Values.alertmanager.ingress.hosts 0
 warning: skipping alertmanager/ingress.yaml (doc 0): default value: unsupported literal node: list
 warning: skipping alertmanager/ingressperreplica.yaml (doc 0): range: unsupported pipe: $i, $e := until $count
 warning: skipping alertmanager/route.yaml (doc 0): parsing template: template: chart_alertmanager_route_0:6: unexpected EOF
 warning: skipping alertmanager/route.yaml (doc 1): parsing template: template: chart_alertmanager_route_1:1: undefined variable "$route"
-warning: skipping alertmanager/secret.yaml (doc 0): unsupported template action: {{tpl (.Values.alertmanager.stringConfig) . | b64enc | quote}}
-warning: skipping alertmanager/servicemonitor.yaml (doc 0): unsupported template action: {{tpl (toYaml .Values.alertmanager.serviceMonitor.metricRelabelings | nindent 6) .}}
+warning: skipping alertmanager/secret.yaml (doc 0): if condition: unsupported condition function: typeOf
+warning: skipping alertmanager/servicemonitor.yaml (doc 0): tpl template argument: unsupported pipe node: default $.Values.alertmanager.serviceMonitor.metricRelabelings .metricRelabelings | toYaml | nindent 6
 warning: skipping alertmanager/serviceperreplica.yaml (doc 0): range: unsupported pipe: $i, $e := until $count
-warning: skipping exporters/core-dns/servicemonitor.yaml (doc 0): unsupported template action: {{tpl (toYaml .Values.coreDns.serviceMonitor.selector | nindent 4) .}}
-warning: skipping exporters/kube-api-server/servicemonitor.yaml (doc 0): unsupported template action: {{tpl (toYaml .Values.kubeApiServer.serviceMonitor.metricRelabelings | indent 6) .}}
-warning: skipping exporters/kube-controller-manager/servicemonitor.yaml (doc 0): unsupported template action: {{tpl (toYaml .Values.kubeControllerManager.serviceMonitor.selector | nindent 4) .}}
-warning: skipping exporters/kube-dns/servicemonitor.yaml (doc 0): unsupported template action: {{tpl (toYaml .Values.kubeDns.serviceMonitor.selector | nindent 4) .}}
-warning: skipping exporters/kube-etcd/servicemonitor.yaml (doc 0): unsupported template action: {{tpl (toYaml .Values.kubeEtcd.serviceMonitor.selector | nindent 4) .}}
-warning: skipping exporters/kube-proxy/servicemonitor.yaml (doc 0): unsupported template action: {{tpl (toYaml .Values.kubeProxy.serviceMonitor.selector | nindent 4) .}}
-warning: skipping exporters/kube-scheduler/servicemonitor.yaml (doc 0): unsupported template action: {{tpl (toYaml .Values.kubeScheduler.serviceMonitor.selector | nindent 4) .}}
-warning: skipping exporters/kubelet/servicemonitor.yaml (doc 0): unsupported template action: {{tpl (toYaml .Values.kubelet.serviceMonitor.metricRelabelings | indent 4) .}}
+warning: skipping exporters/core-dns/servicemonitor.yaml (doc 0): expected 'EOF', found '}'
+warning: skipping exporters/kube-controller-manager/servicemonitor.yaml (doc 0): expected 'EOF', found '}'
+warning: skipping exporters/kube-dns/servicemonitor.yaml (doc 0): expected 'EOF', found '}'
+warning: skipping exporters/kube-etcd/servicemonitor.yaml (doc 0): expected 'EOF', found '}'
+warning: skipping exporters/kube-proxy/servicemonitor.yaml (doc 0): expected 'EOF', found '}'
+warning: skipping exporters/kube-scheduler/servicemonitor.yaml (doc 0): expected 'EOF', found '}'
+warning: skipping exporters/kubelet/servicemonitor.yaml (doc 0): expected operand, found ']' (and 1 more errors)
 warning: skipping extra-objects.yaml (doc 0): parsing template: template: chart_extra_objects_0:9: unexpected EOF
 warning: skipping extra-objects.yaml (doc 1): parsing template: template: chart_extra_objects_1:6: unexpected {{end}}
-warning: skipping grafana/configmaps-datasources.yaml (doc 0): unsupported template action: {{tpl $.Values.grafana.sidecar.datasources.label $}}
-warning: skipping grafana/dashboards-1.14/alertmanager-overview.yaml (doc 0): unsupported template action: {{tpl $.Values.grafana.sidecar.dashboards.label $}}
+warning: skipping grafana/configmaps-datasources.yaml (doc 0): unsupported template action: {{(tpl $.Values.grafana.sidecar.datasources.labelValue $) | quote}}
+warning: skipping grafana/dashboards-1.14/alertmanager-overview.yaml (doc 0): unsupported template action: {{((tpl $.Values.grafana.sidecar.dashboards.labelValue $) | default 1) | quote}}
 warning: skipping grafana/dashboards-1.14/alertmanager-overview.yaml (doc 1): parsing template: template: chart_grafana_dashboards_1_14_alertmanager_overview_1:1: undefined variable "$kubeTargetVersion"
-warning: skipping grafana/dashboards-1.14/apiserver.yaml (doc 0): unsupported template action: {{tpl $.Values.grafana.sidecar.dashboards.label $}}
+warning: skipping grafana/dashboards-1.14/apiserver.yaml (doc 0): unsupported template action: {{((tpl $.Values.grafana.sidecar.dashboards.labelValue $) | default 1) | quote}}
 warning: skipping grafana/dashboards-1.14/apiserver.yaml (doc 1): parsing template: template: chart_grafana_dashboards_1_14_apiserver_1:1: undefined variable "$kubeTargetVersion"
-warning: skipping grafana/dashboards-1.14/cluster-total.yaml (doc 0): unsupported template action: {{tpl $.Values.grafana.sidecar.dashboards.label $}}
+warning: skipping grafana/dashboards-1.14/cluster-total.yaml (doc 0): unsupported template action: {{((tpl $.Values.grafana.sidecar.dashboards.labelValue $) | default 1) | quote}}
 warning: skipping grafana/dashboards-1.14/cluster-total.yaml (doc 1): parsing template: template: chart_grafana_dashboards_1_14_cluster_total_1:1: undefined variable "$kubeTargetVersion"
-warning: skipping grafana/dashboards-1.14/controller-manager.yaml (doc 0): unsupported template action: {{tpl $.Values.grafana.sidecar.dashboards.label $}}
+warning: skipping grafana/dashboards-1.14/controller-manager.yaml (doc 0): unsupported template action: {{((tpl $.Values.grafana.sidecar.dashboards.labelValue $) | default 1) | quote}}
 warning: skipping grafana/dashboards-1.14/controller-manager.yaml (doc 1): parsing template: template: chart_grafana_dashboards_1_14_controller_manager_1:1: undefined variable "$kubeTargetVersion"
-warning: skipping grafana/dashboards-1.14/etcd.yaml (doc 0): unsupported template action: {{tpl $.Values.grafana.sidecar.dashboards.label $}}
+warning: skipping grafana/dashboards-1.14/etcd.yaml (doc 0): unsupported template action: {{((tpl $.Values.grafana.sidecar.dashboards.labelValue $) | default 1) | quote}}
 warning: skipping grafana/dashboards-1.14/etcd.yaml (doc 1): parsing template: template: chart_grafana_dashboards_1_14_etcd_1:1: undefined variable "$kubeTargetVersion"
-warning: skipping grafana/dashboards-1.14/grafana-overview.yaml (doc 0): unsupported template action: {{tpl $.Values.grafana.sidecar.dashboards.label $}}
+warning: skipping grafana/dashboards-1.14/grafana-overview.yaml (doc 0): unsupported template action: {{((tpl $.Values.grafana.sidecar.dashboards.labelValue $) | default 1) | quote}}
 warning: skipping grafana/dashboards-1.14/grafana-overview.yaml (doc 1): parsing template: template: chart_grafana_dashboards_1_14_grafana_overview_1:1: undefined variable "$kubeTargetVersion"
-warning: skipping grafana/dashboards-1.14/k8s-coredns.yaml (doc 0): unsupported template action: {{tpl $.Values.grafana.sidecar.dashboards.label $}}
+warning: skipping grafana/dashboards-1.14/k8s-coredns.yaml (doc 0): unsupported template action: {{((tpl $.Values.grafana.sidecar.dashboards.labelValue $) | default 1) | quote}}
 warning: skipping grafana/dashboards-1.14/k8s-coredns.yaml (doc 1): parsing template: template: chart_grafana_dashboards_1_14_k8s_coredns_1:1: undefined variable "$kubeTargetVersion"
-warning: skipping grafana/dashboards-1.14/k8s-resources-cluster.yaml (doc 0): unsupported template action: {{tpl $.Values.grafana.sidecar.dashboards.label $}}
+warning: skipping grafana/dashboards-1.14/k8s-resources-cluster.yaml (doc 0): unsupported template action: {{((tpl $.Values.grafana.sidecar.dashboards.labelValue $) | default 1) | quote}}
 warning: skipping grafana/dashboards-1.14/k8s-resources-cluster.yaml (doc 1): parsing template: template: chart_grafana_dashboards_1_14_k8s_resources_cluster_1:1: undefined variable "$kubeTargetVersion"
-warning: skipping grafana/dashboards-1.14/k8s-resources-multicluster.yaml (doc 0): unsupported template action: {{tpl $.Values.grafana.sidecar.dashboards.label $}}
+warning: skipping grafana/dashboards-1.14/k8s-resources-multicluster.yaml (doc 0): unsupported template action: {{((tpl $.Values.grafana.sidecar.dashboards.labelValue $) | default 1) | quote}}
 warning: skipping grafana/dashboards-1.14/k8s-resources-multicluster.yaml (doc 1): parsing template: template: chart_grafana_dashboards_1_14_k8s_resources_multicluster_1:1: undefined variable "$kubeTargetVersion"
-warning: skipping grafana/dashboards-1.14/k8s-resources-namespace.yaml (doc 0): unsupported template action: {{tpl $.Values.grafana.sidecar.dashboards.label $}}
+warning: skipping grafana/dashboards-1.14/k8s-resources-namespace.yaml (doc 0): unsupported template action: {{((tpl $.Values.grafana.sidecar.dashboards.labelValue $) | default 1) | quote}}
 warning: skipping grafana/dashboards-1.14/k8s-resources-namespace.yaml (doc 1): parsing template: template: chart_grafana_dashboards_1_14_k8s_resources_namespace_1:1: undefined variable "$kubeTargetVersion"
-warning: skipping grafana/dashboards-1.14/k8s-resources-node.yaml (doc 0): unsupported template action: {{tpl $.Values.grafana.sidecar.dashboards.label $}}
+warning: skipping grafana/dashboards-1.14/k8s-resources-node.yaml (doc 0): unsupported template action: {{((tpl $.Values.grafana.sidecar.dashboards.labelValue $) | default 1) | quote}}
 warning: skipping grafana/dashboards-1.14/k8s-resources-node.yaml (doc 1): parsing template: template: chart_grafana_dashboards_1_14_k8s_resources_node_1:1: undefined variable "$kubeTargetVersion"
-warning: skipping grafana/dashboards-1.14/k8s-resources-pod.yaml (doc 0): unsupported template action: {{tpl $.Values.grafana.sidecar.dashboards.label $}}
+warning: skipping grafana/dashboards-1.14/k8s-resources-pod.yaml (doc 0): unsupported template action: {{((tpl $.Values.grafana.sidecar.dashboards.labelValue $) | default 1) | quote}}
 warning: skipping grafana/dashboards-1.14/k8s-resources-pod.yaml (doc 1): parsing template: template: chart_grafana_dashboards_1_14_k8s_resources_pod_1:1: undefined variable "$kubeTargetVersion"
-warning: skipping grafana/dashboards-1.14/k8s-resources-windows-cluster.yaml (doc 0): unsupported template action: {{tpl $.Values.grafana.sidecar.dashboards.label $}}
+warning: skipping grafana/dashboards-1.14/k8s-resources-windows-cluster.yaml (doc 0): unsupported template action: {{((tpl $.Values.grafana.sidecar.dashboards.labelValue $) | default 1) | quote}}
 warning: skipping grafana/dashboards-1.14/k8s-resources-windows-cluster.yaml (doc 1): parsing template: template: chart_grafana_dashboards_1_14_k8s_resources_windows_cluster_1:1: undefined variable "$kubeTargetVersion"
-warning: skipping grafana/dashboards-1.14/k8s-resources-windows-namespace.yaml (doc 0): unsupported template action: {{tpl $.Values.grafana.sidecar.dashboards.label $}}
+warning: skipping grafana/dashboards-1.14/k8s-resources-windows-namespace.yaml (doc 0): unsupported template action: {{((tpl $.Values.grafana.sidecar.dashboards.labelValue $) | default 1) | quote}}
 warning: skipping grafana/dashboards-1.14/k8s-resources-windows-namespace.yaml (doc 1): parsing template: template: chart_grafana_dashboards_1_14_k8s_resources_windows_namespace_1:1: undefined variable "$kubeTargetVersion"
-warning: skipping grafana/dashboards-1.14/k8s-resources-windows-pod.yaml (doc 0): unsupported template action: {{tpl $.Values.grafana.sidecar.dashboards.label $}}
+warning: skipping grafana/dashboards-1.14/k8s-resources-windows-pod.yaml (doc 0): unsupported template action: {{((tpl $.Values.grafana.sidecar.dashboards.labelValue $) | default 1) | quote}}
 warning: skipping grafana/dashboards-1.14/k8s-resources-windows-pod.yaml (doc 1): parsing template: template: chart_grafana_dashboards_1_14_k8s_resources_windows_pod_1:1: undefined variable "$kubeTargetVersion"
-warning: skipping grafana/dashboards-1.14/k8s-resources-workload.yaml (doc 0): unsupported template action: {{tpl $.Values.grafana.sidecar.dashboards.label $}}
+warning: skipping grafana/dashboards-1.14/k8s-resources-workload.yaml (doc 0): unsupported template action: {{((tpl $.Values.grafana.sidecar.dashboards.labelValue $) | default 1) | quote}}
 warning: skipping grafana/dashboards-1.14/k8s-resources-workload.yaml (doc 1): parsing template: template: chart_grafana_dashboards_1_14_k8s_resources_workload_1:1: undefined variable "$kubeTargetVersion"
-warning: skipping grafana/dashboards-1.14/k8s-resources-workloads-namespace.yaml (doc 0): unsupported template action: {{tpl $.Values.grafana.sidecar.dashboards.label $}}
+warning: skipping grafana/dashboards-1.14/k8s-resources-workloads-namespace.yaml (doc 0): unsupported template action: {{((tpl $.Values.grafana.sidecar.dashboards.labelValue $) | default 1) | quote}}
 warning: skipping grafana/dashboards-1.14/k8s-resources-workloads-namespace.yaml (doc 1): parsing template: template: chart_grafana_dashboards_1_14_k8s_resources_workloads_namespace_1:1: undefined variable "$kubeTargetVersion"
-warning: skipping grafana/dashboards-1.14/k8s-windows-cluster-rsrc-use.yaml (doc 0): unsupported template action: {{tpl $.Values.grafana.sidecar.dashboards.label $}}
+warning: skipping grafana/dashboards-1.14/k8s-windows-cluster-rsrc-use.yaml (doc 0): unsupported template action: {{((tpl $.Values.grafana.sidecar.dashboards.labelValue $) | default 1) | quote}}
 warning: skipping grafana/dashboards-1.14/k8s-windows-cluster-rsrc-use.yaml (doc 1): parsing template: template: chart_grafana_dashboards_1_14_k8s_windows_cluster_rsrc_use_1:1: undefined variable "$kubeTargetVersion"
-warning: skipping grafana/dashboards-1.14/k8s-windows-node-rsrc-use.yaml (doc 0): unsupported template action: {{tpl $.Values.grafana.sidecar.dashboards.label $}}
+warning: skipping grafana/dashboards-1.14/k8s-windows-node-rsrc-use.yaml (doc 0): unsupported template action: {{((tpl $.Values.grafana.sidecar.dashboards.labelValue $) | default 1) | quote}}
 warning: skipping grafana/dashboards-1.14/k8s-windows-node-rsrc-use.yaml (doc 1): parsing template: template: chart_grafana_dashboards_1_14_k8s_windows_node_rsrc_use_1:1: undefined variable "$kubeTargetVersion"
-warning: skipping grafana/dashboards-1.14/kubelet.yaml (doc 0): unsupported template action: {{tpl $.Values.grafana.sidecar.dashboards.label $}}
+warning: skipping grafana/dashboards-1.14/kubelet.yaml (doc 0): unsupported template action: {{((tpl $.Values.grafana.sidecar.dashboards.labelValue $) | default 1) | quote}}
 warning: skipping grafana/dashboards-1.14/kubelet.yaml (doc 1): parsing template: template: chart_grafana_dashboards_1_14_kubelet_1:1: undefined variable "$kubeTargetVersion"
-warning: skipping grafana/dashboards-1.14/namespace-by-pod.yaml (doc 0): unsupported template action: {{tpl $.Values.grafana.sidecar.dashboards.label $}}
+warning: skipping grafana/dashboards-1.14/namespace-by-pod.yaml (doc 0): unsupported template action: {{((tpl $.Values.grafana.sidecar.dashboards.labelValue $) | default 1) | quote}}
 warning: skipping grafana/dashboards-1.14/namespace-by-pod.yaml (doc 1): parsing template: template: chart_grafana_dashboards_1_14_namespace_by_pod_1:1: undefined variable "$kubeTargetVersion"
-warning: skipping grafana/dashboards-1.14/namespace-by-workload.yaml (doc 0): unsupported template action: {{tpl $.Values.grafana.sidecar.dashboards.label $}}
+warning: skipping grafana/dashboards-1.14/namespace-by-workload.yaml (doc 0): unsupported template action: {{((tpl $.Values.grafana.sidecar.dashboards.labelValue $) | default 1) | quote}}
 warning: skipping grafana/dashboards-1.14/namespace-by-workload.yaml (doc 1): parsing template: template: chart_grafana_dashboards_1_14_namespace_by_workload_1:1: undefined variable "$kubeTargetVersion"
-warning: skipping grafana/dashboards-1.14/node-cluster-rsrc-use.yaml (doc 0): unsupported template action: {{tpl $.Values.grafana.sidecar.dashboards.label $}}
+warning: skipping grafana/dashboards-1.14/node-cluster-rsrc-use.yaml (doc 0): unsupported template action: {{((tpl $.Values.grafana.sidecar.dashboards.labelValue $) | default 1) | quote}}
 warning: skipping grafana/dashboards-1.14/node-cluster-rsrc-use.yaml (doc 1): parsing template: template: chart_grafana_dashboards_1_14_node_cluster_rsrc_use_1:1: undefined variable "$kubeTargetVersion"
-warning: skipping grafana/dashboards-1.14/node-rsrc-use.yaml (doc 0): unsupported template action: {{tpl $.Values.grafana.sidecar.dashboards.label $}}
+warning: skipping grafana/dashboards-1.14/node-rsrc-use.yaml (doc 0): unsupported template action: {{((tpl $.Values.grafana.sidecar.dashboards.labelValue $) | default 1) | quote}}
 warning: skipping grafana/dashboards-1.14/node-rsrc-use.yaml (doc 1): parsing template: template: chart_grafana_dashboards_1_14_node_rsrc_use_1:1: undefined variable "$kubeTargetVersion"
-warning: skipping grafana/dashboards-1.14/nodes-aix.yaml (doc 0): unsupported template action: {{tpl $.Values.grafana.sidecar.dashboards.label $}}
+warning: skipping grafana/dashboards-1.14/nodes-aix.yaml (doc 0): unsupported template action: {{((tpl $.Values.grafana.sidecar.dashboards.labelValue $) | default 1) | quote}}
 warning: skipping grafana/dashboards-1.14/nodes-aix.yaml (doc 1): parsing template: template: chart_grafana_dashboards_1_14_nodes_aix_1:1: undefined variable "$kubeTargetVersion"
-warning: skipping grafana/dashboards-1.14/nodes-darwin.yaml (doc 0): unsupported template action: {{tpl $.Values.grafana.sidecar.dashboards.label $}}
+warning: skipping grafana/dashboards-1.14/nodes-darwin.yaml (doc 0): unsupported template action: {{((tpl $.Values.grafana.sidecar.dashboards.labelValue $) | default 1) | quote}}
 warning: skipping grafana/dashboards-1.14/nodes-darwin.yaml (doc 1): parsing template: template: chart_grafana_dashboards_1_14_nodes_darwin_1:1: undefined variable "$kubeTargetVersion"
-warning: skipping grafana/dashboards-1.14/nodes.yaml (doc 0): unsupported template action: {{tpl $.Values.grafana.sidecar.dashboards.label $}}
+warning: skipping grafana/dashboards-1.14/nodes.yaml (doc 0): unsupported template action: {{((tpl $.Values.grafana.sidecar.dashboards.labelValue $) | default 1) | quote}}
 warning: skipping grafana/dashboards-1.14/nodes.yaml (doc 1): parsing template: template: chart_grafana_dashboards_1_14_nodes_1:1: undefined variable "$kubeTargetVersion"
-warning: skipping grafana/dashboards-1.14/persistentvolumesusage.yaml (doc 0): unsupported template action: {{tpl $.Values.grafana.sidecar.dashboards.label $}}
+warning: skipping grafana/dashboards-1.14/persistentvolumesusage.yaml (doc 0): unsupported template action: {{((tpl $.Values.grafana.sidecar.dashboards.labelValue $) | default 1) | quote}}
 warning: skipping grafana/dashboards-1.14/persistentvolumesusage.yaml (doc 1): parsing template: template: chart_grafana_dashboards_1_14_persistentvolumesusage_1:1: undefined variable "$kubeTargetVersion"
-warning: skipping grafana/dashboards-1.14/pod-total.yaml (doc 0): unsupported template action: {{tpl $.Values.grafana.sidecar.dashboards.label $}}
+warning: skipping grafana/dashboards-1.14/pod-total.yaml (doc 0): unsupported template action: {{((tpl $.Values.grafana.sidecar.dashboards.labelValue $) | default 1) | quote}}
 warning: skipping grafana/dashboards-1.14/pod-total.yaml (doc 1): parsing template: template: chart_grafana_dashboards_1_14_pod_total_1:1: undefined variable "$kubeTargetVersion"
-warning: skipping grafana/dashboards-1.14/prometheus-remote-write.yaml (doc 0): unsupported template action: {{tpl $.Values.grafana.sidecar.dashboards.label $}}
+warning: skipping grafana/dashboards-1.14/prometheus-remote-write.yaml (doc 0): unsupported template action: {{((tpl $.Values.grafana.sidecar.dashboards.labelValue $) | default 1) | quote}}
 warning: skipping grafana/dashboards-1.14/prometheus-remote-write.yaml (doc 1): parsing template: template: chart_grafana_dashboards_1_14_prometheus_remote_write_1:1: undefined variable "$kubeTargetVersion"
-warning: skipping grafana/dashboards-1.14/prometheus.yaml (doc 0): unsupported template action: {{tpl $.Values.grafana.sidecar.dashboards.label $}}
+warning: skipping grafana/dashboards-1.14/prometheus.yaml (doc 0): unsupported template action: {{((tpl $.Values.grafana.sidecar.dashboards.labelValue $) | default 1) | quote}}
 warning: skipping grafana/dashboards-1.14/prometheus.yaml (doc 1): parsing template: template: chart_grafana_dashboards_1_14_prometheus_1:1: undefined variable "$kubeTargetVersion"
-warning: skipping grafana/dashboards-1.14/proxy.yaml (doc 0): unsupported template action: {{tpl $.Values.grafana.sidecar.dashboards.label $}}
+warning: skipping grafana/dashboards-1.14/proxy.yaml (doc 0): unsupported template action: {{((tpl $.Values.grafana.sidecar.dashboards.labelValue $) | default 1) | quote}}
 warning: skipping grafana/dashboards-1.14/proxy.yaml (doc 1): parsing template: template: chart_grafana_dashboards_1_14_proxy_1:1: undefined variable "$kubeTargetVersion"
-warning: skipping grafana/dashboards-1.14/scheduler.yaml (doc 0): unsupported template action: {{tpl $.Values.grafana.sidecar.dashboards.label $}}
+warning: skipping grafana/dashboards-1.14/scheduler.yaml (doc 0): unsupported template action: {{((tpl $.Values.grafana.sidecar.dashboards.labelValue $) | default 1) | quote}}
 warning: skipping grafana/dashboards-1.14/scheduler.yaml (doc 1): parsing template: template: chart_grafana_dashboards_1_14_scheduler_1:1: undefined variable "$kubeTargetVersion"
-warning: skipping grafana/dashboards-1.14/workload-total.yaml (doc 0): unsupported template action: {{tpl $.Values.grafana.sidecar.dashboards.label $}}
+warning: skipping grafana/dashboards-1.14/workload-total.yaml (doc 0): unsupported template action: {{((tpl $.Values.grafana.sidecar.dashboards.labelValue $) | default 1) | quote}}
 warning: skipping grafana/dashboards-1.14/workload-total.yaml (doc 1): parsing template: template: chart_grafana_dashboards_1_14_workload_total_1:1: undefined variable "$kubeTargetVersion"
 warning: skipping prometheus-operator/admission-webhooks/deployment/deployment.yaml (doc 0): unsupported pipeline function: ternary
 warning: skipping prometheus-operator/admission-webhooks/deployment/pdb.yaml (doc 0): toYaml argument: unsupported pipe node: omit .Values.prometheusOperator.admissionWebhooks.deployment.podDisruptionBudget "enabled"
@@ -98,12 +97,10 @@ warning: skipping prometheus-operator/certmanager.yaml (doc 0): parsing template
 warning: skipping prometheus-operator/certmanager.yaml (doc 2): parsing template: template: chart_prometheus_operator_certmanager_2:9: unexpected {{end}}
 warning: skipping prometheus-operator/certmanager.yaml (doc 3): parsing template: template: chart_prometheus_operator_certmanager_3:20: unexpected {{end}}
 warning: skipping prometheus-operator/ciliumnetworkpolicy.yaml (doc 0): square bracket must have exactly one element (and 5 more errors)
-warning: skipping prometheus-operator/deployment.yaml (doc 0): unsupported template action: {{tpl (.Values.prometheusOperator.denyNamespaces | join ",") $}}
+warning: skipping prometheus-operator/deployment.yaml (doc 0): unsupported pipeline function: mustUniq
 warning: skipping prometheus-operator/pdb.yaml (doc 0): toYaml argument: unsupported pipe node: omit .Values.prometheusOperator.podDisruptionBudget "enabled"
-warning: skipping prometheus-operator/servicemonitor.yaml (doc 0): unsupported template action: {{tpl (toYaml .Values.prometheusOperator.serviceMonitor.metricRelabelings | indent 6) .}}
+warning: skipping prometheus-operator/servicemonitor.yaml (doc 0): expected operand, found ']' (and 2 more errors)
 warning: skipping prometheus-operator/verticalpodautoscaler.yaml (doc 0): top-level if condition: unsupported condition: .Capabilities.APIVersions.Has "autoscaling.k8s.io/v1"
-warning: skipping prometheus/additionalAlertRelabelConfigs.yaml (doc 0): unsupported template action: {{tpl (toYaml .Values.prometheus.prometheusSpec.additionalAlertRelabelConfigs) . | b64enc | quote}}
-warning: skipping prometheus/additionalAlertmanagerConfigs.yaml (doc 0): unsupported template action: {{tpl (toYaml .Values.prometheus.prometheusSpec.additionalAlertManagerConfigs) . | b64enc | quote}}
 warning: skipping prometheus/additionalPrometheusRules.yaml (doc 0): parsing template: template: chart_prometheus_additionalPrometheusRules_0:3: unexpected EOF
 warning: skipping prometheus/additionalPrometheusRules.yaml (doc 1): parsing template: template: chart_prometheus_additionalPrometheusRules_1:4: undefined variable "$prometheusRuleName"
 warning: skipping prometheus/additionalPrometheusRules.yaml (doc 2): parsing template: template: chart_prometheus_additionalPrometheusRules_2:15: unexpected {{end}}
@@ -112,7 +109,7 @@ warning: skipping prometheus/clusterrole.yaml (doc 0): if condition: unsupported
 warning: skipping prometheus/csi-secret.yaml (doc 0): parsing template: template: chart_prometheus_csi_secret_0:2: unexpected EOF
 warning: skipping prometheus/csi-secret.yaml (doc 1): parsing template: template: chart_prometheus_csi_secret_1:10: unexpected {{end}}
 warning: skipping prometheus/ingress.yaml (doc 0): default value: unsupported literal node: list
-warning: skipping prometheus/ingressThanosSidecar.yaml (doc 0): unsupported template action: {{tpl (toYaml .Values.prometheus.thanosIngress.annotations) . | nindent 4}}
+warning: skipping prometheus/ingressThanosSidecar.yaml (doc 0): range: unsupported node: $paths
 warning: skipping prometheus/ingressperreplica.yaml (doc 0): range: unsupported pipe: $i, $e := until $count
 warning: skipping prometheus/podmonitors.yaml (doc 0): expected operand, found ']' (and 1 more errors)
 warning: skipping prometheus/prometheus.yaml (doc 0): if condition: unsupported condition function: kindIs
@@ -137,20 +134,17 @@ warning: skipping prometheus/rules-1.14/node-exporter.yaml (doc 0): unsupported 
 warning: skipping prometheus/rules-1.14/node-network.yaml (doc 0): unsupported template action: {{dig "NodeNetworkInterfaceFlapping" "for" "2m" .Values.customRules}}
 warning: skipping prometheus/rules-1.14/prometheus-operator.yaml (doc 0): unsupported template action: {{dig "PrometheusOperatorListErrors" "for" "15m" .Values.customRules}}
 warning: skipping prometheus/rules-1.14/prometheus.yaml (doc 0): unsupported template action: {{dig "PrometheusBadConfig" "for" "10m" .Values.customRules}}
-warning: skipping prometheus/secret.yaml (doc 0): unsupported template action: {{tpl (toYaml .Values.prometheus.prometheusSpec.thanos.objectStorageConfig.secret) $ | b64enc | quote}}
-warning: skipping prometheus/serviceaccount.yaml (doc 0): unsupported template action: {{tpl (toYaml .) $ | indent 4}}
-warning: skipping prometheus/servicemonitor.yaml (doc 0): unsupported template action: {{tpl (toYaml .Values.prometheus.serviceMonitor.metricRelabelings | nindent 6) .}}
-warning: skipping prometheus/servicemonitorThanosSidecar.yaml (doc 0): unsupported template action: {{tpl (toYaml .Values.prometheus.thanosServiceMonitor.metricRelabelings | indent 6) .}}
+warning: skipping prometheus/servicemonitor.yaml (doc 0): tpl template argument: unsupported pipe node: default $.Values.prometheus.serviceMonitor.metricRelabelings .metricRelabelings | toYaml | nindent 6
 warning: skipping prometheus/servicemonitors.yaml (doc 0): expected operand, found ']' (and 1 more errors)
 warning: skipping prometheus/serviceperreplica.yaml (doc 0): range: unsupported pipe: $i, $e := until $count
-warning: skipping thanos-ruler/ingress.yaml (doc 0): unsupported template action: {{tpl (toYaml .Values.thanosRuler.ingress.annotations) . | nindent 4}}
+warning: skipping thanos-ruler/ingress.yaml (doc 0): range: unsupported node: $paths
 warning: skipping thanos-ruler/route.yaml (doc 0): parsing template: template: chart_thanos_ruler_route_0:6: unexpected EOF
 warning: skipping thanos-ruler/route.yaml (doc 1): parsing template: template: chart_thanos_ruler_route_1:1: undefined variable "$route"
-warning: skipping thanos-ruler/ruler.yaml (doc 0): unsupported template action: {{tpl .Values.thanosRuler.thanosRulerSpec.serviceName .}}
-warning: skipping thanos-ruler/servicemonitor.yaml (doc 0): unsupported template action: {{tpl (toYaml .Values.thanosRuler.serviceMonitor.metricRelabelings | nindent 6) .}}
-warning: values schema inconsistency: #values.alertmanager.serviceAccount.name: reference "_kube_prometheus_stack_fullname" not found (and 19 more errors)
-warning: values.yaml does not satisfy inferred schema: #values.alertmanager.serviceAccount.name: reference "_kube_prometheus_stack_fullname" not found (and 19 more errors)
-converted 67/216 templates from kube-prometheus-stack
+warning: skipping thanos-ruler/ruler.yaml (doc 0): tpl template argument: unsupported pipe node: index .Values.thanosRuler.ingress.hosts 0
+warning: skipping thanos-ruler/servicemonitor.yaml (doc 0): tpl template argument: unsupported pipe node: default $.Values.thanosRuler.serviceMonitor.metricRelabelings .metricRelabelings | toYaml | nindent 6
+warning: values schema inconsistency: #values.alertmanager.ingress.serviceName: reference "_kube_prometheus_stack_fullname" not found (and 19 more errors)
+warning: values.yaml does not satisfy inferred schema: #values.alertmanager.ingress.serviceName: reference "_kube_prometheus_stack_fullname" not found (and 19 more errors)
+converted 73/216 templates from kube-prometheus-stack
 -- cue vet --
 exit status 1
 prometheus_operator_admission_webhooks_deployment_service: reference "_kube_prometheus_stack_prometheus_operator_webhook_labels" not found:
@@ -203,80 +197,92 @@ results: reference "alertmanager_serviceaccount" not found:
     ./results.cue:17:3
 results: reference "exporters_core_dns_service" not found:
     ./results.cue:20:3
-results: reference "exporters_kube_controller_manager_endpoints" not found:
+results: reference "exporters_kube_api_server_servicemonitor" not found:
     ./results.cue:23:3
-results: reference "exporters_kube_controller_manager_service" not found:
+results: reference "exporters_kube_controller_manager_endpoints" not found:
     ./results.cue:26:3
-results: reference "exporters_kube_dns_service" not found:
+results: reference "exporters_kube_controller_manager_service" not found:
     ./results.cue:29:3
-results: reference "exporters_kube_etcd_endpoints" not found:
+results: reference "exporters_kube_dns_service" not found:
     ./results.cue:32:3
-results: reference "exporters_kube_etcd_service" not found:
+results: reference "exporters_kube_etcd_endpoints" not found:
     ./results.cue:35:3
-results: reference "exporters_kube_proxy_endpoints" not found:
+results: reference "exporters_kube_etcd_service" not found:
     ./results.cue:38:3
-results: reference "exporters_kube_proxy_service" not found:
+results: reference "exporters_kube_proxy_endpoints" not found:
     ./results.cue:41:3
-results: reference "exporters_kube_scheduler_endpoints" not found:
+results: reference "exporters_kube_proxy_service" not found:
     ./results.cue:44:3
-results: reference "exporters_kube_scheduler_service" not found:
+results: reference "exporters_kube_scheduler_endpoints" not found:
     ./results.cue:47:3
-results: reference "prometheus_operator_admission_webhooks_deployment_service" not found:
+results: reference "exporters_kube_scheduler_service" not found:
     ./results.cue:50:3
-results: reference "prometheus_operator_admission_webhooks_deployment_serviceaccount" not found:
+results: reference "prometheus_operator_admission_webhooks_deployment_service" not found:
     ./results.cue:53:3
+results: reference "prometheus_operator_admission_webhooks_deployment_serviceaccount" not found:
+    ./results.cue:56:3
 results: reference "prometheus_operator_admission_webhooks_job_patch_ciliumnetworkpolicy_createSecret" not found:
-    ./results.cue:57:4
+    ./results.cue:60:4
 results: reference "prometheus_operator_admission_webhooks_job_patch_ciliumnetworkpolicy_patchWebhook" not found:
-    ./results.cue:62:4
+    ./results.cue:65:4
 results: reference "prometheus_operator_admission_webhooks_job_patch_clusterrole" not found:
-    ./results.cue:66:3
-results: reference "prometheus_operator_admission_webhooks_job_patch_clusterrolebinding" not found:
     ./results.cue:69:3
+results: reference "prometheus_operator_admission_webhooks_job_patch_clusterrolebinding" not found:
+    ./results.cue:72:3
 results: reference "prometheus_operator_admission_webhooks_job_patch_networkpolicy_createSecret" not found:
-    ./results.cue:73:4
+    ./results.cue:76:4
 results: reference "prometheus_operator_admission_webhooks_job_patch_networkpolicy_patchWebhook" not found:
-    ./results.cue:78:4
+    ./results.cue:81:4
 results: reference "prometheus_operator_admission_webhooks_job_patch_role" not found:
-    ./results.cue:82:3
-results: reference "prometheus_operator_admission_webhooks_job_patch_rolebinding" not found:
     ./results.cue:85:3
-results: reference "prometheus_operator_admission_webhooks_job_patch_serviceaccount" not found:
+results: reference "prometheus_operator_admission_webhooks_job_patch_rolebinding" not found:
     ./results.cue:88:3
+results: reference "prometheus_operator_admission_webhooks_job_patch_serviceaccount" not found:
+    ./results.cue:91:3
 results: reference "prometheus_operator_clusterrole" not found:
-    ./results.cue:92:3
-results: reference "prometheus_operator_clusterrolebinding" not found:
     ./results.cue:95:3
-results: reference "prometheus_operator_networkpolicy" not found:
+results: reference "prometheus_operator_clusterrolebinding" not found:
     ./results.cue:98:3
-results: reference "prometheus_operator_service" not found:
+results: reference "prometheus_operator_networkpolicy" not found:
     ./results.cue:101:3
-results: reference "prometheus_operator_serviceaccount" not found:
+results: reference "prometheus_operator_service" not found:
     ./results.cue:104:3
-results: reference "prometheus_ciliumnetworkpolicy" not found:
+results: reference "prometheus_operator_serviceaccount" not found:
     ./results.cue:107:3
-results: reference "prometheus_clusterrolebinding" not found:
+results: reference "prometheus_additionalAlertRelabelConfigs" not found:
     ./results.cue:110:3
-results: reference "prometheus_extrasecret" not found:
+results: reference "prometheus_additionalAlertmanagerConfigs" not found:
     ./results.cue:113:3
-results: reference "prometheus_networkpolicy" not found:
+results: reference "prometheus_ciliumnetworkpolicy" not found:
     ./results.cue:116:3
-results: reference "prometheus_podDisruptionBudget" not found:
+results: reference "prometheus_clusterrolebinding" not found:
     ./results.cue:119:3
+results: reference "prometheus_extrasecret" not found:
+    ./results.cue:122:3
+results: reference "prometheus_networkpolicy" not found:
+    ./results.cue:125:3
+results: reference "prometheus_podDisruptionBudget" not found:
+    ./results.cue:128:3
+results: reference "prometheus_secret" not found:
+    ./results.cue:154:4
 results: reference "prometheus_serviceThanosSidecar" not found:
-    ./results.cue:145:3
+    ./results.cue:159:3
 results: reference "prometheus_serviceThanosSidecarExternal" not found:
-    ./results.cue:148:3
+    ./results.cue:162:3
+results: reference "prometheus_serviceaccount" not found:
+    ./results.cue:165:3
+results: reference "prometheus_servicemonitorThanosSidecar" not found:
+    ./results.cue:168:3
 results: reference "thanos_ruler_extrasecret" not found:
-    ./results.cue:151:3
+    ./results.cue:171:3
 results: reference "thanos_ruler_podDisruptionBudget" not found:
-    ./results.cue:154:3
+    ./results.cue:174:3
 results: reference "thanos_ruler_secret" not found:
-    ./results.cue:157:3
+    ./results.cue:177:3
 results: reference "thanos_ruler_service" not found:
-    ./results.cue:160:3
+    ./results.cue:180:3
 results: reference "thanos_ruler_serviceaccount" not found:
-    ./results.cue:163:3
+    ./results.cue:183:3
 -- cue export --
 exit status 1
 prometheus_operator_admission_webhooks_deployment_service: reference "_kube_prometheus_stack_prometheus_operator_webhook_labels" not found:
@@ -329,77 +335,89 @@ results: reference "alertmanager_serviceaccount" not found:
     ./results.cue:17:3
 results: reference "exporters_core_dns_service" not found:
     ./results.cue:20:3
-results: reference "exporters_kube_controller_manager_endpoints" not found:
+results: reference "exporters_kube_api_server_servicemonitor" not found:
     ./results.cue:23:3
-results: reference "exporters_kube_controller_manager_service" not found:
+results: reference "exporters_kube_controller_manager_endpoints" not found:
     ./results.cue:26:3
-results: reference "exporters_kube_dns_service" not found:
+results: reference "exporters_kube_controller_manager_service" not found:
     ./results.cue:29:3
-results: reference "exporters_kube_etcd_endpoints" not found:
+results: reference "exporters_kube_dns_service" not found:
     ./results.cue:32:3
-results: reference "exporters_kube_etcd_service" not found:
+results: reference "exporters_kube_etcd_endpoints" not found:
     ./results.cue:35:3
-results: reference "exporters_kube_proxy_endpoints" not found:
+results: reference "exporters_kube_etcd_service" not found:
     ./results.cue:38:3
-results: reference "exporters_kube_proxy_service" not found:
+results: reference "exporters_kube_proxy_endpoints" not found:
     ./results.cue:41:3
-results: reference "exporters_kube_scheduler_endpoints" not found:
+results: reference "exporters_kube_proxy_service" not found:
     ./results.cue:44:3
-results: reference "exporters_kube_scheduler_service" not found:
+results: reference "exporters_kube_scheduler_endpoints" not found:
     ./results.cue:47:3
-results: reference "prometheus_operator_admission_webhooks_deployment_service" not found:
+results: reference "exporters_kube_scheduler_service" not found:
     ./results.cue:50:3
-results: reference "prometheus_operator_admission_webhooks_deployment_serviceaccount" not found:
+results: reference "prometheus_operator_admission_webhooks_deployment_service" not found:
     ./results.cue:53:3
+results: reference "prometheus_operator_admission_webhooks_deployment_serviceaccount" not found:
+    ./results.cue:56:3
 results: reference "prometheus_operator_admission_webhooks_job_patch_ciliumnetworkpolicy_createSecret" not found:
-    ./results.cue:57:4
+    ./results.cue:60:4
 results: reference "prometheus_operator_admission_webhooks_job_patch_ciliumnetworkpolicy_patchWebhook" not found:
-    ./results.cue:62:4
+    ./results.cue:65:4
 results: reference "prometheus_operator_admission_webhooks_job_patch_clusterrole" not found:
-    ./results.cue:66:3
-results: reference "prometheus_operator_admission_webhooks_job_patch_clusterrolebinding" not found:
     ./results.cue:69:3
+results: reference "prometheus_operator_admission_webhooks_job_patch_clusterrolebinding" not found:
+    ./results.cue:72:3
 results: reference "prometheus_operator_admission_webhooks_job_patch_networkpolicy_createSecret" not found:
-    ./results.cue:73:4
+    ./results.cue:76:4
 results: reference "prometheus_operator_admission_webhooks_job_patch_networkpolicy_patchWebhook" not found:
-    ./results.cue:78:4
+    ./results.cue:81:4
 results: reference "prometheus_operator_admission_webhooks_job_patch_role" not found:
-    ./results.cue:82:3
-results: reference "prometheus_operator_admission_webhooks_job_patch_rolebinding" not found:
     ./results.cue:85:3
-results: reference "prometheus_operator_admission_webhooks_job_patch_serviceaccount" not found:
+results: reference "prometheus_operator_admission_webhooks_job_patch_rolebinding" not found:
     ./results.cue:88:3
+results: reference "prometheus_operator_admission_webhooks_job_patch_serviceaccount" not found:
+    ./results.cue:91:3
 results: reference "prometheus_operator_clusterrole" not found:
-    ./results.cue:92:3
-results: reference "prometheus_operator_clusterrolebinding" not found:
     ./results.cue:95:3
-results: reference "prometheus_operator_networkpolicy" not found:
+results: reference "prometheus_operator_clusterrolebinding" not found:
     ./results.cue:98:3
-results: reference "prometheus_operator_service" not found:
+results: reference "prometheus_operator_networkpolicy" not found:
     ./results.cue:101:3
-results: reference "prometheus_operator_serviceaccount" not found:
+results: reference "prometheus_operator_service" not found:
     ./results.cue:104:3
-results: reference "prometheus_ciliumnetworkpolicy" not found:
+results: reference "prometheus_operator_serviceaccount" not found:
     ./results.cue:107:3
-results: reference "prometheus_clusterrolebinding" not found:
+results: reference "prometheus_additionalAlertRelabelConfigs" not found:
     ./results.cue:110:3
-results: reference "prometheus_extrasecret" not found:
+results: reference "prometheus_additionalAlertmanagerConfigs" not found:
     ./results.cue:113:3
-results: reference "prometheus_networkpolicy" not found:
+results: reference "prometheus_ciliumnetworkpolicy" not found:
     ./results.cue:116:3
-results: reference "prometheus_podDisruptionBudget" not found:
+results: reference "prometheus_clusterrolebinding" not found:
     ./results.cue:119:3
+results: reference "prometheus_extrasecret" not found:
+    ./results.cue:122:3
+results: reference "prometheus_networkpolicy" not found:
+    ./results.cue:125:3
+results: reference "prometheus_podDisruptionBudget" not found:
+    ./results.cue:128:3
+results: reference "prometheus_secret" not found:
+    ./results.cue:154:4
 results: reference "prometheus_serviceThanosSidecar" not found:
-    ./results.cue:145:3
+    ./results.cue:159:3
 results: reference "prometheus_serviceThanosSidecarExternal" not found:
-    ./results.cue:148:3
+    ./results.cue:162:3
+results: reference "prometheus_serviceaccount" not found:
+    ./results.cue:165:3
+results: reference "prometheus_servicemonitorThanosSidecar" not found:
+    ./results.cue:168:3
 results: reference "thanos_ruler_extrasecret" not found:
-    ./results.cue:151:3
+    ./results.cue:171:3
 results: reference "thanos_ruler_podDisruptionBudget" not found:
-    ./results.cue:154:3
+    ./results.cue:174:3
 results: reference "thanos_ruler_secret" not found:
-    ./results.cue:157:3
+    ./results.cue:177:3
 results: reference "thanos_ruler_service" not found:
-    ./results.cue:160:3
+    ./results.cue:180:3
 results: reference "thanos_ruler_serviceaccount" not found:
-    ./results.cue:163:3
+    ./results.cue:183:3
