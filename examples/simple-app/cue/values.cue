@@ -16,7 +16,11 @@ package simple_app
 		pullPolicy:  *"IfNotPresent" | bool | number | string | null
 		...
 	}
-	ports!: _
+	ports!: [...{
+		name!:          bool | number | string | null
+		containerPort!: bool | number | string | null
+		...
+	}]
 	service?: {
 		type: *"ClusterIP" | bool | number | string | null
 		port: *80 | bool | number | string | null
