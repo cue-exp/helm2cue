@@ -737,12 +737,11 @@ func (c *converter) convertHelperBody(nodes []parse.Node) (string, [][]string, e
 		return result, nil, nil
 	}
 
-	// Value-producing comprehensions: wrap in a list comprehension with
-	// "" default. In Helm, a helper that produces no output returns "".
-	// CUE's if/for are field comprehensions (not value expressions), so
-	// [if cond {value}, ""][0] gives value when true, "" when false.
+	// Comprehension bodies need struct wrapping — CUE's if/for are
+	// field comprehensions, not value expressions. When the condition
+	// is false the result is {} which _nonzero treats as zero.
 	if strings.HasPrefix(body, "if ") || strings.HasPrefix(body, "for ") {
-		result := "[\n" + indentBlock(body, "\t") + ",\n\t\"\",\n][0]"
+		result := "{\n" + indentBlock(body, "\t") + "\n}"
 		if err := validateHelperExpr(result, c.imports); err != nil {
 			return "", nil, fmt.Errorf("helper body produced invalid CUE: %w", err)
 		}

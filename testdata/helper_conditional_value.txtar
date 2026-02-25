@@ -1,10 +1,11 @@
 Helper that conditionally returns a bare value (not fields) using if.
 CUE's if is a field comprehension, not a value expression, so the helper
-body must be wrapped in a struct literal.
+body must be wrapped in a struct literal. When the condition is false the
+result is {} which _nonzero treats as zero.
 
 -- _helpers.tpl --
-{{- define "myapp.fips.enabled" -}}
-{{- if .Chart.Annotations.fips -}}
+{{- define "myapp.enabled" -}}
+{{- if .Values.enabled -}}
 true
 {{- end -}}
 {{- end -}}
@@ -13,10 +14,19 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: test
+{{- if include "myapp.enabled" . }}
 data:
-  fips: {{ include "myapp.fips.enabled" . | quote }}
+  enabled: "yes"
+{{- end }}
 -- values.yaml --
-{}
+enabled: true
+-- helm_output.yaml --
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test
+data:
+  enabled: "yes"
 -- output.cue --
 import "struct"
 
@@ -35,21 +45,19 @@ _nonzero: {
 	}, false][0]
 }
 
-#chart: {
-	Annotations?: {
-		fips?: bool | number | string | null
-		...
-	}
+#values: {
+	enabled?: bool | number | string | null
 	...
 }
-_myapp_fips_enabled: [
-	if (_nonzero & {#arg: #chart.Annotations.fips, _}) {
+_myapp_enabled: {
+	if (_nonzero & {#arg: #values.enabled, _}) {
 		true
-	},
-	"",
-][0]
+	}
+}
 
 apiVersion: "v1"
 kind:       "ConfigMap"
 metadata: name: "test"
-data: fips: "\(_myapp_fips_enabled)"
+if (_nonzero & {#arg: _myapp_enabled, _}) {
+	data: enabled: "yes"
+}
