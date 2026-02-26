@@ -1,0 +1,63 @@
+YAML flow syntax containing template actions: flow collections that span
+multiple AST nodes because actions split them at {{ }} boundaries.
+Fixes #15.
+
+-- values.yaml --
+labelKey: app
+appName: coremedia
+port: 8080
+nested: inner
+-- input.yaml --
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test
+spec:
+  rules:
+    - podSelector:
+        matchExpressions:
+          - {key: {{ .Values.labelKey }}, operator: "In", values: [{{ .Values.appName }}]}
+  data:
+    tags: [{{ .Values.labelKey }}, "static"]
+    config: {port: {{ .Values.port }}, name: {{ .Values.appName }}}
+    deep: {outer: {inner: {{ .Values.nested }}}}
+-- helm_output.yaml --
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test
+spec:
+  rules:
+    - podSelector:
+        matchExpressions:
+          - {key: app, operator: "In", values: [coremedia]}
+  data:
+    tags: [app, "static"]
+    config: {port: 8080, name: coremedia}
+    deep: {outer: {inner: inner}}
+-- output.cue --
+#values: {
+	labelKey!: bool | number | string | null
+	appName!:  bool | number | string | null
+	port!:     bool | number | string | null
+	nested!:   bool | number | string | null
+	...
+}
+
+apiVersion: "v1"
+kind:       "ConfigMap"
+metadata: name: "test"
+spec: {
+	rules: [
+		{
+			podSelector: matchExpressions: [
+				{key: #values.labelKey, operator: "In", values: [#values.appName]},
+			]
+		},
+	]
+	data: {
+		tags: [#values.labelKey, "static"]
+		config: {port: #values.port, name: #values.appName}
+		deep: outer: inner: #values.nested
+	}
+}

@@ -222,6 +222,15 @@ type converter struct {
 	inlineSuffix     string   // appended after closing quote (e.g. "," for list items)
 	nextNodeIsInline bool     // true when next sibling is an action/text node (not a control structure)
 
+	// Flow collection accumulation: when a YAML flow mapping/sequence
+	// spans multiple AST nodes (template actions inside), accumulate
+	// text with sentinel placeholders until the collection is complete.
+	flowParts  []string // non-nil when flow accumulation is active
+	flowExprs  []string // CUE expressions for sentinels
+	flowDepth  int      // current bracket nesting depth
+	flowCueInd int      // CUE indent for formatting
+	flowSuffix string   // appended after CUE result (",\n" or "\n")
+
 	// Helper template state (shared across main and sub-converters).
 	treeSet           map[string]*parse.Tree
 	helperExprs       map[string]string // template name → CUE hidden field name
@@ -398,6 +407,7 @@ func convertStructured(cfg *Config, input []byte, templateName string, treeSet m
 		return nil, err
 	}
 	c.finalizeInline()
+	c.finalizeFlow()
 	c.flushPendingAction()
 	c.flushDeferred()
 	c.closeBlocksTo(-1)
@@ -1135,6 +1145,104 @@ func inlineExpr(expr string) string {
 	return `\(` + expr + `)`
 }
 
+// startsIncompleteFlow reports whether s starts with a YAML flow collection
+// opener ({ or [) but is not a complete flow collection (i.e. the closing
+// bracket is missing because the template action splits it across nodes).
+func startsIncompleteFlow(s string) bool {
+	s = strings.TrimSpace(s)
+	if len(s) == 0 {
+		return false
+	}
+	if s[0] != '{' && s[0] != '[' {
+		return false
+	}
+	// If it's already a complete flow collection, it's not "incomplete".
+	return !isFlowCollection(s)
+}
+
+// flowBracketDepth scans s tracking YAML flow bracket depth, skipping
+// quoted strings. It starts from the given depth. Returns the final
+// depth and the byte position just after depth first reaches 0,
+// or -1 if it never does.
+func flowBracketDepth(s string, depth int) (endPos int, finalDepth int) {
+	inSingle := false
+	inDouble := false
+	for i := 0; i < len(s); i++ {
+		ch := s[i]
+		if inSingle {
+			if ch == '\'' {
+				inSingle = false
+			}
+			continue
+		}
+		if inDouble {
+			if ch == '\\' && i+1 < len(s) {
+				i++ // skip escaped char
+				continue
+			}
+			if ch == '"' {
+				inDouble = false
+			}
+			continue
+		}
+		switch ch {
+		case '\'':
+			inSingle = true
+		case '"':
+			inDouble = true
+		case '{', '[':
+			depth++
+		case '}', ']':
+			depth--
+			if depth == 0 {
+				return i + 1, 0
+			}
+		}
+	}
+	return -1, depth
+}
+
+// startFlowAccum initialises flow accumulation mode with the given
+// starting text fragment.
+func (c *converter) startFlowAccum(text string, cueInd int, suffix string) {
+	c.flowParts = []string{text}
+	c.flowExprs = nil
+	_, c.flowDepth = flowBracketDepth(text, 0)
+	c.flowCueInd = cueInd
+	c.flowSuffix = suffix
+}
+
+// finalizeFlow joins the accumulated flow parts, converts the YAML
+// flow collection to CUE, replaces sentinel strings with actual CUE
+// expressions, and writes the result.
+func (c *converter) finalizeFlow() {
+	if c.flowParts == nil {
+		return
+	}
+	joined := strings.Join(c.flowParts, "")
+	exprs := c.flowExprs
+	cueInd := c.flowCueInd
+	suffix := c.flowSuffix
+	c.flowParts = nil
+	c.flowExprs = nil
+	c.flowDepth = 0
+
+	cueStr := yamlFlowToCUE(joined, cueInd)
+
+	// Replace quoted sentinels with CUE expressions.
+	for i, expr := range exprs {
+		sentinel := fmt.Sprintf("__h2c_%d__", i)
+		// yamlFlowToCUE will have turned the sentinel into a quoted
+		// CUE string: "__h2c_0__". Replace that with the raw expr.
+		quoted := fmt.Sprintf("%q", sentinel)
+		cueStr = strings.Replace(cueStr, quoted, expr, 1)
+	}
+
+	writeIndent(&c.out, cueInd)
+	c.out.WriteString(cueStr)
+	c.out.WriteString(suffix)
+}
+
 // resolveDeferredAsBlock converts a deferred key-value into a block with embedding.
 func (c *converter) resolveDeferredAsBlock(childYamlIndent int) {
 	if c.deferredKV == nil {
@@ -1189,6 +1297,27 @@ func (c *converter) emitTextNode(text []byte) {
 		if strings.TrimSpace(s) == "" {
 			return
 		}
+	}
+
+	// Handle flow collection continuation: if flow accumulation is active,
+	// scan for where the collection ends.
+	if c.flowParts != nil {
+		endPos, depth := flowBracketDepth(s, c.flowDepth)
+		if endPos >= 0 {
+			// Flow collection ends within this text.
+			c.flowParts = append(c.flowParts, s[:endPos])
+			c.flowDepth = 0
+			c.finalizeFlow()
+			remainder := s[endPos:]
+			if strings.TrimSpace(remainder) != "" {
+				c.emitTextNode([]byte(remainder))
+			}
+			return
+		}
+		// Flow still open — append all text, update depth.
+		c.flowParts = append(c.flowParts, s)
+		c.flowDepth = depth
+		return
 	}
 
 	// Whether the last line continues into the next AST node:
@@ -1280,6 +1409,12 @@ func (c *converter) emitTextNode(text []byte) {
 		} else if isFlowCollection(trimmed) {
 			writeIndent(&c.out, cueInd)
 			fmt.Fprintf(&c.out, "%s\n", yamlFlowToCUE(trimmed, cueInd))
+		} else if continuesInline && startsIncompleteFlow(trimmed) {
+			// Flow collection starts here but isn't complete — actions
+			// inside the flow will provide the rest. Use content (not
+			// trimmed) to preserve trailing space for YAML flow parsing.
+			writeIndent(&c.out, cueInd)
+			c.startFlowAccum(content, cueInd, "\n")
 		} else if colonIdx := strings.Index(content, ": "); colonIdx > 0 {
 			key := content[:colonIdx]
 			val := strings.TrimRight(content[colonIdx+2:], " \t")
@@ -1293,6 +1428,13 @@ func (c *converter) emitTextNode(text []byte) {
 				c.state = statePendingKey
 				c.pendingKey = key
 				c.pendingKeyInd = yamlIndent
+			} else if continuesInline && val != "" && startsIncompleteFlow(val) {
+				// Value is an incomplete flow collection. Use the raw
+				// value (not TrimRight) to preserve trailing space for
+				// YAML flow parsing.
+				writeIndent(&c.out, cueInd)
+				fmt.Fprintf(&c.out, "%s: ", cueKey(key))
+				c.startFlowAccum(content[colonIdx+2:], cueInd, "\n")
 			} else if continuesInline && val != "" {
 				// Value continues into next AST node — start inline accumulation.
 				writeIndent(&c.out, cueInd)
@@ -1361,6 +1503,10 @@ func (c *converter) processListItem(trimmed string, yamlIndent, cueInd int, isLa
 	if isFlowCollection(content) {
 		writeIndent(&c.out, cueInd)
 		fmt.Fprintf(&c.out, "%s,\n", yamlFlowToCUE(content, cueInd))
+	} else if continuesInline && startsIncompleteFlow(content) {
+		// Flow collection as list item, but actions split it.
+		writeIndent(&c.out, cueInd)
+		c.startFlowAccum(content, cueInd, ",\n")
 	} else if colonIdx := strings.Index(content, ": "); colonIdx > 0 {
 		// Check if this is "- key: value" (struct in list).
 		key := content[:colonIdx]
@@ -1382,6 +1528,19 @@ func (c *converter) processListItem(trimmed string, yamlIndent, cueInd int, isLa
 			c.state = statePendingKey
 			c.pendingKey = key
 			c.pendingKeyInd = itemContentIndent
+		} else if continuesInline && val != "" && startsIncompleteFlow(val) {
+			// Value is an incomplete flow collection in a list item.
+			// Use raw value to preserve trailing space.
+			writeIndent(&c.out, cueInd)
+			c.out.WriteString("{\n")
+			writeIndent(&c.out, cueInd+1)
+			fmt.Fprintf(&c.out, "%s: ", cueKey(key))
+			c.startFlowAccum(content[colonIdx+2:], cueInd+1, "\n")
+			c.stack = append(c.stack, frame{
+				yamlIndent: itemContentIndent,
+				cueIndent:  cueInd + 1,
+				isListItem: true,
+			})
 		} else {
 			// Open struct, emit first field.
 			writeIndent(&c.out, cueInd)
@@ -1433,6 +1592,10 @@ func (c *converter) processRangeListItem(content string, yamlIndent, cueInd int,
 		writeIndent(&c.out, cueInd)
 		c.out.WriteString(yamlFlowToCUE(content, cueInd))
 		c.out.WriteByte('\n')
+	} else if continuesInline && startsIncompleteFlow(content) {
+		// Flow collection in range list item, but actions split it.
+		writeIndent(&c.out, cueInd)
+		c.startFlowAccum(content, cueInd, "\n")
 	} else if colonIdx := strings.Index(content, ": "); colonIdx > 0 {
 		key := content[:colonIdx]
 		val := strings.TrimRight(content[colonIdx+2:], " \t")
@@ -1441,6 +1604,12 @@ func (c *converter) processRangeListItem(content string, yamlIndent, cueInd int,
 			c.state = statePendingKey
 			c.pendingKey = key
 			c.pendingKeyInd = itemContentIndent
+		} else if continuesInline && val != "" && startsIncompleteFlow(val) {
+			// Value is an incomplete flow collection in range list item.
+			// Use raw value to preserve trailing space.
+			writeIndent(&c.out, cueInd)
+			fmt.Fprintf(&c.out, "%s: ", cueKey(key))
+			c.startFlowAccum(content[colonIdx+2:], cueInd, "\n")
 		} else {
 			writeIndent(&c.out, cueInd)
 			fmt.Fprintf(&c.out, "%s: %s\n", cueKey(key), yamlToCUE(val, cueInd))
@@ -1674,6 +1843,14 @@ func (c *converter) processNode(node parse.Node) error {
 
 // emitActionExpr emits a CUE expression from a template action.
 func (c *converter) emitActionExpr(expr string, comment string) {
+	// If flow accumulation is active, replace with sentinel.
+	if c.flowParts != nil {
+		sentinel := fmt.Sprintf("__h2c_%d__", len(c.flowExprs))
+		c.flowParts = append(c.flowParts, sentinel)
+		c.flowExprs = append(c.flowExprs, expr)
+		return
+	}
+
 	// If inline accumulation is active, append the expression.
 	if c.inlineParts != nil {
 		c.inlineParts = append(c.inlineParts, inlineExpr(expr))
@@ -1719,6 +1896,7 @@ func (c *converter) emitActionExpr(expr string, comment string) {
 func (c *converter) processIf(n *parse.IfNode) error {
 	c.hasConditions = true
 	c.finalizeInline()
+	c.finalizeFlow()
 	c.flushPendingAction()
 
 	condition, negCondition, err := c.pipeToCUECondition(n.Pipe)
@@ -1786,6 +1964,7 @@ func (c *converter) processIf(n *parse.IfNode) error {
 		return err
 	}
 	c.finalizeInline()
+	c.finalizeFlow()
 	c.flushPendingAction()
 	c.flushDeferred()
 
@@ -1824,6 +2003,7 @@ func (c *converter) processIf(n *parse.IfNode) error {
 			return err
 		}
 		c.finalizeInline()
+		c.finalizeFlow()
 		c.flushPendingAction()
 		c.flushDeferred()
 
@@ -1844,6 +2024,7 @@ func (c *converter) processIf(n *parse.IfNode) error {
 func (c *converter) processWith(n *parse.WithNode) error {
 	c.hasConditions = true
 	c.finalizeInline()
+	c.finalizeFlow()
 	c.flushPendingAction()
 
 	condition, negCondition, err := c.pipeToCUECondition(n.Pipe)
@@ -1928,6 +2109,7 @@ func (c *converter) processWith(n *parse.WithNode) error {
 		return err
 	}
 	c.finalizeInline()
+	c.finalizeFlow()
 	c.flushPendingAction()
 	c.flushDeferred()
 
@@ -1968,6 +2150,7 @@ func (c *converter) processWith(n *parse.WithNode) error {
 			return err
 		}
 		c.finalizeInline()
+		c.finalizeFlow()
 		c.flushPendingAction()
 		c.flushDeferred()
 
@@ -2071,6 +2254,7 @@ func (c *converter) processBodyNodes(nodes []parse.Node) error {
 
 func (c *converter) processRange(n *parse.RangeNode) error {
 	c.finalizeInline()
+	c.finalizeFlow()
 	c.flushPendingAction()
 	overExpr, helmObj, fieldPath, err := c.pipeToFieldExpr(n.Pipe)
 	if err != nil {
@@ -2173,6 +2357,7 @@ func (c *converter) processRange(n *parse.RangeNode) error {
 		return err
 	}
 	c.finalizeInline()
+	c.finalizeFlow()
 	c.flushPendingAction()
 	c.flushDeferred()
 	c.inRangeBody = savedRangeBody
