@@ -443,6 +443,18 @@ func HelmConfig() *Config {
 					return fmt.Sprintf("(_uniq & {#in: %s}).out", expr)
 				},
 			},
+			"mustUniq": {
+				NonScalar: true,
+				Imports:   []string{"list"},
+				Helpers: []HelperDef{{
+					Name:    "_uniq",
+					Def:     uniqDef,
+					Imports: []string{"list"},
+				}},
+				Convert: func(expr string, _ []string) string {
+					return fmt.Sprintf("(_uniq & {#in: %s}).out", expr)
+				},
+			},
 			"keys": {
 				NonScalar: true,
 				Convert: func(expr string, _ []string) string {
