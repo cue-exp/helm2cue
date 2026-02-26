@@ -28,10 +28,14 @@ import "list"
 	...
 }
 
-apiVersion: "v1"
-kind:       "ConfigMap"
-metadata: name: "test"
-data: {
-	biggest: list.Max([#values.a, #values.b])
-	smallest: list.Min([#values.a, #values.b])
-}
+output: [
+	{
+		apiVersion: "v1"
+		kind:       "ConfigMap"
+		metadata: name: "test"
+		data: {
+			biggest: list.Max([#values.a, #values.b])
+			smallest: list.Min([#values.a, #values.b])
+		}
+	},
+]

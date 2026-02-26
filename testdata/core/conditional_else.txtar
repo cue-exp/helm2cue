@@ -17,14 +17,18 @@ import "struct"
 	...
 }
 
-result: {
-	if (_nonzero & {#arg: #input.debug, _}) {
-		mode: "debug"
-	}
-	if !(_nonzero & {#arg: #input.debug, _}) {
-		mode: "release"
-	}
-}
+output: [
+	{
+		result: {
+			if (_nonzero & {#arg: #input.debug, _}) {
+				mode: "debug"
+			}
+			if !(_nonzero & {#arg: #input.debug, _}) {
+				mode: "release"
+			}
+		}
+	},
+]
 _nonzero: {
 	#arg?: _
 	[if #arg != _|_ {

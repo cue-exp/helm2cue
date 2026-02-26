@@ -12,4 +12,8 @@ name: alice
 	...
 }
 
-greeting: "hello-\(#input.name)-world"
+output: [
+	{
+		greeting: "hello-\(#input.name)-world"
+	},
+]

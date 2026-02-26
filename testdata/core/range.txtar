@@ -16,8 +16,12 @@ items:
 	...
 }
 
-items: [
-	for _, _range0 in #input.items {
-		_range0
+output: [
+	{
+		items: [
+			for _, _range0 in #input.items {
+				_range0
+			},
+		]
 	},
 ]

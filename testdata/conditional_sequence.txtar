@@ -38,21 +38,25 @@ import "struct"
 	...
 }
 
-apiVersion: "v1"
-kind:       "Service"
-metadata: name: "test"
-spec: ports: [
-	if (_nonzero & {#arg: #values.httpEnabled, _}) {
-		{
-			port: 80
-			name: "http"
-		}
-	},
-	if (_nonzero & {#arg: #values.httpsEnabled, _}) {
-		{
-			port: 443
-			name: "https"
-		}
+output: [
+	{
+		apiVersion: "v1"
+		kind:       "Service"
+		metadata: name: "test"
+		spec: ports: [
+			if (_nonzero & {#arg: #values.httpEnabled, _}) {
+				{
+					port: 80
+					name: "http"
+				}
+			},
+			if (_nonzero & {#arg: #values.httpsEnabled, _}) {
+				{
+					port: 443
+					name: "https"
+				}
+			},
+		]
 	},
 ]
 _nonzero: {

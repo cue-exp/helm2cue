@@ -1,0 +1,93 @@
+Cross-document else-if: {{if}}...---...{{else if}}...---...{{end}}.
+
+-- _helpers.tpl --
+-- values.yaml --
+mode: a
+name: test
+-- input.yaml --
+{{- if eq .Values.mode "a" }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Values.name }}-a1
+data:
+  key: a1
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Values.name }}-a2
+data:
+  key: a2
+{{- else if eq .Values.mode "b" }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Values.name }}-b1
+data:
+  key: b1
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Values.name }}-b2
+data:
+  key: b2
+{{- end }}
+-- helm_output.yaml --
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test-a1
+data:
+  key: a1
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test-a2
+data:
+  key: a2
+-- output.cue --
+import "struct"
+
+#values: {
+	mode?: bool | number | string | null
+	name!: bool | number | string | null
+	...
+}
+
+output: [
+	if #values.mode == "a" {
+		{
+			apiVersion: "v1"
+			kind:       "ConfigMap"
+			metadata: name: "\(#values.name)-a1"
+			data: key: "a1"
+		}
+	},
+	if #values.mode == "a" {
+		{
+			apiVersion: "v1"
+			kind:       "ConfigMap"
+			metadata: name: "\(#values.name)-a2"
+			data: key: "a2"
+		}
+	},
+]
+_nonzero: {
+	#arg?: _
+	[if #arg != _|_ {
+		[
+			if (#arg & int) != _|_ {#arg != 0},
+			if (#arg & string) != _|_ {#arg != ""},
+			if (#arg & float) != _|_ {#arg != 0.0},
+			if (#arg & bool) != _|_ {#arg},
+			if (#arg & [...]) != _|_ {len(#arg) > 0},
+			if (#arg & {...}) != _|_ {(#arg & struct.MaxFields(0)) == _|_},
+			false,
+		][0]
+	}, false][0]
+}

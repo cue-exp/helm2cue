@@ -4,4 +4,8 @@ No round-trip validation: there are no template directives to inject values.
 -- input.yaml --
 key: she said "hello"
 -- output.cue --
-key: "she said \"hello\""
+output: [
+	{
+		key: "she said \"hello\""
+	},
+]

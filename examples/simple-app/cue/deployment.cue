@@ -2,7 +2,7 @@
 
 package simple_app
 
-deployment: {
+deployment: [{
 	apiVersion: "apps/v1"
 	kind:       "Deployment"
 	metadata: {
@@ -36,4 +36,4 @@ deployment: {
 			}
 		}
 	}
-}
+}]

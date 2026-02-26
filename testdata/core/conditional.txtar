@@ -14,9 +14,13 @@ import "struct"
 	...
 }
 
-if (_nonzero & {#arg: #input.enabled, _}) {
-	enabled: true
-}
+output: [
+	if (_nonzero & {#arg: #input.enabled, _}) {
+		{
+			enabled: true
+		}
+	},
+]
 _nonzero: {
 	#arg?: _
 	[if #arg != _|_ {

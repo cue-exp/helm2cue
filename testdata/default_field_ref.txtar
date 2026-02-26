@@ -20,6 +20,10 @@ metadata:
 	...
 }
 
-apiVersion: "v1"
-kind:       "ConfigMap"
-metadata: name: #values.primary
+output: [
+	{
+		apiVersion: "v1"
+		kind:       "ConfigMap"
+		metadata: name: #values.primary
+	},
+]

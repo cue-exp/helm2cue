@@ -22,11 +22,15 @@ import "strings"
 	...
 }
 
-apiVersion: "v1"
-kind:       "ConfigMap"
-metadata: name: "test"
-data: {
-	upper: strings.ToUpper(#values.name)
-	lower: strings.ToLower(#values.env)
-	title: strings.ToTitle(#values.name)
-}
+output: [
+	{
+		apiVersion: "v1"
+		kind:       "ConfigMap"
+		metadata: name: "test"
+		data: {
+			upper: strings.ToUpper(#values.name)
+			lower: strings.ToLower(#values.env)
+			title: strings.ToTitle(#values.name)
+		}
+	},
+]

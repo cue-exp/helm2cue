@@ -24,7 +24,11 @@ import "strings"
 	...
 }
 
-apiVersion: "v1"
-kind:       "ConfigMap"
-metadata: name: "test"
-data: path: strings.TrimSuffix(#values.path, "/")
+output: [
+	{
+		apiVersion: "v1"
+		kind:       "ConfigMap"
+		metadata: name: "test"
+		data: path: strings.TrimSuffix(#values.path, "/")
+	},
+]

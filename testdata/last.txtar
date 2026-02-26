@@ -25,10 +25,14 @@ data:
 	...
 }
 
-apiVersion: "v1"
-kind:       "ConfigMap"
-metadata: name: "test"
-data: tail: (_last & {#in: #values.items}).out
+output: [
+	{
+		apiVersion: "v1"
+		kind:       "ConfigMap"
+		metadata: name: "test"
+		data: tail: (_last & {#in: #values.items}).out
+	},
+]
 _last: {
 	#in: [_, ...]
 	_len: len(#in)

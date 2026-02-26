@@ -30,4 +30,8 @@ _myapp_labels: {
 	version: #arg.version
 }
 
-metadata: labels: _myapp_labels & {#arg: #values.meta, _}
+output: [
+	{
+		metadata: labels: _myapp_labels & {#arg: #values.meta, _}
+	},
+]

@@ -2,7 +2,7 @@
 
 package simple_app
 
-service: {
+service: [{
 	apiVersion: "v1"
 	kind:       "Service"
 	metadata: {
@@ -21,4 +21,4 @@ service: {
 		]
 		selector: _simple_app_selectorLabels
 	}
-}
+}]

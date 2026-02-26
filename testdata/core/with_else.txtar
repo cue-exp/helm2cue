@@ -20,12 +20,16 @@ import "struct"
 	...
 }
 
-if (_nonzero & {#arg: #input.config, _}) {
-	name: #input.config.name
-}
-if !(_nonzero & {#arg: #input.config, _}) {
-	name: "default"
-}
+output: [
+	{
+		if (_nonzero & {#arg: #input.config, _}) {
+			name: #input.config.name
+		}
+		if !(_nonzero & {#arg: #input.config, _}) {
+			name: "default"
+		}
+	},
+]
 _nonzero: {
 	#arg?: _
 	[if #arg != _|_ {

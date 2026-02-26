@@ -32,16 +32,20 @@ import "struct"
 	...
 }
 
-apiVersion: "v1"
-kind:       "ConfigMap"
-metadata: name: "test"
-data: {
-	for _, _range0 in #values.routes {
-		if (_nonzero & {#arg: _range0.enabled, _}) {
-			(_range0.name): "active"
+output: [
+	{
+		apiVersion: "v1"
+		kind:       "ConfigMap"
+		metadata: name: "test"
+		data: {
+			for _, _range0 in #values.routes {
+				if (_nonzero & {#arg: _range0.enabled, _}) {
+					(_range0.name): "active"
+				}
+			}
 		}
-	}
-}
+	},
+]
 _nonzero: {
 	#arg?: _
 	[if #arg != _|_ {

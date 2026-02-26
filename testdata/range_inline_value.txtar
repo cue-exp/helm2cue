@@ -26,11 +26,15 @@ spec:
 	...
 }
 
-spec: {
-	args: [
-		for _key0, _val0 in #values.extraArgs {
-			"--\(_key0)=\(_val0)"
-		},
-	]
-	name: "test"
-}
+output: [
+	{
+		spec: {
+			args: [
+				for _key0, _val0 in #values.extraArgs {
+					"--\(_key0)=\(_val0)"
+				},
+			]
+			name: "test"
+		}
+	},
+]

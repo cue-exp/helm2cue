@@ -22,10 +22,14 @@ data:
 	...
 }
 
-apiVersion: "v1"
-kind:       "ConfigMap"
-metadata: name: "test"
-data: filtered: (_compact & {#in: #values.items}).out
+output: [
+	{
+		apiVersion: "v1"
+		kind:       "ConfigMap"
+		metadata: name: "test"
+		data: filtered: (_compact & {#in: #values.items}).out
+	},
+]
 _compact: {
 	#in: [...string]
 	out: [for x in #in if x != "" {x}]

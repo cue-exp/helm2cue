@@ -10,4 +10,8 @@ name: hello
 	...
 }
 
-name: #input.name
+output: [
+	{
+		name: #input.name
+	},
+]

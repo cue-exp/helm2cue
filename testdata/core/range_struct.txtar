@@ -22,9 +22,13 @@ items:
 	...
 }
 
-items: [
-	for _, _range0 in #input.items {
-		name:  _range0.name
-		value: _range0.value
+output: [
+	{
+		items: [
+			for _, _range0 in #input.items {
+				name:  _range0.name
+				value: _range0.value
+			},
+		]
 	},
 ]

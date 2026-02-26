@@ -20,7 +20,11 @@ import "regexp"
 	...
 }
 
-apiVersion: "v1"
-kind:       "ConfigMap"
-metadata: name: "test"
-data: replaced: regexp.ReplaceAll("[0-9]+", #values.name, "NUM")
+output: [
+	{
+		apiVersion: "v1"
+		kind:       "ConfigMap"
+		metadata: name: "test"
+		data: replaced: regexp.ReplaceAll("[0-9]+", #values.name, "NUM")
+	},
+]

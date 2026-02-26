@@ -9,6 +9,10 @@ metadata:
 -- output.cue --
 _common_names_fullname: _
 
-apiVersion: "v1"
-kind:       "ConfigMap"
-metadata: name: _common_names_fullname
+output: [
+	{
+		apiVersion: "v1"
+		kind:       "ConfigMap"
+		metadata: name: _common_names_fullname
+	},
+]

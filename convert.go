@@ -197,6 +197,8 @@ type converter struct {
 	helperArgFieldRefs map[string][][]string     // CUE helper name → field paths accessed on #arg
 	localVars          map[string]string         // $varName → CUE expression
 	topLevelGuards     []string                  // CUE conditions wrapping entire output
+	topLevelRange      string                    // e.g. "for _, _range0 in #values.items"
+	topLevelRangeBody  string                    // body inside the range
 	imports            map[string]bool
 	hasConditions      bool                 // true if any if blocks or top-level guards exist
 	usedHelpers        map[string]HelperDef // collected during conversion
@@ -287,6 +289,8 @@ type convertResult struct {
 	rangeRefs          map[string][][]string
 	defaults           map[string][]fieldDefault
 	topLevelGuards     []string
+	topLevelRange      string // e.g. "for _, _range0 in #values.items"
+	topLevelRangeBody  string // body inside the range (no for wrapper)
 	body               string // template body only (no declarations)
 }
 
@@ -432,6 +436,8 @@ func convertStructured(cfg *Config, input []byte, templateName string, treeSet m
 		rangeRefs:          c.rangeRefs,
 		defaults:           c.defaults,
 		topLevelGuards:     c.topLevelGuards,
+		topLevelRange:      c.topLevelRange,
+		topLevelRangeBody:  c.topLevelRangeBody,
 		body:               c.out.String(),
 	}, nil
 }
@@ -553,28 +559,11 @@ func assembleSingleFile(cfg *Config, r *convertResult) ([]byte, error) {
 		final.WriteString("\n")
 	}
 
-	// Emit body with top-level guards.
-	indent := 0
-	if len(r.topLevelGuards) > 0 {
-		for _, guard := range r.topLevelGuards {
-			writeIndent(&final, indent)
-			fmt.Fprintf(&final, "if %s {\n", guard)
-			indent++
-		}
-	}
+	// Emit body wrapped in output list.
 	body := strings.TrimRight(r.body, "\n")
 	if body != "" {
-		for _, line := range strings.Split(body, "\n") {
-			if indent > 0 && line != "" {
-				writeIndent(&final, indent)
-			}
-			final.WriteString(line)
-			final.WriteByte('\n')
-		}
-	}
-	for i := len(r.topLevelGuards) - 1; i >= 0; i-- {
-		writeIndent(&final, i)
-		final.WriteString("}\n")
+		final.WriteString(body)
+		final.WriteByte('\n')
 	}
 
 	// Emit _nonzero if needed.
@@ -600,35 +589,31 @@ func assembleSingleFile(cfg *Config, r *convertResult) ([]byte, error) {
 
 // Convert transforms a template YAML file into CUE using the given config.
 // Optional helpers contain {{ define }} blocks (typically from _helpers.tpl files).
-// If the input contains multiple YAML documents (separated by ---), each
-// document is converted separately and wrapped in document_N fields.
+// The output wraps template content in an `output` list.
 func Convert(cfg *Config, input []byte, helpers ...[]byte) ([]byte, error) {
 	treeSet, helperFileNames, err := parseHelpers(helpers, false)
 	if err != nil {
 		return nil, err
 	}
 
-	docs := splitYAMLDocuments(input)
-	if len(docs) <= 1 {
-		// Single document — original behavior.
-		doc := input
-		if len(docs) == 1 {
-			doc = docs[0]
-		}
-		r, err := convertStructured(cfg, doc, "helm", treeSet, helperFileNames)
-		if err != nil {
-			return nil, err
-		}
-		return assembleSingleFile(cfg, r)
+	// Try AST-aware splitting to handle cross-document blocks.
+	docs := splitTemplateDocuments(input, treeSet)
+	if docs == nil {
+		docs = splitYAMLDocuments(input)
 	}
 
-	// Multiple documents — convert each and merge.
 	var results []*convertResult
 	for i, doc := range docs {
-		templateName := fmt.Sprintf("helm_document_%d", i)
+		templateName := "helm"
+		if len(docs) > 1 {
+			templateName = fmt.Sprintf("helm_document_%d", i)
+		}
 		r, err := convertStructured(cfg, doc, templateName, treeSet, helperFileNames)
 		if err != nil {
-			return nil, fmt.Errorf("document %d: %w", i, err)
+			if len(docs) > 1 {
+				return nil, fmt.Errorf("document %d: %w", i, err)
+			}
+			return nil, err
 		}
 		results = append(results, r)
 	}
@@ -637,9 +622,8 @@ func Convert(cfg *Config, input []byte, helpers ...[]byte) ([]byte, error) {
 	return assembleSingleFile(cfg, merged)
 }
 
-// mergeConvertResults merges multiple convertResults (from multi-document
-// templates) into a single result with each document's body wrapped in
-// a document_N field.
+// mergeConvertResults merges multiple convertResults into a single result
+// whose body is a CUE list expression (output: [...]).
 func mergeConvertResults(results []*convertResult) *convertResult {
 	merged := &convertResult{
 		imports:            make(map[string]bool),
@@ -651,7 +635,6 @@ func mergeConvertResults(results []*convertResult) *convertResult {
 		defaults:           make(map[string][]fieldDefault),
 	}
 
-	var body bytes.Buffer
 	for i, r := range results {
 		for k, v := range r.imports {
 			merged.imports[k] = v
@@ -688,39 +671,145 @@ func mergeConvertResults(results []*convertResult) *convertResult {
 			merged.helperExprs = r.helperExprs
 			merged.undefinedHelpers = r.undefinedHelpers
 		}
+	}
 
-		// Wrap each document body in a document_N field.
-		docBody := strings.TrimRight(r.body, "\n")
-		if docBody == "" {
-			continue
+	// Build list body: output: [...]
+	var body bytes.Buffer
+
+	// Check if any result has a range.
+	hasRange := false
+	for _, r := range results {
+		if r.topLevelRange != "" {
+			hasRange = true
+			break
 		}
+	}
 
-		fieldName := fmt.Sprintf("document_%d", i)
-
-		// Handle top-level guards for this document.
-		indent := 0
-		if len(r.topLevelGuards) > 0 {
-			for _, guard := range r.topLevelGuards {
+	if hasRange && len(results) > 1 {
+		// Multi-doc with range: use list.FlattenN.
+		merged.imports["list"] = true
+		body.WriteString("output: list.FlattenN([\n")
+		i := 0
+		for i < len(results) {
+			r := results[i]
+			docBody := strings.TrimRight(r.body, "\n")
+			if r.topLevelRange != "" {
+				// Group consecutive results with the same range.
+				rangeHeader := r.topLevelRange
+				j := i
+				for j < len(results) && results[j].topLevelRange == rangeHeader {
+					j++
+				}
+				body.WriteString("\t")
+				body.WriteString(rangeHeader)
+				body.WriteString(" {[\n")
+				for k := i; k < j; k++ {
+					rb := strings.TrimRight(results[k].topLevelRangeBody, "\n")
+					if rb == "" {
+						rb = strings.TrimRight(results[k].body, "\n")
+					}
+					if rb == "" {
+						continue
+					}
+					body.WriteString("\t\t{\n")
+					for _, line := range strings.Split(rb, "\n") {
+						body.WriteString("\t\t\t")
+						body.WriteString(line)
+						body.WriteByte('\n')
+					}
+					body.WriteString("\t\t},\n")
+				}
+				body.WriteString("\t]},\n")
+				i = j
+			} else if len(r.topLevelGuards) > 0 {
+				indent := 1
+				for _, guard := range r.topLevelGuards {
+					writeIndent(&body, indent)
+					fmt.Fprintf(&body, "if %s {\n", guard)
+					indent++
+				}
 				writeIndent(&body, indent)
-				fmt.Fprintf(&body, "if %s {\n", guard)
-				indent++
+				body.WriteString("{\n")
+				for _, line := range strings.Split(docBody, "\n") {
+					writeIndent(&body, indent+1)
+					body.WriteString(line)
+					body.WriteByte('\n')
+				}
+				writeIndent(&body, indent)
+				body.WriteString("},\n")
+				for g := len(r.topLevelGuards) - 1; g >= 0; g-- {
+					writeIndent(&body, g+1)
+					body.WriteString("}\n")
+				}
+				i++
+			} else {
+				body.WriteString("\t{\n")
+				for _, line := range strings.Split(docBody, "\n") {
+					body.WriteString("\t\t")
+					body.WriteString(line)
+					body.WriteByte('\n')
+				}
+				body.WriteString("\t},\n")
+				i++
 			}
 		}
-
-		writeIndent(&body, indent)
-		fmt.Fprintf(&body, "%s: {\n", fieldName)
-		for _, line := range strings.Split(docBody, "\n") {
-			writeIndent(&body, indent+1)
+		body.WriteString("], -1)")
+	} else if hasRange && len(results) == 1 {
+		// Single doc with top-level range.
+		r := results[0]
+		merged.imports["list"] = true
+		rb := strings.TrimRight(r.topLevelRangeBody, "\n")
+		if rb == "" {
+			rb = strings.TrimRight(r.body, "\n")
+		}
+		body.WriteString("output: list.FlattenN([")
+		body.WriteString(r.topLevelRange)
+		body.WriteString(" {[\n\t{\n")
+		for _, line := range strings.Split(rb, "\n") {
+			body.WriteString("\t\t")
 			body.WriteString(line)
 			body.WriteByte('\n')
 		}
-		writeIndent(&body, indent)
-		body.WriteString("}\n")
-
-		for j := len(r.topLevelGuards) - 1; j >= 0; j-- {
-			writeIndent(&body, j)
-			body.WriteString("}\n")
+		body.WriteString("\t},\n]}], -1)")
+	} else {
+		// No range — plain list with optional if guards.
+		body.WriteString("output: [\n")
+		for _, r := range results {
+			docBody := strings.TrimRight(r.body, "\n")
+			if docBody == "" {
+				continue
+			}
+			if len(r.topLevelGuards) > 0 {
+				indent := 1
+				for _, guard := range r.topLevelGuards {
+					writeIndent(&body, indent)
+					fmt.Fprintf(&body, "if %s {\n", guard)
+					indent++
+				}
+				writeIndent(&body, indent)
+				body.WriteString("{\n")
+				for _, line := range strings.Split(docBody, "\n") {
+					writeIndent(&body, indent+1)
+					body.WriteString(line)
+					body.WriteByte('\n')
+				}
+				writeIndent(&body, indent)
+				body.WriteString("},\n")
+				for g := len(r.topLevelGuards) - 1; g >= 0; g-- {
+					writeIndent(&body, g+1)
+					body.WriteString("}\n")
+				}
+			} else {
+				body.WriteString("\t{\n")
+				for _, line := range strings.Split(docBody, "\n") {
+					body.WriteString("\t\t")
+					body.WriteString(line)
+					body.WriteByte('\n')
+				}
+				body.WriteString("\t},\n")
+			}
 		}
+		body.WriteString("]")
 	}
 
 	merged.body = body.String()
@@ -1705,13 +1794,66 @@ func yamlToCUE(s string, indent int) string {
 }
 
 func (c *converter) processNodes(nodes []parse.Node) error {
-	if ifNode := detectTopLevelIf(nodes); ifNode != nil {
+	ifNode, rangeNode := detectTopLevelBranch(nodes)
+	if ifNode != nil {
 		condition, _, err := c.pipeToCUECondition(ifNode.Pipe)
 		if err != nil {
 			return fmt.Errorf("top-level if condition: %w", err)
 		}
 		c.topLevelGuards = append(c.topLevelGuards, condition)
 		return c.processNodes(ifNode.List.Nodes)
+	}
+	if rangeNode != nil {
+		overExpr, helmObj, fieldPath, err := c.pipeToFieldExpr(rangeNode.Pipe)
+		if err != nil {
+			return fmt.Errorf("top-level range: %w", err)
+		}
+		if helmObj != "" {
+			c.usedContextObjects[helmObj] = true
+			if fieldPath != nil {
+				c.rangeRefs[helmObj] = append(c.rangeRefs[helmObj], fieldPath)
+			}
+		}
+
+		blockIdx := len(c.rangeVarStack)
+		var keyName, valName string
+		if len(rangeNode.Pipe.Decl) == 2 {
+			keyName = fmt.Sprintf("_key%d", blockIdx)
+			valName = fmt.Sprintf("_val%d", blockIdx)
+			c.localVars[rangeNode.Pipe.Decl[0].Ident[0]] = keyName
+			c.localVars[rangeNode.Pipe.Decl[1].Ident[0]] = valName
+		} else if len(rangeNode.Pipe.Decl) == 1 {
+			valName = fmt.Sprintf("_range%d", blockIdx)
+			c.localVars[rangeNode.Pipe.Decl[0].Ident[0]] = valName
+		} else {
+			valName = fmt.Sprintf("_range%d", blockIdx)
+		}
+
+		ctx := rangeContext{cueExpr: valName}
+		if helmObj != "" && fieldPath != nil {
+			ctx.helmObj = helmObj
+			ctx.basePath = fieldPath
+		}
+		c.rangeVarStack = append(c.rangeVarStack, ctx)
+
+		keyExpr := "_"
+		if keyName != "" {
+			keyExpr = keyName
+		}
+		c.topLevelRange = fmt.Sprintf("for %s, %s in %s", keyExpr, valName, overExpr)
+
+		if err := c.processBodyNodes(rangeNode.List.Nodes); err != nil {
+			return err
+		}
+		c.finalizeInline()
+		c.finalizeFlow()
+		c.flushPendingAction()
+		c.flushDeferred()
+		c.closeBlocksTo(-1)
+
+		c.topLevelRangeBody = c.out.String()
+		c.rangeVarStack = c.rangeVarStack[:len(c.rangeVarStack)-1]
+		return nil
 	}
 	for i, node := range nodes {
 		c.nextNodeIsInline = i+1 < len(nodes) && isInlineNode(nodes[i+1])
@@ -1722,25 +1864,34 @@ func (c *converter) processNodes(nodes []parse.Node) error {
 	return nil
 }
 
-func detectTopLevelIf(nodes []parse.Node) *parse.IfNode {
+// detectTopLevelBranch checks whether nodes consist of a single top-level
+// if or range block (with only whitespace/comments around it). Returns the
+// if node or range node (at most one is non-nil).
+func detectTopLevelBranch(nodes []parse.Node) (*parse.IfNode, *parse.RangeNode) {
 	var ifNode *parse.IfNode
+	var rangeNode *parse.RangeNode
 	for _, node := range nodes {
 		switch n := node.(type) {
 		case *parse.TextNode:
 			if strings.TrimSpace(string(n.Text)) != "" {
-				return nil
+				return nil, nil
 			}
 		case *parse.CommentNode:
 		case *parse.IfNode:
-			if ifNode != nil {
-				return nil
+			if ifNode != nil || rangeNode != nil {
+				return nil, nil
 			}
 			ifNode = n
+		case *parse.RangeNode:
+			if ifNode != nil || rangeNode != nil {
+				return nil, nil
+			}
+			rangeNode = n
 		default:
-			return nil
+			return nil, nil
 		}
 	}
-	return ifNode
+	return ifNode, rangeNode
 }
 
 // isInlineNode reports whether a node can continue an inline text+action

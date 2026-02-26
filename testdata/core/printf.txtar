@@ -12,4 +12,8 @@ env: prod
 	...
 }
 
-fullname: "\(#input.name)-\(#input.env)"
+output: [
+	{
+		fullname: "\(#input.name)-\(#input.env)"
+	},
+]

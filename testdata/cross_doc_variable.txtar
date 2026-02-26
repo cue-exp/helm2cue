@@ -1,0 +1,54 @@
+Cross-document variable: $var defined before --- is available after.
+
+-- _helpers.tpl --
+-- values.yaml --
+name: test
+-- input.yaml --
+{{- $myName := .Values.name }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ $myName }}-one
+data:
+  key: one
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ $myName }}-two
+data:
+  key: two
+-- helm_output.yaml --
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test-one
+data:
+  key: one
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test-two
+data:
+  key: two
+-- output.cue --
+#values: {
+	name!: bool | number | string | null
+	...
+}
+
+output: [
+	{
+		apiVersion: "v1"
+		kind:       "ConfigMap"
+		metadata: name: "\(#values.name)-one"
+		data: key: "one"
+	},
+	{
+		apiVersion: "v1"
+		kind:       "ConfigMap"
+		metadata: name: "\(#values.name)-two"
+		data: key: "two"
+	},
+]
