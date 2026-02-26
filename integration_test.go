@@ -16,6 +16,7 @@ package main
 
 import (
 	"fmt"
+	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -133,7 +134,7 @@ func TestConvertChartIntegration(t *testing.T) {
 				return
 			}
 
-			want, err := os.ReadFile(goldenPath)
+			want, err := fs.ReadFile(testdataFS, "integration/"+tc.chart+"-"+tc.version+".txt")
 			if err != nil {
 				t.Fatalf("reading golden file (run with -update to create): %v", err)
 			}

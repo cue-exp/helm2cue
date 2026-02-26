@@ -18,6 +18,7 @@ import (
 	"bytes"
 	"flag"
 	"fmt"
+	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -51,7 +52,7 @@ func TestConvert(t *testing.T) {
 	if err != nil {
 		t.Fatal("helm not found in PATH")
 	}
-	files, err := filepath.Glob("testdata/*.txtar")
+	files, err := fs.Glob(testdataFS, "*.txtar")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -64,7 +65,7 @@ func TestConvert(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
-			ar, err := txtar.ParseFile(file)
+			ar, err := parseTxtarFS(testdataFS, file)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -152,7 +153,7 @@ func TestConvert(t *testing.T) {
 					Data: got,
 				})
 				ar.Files = newFiles
-				if err := os.WriteFile(file, txtar.Format(ar), 0o644); err != nil {
+				if err := os.WriteFile(filepath.Join("testdata", file), txtar.Format(ar), 0o644); err != nil {
 					t.Fatal(err)
 				}
 				return
@@ -364,7 +365,7 @@ func testCoreConfig() *Config {
 }
 
 func TestConvertCore(t *testing.T) {
-	files, err := filepath.Glob("testdata/core/*.txtar")
+	files, err := fs.Glob(testdataFS, "core/*.txtar")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -379,7 +380,7 @@ func TestConvertCore(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
-			ar, err := txtar.ParseFile(file)
+			ar, err := parseTxtarFS(testdataFS, file)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -440,7 +441,7 @@ func TestConvertCore(t *testing.T) {
 					Data: got,
 				})
 				ar.Files = newFiles
-				if err := os.WriteFile(file, txtar.Format(ar), 0o644); err != nil {
+				if err := os.WriteFile(filepath.Join("testdata", file), txtar.Format(ar), 0o644); err != nil {
 					t.Fatal(err)
 				}
 				return
