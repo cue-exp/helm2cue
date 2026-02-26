@@ -131,6 +131,8 @@ _nonzero: {
 
 var identRe = regexp.MustCompile(`^[a-zA-Z_$][a-zA-Z0-9_$]*$`)
 
+var sharedCueCtx = cuecontext.New()
+
 // fieldDefault records a default value for a field path within a context object.
 type fieldDefault struct {
 	path     []string // e.g. ["name"] or ["config", "port"]
@@ -923,22 +925,14 @@ func indentBlock(s, prefix string) string {
 
 // escapeCUEString escapes a string for embedding in a CUE quoted string.
 func escapeCUEString(s string) string {
-	var b strings.Builder
-	for _, ch := range s {
-		switch ch {
-		case '\\':
-			b.WriteString(`\\`)
-		case '"':
-			b.WriteString(`\"`)
-		case '\n':
-			b.WriteString(`\n`)
-		case '\t':
-			b.WriteString(`\t`)
-		default:
-			b.WriteRune(ch)
-		}
+	v := sharedCueCtx.Encode(s)
+	b, err := format.Node(v.Syntax())
+	if err != nil {
+		q := strconv.Quote(s)
+		return q[1 : len(q)-1]
 	}
-	return b.String()
+	lit := strings.TrimSpace(string(b))
+	return lit[1 : len(lit)-1]
 }
 
 func (c *converter) handleInclude(name string, pipe *parse.PipeNode) (string, string, error) {
@@ -1227,12 +1221,12 @@ func (c *converter) finalizeFlow() {
 	c.flowExprs = nil
 	c.flowDepth = 0
 
-	cueStr := yamlFlowToCUE(joined, cueInd)
+	cueStr := yamlToCUE(joined, cueInd)
 
 	// Replace quoted sentinels with CUE expressions.
 	for i, expr := range exprs {
 		sentinel := fmt.Sprintf("__h2c_%d__", i)
-		// yamlFlowToCUE will have turned the sentinel into a quoted
+		// yamlToCUE will have turned the sentinel into a quoted
 		// CUE string: "__h2c_0__". Replace that with the raw expr.
 		quoted := fmt.Sprintf("%q", sentinel)
 		cueStr = strings.Replace(cueStr, quoted, expr, 1)
@@ -1360,7 +1354,7 @@ func (c *converter) emitTextNode(text []byte) {
 				// ": value" — emit key: value directly.
 				cueInd := c.currentCUEIndent()
 				writeIndent(&c.out, cueInd)
-				fmt.Fprintf(&c.out, "%s: %s\n", c.pendingKey, yamlScalarToCUE(val))
+				fmt.Fprintf(&c.out, "%s: %s\n", c.pendingKey, yamlToCUE(val, 0))
 				c.state = stateNormal
 				c.pendingKey = ""
 				continue
@@ -1421,7 +1415,7 @@ func (c *converter) emitTextNode(text []byte) {
 			c.processListItem(content, yamlIndent, cueInd, isLastLine, continuesInline)
 		} else if isFlowCollection(trimmed) {
 			writeIndent(&c.out, cueInd)
-			fmt.Fprintf(&c.out, "%s\n", yamlFlowToCUE(trimmed, cueInd))
+			fmt.Fprintf(&c.out, "%s\n", yamlToCUE(trimmed, cueInd))
 		} else if continuesInline && startsIncompleteFlow(trimmed) {
 			// Flow collection starts here but isn't complete — actions
 			// inside the flow will provide the rest. Use content (not
@@ -1469,7 +1463,7 @@ func (c *converter) emitTextNode(text []byte) {
 		} else {
 			// Bare value or embedded expression.
 			writeIndent(&c.out, cueInd)
-			fmt.Fprintf(&c.out, "%s\n", yamlScalarToCUE(trimmed))
+			fmt.Fprintf(&c.out, "%s\n", yamlToCUE(trimmed, 0))
 		}
 	}
 }
@@ -1515,7 +1509,7 @@ func (c *converter) processListItem(trimmed string, yamlIndent, cueInd int, isLa
 	// Check for YAML flow collections (e.g., - {key: "value"}).
 	if isFlowCollection(content) {
 		writeIndent(&c.out, cueInd)
-		fmt.Fprintf(&c.out, "%s,\n", yamlFlowToCUE(content, cueInd))
+		fmt.Fprintf(&c.out, "%s,\n", yamlToCUE(content, cueInd))
 	} else if continuesInline && startsIncompleteFlow(content) {
 		// Flow collection as list item, but actions split it.
 		writeIndent(&c.out, cueInd)
@@ -1593,7 +1587,7 @@ func (c *converter) processListItem(trimmed string, yamlIndent, cueInd int, isLa
 	} else {
 		// Simple scalar list item.
 		writeIndent(&c.out, cueInd)
-		fmt.Fprintf(&c.out, "%s,\n", yamlScalarToCUE(strings.TrimSpace(content)))
+		fmt.Fprintf(&c.out, "%s,\n", yamlToCUE(strings.TrimSpace(content), 0))
 	}
 }
 
@@ -1603,7 +1597,7 @@ func (c *converter) processRangeListItem(content string, yamlIndent, cueInd int,
 
 	if isFlowCollection(content) {
 		writeIndent(&c.out, cueInd)
-		c.out.WriteString(yamlFlowToCUE(content, cueInd))
+		c.out.WriteString(yamlToCUE(content, cueInd))
 		c.out.WriteByte('\n')
 	} else if continuesInline && startsIncompleteFlow(content) {
 		// Flow collection in range list item, but actions split it.
@@ -1649,48 +1643,6 @@ func (c *converter) processRangeListItem(content string, yamlIndent, cueInd int,
 	}
 }
 
-// yamlScalarToCUE converts a YAML scalar string to its CUE representation.
-func yamlScalarToCUE(s string) string {
-	s = strings.TrimSpace(s)
-	if s == "" {
-		return `""`
-	}
-
-	switch strings.ToLower(s) {
-	case "true":
-		return "true"
-	case "false":
-		return "false"
-	}
-
-	if s == "null" || s == "~" {
-		return "null"
-	}
-
-	if _, err := strconv.ParseInt(s, 10, 64); err == nil {
-		return s
-	}
-	if _, err := strconv.ParseFloat(s, 64); err == nil {
-		return s
-	}
-
-	if s == "{}" {
-		return "{}"
-	}
-	if s == "[]" {
-		return "[]"
-	}
-
-	if len(s) >= 2 &&
-		((strings.HasPrefix(s, `"`) && strings.HasSuffix(s, `"`)) ||
-			(strings.HasPrefix(s, `'`) && strings.HasSuffix(s, `'`))) {
-		inner := s[1 : len(s)-1]
-		return strconv.Quote(inner)
-	}
-
-	return strconv.Quote(s)
-}
-
 // isFlowCollection reports whether s looks like a YAML flow mapping
 // ({...}) or flow sequence ([...]) with content.
 func isFlowCollection(s string) bool {
@@ -1699,11 +1651,13 @@ func isFlowCollection(s string) bool {
 		(len(s) > 2 && s[0] == '[' && s[len(s)-1] == ']')
 }
 
-// yamlFlowToCUE parses a YAML flow value (mapping or sequence) and
-// converts it to a CUE representation at the given indent level.
-func yamlFlowToCUE(s string, indent int) string {
-	// Wrap in a dummy key so Extract returns a field whose value
-	// is the struct/list we want.
+// yamlToCUE converts a YAML value string (scalar or flow collection)
+// to its CUE representation at the given indent level.
+func yamlToCUE(s string, indent int) string {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return `""`
+	}
 	f, err := cueyaml.Extract("", []byte("_: "+s))
 	if err != nil {
 		return strconv.Quote(s)
@@ -1719,8 +1673,6 @@ func yamlFlowToCUE(s string, indent int) string {
 	if err != nil {
 		return strconv.Quote(s)
 	}
-	// format.Node renders at indent 0. Prepend tabs to interior
-	// lines so the output aligns with the surrounding context.
 	result := strings.TrimSpace(string(b))
 	if indent == 0 {
 		return result
@@ -1731,16 +1683,6 @@ func yamlFlowToCUE(s string, indent int) string {
 		lines[i] = prefix + lines[i]
 	}
 	return strings.Join(lines, "\n")
-}
-
-// yamlToCUE converts a YAML value string (scalar or flow collection)
-// to its CUE representation at the given indent level.
-func yamlToCUE(s string, indent int) string {
-	s = strings.TrimSpace(s)
-	if isFlowCollection(s) {
-		return yamlFlowToCUE(s, indent)
-	}
-	return yamlScalarToCUE(s)
 }
 
 func (c *converter) processNodes(nodes []parse.Node) error {
@@ -3729,19 +3671,31 @@ func (c *converter) tplContextDef() HelperDef {
 }
 
 func nodeToCUELiteral(node parse.Node) (string, error) {
+	var val any
 	switch n := node.(type) {
 	case *parse.StringNode:
-		return strconv.Quote(n.Text), nil
+		val = n.Text
 	case *parse.NumberNode:
-		return n.Text, nil
-	case *parse.BoolNode:
-		if n.True {
-			return "true", nil
+		if n.IsInt {
+			val = n.Int64
+		} else if n.IsUint {
+			val = n.Uint64
+		} else if n.IsFloat {
+			val = n.Float64
+		} else {
+			return "", fmt.Errorf("unsupported number node: %s", node)
 		}
-		return "false", nil
+	case *parse.BoolNode:
+		val = n.True
 	default:
 		return "", fmt.Errorf("unsupported literal node: %s", node)
 	}
+	v := sharedCueCtx.Encode(val)
+	b, err := format.Node(v.Syntax())
+	if err != nil {
+		return "", fmt.Errorf("formatting CUE literal: %w", err)
+	}
+	return strings.TrimSpace(string(b)), nil
 }
 
 func fieldToCUE(contextObjects map[string]string, ident []string) (string, string) {
