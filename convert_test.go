@@ -18,6 +18,7 @@ import (
 	"bytes"
 	"flag"
 	"fmt"
+	"io"
 	"io/fs"
 	"os"
 	"os/exec"
@@ -265,17 +266,21 @@ func helmTemplate(t *testing.T, helmPath string, template, values []byte, helper
 		return nil, fmt.Errorf("helm template failed: %v\n%s", err, out)
 	}
 
-	// Strip the "---\n# Source: ..." header that helm adds.
-	body := out
-	for _, prefix := range []string{"---\n", "# Source:"} {
-		if i := bytes.Index(body, []byte(prefix)); i == 0 {
-			if nl := bytes.IndexByte(body, '\n'); nl >= 0 {
-				body = body[nl+1:]
-			}
+	// Strip # Source: comment lines and leading/trailing --- lines.
+	var lines []string
+	for _, line := range strings.Split(string(out), "\n") {
+		if strings.HasPrefix(line, "# Source:") {
+			continue
 		}
+		lines = append(lines, line)
 	}
+	body := strings.Join(lines, "\n")
+	// Strip a leading "---\n".
+	body = strings.TrimPrefix(body, "---\n")
+	// Strip trailing whitespace.
+	body = strings.TrimRight(body, "\n \t") + "\n"
 
-	return body, nil
+	return []byte(body), nil
 }
 
 // cueExport runs cue export on the generated CUE, placing values.yaml at
@@ -319,7 +324,7 @@ func cueExport(t *testing.T, cueSrc, valuesYAML []byte) []byte {
 		args = append(args, "-l", "#values:", valuesPath)
 	}
 
-	args = append(args, "--out", "yaml")
+	args = append(args, "-e", "yaml.MarshalStream(output)", "--out", "text")
 
 	cmd := exec.Command("go", append([]string{"tool", "cue"}, args...)...)
 	out, err := cmd.CombinedOutput()
@@ -330,19 +335,34 @@ func cueExport(t *testing.T, cueSrc, valuesYAML []byte) []byte {
 	return out
 }
 
-// yamlSemanticEqual parses two YAML documents and compares them semantically.
+// yamlSemanticEqual parses two YAML streams (possibly multi-document)
+// and compares them document-by-document.
 func yamlSemanticEqual(a, b []byte) error {
-	var va, vb any
-	if err := yaml.Unmarshal(a, &va); err != nil {
-		return fmt.Errorf("parsing first YAML: %w", err)
+	da := yaml.NewDecoder(bytes.NewReader(a))
+	db := yaml.NewDecoder(bytes.NewReader(b))
+	for i := 0; ; i++ {
+		var va, vb any
+		errA := da.Decode(&va)
+		errB := db.Decode(&vb)
+		if errA == io.EOF && errB == io.EOF {
+			return nil
+		}
+		if errA == io.EOF {
+			return fmt.Errorf("helm has fewer documents than cue:\n--- helm:\n%s\n--- cue:\n%s", a, b)
+		}
+		if errB == io.EOF {
+			return fmt.Errorf("cue has fewer documents than helm:\n--- helm:\n%s\n--- cue:\n%s", a, b)
+		}
+		if errA != nil {
+			return fmt.Errorf("parsing helm YAML document %d: %w", i, errA)
+		}
+		if errB != nil {
+			return fmt.Errorf("parsing cue YAML document %d: %w", i, errB)
+		}
+		if !reflect.DeepEqual(va, vb) {
+			return fmt.Errorf("semantic mismatch in document %d:\n--- helm:\n%s\n--- cue:\n%s", i, a, b)
+		}
 	}
-	if err := yaml.Unmarshal(b, &vb); err != nil {
-		return fmt.Errorf("parsing second YAML: %w", err)
-	}
-	if !reflect.DeepEqual(va, vb) {
-		return fmt.Errorf("semantic mismatch:\n--- helm:\n%s\n--- cue:\n%s", a, b)
-	}
-	return nil
 }
 
 // coreTemplateExecute executes a template using Go's text/template with
@@ -395,7 +415,7 @@ func cueExportCore(t *testing.T, cueSrc, valuesYAML []byte) []byte {
 		}
 	}
 
-	args = append(args, "--out", "yaml")
+	args = append(args, "-e", "yaml.MarshalStream(output)", "--out", "text")
 
 	cmd := exec.Command("go", append([]string{"tool", "cue"}, args...)...)
 	out, err := cmd.CombinedOutput()

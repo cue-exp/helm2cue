@@ -24,11 +24,15 @@ import "strconv"
 	...
 }
 
-apiVersion: "v1"
-kind:       "ConfigMap"
-metadata: name: "test"
-data: {
-	port:     strconv.Atoi(#values.port)
-	replicas: int & #values.replicas
-	ratio:    number & #values.ratio
-}
+output: [
+	{
+		apiVersion: "v1"
+		kind:       "ConfigMap"
+		metadata: name: "test"
+		data: {
+			port:     strconv.Atoi(#values.port)
+			replicas: int & #values.replicas
+			ratio:    number & #values.ratio
+		}
+	},
+]

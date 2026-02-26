@@ -1,42 +1,63 @@
-Conditional with and operator.
+Cross-document if block: {{if}} wraps --- separator.
 
+-- _helpers.tpl --
 -- values.yaml --
-name: my-app
 enabled: true
-ready: true
+name: test
 -- input.yaml --
+{{- if .Values.enabled }}
 apiVersion: v1
 kind: ConfigMap
 metadata:
   name: {{ .Values.name }}
-{{- if and .Values.enabled .Values.ready }}
 data:
-  status: active
+  key: one
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Values.name }}
+data:
+  key: two
 {{- end }}
 -- helm_output.yaml --
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: my-app
+  name: test
 data:
-  status: active
+  key: one
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test
+data:
+  key: two
 -- output.cue --
 import "struct"
 
 #values: {
-	name!:    bool | number | string | null
 	enabled?: bool | number | string | null
-	ready?:   bool | number | string | null
+	name!:    bool | number | string | null
 	...
 }
 
 output: [
-	{
-		apiVersion: "v1"
-		kind:       "ConfigMap"
-		metadata: name: #values.name
-		if (_nonzero & {#arg: #values.enabled, _}) && (_nonzero & {#arg: #values.ready, _}) {
-			data: status: "active"
+	if (_nonzero & {#arg: #values.enabled, _}) {
+		{
+			apiVersion: "v1"
+			kind:       "ConfigMap"
+			metadata: name: #values.name
+			data: key: "one"
+		}
+	},
+	if (_nonzero & {#arg: #values.enabled, _}) {
+		{
+			apiVersion: "v1"
+			kind:       "ConfigMap"
+			metadata: name: #values.name
+			data: key: "two"
 		}
 	},
 ]

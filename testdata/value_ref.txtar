@@ -24,7 +24,11 @@ data:
 	...
 }
 
-apiVersion: "v1"
-kind:       "ConfigMap"
-metadata: name: #values.name
-data: replicas: #values.replicas
+output: [
+	{
+		apiVersion: "v1"
+		kind:       "ConfigMap"
+		metadata: name: #values.name
+		data: replicas: #values.replicas
+	},
+]

@@ -30,17 +30,21 @@ import "struct"
 	...
 }
 
-apiVersion: "v1"
-kind:       "ConfigMap"
-metadata: {
-	name: #values.name
-	labels: {
-		app: #values.name
-		if (_nonzero & {#arg: #values.tier, _}) {
-			tier: #values.tier
+output: [
+	{
+		apiVersion: "v1"
+		kind:       "ConfigMap"
+		metadata: {
+			name: #values.name
+			labels: {
+				app: #values.name
+				if (_nonzero & {#arg: #values.tier, _}) {
+					tier: #values.tier
+				}
+			}
 		}
-	}
-}
+	},
+]
 _nonzero: {
 	#arg?: _
 	[if #arg != _|_ {

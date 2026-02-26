@@ -40,12 +40,16 @@ _myapp_enabled: {
 	}
 }
 
-apiVersion: "v1"
-kind:       "ConfigMap"
-metadata: name: "test"
-if (_nonzero & {#arg: _myapp_enabled, _}) {
-	data: enabled: "yes"
-}
+output: [
+	{
+		apiVersion: "v1"
+		kind:       "ConfigMap"
+		metadata: name: "test"
+		if (_nonzero & {#arg: _myapp_enabled, _}) {
+			data: enabled: "yes"
+		}
+	},
+]
 _nonzero: {
 	#arg?: _
 	[if #arg != _|_ {

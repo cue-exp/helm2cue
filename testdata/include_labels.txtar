@@ -36,9 +36,13 @@ _myapp_labels: {
 	release: #release.Name
 }
 
-apiVersion: "v1"
-kind:       "ConfigMap"
-metadata: {
-	name:   "test"
-	labels: _myapp_labels
-}
+output: [
+	{
+		apiVersion: "v1"
+		kind:       "ConfigMap"
+		metadata: {
+			name:   "test"
+			labels: _myapp_labels
+		}
+	},
+]

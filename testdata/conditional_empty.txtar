@@ -29,18 +29,22 @@ import "struct"
 	...
 }
 
-apiVersion: "v1"
-kind:       "Service"
-spec: {
-	if !(!(_nonzero & {#arg: #values.loadBalancerSourceRanges, _})) {
-		loadBalancerSourceRanges: [
-			"10.0.0.0/8",
-		]
-	}
-	if !(_nonzero & {#arg: #values.optional, _}) {
-		optional: "default-value"
-	}
-}
+output: [
+	{
+		apiVersion: "v1"
+		kind:       "Service"
+		spec: {
+			if !(!(_nonzero & {#arg: #values.loadBalancerSourceRanges, _})) {
+				loadBalancerSourceRanges: [
+					"10.0.0.0/8",
+				]
+			}
+			if !(_nonzero & {#arg: #values.optional, _}) {
+				optional: "default-value"
+			}
+		}
+	},
+]
 _nonzero: {
 	#arg?: _
 	[if #arg != _|_ {

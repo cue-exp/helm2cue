@@ -30,12 +30,16 @@ import "struct"
 	...
 }
 
-apiVersion: "v1"
-kind:       "ConfigMap"
-metadata: name: #values.name
-if (_nonzero & {#arg: #values.enabled, _}) && !(_nonzero & {#arg: #values.maintenance, _}) {
-	data: status: "running"
-}
+output: [
+	{
+		apiVersion: "v1"
+		kind:       "ConfigMap"
+		metadata: name: #values.name
+		if (_nonzero & {#arg: #values.enabled, _}) && !(_nonzero & {#arg: #values.maintenance, _}) {
+			data: status: "running"
+		}
+	},
+]
 _nonzero: {
 	#arg?: _
 	[if #arg != _|_ {

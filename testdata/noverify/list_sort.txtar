@@ -22,7 +22,11 @@ import "list"
 	...
 }
 
-apiVersion: "v1"
-kind:       "ConfigMap"
-metadata: name: "test"
-data: sorted: list.SortStrings(#values.items)
+output: [
+	{
+		apiVersion: "v1"
+		kind:       "ConfigMap"
+		metadata: name: "test"
+		data: sorted: list.SortStrings(#values.items)
+	},
+]

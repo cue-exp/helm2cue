@@ -1,0 +1,79 @@
+Cross-document range block: {{range}} wraps --- separator.
+
+-- _helpers.tpl --
+-- values.yaml --
+items:
+  - name: a
+  - name: b
+-- input.yaml --
+{{- range .Values.items }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .name }}
+data:
+  key: one
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .name }}
+data:
+  key: two
+{{- end }}
+-- helm_output.yaml --
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: a
+data:
+  key: one
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: a
+data:
+  key: two
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: b
+data:
+  key: one
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: b
+data:
+  key: two
+-- output.cue --
+import "list"
+
+#values: {
+	items!: [...{
+		name!: bool | number | string | null
+		...
+	}]
+	...
+}
+
+output: list.FlattenN([
+	for _, _range0 in #values.items {[
+		{
+			apiVersion: "v1"
+			kind:       "ConfigMap"
+			metadata: name: _range0.name
+			data: key: "one"
+		},
+		{
+			apiVersion: "v1"
+			kind:       "ConfigMap"
+			metadata: name: _range0.name
+			data: key: "two"
+		},
+	]},
+], -1)

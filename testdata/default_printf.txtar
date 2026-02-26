@@ -21,4 +21,8 @@ tag: {{ .Values.image.tag | default (printf "v%s" .Chart.AppVersion) }}
 	...
 }
 
-tag: #values.image.tag
+output: [
+	{
+		tag: #values.image.tag
+	},
+]

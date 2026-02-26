@@ -27,7 +27,11 @@ import "strings"
 	...
 }
 
-apiVersion: "v1"
-kind:       "ConfigMap"
-metadata: name: "test"
-data: joined: strings.Join(#values.items, ",")
+output: [
+	{
+		apiVersion: "v1"
+		kind:       "ConfigMap"
+		metadata: name: "test"
+		data: joined: strings.Join(#values.items, ",")
+	},
+]

@@ -18,4 +18,8 @@ _id: {
 	#arg
 }
 
-name: _id & {#arg: #input.name, _}
+output: [
+	{
+		name: _id & {#arg: #input.name, _}
+	},
+]

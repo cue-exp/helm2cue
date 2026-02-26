@@ -16,6 +16,10 @@ metadata:
 -- output.cue --
 _myapp_labels: app: "myapp"
 
-apiVersion: "v1"
-kind:       "Service"
-metadata: labels: _myapp_labels
+output: [
+	{
+		apiVersion: "v1"
+		kind:       "Service"
+		metadata: labels: _myapp_labels
+	},
+]

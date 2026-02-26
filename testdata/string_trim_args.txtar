@@ -26,10 +26,14 @@ import "strings"
 	...
 }
 
-apiVersion: "v1"
-kind:       "ConfigMap"
-metadata: name: "test"
-data: {
-	trimPrefix: strings.TrimPrefix(#values.name, "prefix-")
-	trimSuffix: strings.TrimSuffix(#values.name, "-suffix")
-}
+output: [
+	{
+		apiVersion: "v1"
+		kind:       "ConfigMap"
+		metadata: name: "test"
+		data: {
+			trimPrefix: strings.TrimPrefix(#values.name, "prefix-")
+			trimSuffix: strings.TrimSuffix(#values.name, "-suffix")
+		}
+	},
+]

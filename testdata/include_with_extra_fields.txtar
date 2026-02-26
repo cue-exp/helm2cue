@@ -29,13 +29,17 @@ data:
 -- output.cue --
 _myapp_labels: app: "myapp"
 
-apiVersion: "v1"
-kind:       "ConfigMap"
-metadata: {
-	name: "test"
-	labels: {
-		_myapp_labels
-		extra: "field"
-	}
-}
-data: key: "value"
+output: [
+	{
+		apiVersion: "v1"
+		kind:       "ConfigMap"
+		metadata: {
+			name: "test"
+			labels: {
+				_myapp_labels
+				extra: "field"
+			}
+		}
+		data: key: "value"
+	},
+]

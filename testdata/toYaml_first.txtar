@@ -36,16 +36,20 @@ import "struct"
 	...
 }
 
-apiVersion: "v1"
-kind:       "Deployment"
-spec: {
-	if (_nonzero & {#arg: #values.updateStrategy, _}) {
-		strategy: #values.updateStrategy
-	}
-	if (_nonzero & {#arg: #values.resources, _}) {
-		resources: #values.resources
-	}
-}
+output: [
+	{
+		apiVersion: "v1"
+		kind:       "Deployment"
+		spec: {
+			if (_nonzero & {#arg: #values.updateStrategy, _}) {
+				strategy: #values.updateStrategy
+			}
+			if (_nonzero & {#arg: #values.resources, _}) {
+				resources: #values.resources
+			}
+		}
+	},
+]
 _nonzero: {
 	#arg?: _
 	[if #arg != _|_ {

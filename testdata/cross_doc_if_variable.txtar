@@ -1,28 +1,40 @@
-include used inside a condition (if/and/or).
+Cross-document if block with variable defined before the separator.
 
 -- _helpers.tpl --
-{{- define "myapp.enabled" -}}
-{{- if .Values.enabled -}}true{{- end -}}
-{{- end -}}
 -- values.yaml --
 enabled: true
-name: my-app
+name: test
 -- input.yaml --
+{{- if .Values.enabled }}
+{{- $n := .Values.name }}
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: {{ .Values.name }}
-{{- if include "myapp.enabled" . }}
+  name: {{ $n }}-one
 data:
-  status: active
+  key: one
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ $n }}-two
+data:
+  key: two
 {{- end }}
 -- helm_output.yaml --
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: my-app
+  name: test-one
 data:
-  status: active
+  key: one
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test-two
+data:
+  key: two
 -- output.cue --
 import "struct"
 
@@ -31,19 +43,22 @@ import "struct"
 	name!:    bool | number | string | null
 	...
 }
-_myapp_enabled: {
-	if (_nonzero & {#arg: #values.enabled, _}) {
-		true
-	}
-}
 
 output: [
+	if (_nonzero & {#arg: #values.enabled, _}) {
+		{
+			apiVersion: "v1"
+			kind:       "ConfigMap"
+			metadata: name: "\(#values.name)-one"
+			data: key: "one"
+		}
+	},
 	{
-		apiVersion: "v1"
-		kind:       "ConfigMap"
-		metadata: name: #values.name
-		if (_nonzero & {#arg: _myapp_enabled, _}) {
-			data: status: "active"
+		if (_nonzero & {#arg: #values.enabled, _}) {
+			apiVersion: "v1"
+			kind:       "ConfigMap"
+			metadata: name: "\(#values.name)-two"
+			data: key: "two"
 		}
 	},
 ]

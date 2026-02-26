@@ -23,6 +23,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"text/template/parse"
 
 	"cuelang.org/go/cue"
 	"cuelang.org/go/cue/cuecontext"
@@ -167,8 +168,14 @@ func ConvertChart(chartDir, outDir string, opts ChartOptions) error {
 		}
 
 		fieldName := templateFieldName(relPath)
-		docs := splitYAMLDocuments(content)
+		docs := splitTemplateDocuments(content, treeSet)
+		if docs == nil {
+			docs = splitYAMLDocuments(content)
+		}
 
+		// Convert each document fragment.
+		var docResults []*convertResult
+		allOK := true
 		for i, doc := range docs {
 			totalDocs++
 			docFieldName := fieldName
@@ -180,17 +187,26 @@ func ConvertChart(chartDir, outDir string, opts ChartOptions) error {
 			r, err := convertStructured(cfg, doc, templateName, treeSet, helperFileNames)
 			if err != nil {
 				warnings = append(warnings, fmt.Sprintf("skipping %s (doc %d): %v", relPath, i, err))
-				continue
+				allOK = false
+				break
 			}
 
-			// Validate the template body is valid CUE.
 			if err := validateTemplateBody(r); err != nil {
 				warnings = append(warnings, fmt.Sprintf("skipping %s (doc %d): %v", relPath, i, err))
-				continue
+				allOK = false
+				break
 			}
 
-			results = append(results, templateResult{docFieldName, relPath, r})
+			docResults = append(docResults, r)
 		}
+		if !allOK || len(docResults) == 0 {
+			continue
+		}
+
+		// Merge all docs for this template file into a single
+		// list-based result.
+		merged := mergeChartDocResults(docResults)
+		results = append(results, templateResult{fieldName, relPath, merged})
 	}
 
 	if len(results) == 0 {
@@ -553,29 +569,18 @@ func writeDataCUE(outDir, pkgName string) error {
 }
 
 // writeResultsCUE writes results.cue which aggregates all template outputs
-// into a list. This enables producing a multi-document YAML stream similar to
-// `helm template` output via:
-//
-//	cue export . -t release_name=NAME --out text -e 'yaml.MarshalStream(results)'
+// into a single list. Each template produces a list, so results concatenates
+// them using list.FlattenN.
 func writeResultsCUE(outDir, pkgName string, results []templateResult) error {
 	var buf bytes.Buffer
 	buf.WriteString(generatedHeader)
 	fmt.Fprintf(&buf, "package %s\n\n", pkgName)
-	buf.WriteString("results: [\n")
+	buf.WriteString("import \"list\"\n\n")
+	buf.WriteString("results: list.FlattenN([\n")
 	for _, tr := range results {
-		if len(tr.result.topLevelGuards) > 0 {
-			for _, guard := range tr.result.topLevelGuards {
-				fmt.Fprintf(&buf, "\tif %s {\n", guard)
-			}
-			fmt.Fprintf(&buf, "\t\t%s,\n", tr.fieldName)
-			for range tr.result.topLevelGuards {
-				buf.WriteString("\t},\n")
-			}
-		} else {
-			fmt.Fprintf(&buf, "\t%s,\n", tr.fieldName)
-		}
+		fmt.Fprintf(&buf, "\t%s,\n", tr.fieldName)
 	}
-	buf.WriteString("]\n")
+	buf.WriteString("], 1)\n")
 
 	return writeCUEFile(filepath.Join(outDir, "results.cue"), buf.Bytes())
 }
@@ -639,7 +644,9 @@ func writeContextCUE(outDir, pkgName string, meta chartMetadata, usedContextObje
 	return writeCUEFile(filepath.Join(outDir, "context.cue"), buf.Bytes())
 }
 
-// writeTemplateCUE writes a per-template .cue file with the body wrapped in a field.
+// writeTemplateCUE writes a per-template .cue file. The body is already
+// wrapped as a list by mergeChartDocResults, so we emit it directly as
+// fieldName: [body].
 func writeTemplateCUE(outDir, pkgName, fieldName string, r *convertResult) error {
 	var buf bytes.Buffer
 	buf.WriteString(generatedHeader)
@@ -681,30 +688,8 @@ func writeTemplateCUE(outDir, pkgName, fieldName string, r *convertResult) error
 		return nil
 	}
 
-	// Top-level guards go outside the field wrapper.
-	indent := 0
-	if len(r.topLevelGuards) > 0 {
-		for _, guard := range r.topLevelGuards {
-			writeIndent(&buf, indent)
-			fmt.Fprintf(&buf, "if %s {\n", guard)
-			indent++
-		}
-	}
-
-	writeIndent(&buf, indent)
-	fmt.Fprintf(&buf, "%s: {\n", fieldName)
-	for _, line := range strings.Split(body, "\n") {
-		writeIndent(&buf, indent+1)
-		buf.WriteString(line)
-		buf.WriteByte('\n')
-	}
-	writeIndent(&buf, indent)
-	buf.WriteString("}\n")
-
-	for i := len(r.topLevelGuards) - 1; i >= 0; i-- {
-		writeIndent(&buf, i)
-		buf.WriteString("}\n")
-	}
+	// The body from mergeChartDocResults is already the list contents.
+	fmt.Fprintf(&buf, "%s: %s\n", fieldName, body)
 
 	return writeCUEFile(filepath.Join(outDir, fieldName+".cue"), buf.Bytes())
 }
@@ -718,7 +703,7 @@ func validateTemplateBody(r *convertResult) error {
 		return nil
 	}
 
-	// Build a CUE file with the body wrapped in a struct field.
+	// Build a CUE file with the body wrapped in a list element.
 	var src bytes.Buffer
 	indent := 0
 	if len(r.topLevelGuards) > 0 {
@@ -729,14 +714,14 @@ func validateTemplateBody(r *convertResult) error {
 		}
 	}
 	writeIndent(&src, indent)
-	src.WriteString("_body: {\n")
+	src.WriteString("_body: [{\n")
 	for _, line := range strings.Split(body, "\n") {
 		writeIndent(&src, indent+1)
 		src.WriteString(line)
 		src.WriteByte('\n')
 	}
 	writeIndent(&src, indent)
-	src.WriteString("}\n")
+	src.WriteString("}]\n")
 	for i := len(r.topLevelGuards) - 1; i >= 0; i-- {
 		writeIndent(&src, i)
 		src.WriteString("}\n")
@@ -747,6 +732,496 @@ func validateTemplateBody(r *convertResult) error {
 		fmt.Fprintf(os.Stderr, "DEBUG: CUE validation failed: %v\nsource:\n%s\n", err, src.Bytes())
 	}
 	return err
+}
+
+// blockWrapper records the opening/closing template text for a block
+// (if/range/with) that spans a --- boundary. Fragments inside the
+// block get these prepended/appended so each is independently parseable.
+type blockWrapper struct {
+	open    string // e.g. "{{- if .Values.enabled }}\n"
+	close   string // e.g. "{{- end }}\n"
+	isRange bool   // true if the block is a range (vs if/with)
+}
+
+// splitTemplateDocuments splits a template file into per-document
+// fragments, handling control blocks (if/range/with) that span ---
+// boundaries. It parses the whole file as a single template to find
+// block structure, then splits the raw text and augments each fragment
+// with enclosing block wrappers and variable definitions from earlier
+// fragments.
+//
+// If the whole-file parse fails, it returns nil (caller should fall
+// back to splitYAMLDocuments). If no --- separator is found, it
+// returns nil.
+func splitTemplateDocuments(content []byte, treeSet map[string]*parse.Tree) [][]byte {
+	// Quick check: any --- at all?
+	if !yamlDocSep.Match(content) {
+		return nil
+	}
+
+	// Parse the whole file as a single template.
+	tmpl := parse.New("__splitcheck__")
+	tmpl.Mode = parse.SkipFuncCheck | parse.ParseComments
+	// Clone treeSet to avoid polluting the shared set.
+	tsCopy := make(map[string]*parse.Tree, len(treeSet))
+	for k, v := range treeSet {
+		tsCopy[k] = v
+	}
+	if _, err := tmpl.Parse(string(content), "{{", "}}", tsCopy); err != nil {
+		return nil
+	}
+	root := tmpl.Root
+	if root == nil {
+		return nil
+	}
+
+	// Walk the AST to find --- separators and their block context.
+	var info docSplitInfo
+	info.varDefs = make(map[string]string)
+	walkDocBoundaries(root.Nodes, nil, &info)
+
+	if len(info.boundaries) == 0 {
+		return nil
+	}
+
+	// Split the raw content on --- lines.
+	rawDocs := splitYAMLDocuments(content)
+	if len(rawDocs) <= 1 {
+		return rawDocs
+	}
+
+	// Build augmented fragments.
+	//
+	// boundaries[i] describes the block context at the i-th ---
+	// separator (between rawDocs[i] and rawDocs[i+1]).
+	//
+	// The raw text of each fragment already contains the original
+	// template actions. When a block spans a ---, the first fragment
+	// has the opener (e.g. {{if ...}}) but no closer, and the last
+	// fragment has the closer ({{end}}) but no opener. So:
+	//
+	//   Fragment 0:     add closers for boundary[0].wrappers
+	//   Fragment i>0:   add openers from boundary[i-1].wrappers
+	//                   add closers from boundary[i].wrappers (if exists)
+	//   Fragment last:  add openers from boundary[last].wrappers only
+	//
+	// Variable definitions from earlier fragments are also prepended.
+	result := make([][]byte, len(rawDocs))
+
+	// Fragment 0: may need closers if boundary[0] has wrappers.
+	if len(info.boundaries) > 0 && len(info.boundaries[0].wrappers) > 0 {
+		var buf bytes.Buffer
+		buf.Write(rawDocs[0])
+		for j := len(info.boundaries[0].wrappers) - 1; j >= 0; j-- {
+			buf.WriteString(info.boundaries[0].wrappers[j].close)
+		}
+		result[0] = stripLeadingClean(buf.Bytes())
+	} else {
+		result[0] = rawDocs[0]
+	}
+
+	for i := 1; i < len(rawDocs); i++ {
+		prevBIdx := i - 1
+		if prevBIdx >= len(info.boundaries) {
+			result[i] = rawDocs[i]
+			continue
+		}
+		prevB := info.boundaries[prevBIdx]
+
+		var buf bytes.Buffer
+		// Prepend variable definitions from earlier documents.
+		for _, vd := range prevB.varDefs {
+			buf.WriteString(vd)
+			buf.WriteByte('\n')
+		}
+		// Prepend block openers from the boundary before this fragment.
+		for _, w := range prevB.wrappers {
+			buf.WriteString(w.open)
+		}
+		buf.Write(rawDocs[i])
+		// Append block closers only if there's a next boundary
+		// (i.e. this isn't the last fragment) with wrappers.
+		nextBIdx := i
+		if nextBIdx < len(info.boundaries) {
+			nextB := info.boundaries[nextBIdx]
+			for j := len(nextB.wrappers) - 1; j >= 0; j-- {
+				buf.WriteString(nextB.wrappers[j].close)
+			}
+		}
+
+		result[i] = stripLeadingClean(buf.Bytes())
+	}
+
+	return result
+}
+
+// stripLeadingClean strips leading blank/comment lines and trailing
+// whitespace, like splitYAMLDocuments does for each fragment.
+func stripLeadingClean(data []byte) []byte {
+	s := string(data)
+	for {
+		loc := yamlLeadingRe.FindStringIndex(s)
+		if loc == nil || loc[0] != 0 {
+			break
+		}
+		s = s[loc[1]:]
+	}
+	s = strings.TrimRight(s, "\n\t ")
+	if s == "" {
+		return data
+	}
+	return []byte(s + "\n")
+}
+
+// docBoundary records the block context and variable definitions at a
+// single --- separator.
+type docBoundary struct {
+	wrappers []blockWrapper // enclosing blocks, outermost first
+	varDefs  []string       // "{{$var := expr}}" lines to prepend
+}
+
+// docSplitInfo accumulates state while walking the AST for --- boundaries.
+type docSplitInfo struct {
+	boundaries []docBoundary
+	varDefs    map[string]string // accumulated $var definitions
+}
+
+// walkDocBoundaries walks a list of AST nodes looking for TextNodes
+// containing ---. wrappers is the stack of enclosing blocks.
+func walkDocBoundaries(nodes []parse.Node, wrappers []blockWrapper, info *docSplitInfo) {
+	for _, node := range nodes {
+		switch n := node.(type) {
+		case *parse.TextNode:
+			// Check if this text contains --- separators.
+			text := string(n.Text)
+			locs := yamlDocSep.FindAllStringIndex(text, -1)
+			for range locs {
+				// Snapshot current variable definitions.
+				var vds []string
+				// Collect in sorted order for determinism.
+				var keys []string
+				for k := range info.varDefs {
+					keys = append(keys, k)
+				}
+				slices.Sort(keys)
+				for _, k := range keys {
+					vds = append(vds, info.varDefs[k])
+				}
+				info.boundaries = append(info.boundaries, docBoundary{
+					wrappers: slices.Clone(wrappers),
+					varDefs:  vds,
+				})
+			}
+
+		case *parse.ActionNode:
+			// Check for variable declarations: {{$var := expr}}.
+			if n.Pipe != nil && len(n.Pipe.Decl) > 0 && !n.Pipe.IsAssign {
+				for _, v := range n.Pipe.Decl {
+					varName := v.Ident[0] // e.g. "$var"
+					// Reconstruct the declaration action text.
+					info.varDefs[varName] = "{{" + n.Pipe.String() + "}}"
+				}
+			}
+
+		case *parse.IfNode:
+			walkBranchForBoundaries(&n.BranchNode, parse.NodeIf, wrappers, info)
+
+		case *parse.RangeNode:
+			walkBranchForBoundaries(&n.BranchNode, parse.NodeRange, wrappers, info)
+
+		case *parse.WithNode:
+			walkBranchForBoundaries(&n.BranchNode, parse.NodeWith, wrappers, info)
+		}
+	}
+}
+
+// walkBranchForBoundaries walks if/range/with branch nodes looking for
+// --- boundaries in their bodies. If found, the block's open/close
+// actions are added to the wrapper stack for inner boundaries.
+func walkBranchForBoundaries(br *parse.BranchNode, nodeType parse.NodeType, wrappers []blockWrapper, info *docSplitInfo) {
+	// Check if the body or else-body contain --- separators.
+	var keyword string
+	switch nodeType {
+	case parse.NodeIf:
+		keyword = "if"
+	case parse.NodeRange:
+		keyword = "range"
+	case parse.NodeWith:
+		keyword = "with"
+	}
+
+	open := "{{" + keyword + " " + br.Pipe.String() + "}}\n"
+	close := "{{end}}\n"
+	w := blockWrapper{open: open, close: close, isRange: nodeType == parse.NodeRange}
+
+	if br.List != nil {
+		innerWrappers := append(slices.Clone(wrappers), w)
+		walkDocBoundaries(br.List.Nodes, innerWrappers, info)
+	}
+	if br.ElseList != nil {
+		// For else branches, wrap the else body with the full
+		// block + else structure.
+		elseOpen := "{{" + keyword + " " + br.Pipe.String() + "}}{{else}}\n"
+		elseClose := "{{end}}\n"
+		elseW := blockWrapper{open: elseOpen, close: elseClose, isRange: nodeType == parse.NodeRange}
+		innerWrappers := append(slices.Clone(wrappers), elseW)
+		walkDocBoundaries(br.ElseList.Nodes, innerWrappers, info)
+	}
+}
+
+// mergeChartDocResults merges per-document convertResults from a single
+// template file into a single result whose body is a CUE list expression.
+// Cross-document if guards become conditional list elements. Cross-document
+// range blocks become list.FlattenN([for ... {[...]}], -1).
+func mergeChartDocResults(results []*convertResult) *convertResult {
+	merged := &convertResult{
+		imports:            make(map[string]bool),
+		usedHelpers:        make(map[string]HelperDef),
+		usedContextObjects: make(map[string]bool),
+		fieldRefs:          make(map[string][][]string),
+		requiredRefs:       make(map[string][][]string),
+		rangeRefs:          make(map[string][][]string),
+		defaults:           make(map[string][]fieldDefault),
+	}
+
+	for i, r := range results {
+		for k, v := range r.imports {
+			merged.imports[k] = v
+		}
+		if r.needsNonzero {
+			merged.needsNonzero = true
+		}
+		for k, v := range r.usedHelpers {
+			merged.usedHelpers[k] = v
+		}
+		for k := range r.usedContextObjects {
+			merged.usedContextObjects[k] = true
+		}
+		for k, v := range r.fieldRefs {
+			merged.fieldRefs[k] = append(merged.fieldRefs[k], v...)
+		}
+		for k, v := range r.requiredRefs {
+			merged.requiredRefs[k] = append(merged.requiredRefs[k], v...)
+		}
+		for k, v := range r.rangeRefs {
+			merged.rangeRefs[k] = append(merged.rangeRefs[k], v...)
+		}
+		for k, v := range r.defaults {
+			merged.defaults[k] = append(merged.defaults[k], v...)
+		}
+		if r.hasDynamicInclude {
+			merged.hasDynamicInclude = true
+		}
+
+		// Take helper info from the first result (all share the same treeSet).
+		if i == 0 {
+			merged.helpers = r.helpers
+			merged.helperOrder = r.helperOrder
+			merged.helperExprs = r.helperExprs
+			merged.undefinedHelpers = r.undefinedHelpers
+		}
+	}
+
+	// Build list body.
+	var body bytes.Buffer
+
+	if len(results) == 1 {
+		r := results[0]
+		docBody := strings.TrimRight(r.body, "\n")
+		if docBody == "" {
+			merged.body = "[]"
+			return merged
+		}
+
+		if r.topLevelRange != "" {
+			// Single doc with top-level range.
+			merged.imports["list"] = true
+			body.WriteString("list.FlattenN([")
+			body.WriteString(r.topLevelRange)
+			body.WriteString(" {[\n")
+			for _, line := range strings.Split(r.topLevelRangeBody, "\n") {
+				body.WriteString("\t{\n")
+				for _, bline := range strings.Split(line, "\n") {
+					if bline != "" {
+						body.WriteString("\t\t")
+						body.WriteString(bline)
+						body.WriteByte('\n')
+					}
+				}
+				body.WriteString("\t},\n")
+			}
+			body.WriteString("]}], -1)")
+		} else if len(r.topLevelGuards) > 0 {
+			body.WriteString("[\n")
+			indent := 1
+			for _, guard := range r.topLevelGuards {
+				writeIndent(&body, indent)
+				fmt.Fprintf(&body, "if %s {\n", guard)
+				indent++
+			}
+			writeIndent(&body, indent)
+			body.WriteString("{\n")
+			for _, line := range strings.Split(docBody, "\n") {
+				writeIndent(&body, indent+1)
+				body.WriteString(line)
+				body.WriteByte('\n')
+			}
+			writeIndent(&body, indent)
+			body.WriteString("},\n")
+			for j := len(r.topLevelGuards) - 1; j >= 0; j-- {
+				writeIndent(&body, j+1)
+				body.WriteString("}\n")
+			}
+			body.WriteString("]")
+		} else {
+			body.WriteString("[{\n")
+			for _, line := range strings.Split(docBody, "\n") {
+				body.WriteString("\t")
+				body.WriteString(line)
+				body.WriteByte('\n')
+			}
+			body.WriteString("}]")
+		}
+	} else {
+		// Multiple documents — group by range blocks.
+		type docEntry struct {
+			body           string
+			topLevelGuards []string
+			topLevelRange  string
+			rangeBody      string
+		}
+		var entries []docEntry
+		for _, r := range results {
+			docBody := strings.TrimRight(r.body, "\n")
+			rangeBody := ""
+			if r.topLevelRange != "" {
+				rangeBody = strings.TrimRight(r.topLevelRangeBody, "\n")
+			}
+			entries = append(entries, docEntry{
+				body:           docBody,
+				topLevelGuards: r.topLevelGuards,
+				topLevelRange:  r.topLevelRange,
+				rangeBody:      rangeBody,
+			})
+		}
+
+		// Check if all entries share the same topLevelRange.
+		hasRange := false
+		for _, e := range entries {
+			if e.topLevelRange != "" {
+				hasRange = true
+				break
+			}
+		}
+
+		if hasRange {
+			// Group consecutive entries that share the same
+			// topLevelRange into list.FlattenN blocks.
+			merged.imports["list"] = true
+			body.WriteString("list.FlattenN([\n")
+			i := 0
+			for i < len(entries) {
+				e := entries[i]
+				if e.topLevelRange != "" {
+					// Find consecutive entries with the same range.
+					rangeHeader := e.topLevelRange
+					j := i
+					for j < len(entries) && entries[j].topLevelRange == rangeHeader {
+						j++
+					}
+					body.WriteString("\t")
+					body.WriteString(rangeHeader)
+					body.WriteString(" {[\n")
+					for k := i; k < j; k++ {
+						rb := entries[k].rangeBody
+						if rb == "" {
+							rb = entries[k].body
+						}
+						body.WriteString("\t\t{\n")
+						for _, line := range strings.Split(rb, "\n") {
+							body.WriteString("\t\t\t")
+							body.WriteString(line)
+							body.WriteByte('\n')
+						}
+						body.WriteString("\t\t},\n")
+					}
+					body.WriteString("\t]},\n")
+					i = j
+				} else if len(e.topLevelGuards) > 0 {
+					indent := 1
+					for _, guard := range e.topLevelGuards {
+						writeIndent(&body, indent)
+						fmt.Fprintf(&body, "if %s {\n", guard)
+						indent++
+					}
+					writeIndent(&body, indent)
+					body.WriteString("{\n")
+					for _, line := range strings.Split(e.body, "\n") {
+						writeIndent(&body, indent+1)
+						body.WriteString(line)
+						body.WriteByte('\n')
+					}
+					writeIndent(&body, indent)
+					body.WriteString("},\n")
+					for g := len(e.topLevelGuards) - 1; g >= 0; g-- {
+						writeIndent(&body, g+1)
+						body.WriteString("}\n")
+					}
+					i++
+				} else {
+					body.WriteString("\t{\n")
+					for _, line := range strings.Split(e.body, "\n") {
+						body.WriteString("\t\t")
+						body.WriteString(line)
+						body.WriteByte('\n')
+					}
+					body.WriteString("\t},\n")
+					i++
+				}
+			}
+			body.WriteString("], -1)")
+		} else {
+			body.WriteString("[\n")
+			for _, e := range entries {
+				if e.body == "" {
+					continue
+				}
+				if len(e.topLevelGuards) > 0 {
+					indent := 1
+					for _, guard := range e.topLevelGuards {
+						writeIndent(&body, indent)
+						fmt.Fprintf(&body, "if %s {\n", guard)
+						indent++
+					}
+					writeIndent(&body, indent)
+					body.WriteString("{\n")
+					for _, line := range strings.Split(e.body, "\n") {
+						writeIndent(&body, indent+1)
+						body.WriteString(line)
+						body.WriteByte('\n')
+					}
+					writeIndent(&body, indent)
+					body.WriteString("},\n")
+					for g := len(e.topLevelGuards) - 1; g >= 0; g-- {
+						writeIndent(&body, g+1)
+						body.WriteString("}\n")
+					}
+				} else {
+					body.WriteString("\t{\n")
+					for _, line := range strings.Split(e.body, "\n") {
+						body.WriteString("\t\t")
+						body.WriteString(line)
+						body.WriteByte('\n')
+					}
+					body.WriteString("\t},\n")
+				}
+			}
+			body.WriteString("]")
+		}
+	}
+
+	merged.body = body.String()
+	return merged
 }
 
 // sanitizeIdentifier converts a string to a valid CUE identifier.

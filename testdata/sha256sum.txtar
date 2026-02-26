@@ -27,7 +27,11 @@ import (
 	...
 }
 
-apiVersion: "v1"
-kind:       "ConfigMap"
-metadata: name: "test"
-data: checksum: hex.Encode(sha256.Sum256(#values.secret))
+output: [
+	{
+		apiVersion: "v1"
+		kind:       "ConfigMap"
+		metadata: name: "test"
+		data: checksum: hex.Encode(sha256.Sum256(#values.secret))
+	},
+]

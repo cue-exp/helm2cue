@@ -36,21 +36,25 @@ import "struct"
 	...
 }
 
-apiVersion: "v1"
-kind:       "Service"
-spec: {
-	type: #values.service.type
-	if #values.service.type == "ClusterIP" {
-		clusterIP: #values.service.clusterIP
-	}
-	if #values.service.type != "ExternalName" {
-		ports: [
-			{
-				port: 80
-			},
-		]
-	}
-}
+output: [
+	{
+		apiVersion: "v1"
+		kind:       "Service"
+		spec: {
+			type: #values.service.type
+			if #values.service.type == "ClusterIP" {
+				clusterIP: #values.service.clusterIP
+			}
+			if #values.service.type != "ExternalName" {
+				ports: [
+					{
+						port: 80
+					},
+				]
+			}
+		}
+	},
+]
 _nonzero: {
 	#arg?: _
 	[if #arg != _|_ {
