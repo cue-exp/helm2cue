@@ -74,6 +74,9 @@ When creating issues, follow the repo's issue templates in
 `.github/ISSUE_TEMPLATE/`. Pick the appropriate template (bug report, feature
 request) and fill in all required fields. Do not use freeform bodies.
 
+When creating issues via `gh issue create`, use `--label bug` for bug reports
+and `--label "feature request"` for feature requests.
+
 For the "helm2cue version" field in bug reports, build a binary first so that
 VCS metadata is included (`go run` does not embed it):
 
