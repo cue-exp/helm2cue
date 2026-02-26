@@ -15,19 +15,18 @@
 package main
 
 import (
-	"os"
+	"io/fs"
 	"testing"
 
 	"github.com/rogpeppe/go-internal/testscript"
 )
 
-func TestMain(m *testing.M) {
-	testscript.Main(m, map[string]func(){
-		"helm2cue": func() { os.Exit(main1()) },
-	})
-}
-
 func TestCLI(t *testing.T) {
+	// Glob through testdataFS to track these files as read.
+	// testscript reads them directly from the directory.
+	if _, err := fs.Glob(testdataFS, "cli/*.txtar"); err != nil {
+		t.Fatal(err)
+	}
 	testscript.Run(t, testscript.Params{
 		Dir:           "testdata/cli",
 		UpdateScripts: *update,
