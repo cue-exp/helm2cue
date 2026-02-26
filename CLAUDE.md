@@ -74,6 +74,23 @@ When creating issues, follow the repo's issue templates in
 `.github/ISSUE_TEMPLATE/`. Pick the appropriate template (bug report, feature
 request) and fill in all required fields. Do not use freeform bodies.
 
+In issue bodies, use **indented code blocks** (4-space indent), not fenced
+backtick blocks.
+
+### Reproducers in bug reports
+
+The "What did you do?" section of a bug report should contain a
+[testscript](https://pkg.go.dev/github.com/rogpeppe/go-internal/testscript)
+reproducer that could be dropped into `testdata/cli/` as a `.txtar` file.
+Follow the conventions of existing CLI tests:
+
+- Use `stdin` + `exec helm2cue template` (or the appropriate subcommand).
+- Compare full output against a golden file with `cmp stdout want-stdout`
+  (or `cmp stderr want-stderr` for error cases). Do **not** use `stdout` /
+  `stderr` pattern assertions for non-error reproducers.
+- Include all necessary archive files (`-- input.yaml --`, `-- want-stdout --`,
+  etc.).
+
 ## Rules
 
 - Do not use commands like `cat` to read or write files; use the dedicated tools.
