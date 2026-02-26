@@ -22,6 +22,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"reflect"
+	"regexp"
 	"strings"
 	"testing"
 	"text/template"
@@ -32,6 +33,8 @@ import (
 )
 
 var update = flag.Bool("update", false, "update golden files in testdata")
+
+var contextDefRe = regexp.MustCompile(`(?m)^(#\w+):\s`)
 
 // coreParseFuncs provides stub entries for Go text/template built-in
 // functions. The parse package doesn't pre-register these, so they must

@@ -1,5 +1,0 @@
-apiVersion: v2
-name: subdir-helpers
-description: Chart with helpers in template subdirectories
-version: 0.1.0
-appVersion: "1.0.0"

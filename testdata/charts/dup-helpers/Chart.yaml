@@ -1,5 +1,0 @@
-apiVersion: v2
-name: dup-helpers
-description: Chart with duplicate helper definitions across subcharts
-version: 0.1.0
-appVersion: "1.0.0"
