@@ -1267,6 +1267,25 @@ func (c *converter) emitTextNode(text []byte) {
 		return
 	}
 
+	// Check if text starts as a continuation of a deferred key-value.
+	// This handles "key: {{ action }}suffix" patterns where the suffix
+	// text is part of the same YAML value.
+	if c.deferredKV != nil && s[0] != '\n' {
+		d := c.deferredKV
+		c.deferredKV = nil
+		writeIndent(&c.out, d.cueInd)
+		key := cueKey(d.key)
+		if d.rawKey {
+			key = d.key
+		}
+		fmt.Fprintf(&c.out, "%s: ", key)
+		c.inlineParts = []string{inlineExpr(d.value)}
+		if d.comment != "" {
+			c.inlineSuffix = " " + d.comment
+		}
+		// Fall through to inline handler below.
+	}
+
 	// Handle inline continuation: if inline accumulation is active,
 	// append text up to the first newline, then finalize.
 	if c.inlineParts != nil {
@@ -3288,6 +3307,30 @@ func (c *converter) actionToCUE(n *parse.ActionNode) (expr string, helmObj strin
 				h := c.tplContextDef()
 				c.usedHelpers[h.Name] = h
 				expr = fmt.Sprintf("yaml.Unmarshal(template.Execute(%s, _tplContext))", expr)
+				handled = true
+			}
+		case "ternary":
+			if c.isCoreFunc(id.Ident) {
+				if len(cmd.Args) != 3 {
+					return "", "", fmt.Errorf("ternary in pipeline requires 2 arguments, got %d", len(cmd.Args)-1)
+				}
+				trueVal, trueObj, err := c.nodeToExpr(cmd.Args[1])
+				if err != nil {
+					return "", "", fmt.Errorf("ternary true value: %w", err)
+				}
+				falseVal, falseObj, err := c.nodeToExpr(cmd.Args[2])
+				if err != nil {
+					return "", "", fmt.Errorf("ternary false value: %w", err)
+				}
+				condExpr := fmt.Sprintf("(_nonzero & {#arg: %s, _})", expr)
+				c.hasConditions = true
+				expr = fmt.Sprintf("[if %s {%s}, %s][0]", condExpr, trueVal, falseVal)
+				if trueObj != "" {
+					helmObj = trueObj
+				}
+				if falseObj != "" {
+					helmObj = falseObj
+				}
 				handled = true
 			}
 		default:

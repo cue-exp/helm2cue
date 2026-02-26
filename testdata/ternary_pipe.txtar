@@ -1,0 +1,49 @@
+ternary in pipeline position: piped value becomes the condition.
+
+-- values.yaml --
+debug: true
+-- input.yaml --
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test
+data:
+  debug: {{ .Values.debug | ternary "true" "false" | quote }}
+  scheme: {{ .Values.debug | ternary "https" "http" }}
+-- helm_output.yaml --
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test
+data:
+  debug: "true"
+  scheme: https
+-- output.cue --
+import "struct"
+
+#values: {
+	debug!: bool | number | string | null
+	...
+}
+
+apiVersion: "v1"
+kind:       "ConfigMap"
+metadata: name: "test"
+data: {
+	debug: "\([if (_nonzero & {#arg: #values.debug, _}) {"true"}, "false"][0])"
+	scheme: [if (_nonzero & {#arg: #values.debug, _}) {"https"}, "http"][0]
+}
+_nonzero: {
+	#arg?: _
+	[if #arg != _|_ {
+		[
+			if (#arg & int) != _|_ {#arg != 0},
+			if (#arg & string) != _|_ {#arg != ""},
+			if (#arg & float) != _|_ {#arg != 0.0},
+			if (#arg & bool) != _|_ {#arg},
+			if (#arg & [...]) != _|_ {len(#arg) > 0},
+			if (#arg & {...}) != _|_ {(#arg & struct.MaxFields(0)) == _|_},
+			false,
+		][0]
+	}, false][0]
+}

@@ -743,6 +743,9 @@ func validateTemplateBody(r *convertResult) error {
 	}
 
 	_, err := parser.ParseFile("body.cue", src.Bytes())
+	if err != nil && os.Getenv("HELM2CUE_DEBUG") != "" {
+		fmt.Fprintf(os.Stderr, "DEBUG: CUE validation failed: %v\nsource:\n%s\n", err, src.Bytes())
+	}
 	return err
 }
 

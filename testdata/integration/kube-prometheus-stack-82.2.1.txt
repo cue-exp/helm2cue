@@ -6,13 +6,6 @@ warning: skipping alertmanager/route.yaml (doc 0): parsing template: template: c
 warning: skipping alertmanager/route.yaml (doc 1): parsing template: template: chart_alertmanager_route_1:1: undefined variable "$route"
 warning: skipping alertmanager/secret.yaml (doc 0): if condition: unsupported condition function: typeOf
 warning: skipping alertmanager/serviceperreplica.yaml (doc 0): range: unsupported pipe: $i, $e := until $count
-warning: skipping exporters/core-dns/servicemonitor.yaml (doc 0): expected 'EOF', found '}'
-warning: skipping exporters/kube-controller-manager/servicemonitor.yaml (doc 0): expected 'EOF', found '}'
-warning: skipping exporters/kube-dns/servicemonitor.yaml (doc 0): expected 'EOF', found '}'
-warning: skipping exporters/kube-etcd/servicemonitor.yaml (doc 0): expected 'EOF', found '}'
-warning: skipping exporters/kube-proxy/servicemonitor.yaml (doc 0): expected 'EOF', found '}'
-warning: skipping exporters/kube-scheduler/servicemonitor.yaml (doc 0): expected 'EOF', found '}'
-warning: skipping exporters/kubelet/servicemonitor.yaml (doc 0): expected operand, found ']' (and 1 more errors)
 warning: skipping extra-objects.yaml (doc 0): parsing template: template: chart_extra_objects_0:9: unexpected EOF
 warning: skipping extra-objects.yaml (doc 1): parsing template: template: chart_extra_objects_1:6: unexpected {{end}}
 warning: skipping grafana/configmaps-datasources.yaml (doc 0): unsupported template action: {{(tpl $.Values.grafana.sidecar.datasources.labelValue $) | quote}}
@@ -84,12 +77,10 @@ warning: skipping grafana/dashboards-1.14/scheduler.yaml (doc 0): unsupported te
 warning: skipping grafana/dashboards-1.14/scheduler.yaml (doc 1): parsing template: template: chart_grafana_dashboards_1_14_scheduler_1:1: undefined variable "$kubeTargetVersion"
 warning: skipping grafana/dashboards-1.14/workload-total.yaml (doc 0): unsupported template action: {{((tpl $.Values.grafana.sidecar.dashboards.labelValue $) | default 1) | quote}}
 warning: skipping grafana/dashboards-1.14/workload-total.yaml (doc 1): parsing template: template: chart_grafana_dashboards_1_14_workload_total_1:1: undefined variable "$kubeTargetVersion"
-warning: skipping prometheus-operator/admission-webhooks/deployment/deployment.yaml (doc 0): unsupported pipeline function: ternary
+warning: skipping prometheus-operator/admission-webhooks/deployment/deployment.yaml (doc 0): expected operand, found ']' (and 4 more errors)
 warning: skipping prometheus-operator/admission-webhooks/deployment/pdb.yaml (doc 0): toYaml argument: unsupported pipe node: omit .Values.prometheusOperator.admissionWebhooks.deployment.podDisruptionBudget "enabled"
-warning: skipping prometheus-operator/admission-webhooks/job-patch/job-createSecret.yaml (doc 0): expected 'EOF', found '}'
-warning: skipping prometheus-operator/admission-webhooks/job-patch/job-patchWebhook.yaml (doc 0): expected 'EOF', found '}'
-warning: skipping prometheus-operator/admission-webhooks/mutatingWebhookConfiguration.yaml (doc 0): unsupported pipeline function: ternary
-warning: skipping prometheus-operator/admission-webhooks/validatingWebhookConfiguration.yaml (doc 0): unsupported pipeline function: ternary
+warning: skipping prometheus-operator/admission-webhooks/mutatingWebhookConfiguration.yaml (doc 0): with condition: unsupported condition function: omit
+warning: skipping prometheus-operator/admission-webhooks/validatingWebhookConfiguration.yaml (doc 0): with condition: unsupported condition function: omit
 warning: skipping prometheus-operator/aggregate-clusterroles.yaml (doc 0): parsing template: template: chart_prometheus_operator_aggregate_clusterroles_0:16: unexpected EOF
 warning: skipping prometheus-operator/aggregate-clusterroles.yaml (doc 1): parsing template: template: chart_prometheus_operator_aggregate_clusterroles_1:13: unexpected {{end}}
 warning: skipping prometheus-operator/certmanager.yaml (doc 0): parsing template: template: chart_prometheus_operator_certmanager_0:12: unexpected EOF
@@ -98,7 +89,7 @@ warning: skipping prometheus-operator/certmanager.yaml (doc 3): parsing template
 warning: skipping prometheus-operator/ciliumnetworkpolicy.yaml (doc 0): square bracket must have exactly one element (and 5 more errors)
 warning: skipping prometheus-operator/deployment.yaml (doc 0): unsupported template action: {{(((.Values.prometheusOperator.prometheusConfigReloader.resources).requests).cpu) | default 0}}
 warning: skipping prometheus-operator/pdb.yaml (doc 0): toYaml argument: unsupported pipe node: omit .Values.prometheusOperator.podDisruptionBudget "enabled"
-warning: skipping prometheus-operator/servicemonitor.yaml (doc 0): expected operand, found ']' (and 2 more errors)
+warning: skipping prometheus-operator/servicemonitor.yaml (doc 0): missing ',' in list literal (and 5 more errors)
 warning: skipping prometheus-operator/verticalpodautoscaler.yaml (doc 0): top-level if condition: unsupported condition: .Capabilities.APIVersions.Has "autoscaling.k8s.io/v1"
 warning: skipping prometheus/additionalPrometheusRules.yaml (doc 0): parsing template: template: chart_prometheus_additionalPrometheusRules_0:3: unexpected EOF
 warning: skipping prometheus/additionalPrometheusRules.yaml (doc 1): parsing template: template: chart_prometheus_additionalPrometheusRules_1:4: undefined variable "$prometheusRuleName"
@@ -110,7 +101,6 @@ warning: skipping prometheus/csi-secret.yaml (doc 1): parsing template: template
 warning: skipping prometheus/ingress.yaml (doc 0): default value: unsupported literal node: list
 warning: skipping prometheus/ingressThanosSidecar.yaml (doc 0): range: unsupported node: $paths
 warning: skipping prometheus/ingressperreplica.yaml (doc 0): range: unsupported pipe: $i, $e := until $count
-warning: skipping prometheus/podmonitors.yaml (doc 0): expected operand, found ']' (and 1 more errors)
 warning: skipping prometheus/prometheus.yaml (doc 0): if condition: unsupported condition function: kindIs
 warning: skipping prometheus/route.yaml (doc 0): parsing template: template: chart_prometheus_route_0:6: unexpected EOF
 warning: skipping prometheus/route.yaml (doc 1): parsing template: template: chart_prometheus_route_1:1: undefined variable "$route"
@@ -133,17 +123,18 @@ warning: skipping prometheus/rules-1.14/node-exporter.yaml (doc 0): unsupported 
 warning: skipping prometheus/rules-1.14/node-network.yaml (doc 0): unsupported template action: {{dig "NodeNetworkInterfaceFlapping" "for" "2m" .Values.customRules}}
 warning: skipping prometheus/rules-1.14/prometheus-operator.yaml (doc 0): unsupported template action: {{dig "PrometheusOperatorListErrors" "for" "15m" .Values.customRules}}
 warning: skipping prometheus/rules-1.14/prometheus.yaml (doc 0): unsupported template action: {{dig "PrometheusBadConfig" "for" "10m" .Values.customRules}}
-warning: skipping prometheus/servicemonitors.yaml (doc 0): expected operand, found ']' (and 1 more errors)
 warning: skipping prometheus/serviceperreplica.yaml (doc 0): range: unsupported pipe: $i, $e := until $count
 warning: skipping thanos-ruler/ingress.yaml (doc 0): range: unsupported node: $paths
 warning: skipping thanos-ruler/route.yaml (doc 0): parsing template: template: chart_thanos_ruler_route_0:6: unexpected EOF
 warning: skipping thanos-ruler/route.yaml (doc 1): parsing template: template: chart_thanos_ruler_route_1:1: undefined variable "$route"
 warning: skipping thanos-ruler/ruler.yaml (doc 0): tpl template argument: unsupported pipe node: index .Values.thanosRuler.ingress.hosts 0
-warning: values schema inconsistency: #values.alertmanager.ingress.serviceName: reference "_kube_prometheus_stack_fullname" not found (and 20 more errors)
-warning: values.yaml does not satisfy inferred schema: #values.alertmanager.ingress.serviceName: reference "_kube_prometheus_stack_fullname" not found (and 20 more errors)
-converted 76/216 templates from kube-prometheus-stack
+warning: values schema inconsistency: #values.alertmanager.ingress.serviceName: reference "_kube_prometheus_stack_fullname" not found (and 19 more errors)
+warning: values.yaml does not satisfy inferred schema: #values.alertmanager.ingress.serviceName: reference "_kube_prometheus_stack_fullname" not found (and 19 more errors)
+converted 87/216 templates from kube-prometheus-stack
 -- cue vet --
 exit status 1
+prometheus_operator_admission_webhooks_job_patch_job_createSecret.spec.template.spec.containers.args: invalid string: invalid whitespace:
+    ./prometheus_operator_admission_webhooks_job_patch_job_createSecret.cue:56:95
 results: reference "alertmanager_extrasecret" not found:
     ./results.cue:7:3
 results: reference "alertmanager_networkpolicy" not found:
@@ -156,98 +147,122 @@ results: reference "alertmanager_servicemonitor" not found:
     ./results.cue:20:3
 results: reference "exporters_core_dns_service" not found:
     ./results.cue:23:3
-results: reference "exporters_kube_api_server_servicemonitor" not found:
+results: reference "exporters_core_dns_servicemonitor" not found:
     ./results.cue:26:3
-results: reference "exporters_kube_controller_manager_endpoints" not found:
+results: reference "exporters_kube_api_server_servicemonitor" not found:
     ./results.cue:29:3
-results: reference "exporters_kube_controller_manager_service" not found:
+results: reference "exporters_kube_controller_manager_endpoints" not found:
     ./results.cue:32:3
-results: reference "exporters_kube_dns_service" not found:
+results: reference "exporters_kube_controller_manager_service" not found:
     ./results.cue:35:3
-results: reference "exporters_kube_etcd_endpoints" not found:
+results: reference "exporters_kube_controller_manager_servicemonitor" not found:
     ./results.cue:38:3
-results: reference "exporters_kube_etcd_service" not found:
+results: reference "exporters_kube_dns_service" not found:
     ./results.cue:41:3
-results: reference "exporters_kube_proxy_endpoints" not found:
+results: reference "exporters_kube_dns_servicemonitor" not found:
     ./results.cue:44:3
-results: reference "exporters_kube_proxy_service" not found:
+results: reference "exporters_kube_etcd_endpoints" not found:
     ./results.cue:47:3
-results: reference "exporters_kube_scheduler_endpoints" not found:
+results: reference "exporters_kube_etcd_service" not found:
     ./results.cue:50:3
-results: reference "exporters_kube_scheduler_service" not found:
+results: reference "exporters_kube_etcd_servicemonitor" not found:
     ./results.cue:53:3
-results: reference "prometheus_operator_admission_webhooks_deployment_service" not found:
+results: reference "exporters_kube_proxy_endpoints" not found:
     ./results.cue:56:3
-results: reference "prometheus_operator_admission_webhooks_deployment_serviceaccount" not found:
+results: reference "exporters_kube_proxy_service" not found:
     ./results.cue:59:3
+results: reference "exporters_kube_proxy_servicemonitor" not found:
+    ./results.cue:62:3
+results: reference "exporters_kube_scheduler_endpoints" not found:
+    ./results.cue:65:3
+results: reference "exporters_kube_scheduler_service" not found:
+    ./results.cue:68:3
+results: reference "exporters_kube_scheduler_servicemonitor" not found:
+    ./results.cue:71:3
+results: reference "exporters_kubelet_servicemonitor" not found:
+    ./results.cue:74:3
+results: reference "prometheus_operator_admission_webhooks_deployment_service" not found:
+    ./results.cue:77:3
+results: reference "prometheus_operator_admission_webhooks_deployment_serviceaccount" not found:
+    ./results.cue:80:3
 results: reference "prometheus_operator_admission_webhooks_job_patch_ciliumnetworkpolicy_createSecret" not found:
-    ./results.cue:63:4
-results: reference "prometheus_operator_admission_webhooks_job_patch_ciliumnetworkpolicy_patchWebhook" not found:
-    ./results.cue:68:4
-results: reference "prometheus_operator_admission_webhooks_job_patch_clusterrole" not found:
-    ./results.cue:72:3
-results: reference "prometheus_operator_admission_webhooks_job_patch_clusterrolebinding" not found:
-    ./results.cue:75:3
-results: reference "prometheus_operator_admission_webhooks_job_patch_networkpolicy_createSecret" not found:
-    ./results.cue:79:4
-results: reference "prometheus_operator_admission_webhooks_job_patch_networkpolicy_patchWebhook" not found:
     ./results.cue:84:4
+results: reference "prometheus_operator_admission_webhooks_job_patch_ciliumnetworkpolicy_patchWebhook" not found:
+    ./results.cue:89:4
+results: reference "prometheus_operator_admission_webhooks_job_patch_clusterrole" not found:
+    ./results.cue:93:3
+results: reference "prometheus_operator_admission_webhooks_job_patch_clusterrolebinding" not found:
+    ./results.cue:96:3
+results: reference "prometheus_operator_admission_webhooks_job_patch_job_createSecret" not found:
+    ./results.cue:99:3
+results: reference "prometheus_operator_admission_webhooks_job_patch_job_patchWebhook" not found:
+    ./results.cue:102:3
+results: reference "prometheus_operator_admission_webhooks_job_patch_networkpolicy_createSecret" not found:
+    ./results.cue:106:4
+results: reference "prometheus_operator_admission_webhooks_job_patch_networkpolicy_patchWebhook" not found:
+    ./results.cue:111:4
 results: reference "prometheus_operator_admission_webhooks_job_patch_role" not found:
-    ./results.cue:88:3
+    ./results.cue:115:3
 results: reference "prometheus_operator_admission_webhooks_job_patch_rolebinding" not found:
-    ./results.cue:91:3
+    ./results.cue:118:3
 results: reference "prometheus_operator_admission_webhooks_job_patch_serviceaccount" not found:
-    ./results.cue:94:3
+    ./results.cue:121:3
 results: reference "prometheus_operator_clusterrole" not found:
-    ./results.cue:98:3
-results: reference "prometheus_operator_clusterrolebinding" not found:
-    ./results.cue:101:3
-results: reference "prometheus_operator_networkpolicy" not found:
-    ./results.cue:104:3
-results: reference "prometheus_operator_service" not found:
-    ./results.cue:107:3
-results: reference "prometheus_operator_serviceaccount" not found:
-    ./results.cue:110:3
-results: reference "prometheus_additionalAlertRelabelConfigs" not found:
-    ./results.cue:113:3
-results: reference "prometheus_additionalAlertmanagerConfigs" not found:
-    ./results.cue:116:3
-results: reference "prometheus_ciliumnetworkpolicy" not found:
-    ./results.cue:119:3
-results: reference "prometheus_clusterrolebinding" not found:
-    ./results.cue:122:3
-results: reference "prometheus_extrasecret" not found:
     ./results.cue:125:3
-results: reference "prometheus_networkpolicy" not found:
+results: reference "prometheus_operator_clusterrolebinding" not found:
     ./results.cue:128:3
-results: reference "prometheus_podDisruptionBudget" not found:
+results: reference "prometheus_operator_networkpolicy" not found:
     ./results.cue:131:3
+results: reference "prometheus_operator_service" not found:
+    ./results.cue:134:3
+results: reference "prometheus_operator_serviceaccount" not found:
+    ./results.cue:137:3
+results: reference "prometheus_additionalAlertRelabelConfigs" not found:
+    ./results.cue:140:3
+results: reference "prometheus_additionalAlertmanagerConfigs" not found:
+    ./results.cue:143:3
+results: reference "prometheus_ciliumnetworkpolicy" not found:
+    ./results.cue:146:3
+results: reference "prometheus_clusterrolebinding" not found:
+    ./results.cue:149:3
+results: reference "prometheus_extrasecret" not found:
+    ./results.cue:152:3
+results: reference "prometheus_networkpolicy" not found:
+    ./results.cue:155:3
+results: reference "prometheus_podDisruptionBudget" not found:
+    ./results.cue:158:3
+results: reference "prometheus_podmonitors" not found:
+    ./results.cue:161:3
 results: reference "prometheus_secret" not found:
-    ./results.cue:157:4
+    ./results.cue:187:4
 results: reference "prometheus_serviceThanosSidecar" not found:
-    ./results.cue:162:3
-results: reference "prometheus_serviceThanosSidecarExternal" not found:
-    ./results.cue:165:3
-results: reference "prometheus_serviceaccount" not found:
-    ./results.cue:168:3
-results: reference "prometheus_servicemonitor" not found:
-    ./results.cue:171:3
-results: reference "prometheus_servicemonitorThanosSidecar" not found:
-    ./results.cue:174:3
-results: reference "thanos_ruler_extrasecret" not found:
-    ./results.cue:177:3
-results: reference "thanos_ruler_podDisruptionBudget" not found:
-    ./results.cue:180:3
-results: reference "thanos_ruler_secret" not found:
-    ./results.cue:183:3
-results: reference "thanos_ruler_service" not found:
-    ./results.cue:186:3
-results: reference "thanos_ruler_serviceaccount" not found:
-    ./results.cue:189:3
-results: reference "thanos_ruler_servicemonitor" not found:
     ./results.cue:192:3
+results: reference "prometheus_serviceThanosSidecarExternal" not found:
+    ./results.cue:195:3
+results: reference "prometheus_serviceaccount" not found:
+    ./results.cue:198:3
+results: reference "prometheus_servicemonitor" not found:
+    ./results.cue:201:3
+results: reference "prometheus_servicemonitorThanosSidecar" not found:
+    ./results.cue:204:3
+results: reference "prometheus_servicemonitors" not found:
+    ./results.cue:207:3
+results: reference "thanos_ruler_extrasecret" not found:
+    ./results.cue:210:3
+results: reference "thanos_ruler_podDisruptionBudget" not found:
+    ./results.cue:213:3
+results: reference "thanos_ruler_secret" not found:
+    ./results.cue:216:3
+results: reference "thanos_ruler_service" not found:
+    ./results.cue:219:3
+results: reference "thanos_ruler_serviceaccount" not found:
+    ./results.cue:222:3
+results: reference "thanos_ruler_servicemonitor" not found:
+    ./results.cue:225:3
 -- cue export --
 exit status 1
+prometheus_operator_admission_webhooks_job_patch_job_createSecret.spec.template.spec.containers.args: invalid string: invalid whitespace:
+    ./prometheus_operator_admission_webhooks_job_patch_job_createSecret.cue:56:95
 results: reference "alertmanager_extrasecret" not found:
     ./results.cue:7:3
 results: reference "alertmanager_networkpolicy" not found:
@@ -260,93 +275,115 @@ results: reference "alertmanager_servicemonitor" not found:
     ./results.cue:20:3
 results: reference "exporters_core_dns_service" not found:
     ./results.cue:23:3
-results: reference "exporters_kube_api_server_servicemonitor" not found:
+results: reference "exporters_core_dns_servicemonitor" not found:
     ./results.cue:26:3
-results: reference "exporters_kube_controller_manager_endpoints" not found:
+results: reference "exporters_kube_api_server_servicemonitor" not found:
     ./results.cue:29:3
-results: reference "exporters_kube_controller_manager_service" not found:
+results: reference "exporters_kube_controller_manager_endpoints" not found:
     ./results.cue:32:3
-results: reference "exporters_kube_dns_service" not found:
+results: reference "exporters_kube_controller_manager_service" not found:
     ./results.cue:35:3
-results: reference "exporters_kube_etcd_endpoints" not found:
+results: reference "exporters_kube_controller_manager_servicemonitor" not found:
     ./results.cue:38:3
-results: reference "exporters_kube_etcd_service" not found:
+results: reference "exporters_kube_dns_service" not found:
     ./results.cue:41:3
-results: reference "exporters_kube_proxy_endpoints" not found:
+results: reference "exporters_kube_dns_servicemonitor" not found:
     ./results.cue:44:3
-results: reference "exporters_kube_proxy_service" not found:
+results: reference "exporters_kube_etcd_endpoints" not found:
     ./results.cue:47:3
-results: reference "exporters_kube_scheduler_endpoints" not found:
+results: reference "exporters_kube_etcd_service" not found:
     ./results.cue:50:3
-results: reference "exporters_kube_scheduler_service" not found:
+results: reference "exporters_kube_etcd_servicemonitor" not found:
     ./results.cue:53:3
-results: reference "prometheus_operator_admission_webhooks_deployment_service" not found:
+results: reference "exporters_kube_proxy_endpoints" not found:
     ./results.cue:56:3
-results: reference "prometheus_operator_admission_webhooks_deployment_serviceaccount" not found:
+results: reference "exporters_kube_proxy_service" not found:
     ./results.cue:59:3
+results: reference "exporters_kube_proxy_servicemonitor" not found:
+    ./results.cue:62:3
+results: reference "exporters_kube_scheduler_endpoints" not found:
+    ./results.cue:65:3
+results: reference "exporters_kube_scheduler_service" not found:
+    ./results.cue:68:3
+results: reference "exporters_kube_scheduler_servicemonitor" not found:
+    ./results.cue:71:3
+results: reference "exporters_kubelet_servicemonitor" not found:
+    ./results.cue:74:3
+results: reference "prometheus_operator_admission_webhooks_deployment_service" not found:
+    ./results.cue:77:3
+results: reference "prometheus_operator_admission_webhooks_deployment_serviceaccount" not found:
+    ./results.cue:80:3
 results: reference "prometheus_operator_admission_webhooks_job_patch_ciliumnetworkpolicy_createSecret" not found:
-    ./results.cue:63:4
-results: reference "prometheus_operator_admission_webhooks_job_patch_ciliumnetworkpolicy_patchWebhook" not found:
-    ./results.cue:68:4
-results: reference "prometheus_operator_admission_webhooks_job_patch_clusterrole" not found:
-    ./results.cue:72:3
-results: reference "prometheus_operator_admission_webhooks_job_patch_clusterrolebinding" not found:
-    ./results.cue:75:3
-results: reference "prometheus_operator_admission_webhooks_job_patch_networkpolicy_createSecret" not found:
-    ./results.cue:79:4
-results: reference "prometheus_operator_admission_webhooks_job_patch_networkpolicy_patchWebhook" not found:
     ./results.cue:84:4
+results: reference "prometheus_operator_admission_webhooks_job_patch_ciliumnetworkpolicy_patchWebhook" not found:
+    ./results.cue:89:4
+results: reference "prometheus_operator_admission_webhooks_job_patch_clusterrole" not found:
+    ./results.cue:93:3
+results: reference "prometheus_operator_admission_webhooks_job_patch_clusterrolebinding" not found:
+    ./results.cue:96:3
+results: reference "prometheus_operator_admission_webhooks_job_patch_job_createSecret" not found:
+    ./results.cue:99:3
+results: reference "prometheus_operator_admission_webhooks_job_patch_job_patchWebhook" not found:
+    ./results.cue:102:3
+results: reference "prometheus_operator_admission_webhooks_job_patch_networkpolicy_createSecret" not found:
+    ./results.cue:106:4
+results: reference "prometheus_operator_admission_webhooks_job_patch_networkpolicy_patchWebhook" not found:
+    ./results.cue:111:4
 results: reference "prometheus_operator_admission_webhooks_job_patch_role" not found:
-    ./results.cue:88:3
+    ./results.cue:115:3
 results: reference "prometheus_operator_admission_webhooks_job_patch_rolebinding" not found:
-    ./results.cue:91:3
+    ./results.cue:118:3
 results: reference "prometheus_operator_admission_webhooks_job_patch_serviceaccount" not found:
-    ./results.cue:94:3
+    ./results.cue:121:3
 results: reference "prometheus_operator_clusterrole" not found:
-    ./results.cue:98:3
-results: reference "prometheus_operator_clusterrolebinding" not found:
-    ./results.cue:101:3
-results: reference "prometheus_operator_networkpolicy" not found:
-    ./results.cue:104:3
-results: reference "prometheus_operator_service" not found:
-    ./results.cue:107:3
-results: reference "prometheus_operator_serviceaccount" not found:
-    ./results.cue:110:3
-results: reference "prometheus_additionalAlertRelabelConfigs" not found:
-    ./results.cue:113:3
-results: reference "prometheus_additionalAlertmanagerConfigs" not found:
-    ./results.cue:116:3
-results: reference "prometheus_ciliumnetworkpolicy" not found:
-    ./results.cue:119:3
-results: reference "prometheus_clusterrolebinding" not found:
-    ./results.cue:122:3
-results: reference "prometheus_extrasecret" not found:
     ./results.cue:125:3
-results: reference "prometheus_networkpolicy" not found:
+results: reference "prometheus_operator_clusterrolebinding" not found:
     ./results.cue:128:3
-results: reference "prometheus_podDisruptionBudget" not found:
+results: reference "prometheus_operator_networkpolicy" not found:
     ./results.cue:131:3
+results: reference "prometheus_operator_service" not found:
+    ./results.cue:134:3
+results: reference "prometheus_operator_serviceaccount" not found:
+    ./results.cue:137:3
+results: reference "prometheus_additionalAlertRelabelConfigs" not found:
+    ./results.cue:140:3
+results: reference "prometheus_additionalAlertmanagerConfigs" not found:
+    ./results.cue:143:3
+results: reference "prometheus_ciliumnetworkpolicy" not found:
+    ./results.cue:146:3
+results: reference "prometheus_clusterrolebinding" not found:
+    ./results.cue:149:3
+results: reference "prometheus_extrasecret" not found:
+    ./results.cue:152:3
+results: reference "prometheus_networkpolicy" not found:
+    ./results.cue:155:3
+results: reference "prometheus_podDisruptionBudget" not found:
+    ./results.cue:158:3
+results: reference "prometheus_podmonitors" not found:
+    ./results.cue:161:3
 results: reference "prometheus_secret" not found:
-    ./results.cue:157:4
+    ./results.cue:187:4
 results: reference "prometheus_serviceThanosSidecar" not found:
-    ./results.cue:162:3
-results: reference "prometheus_serviceThanosSidecarExternal" not found:
-    ./results.cue:165:3
-results: reference "prometheus_serviceaccount" not found:
-    ./results.cue:168:3
-results: reference "prometheus_servicemonitor" not found:
-    ./results.cue:171:3
-results: reference "prometheus_servicemonitorThanosSidecar" not found:
-    ./results.cue:174:3
-results: reference "thanos_ruler_extrasecret" not found:
-    ./results.cue:177:3
-results: reference "thanos_ruler_podDisruptionBudget" not found:
-    ./results.cue:180:3
-results: reference "thanos_ruler_secret" not found:
-    ./results.cue:183:3
-results: reference "thanos_ruler_service" not found:
-    ./results.cue:186:3
-results: reference "thanos_ruler_serviceaccount" not found:
-    ./results.cue:189:3
-results: reference "thanos_ruler_servicemonitor" not found:
     ./results.cue:192:3
+results: reference "prometheus_serviceThanosSidecarExternal" not found:
+    ./results.cue:195:3
+results: reference "prometheus_serviceaccount" not found:
+    ./results.cue:198:3
+results: reference "prometheus_servicemonitor" not found:
+    ./results.cue:201:3
+results: reference "prometheus_servicemonitorThanosSidecar" not found:
+    ./results.cue:204:3
+results: reference "prometheus_servicemonitors" not found:
+    ./results.cue:207:3
+results: reference "thanos_ruler_extrasecret" not found:
+    ./results.cue:210:3
+results: reference "thanos_ruler_podDisruptionBudget" not found:
+    ./results.cue:213:3
+results: reference "thanos_ruler_secret" not found:
+    ./results.cue:216:3
+results: reference "thanos_ruler_service" not found:
+    ./results.cue:219:3
+results: reference "thanos_ruler_serviceaccount" not found:
+    ./results.cue:222:3
+results: reference "thanos_ruler_servicemonitor" not found:
+    ./results.cue:225:3

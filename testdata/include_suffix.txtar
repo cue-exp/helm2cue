@@ -1,0 +1,39 @@
+Include with text suffix: value continues after template action.
+
+-- _helpers.tpl --
+{{- define "myapp.fullname" -}}
+{{- printf "%s-%s" .Release.Name .Chart.Name -}}
+{{- end -}}
+-- values.yaml --
+enabled: true
+-- input.yaml --
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ template "myapp.fullname" . }}-metrics
+  labels:
+    app: {{ include "myapp.fullname" . }}-metrics
+-- helm_output.yaml --
+apiVersion: v1
+kind: Service
+metadata:
+  name: test-test-metrics
+  labels:
+    app: test-test-metrics
+-- output.cue --
+#chart: {
+	Name!: bool | number | string | null
+	...
+}
+#release: {
+	Name!: bool | number | string | null
+	...
+}
+_myapp_fullname: "\(#release.Name)-\(#chart.Name)"
+
+apiVersion: "v1"
+kind:       "Service"
+metadata: {
+	name: "\(_myapp_fullname)-metrics"
+	labels: app: "\(_myapp_fullname)-metrics"
+}
