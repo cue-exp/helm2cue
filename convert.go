@@ -204,14 +204,16 @@ type converter struct {
 	usedHelpers        map[string]HelperDef // collected during conversion
 
 	// Direct CUE emission state.
-	out           bytes.Buffer
-	stack         []frame
-	state         emitState
-	pendingKey    string             // the key name when in statePendingKey
-	pendingKeyInd int                // YAML indent of the pending key
-	deferredKV    *pendingResolution // non-nil when action resolved pendingKey but deeper content may follow
-	comments      map[string]string  // expr → trailing comment
-	inRangeBody   bool               // true when processing range body (suppresses list item struct wrapping)
+	out                 bytes.Buffer
+	stack               []frame
+	state               emitState
+	pendingKey          string             // the key name when in statePendingKey
+	pendingKeyInd       int                // YAML indent of the pending key
+	deferredKV          *pendingResolution // non-nil when action resolved pendingKey but deeper content may follow
+	comments            map[string]string  // expr → trailing comment
+	inRangeBody         bool               // true when processing range body (suppresses list item struct wrapping)
+	rangeBodyStackDepth int                // stack depth when inRangeBody was set; only suppress at this depth
+	remainingNodes      []parse.Node       // sibling nodes not yet processed (set by processBodyNodes)
 
 	// Deferred action: action expression waiting to see if next text starts with ": " (dynamic key).
 	pendingActionExpr    string
@@ -1608,8 +1610,9 @@ func (c *converter) openPendingAsMapping(childYamlIndent int) {
 func (c *converter) processListItem(trimmed string, yamlIndent, cueInd int, isLastLine, continuesInline bool) {
 	content := strings.TrimPrefix(trimmed, "- ")
 
-	// In range body, list items emit directly without { }, wrapping.
-	if c.inRangeBody {
+	// In range body at the range's own list level, list items emit
+	// directly without { } wrapping. Nested lists use normal wrapping.
+	if c.inRangeBody && len(c.stack) == c.rangeBodyStackDepth {
 		c.processRangeListItem(content, yamlIndent, cueInd, isLastLine, continuesInline)
 		return
 	}
@@ -1856,11 +1859,13 @@ func (c *converter) processNodes(nodes []parse.Node) error {
 		return nil
 	}
 	for i, node := range nodes {
+		c.remainingNodes = nodes[i+1:]
 		c.nextNodeIsInline = i+1 < len(nodes) && isInlineNode(nodes[i+1])
 		if err := c.processNode(node); err != nil {
 			return err
 		}
 	}
+	c.remainingNodes = nil
 	return nil
 }
 
@@ -2055,12 +2060,18 @@ func (c *converter) processIf(n *parse.IfNode) error {
 	}
 
 	// If we have a pending key, resolve it based on the body content.
+	// When the if-body has no text (bodyIndent < 0), also check remaining
+	// sibling nodes — they may contain list items that determine the key type.
 	if c.state == statePendingKey {
 		if c.pendingKey == "" {
 			// Pending list item context — don't resolve pending, the if is inside the list.
 			c.state = stateNormal
-		} else if isList {
-			c.openPendingAsList(bodyIndent)
+		} else if isList || (bodyIndent < 0 && isListInSiblings(c.remainingNodes)) {
+			sibIndent := bodyIndent
+			if sibIndent < 0 {
+				sibIndent = peekBodyIndent(c.remainingNodes)
+			}
+			c.openPendingAsList(sibIndent)
 		} else {
 			childIndent := bodyIndent
 			if childIndent < 0 {
@@ -2197,8 +2208,12 @@ func (c *converter) processWith(n *parse.WithNode) error {
 	if c.state == statePendingKey {
 		if c.pendingKey == "" {
 			c.state = stateNormal
-		} else if isList {
-			c.openPendingAsList(bodyIndent)
+		} else if isList || (bodyIndent < 0 && isListInSiblings(c.remainingNodes)) {
+			sibIndent := bodyIndent
+			if sibIndent < 0 {
+				sibIndent = peekBodyIndent(c.remainingNodes)
+			}
+			c.openPendingAsList(sibIndent)
 		} else {
 			childIndent := bodyIndent
 			if childIndent < 0 {
@@ -2382,11 +2397,13 @@ func (c *converter) withPipeContext(pipe *parse.PipeNode) (helmObj string, baseP
 
 func (c *converter) processBodyNodes(nodes []parse.Node) error {
 	for i, node := range nodes {
+		c.remainingNodes = nodes[i+1:]
 		c.nextNodeIsInline = i+1 < len(nodes) && isInlineNode(nodes[i+1])
 		if err := c.processNode(node); err != nil {
 			return err
 		}
 	}
+	c.remainingNodes = nil
 	return nil
 }
 
@@ -2435,8 +2452,12 @@ func (c *converter) processRange(n *parse.RangeNode) error {
 
 	// Resolve pending key.
 	if c.state == statePendingKey && c.pendingKey != "" {
-		if isList && !isMap {
-			c.openPendingAsList(bodyIndent)
+		if (isList && !isMap) || (bodyIndent < 0 && isListInSiblings(c.remainingNodes)) {
+			sibIndent := bodyIndent
+			if sibIndent < 0 {
+				sibIndent = peekBodyIndent(c.remainingNodes)
+			}
+			c.openPendingAsList(sibIndent)
 		} else {
 			childIndent := bodyIndent
 			if childIndent < 0 {
@@ -2490,7 +2511,9 @@ func (c *converter) processRange(n *parse.RangeNode) error {
 	})
 
 	savedRangeBody := c.inRangeBody
+	savedRangeDepth := c.rangeBodyStackDepth
 	c.inRangeBody = true
+	c.rangeBodyStackDepth = len(c.stack)
 	if err := c.processBodyNodes(n.List.Nodes); err != nil {
 		return err
 	}
@@ -2499,6 +2522,7 @@ func (c *converter) processRange(n *parse.RangeNode) error {
 	c.flushPendingAction()
 	c.flushDeferred()
 	c.inRangeBody = savedRangeBody
+	c.rangeBodyStackDepth = savedRangeDepth
 
 	for len(c.stack) > savedStackLen+1 {
 		c.closeOneFrame()
@@ -2529,6 +2553,13 @@ func isListBody(nodes []parse.Node) bool {
 		return strings.HasPrefix(content, "- ")
 	}
 	return false
+}
+
+// isListInSiblings reports whether remaining sibling nodes contain list items.
+// This is used when an {{if}}/{{range}}/{{with}} body has no text content
+// (e.g. just a toYaml action), but subsequent siblings start with "- ".
+func isListInSiblings(nodes []parse.Node) bool {
+	return isListBody(nodes)
 }
 
 // peekBodyIndent returns the YAML indent of the first non-empty line, or -1 if no text.
