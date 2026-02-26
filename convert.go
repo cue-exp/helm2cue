@@ -24,8 +24,10 @@ import (
 	"strings"
 	"text/template/parse"
 
+	"cuelang.org/go/cue/ast"
 	"cuelang.org/go/cue/cuecontext"
 	"cuelang.org/go/cue/format"
+	cueyaml "cuelang.org/go/encoding/yaml"
 )
 
 // PipelineFunc describes how to convert a template pipeline function to CUE.
@@ -1275,6 +1277,9 @@ func (c *converter) emitTextNode(text []byte) {
 		// Parse the line.
 		if strings.HasPrefix(content, "- ") {
 			c.processListItem(content, yamlIndent, cueInd, isLastLine, continuesInline)
+		} else if isFlowCollection(trimmed) {
+			writeIndent(&c.out, cueInd)
+			fmt.Fprintf(&c.out, "%s\n", yamlFlowToCUE(trimmed, cueInd))
 		} else if colonIdx := strings.Index(content, ": "); colonIdx > 0 {
 			key := content[:colonIdx]
 			val := strings.TrimRight(content[colonIdx+2:], " \t")
@@ -1295,7 +1300,7 @@ func (c *converter) emitTextNode(text []byte) {
 				c.inlineParts = []string{escapeCUEString(val)}
 			} else {
 				writeIndent(&c.out, cueInd)
-				fmt.Fprintf(&c.out, "%s: %s\n", cueKey(key), yamlScalarToCUE(val))
+				fmt.Fprintf(&c.out, "%s: %s\n", cueKey(key), yamlToCUE(val, cueInd))
 			}
 		} else if strings.HasSuffix(trimmed, ":") {
 			key := strings.TrimSuffix(trimmed, ":")
@@ -1352,8 +1357,12 @@ func (c *converter) processListItem(trimmed string, yamlIndent, cueInd int, isLa
 		return
 	}
 
-	// Check if this is "- key: value" (struct in list).
-	if colonIdx := strings.Index(content, ": "); colonIdx > 0 {
+	// Check for YAML flow collections (e.g., - {key: "value"}).
+	if isFlowCollection(content) {
+		writeIndent(&c.out, cueInd)
+		fmt.Fprintf(&c.out, "%s,\n", yamlFlowToCUE(content, cueInd))
+	} else if colonIdx := strings.Index(content, ": "); colonIdx > 0 {
+		// Check if this is "- key: value" (struct in list).
 		key := content[:colonIdx]
 		val := strings.TrimRight(content[colonIdx+2:], " \t")
 
@@ -1378,7 +1387,7 @@ func (c *converter) processListItem(trimmed string, yamlIndent, cueInd int, isLa
 			writeIndent(&c.out, cueInd)
 			c.out.WriteString("{\n")
 			writeIndent(&c.out, cueInd+1)
-			fmt.Fprintf(&c.out, "%s: %s\n", cueKey(key), yamlScalarToCUE(val))
+			fmt.Fprintf(&c.out, "%s: %s\n", cueKey(key), yamlToCUE(val, cueInd+1))
 			c.stack = append(c.stack, frame{
 				yamlIndent: itemContentIndent,
 				cueIndent:  cueInd + 1,
@@ -1420,7 +1429,11 @@ func (c *converter) processListItem(trimmed string, yamlIndent, cueInd int, isLa
 func (c *converter) processRangeListItem(content string, yamlIndent, cueInd int, isLastLine, continuesInline bool) {
 	itemContentIndent := yamlIndent + 2
 
-	if colonIdx := strings.Index(content, ": "); colonIdx > 0 {
+	if isFlowCollection(content) {
+		writeIndent(&c.out, cueInd)
+		c.out.WriteString(yamlFlowToCUE(content, cueInd))
+		c.out.WriteByte('\n')
+	} else if colonIdx := strings.Index(content, ": "); colonIdx > 0 {
 		key := content[:colonIdx]
 		val := strings.TrimRight(content[colonIdx+2:], " \t")
 
@@ -1430,7 +1443,7 @@ func (c *converter) processRangeListItem(content string, yamlIndent, cueInd int,
 			c.pendingKeyInd = itemContentIndent
 		} else {
 			writeIndent(&c.out, cueInd)
-			fmt.Fprintf(&c.out, "%s: %s\n", cueKey(key), yamlScalarToCUE(val))
+			fmt.Fprintf(&c.out, "%s: %s\n", cueKey(key), yamlToCUE(val, cueInd))
 		}
 	} else if strings.HasSuffix(strings.TrimSpace(content), ":") {
 		key := strings.TrimSuffix(strings.TrimSpace(content), ":")
@@ -1494,6 +1507,58 @@ func yamlScalarToCUE(s string) string {
 	}
 
 	return strconv.Quote(s)
+}
+
+// isFlowCollection reports whether s looks like a YAML flow mapping
+// ({...}) or flow sequence ([...]) with content.
+func isFlowCollection(s string) bool {
+	s = strings.TrimSpace(s)
+	return (len(s) > 2 && s[0] == '{' && s[len(s)-1] == '}') ||
+		(len(s) > 2 && s[0] == '[' && s[len(s)-1] == ']')
+}
+
+// yamlFlowToCUE parses a YAML flow value (mapping or sequence) and
+// converts it to a CUE representation at the given indent level.
+func yamlFlowToCUE(s string, indent int) string {
+	// Wrap in a dummy key so Extract returns a field whose value
+	// is the struct/list we want.
+	f, err := cueyaml.Extract("", []byte("_: "+s))
+	if err != nil {
+		return strconv.Quote(s)
+	}
+	if len(f.Decls) == 0 {
+		return strconv.Quote(s)
+	}
+	field, ok := f.Decls[0].(*ast.Field)
+	if !ok {
+		return strconv.Quote(s)
+	}
+	b, err := format.Node(field.Value)
+	if err != nil {
+		return strconv.Quote(s)
+	}
+	// format.Node renders at indent 0. Prepend tabs to interior
+	// lines so the output aligns with the surrounding context.
+	result := strings.TrimSpace(string(b))
+	if indent == 0 {
+		return result
+	}
+	prefix := strings.Repeat("\t", indent)
+	lines := strings.Split(result, "\n")
+	for i := 1; i < len(lines); i++ {
+		lines[i] = prefix + lines[i]
+	}
+	return strings.Join(lines, "\n")
+}
+
+// yamlToCUE converts a YAML value string (scalar or flow collection)
+// to its CUE representation at the given indent level.
+func yamlToCUE(s string, indent int) string {
+	s = strings.TrimSpace(s)
+	if isFlowCollection(s) {
+		return yamlFlowToCUE(s, indent)
+	}
+	return yamlScalarToCUE(s)
 }
 
 func (c *converter) processNodes(nodes []parse.Node) error {
