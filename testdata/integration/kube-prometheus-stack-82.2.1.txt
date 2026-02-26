@@ -147,46 +147,6 @@ warning: values.yaml does not satisfy inferred schema: #values.alertmanager.ingr
 converted 73/216 templates from kube-prometheus-stack
 -- cue vet --
 exit status 1
-prometheus_operator_admission_webhooks_deployment_service: reference "_kube_prometheus_stack_prometheus_operator_webhook_labels" not found:
-    ./prometheus_operator_admission_webhooks_deployment_service.cue:17:23
-prometheus_operator_admission_webhooks_deployment_serviceaccount: reference "_kube_prometheus_stack_prometheus_operator_webhook_labels" not found:
-    ./prometheus_operator_admission_webhooks_deployment_serviceaccount.cue:19:15
-prometheus_operator_admission_webhooks_job_patch_ciliumnetworkpolicy_createSecret: reference "_kube_prometheus_stack_prometheus_operator_webhook_labels" not found:
-    ./prometheus_operator_admission_webhooks_job_patch_ciliumnetworkpolicy_createSecret.cue:27:24
-prometheus_operator_admission_webhooks_job_patch_ciliumnetworkpolicy_createSecret: reference "_kube_prometheus_stack_prometheus_operator_webhook_labels" not found:
-    ./prometheus_operator_admission_webhooks_job_patch_ciliumnetworkpolicy_createSecret.cue:40:5
-prometheus_operator_admission_webhooks_job_patch_ciliumnetworkpolicy_patchWebhook: reference "_kube_prometheus_stack_prometheus_operator_webhook_labels" not found:
-    ./prometheus_operator_admission_webhooks_job_patch_ciliumnetworkpolicy_patchWebhook.cue:27:23
-prometheus_operator_admission_webhooks_job_patch_ciliumnetworkpolicy_patchWebhook: reference "_kube_prometheus_stack_prometheus_operator_webhook_labels" not found:
-    ./prometheus_operator_admission_webhooks_job_patch_ciliumnetworkpolicy_patchWebhook.cue:40:5
-prometheus_operator_admission_webhooks_job_patch_clusterrole: reference "_kube_prometheus_stack_prometheus_operator_webhook_labels" not found:
-    ./prometheus_operator_admission_webhooks_job_patch_clusterrole.cue:20:16
-prometheus_operator_admission_webhooks_job_patch_clusterrolebinding: reference "_kube_prometheus_stack_prometheus_operator_webhook_labels" not found:
-    ./prometheus_operator_admission_webhooks_job_patch_clusterrolebinding.cue:20:16
-prometheus_operator_admission_webhooks_job_patch_networkpolicy_createSecret: reference "_kube_prometheus_stack_prometheus_operator_webhook_labels" not found:
-    ./prometheus_operator_admission_webhooks_job_patch_networkpolicy_createSecret.cue:27:24
-prometheus_operator_admission_webhooks_job_patch_networkpolicy_createSecret: reference "_kube_prometheus_stack_prometheus_operator_webhook_labels" not found:
-    ./prometheus_operator_admission_webhooks_job_patch_networkpolicy_createSecret.cue:40:5
-prometheus_operator_admission_webhooks_job_patch_networkpolicy_patchWebhook: reference "_kube_prometheus_stack_prometheus_operator_webhook_labels" not found:
-    ./prometheus_operator_admission_webhooks_job_patch_networkpolicy_patchWebhook.cue:27:23
-prometheus_operator_admission_webhooks_job_patch_networkpolicy_patchWebhook: reference "_kube_prometheus_stack_prometheus_operator_webhook_labels" not found:
-    ./prometheus_operator_admission_webhooks_job_patch_networkpolicy_patchWebhook.cue:40:5
-prometheus_operator_admission_webhooks_job_patch_role: reference "_kube_prometheus_stack_prometheus_operator_webhook_labels" not found:
-    ./prometheus_operator_admission_webhooks_job_patch_role.cue:21:16
-prometheus_operator_admission_webhooks_job_patch_rolebinding: reference "_kube_prometheus_stack_prometheus_operator_webhook_labels" not found:
-    ./prometheus_operator_admission_webhooks_job_patch_rolebinding.cue:21:16
-prometheus_operator_admission_webhooks_job_patch_serviceaccount: reference "_kube_prometheus_stack_prometheus_operator_webhook_labels" not found:
-    ./prometheus_operator_admission_webhooks_job_patch_serviceaccount.cue:23:16
-prometheus_operator_clusterrole.metadata.labels: reference "_kube_prometheus_stack_prometheus_operator_labels" not found:
-    ./prometheus_operator_clusterrole.cue:11:12
-prometheus_operator_clusterrolebinding.metadata.labels: reference "_kube_prometheus_stack_prometheus_operator_labels" not found:
-    ./prometheus_operator_clusterrolebinding.cue:11:12
-prometheus_operator_networkpolicy.metadata.labels: reference "_kube_prometheus_stack_prometheus_operator_labels" not found:
-    ./prometheus_operator_networkpolicy.cue:12:15
-prometheus_operator_service.metadata.labels: reference "_kube_prometheus_stack_prometheus_operator_labels" not found:
-    ./prometheus_operator_service.cue:12:15
-prometheus_operator_serviceaccount.metadata.labels: reference "_kube_prometheus_stack_prometheus_operator_labels" not found:
-    ./prometheus_operator_serviceaccount.cue:14:15
 results: reference "alertmanager_extrasecret" not found:
     ./results.cue:7:3
 results: reference "alertmanager_networkpolicy" not found:
@@ -285,46 +245,6 @@ results: reference "thanos_ruler_serviceaccount" not found:
     ./results.cue:183:3
 -- cue export --
 exit status 1
-prometheus_operator_admission_webhooks_deployment_service: reference "_kube_prometheus_stack_prometheus_operator_webhook_labels" not found:
-    ./prometheus_operator_admission_webhooks_deployment_service.cue:17:23
-prometheus_operator_admission_webhooks_deployment_serviceaccount: reference "_kube_prometheus_stack_prometheus_operator_webhook_labels" not found:
-    ./prometheus_operator_admission_webhooks_deployment_serviceaccount.cue:19:15
-prometheus_operator_admission_webhooks_job_patch_ciliumnetworkpolicy_createSecret: reference "_kube_prometheus_stack_prometheus_operator_webhook_labels" not found:
-    ./prometheus_operator_admission_webhooks_job_patch_ciliumnetworkpolicy_createSecret.cue:27:24
-prometheus_operator_admission_webhooks_job_patch_ciliumnetworkpolicy_createSecret: reference "_kube_prometheus_stack_prometheus_operator_webhook_labels" not found:
-    ./prometheus_operator_admission_webhooks_job_patch_ciliumnetworkpolicy_createSecret.cue:40:5
-prometheus_operator_admission_webhooks_job_patch_ciliumnetworkpolicy_patchWebhook: reference "_kube_prometheus_stack_prometheus_operator_webhook_labels" not found:
-    ./prometheus_operator_admission_webhooks_job_patch_ciliumnetworkpolicy_patchWebhook.cue:27:23
-prometheus_operator_admission_webhooks_job_patch_ciliumnetworkpolicy_patchWebhook: reference "_kube_prometheus_stack_prometheus_operator_webhook_labels" not found:
-    ./prometheus_operator_admission_webhooks_job_patch_ciliumnetworkpolicy_patchWebhook.cue:40:5
-prometheus_operator_admission_webhooks_job_patch_clusterrole: reference "_kube_prometheus_stack_prometheus_operator_webhook_labels" not found:
-    ./prometheus_operator_admission_webhooks_job_patch_clusterrole.cue:20:16
-prometheus_operator_admission_webhooks_job_patch_clusterrolebinding: reference "_kube_prometheus_stack_prometheus_operator_webhook_labels" not found:
-    ./prometheus_operator_admission_webhooks_job_patch_clusterrolebinding.cue:20:16
-prometheus_operator_admission_webhooks_job_patch_networkpolicy_createSecret: reference "_kube_prometheus_stack_prometheus_operator_webhook_labels" not found:
-    ./prometheus_operator_admission_webhooks_job_patch_networkpolicy_createSecret.cue:27:24
-prometheus_operator_admission_webhooks_job_patch_networkpolicy_createSecret: reference "_kube_prometheus_stack_prometheus_operator_webhook_labels" not found:
-    ./prometheus_operator_admission_webhooks_job_patch_networkpolicy_createSecret.cue:40:5
-prometheus_operator_admission_webhooks_job_patch_networkpolicy_patchWebhook: reference "_kube_prometheus_stack_prometheus_operator_webhook_labels" not found:
-    ./prometheus_operator_admission_webhooks_job_patch_networkpolicy_patchWebhook.cue:27:23
-prometheus_operator_admission_webhooks_job_patch_networkpolicy_patchWebhook: reference "_kube_prometheus_stack_prometheus_operator_webhook_labels" not found:
-    ./prometheus_operator_admission_webhooks_job_patch_networkpolicy_patchWebhook.cue:40:5
-prometheus_operator_admission_webhooks_job_patch_role: reference "_kube_prometheus_stack_prometheus_operator_webhook_labels" not found:
-    ./prometheus_operator_admission_webhooks_job_patch_role.cue:21:16
-prometheus_operator_admission_webhooks_job_patch_rolebinding: reference "_kube_prometheus_stack_prometheus_operator_webhook_labels" not found:
-    ./prometheus_operator_admission_webhooks_job_patch_rolebinding.cue:21:16
-prometheus_operator_admission_webhooks_job_patch_serviceaccount: reference "_kube_prometheus_stack_prometheus_operator_webhook_labels" not found:
-    ./prometheus_operator_admission_webhooks_job_patch_serviceaccount.cue:23:16
-prometheus_operator_clusterrole.metadata.labels: reference "_kube_prometheus_stack_prometheus_operator_labels" not found:
-    ./prometheus_operator_clusterrole.cue:11:12
-prometheus_operator_clusterrolebinding.metadata.labels: reference "_kube_prometheus_stack_prometheus_operator_labels" not found:
-    ./prometheus_operator_clusterrolebinding.cue:11:12
-prometheus_operator_networkpolicy.metadata.labels: reference "_kube_prometheus_stack_prometheus_operator_labels" not found:
-    ./prometheus_operator_networkpolicy.cue:12:15
-prometheus_operator_service.metadata.labels: reference "_kube_prometheus_stack_prometheus_operator_labels" not found:
-    ./prometheus_operator_service.cue:12:15
-prometheus_operator_serviceaccount.metadata.labels: reference "_kube_prometheus_stack_prometheus_operator_labels" not found:
-    ./prometheus_operator_serviceaccount.cue:14:15
 results: reference "alertmanager_extrasecret" not found:
     ./results.cue:7:3
 results: reference "alertmanager_networkpolicy" not found:

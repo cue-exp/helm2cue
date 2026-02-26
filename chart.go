@@ -79,34 +79,41 @@ func ConvertChart(chartDir, outDir string, opts ChartOptions) error {
 
 	pkgName := sanitizePackageName(meta.Name)
 
-	// 2. Collect helpers: templates/*.tpl + charts/*/templates/**/*.tpl
+	// 2. Collect helpers: templates/**/*.tpl + charts/*/templates/**/*.tpl
 	var helperData [][]byte
-	tplFiles, _ := filepath.Glob(filepath.Join(chartDir, "templates", "*.tpl"))
+	var tplFiles []string
+	filepath.WalkDir(filepath.Join(chartDir, "templates"), func(path string, d os.DirEntry, err error) error {
+		if err != nil || d.IsDir() {
+			return nil
+		}
+		if filepath.Ext(path) == ".tpl" {
+			tplFiles = append(tplFiles, path)
+		}
+		return nil
+	})
+	// Subchart helpers.
+	subchartsDir := filepath.Join(chartDir, "charts")
+	if entries, err := os.ReadDir(subchartsDir); err == nil {
+		for _, e := range entries {
+			if !e.IsDir() {
+				continue
+			}
+			filepath.WalkDir(filepath.Join(subchartsDir, e.Name(), "templates"), func(path string, d os.DirEntry, err error) error {
+				if err != nil || d.IsDir() {
+					return nil
+				}
+				if filepath.Ext(path) == ".tpl" {
+					tplFiles = append(tplFiles, path)
+				}
+				return nil
+			})
+		}
+	}
 	slices.Sort(tplFiles)
 	for _, f := range tplFiles {
 		data, err := os.ReadFile(f)
 		if err != nil {
 			return fmt.Errorf("reading helper %s: %w", f, err)
-		}
-		helperData = append(helperData, data)
-	}
-	// Subchart helpers.
-	subTplFiles, _ := filepath.Glob(filepath.Join(chartDir, "charts", "*", "templates", "*.tpl"))
-	slices.Sort(subTplFiles)
-	for _, f := range subTplFiles {
-		data, err := os.ReadFile(f)
-		if err != nil {
-			return fmt.Errorf("reading subchart helper %s: %w", f, err)
-		}
-		helperData = append(helperData, data)
-	}
-	// Deeper subchart helpers (e.g. charts/common/templates/validations/*.tpl).
-	deepSubTplFiles, _ := filepath.Glob(filepath.Join(chartDir, "charts", "*", "templates", "**", "*.tpl"))
-	slices.Sort(deepSubTplFiles)
-	for _, f := range deepSubTplFiles {
-		data, err := os.ReadFile(f)
-		if err != nil {
-			return fmt.Errorf("reading subchart helper %s: %w", f, err)
 		}
 		helperData = append(helperData, data)
 	}

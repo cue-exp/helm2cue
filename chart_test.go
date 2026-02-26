@@ -161,6 +161,59 @@ func TestConvertChartDupHelpers(t *testing.T) {
 	}
 }
 
+// TestConvertChartSubdirHelpers verifies that .tpl helper files in
+// subdirectories of templates/ are collected and parsed. Without
+// recursive walking, helpers defined in e.g. templates/operator/_operator.tpl
+// would be silently missed.
+func TestConvertChartSubdirHelpers(t *testing.T) {
+	cuePathOut, err := exec.Command("go", "tool", "-n", "cue").Output()
+	if err != nil {
+		t.Fatalf("go tool -n cue: %v", err)
+	}
+	cuePath := strings.TrimSpace(string(cuePathOut))
+
+	chartDir := "testdata/charts/subdir-helpers"
+	outDir := t.TempDir()
+
+	if err := ConvertChart(chartDir, outDir, ChartOptions{}); err != nil {
+		t.Fatalf("ConvertChart: %v", err)
+	}
+
+	// The helper defined in templates/operator/_operator.tpl must appear
+	// in helpers.cue. If .tpl collection is not recursive this will be
+	// missing (rendered as "_: _" placeholder instead).
+	helpersCUE, err := os.ReadFile(filepath.Join(outDir, "helpers.cue"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(helpersCUE), "_subdir_helpers_operator_labels") {
+		t.Errorf("helpers.cue missing _subdir_helpers_operator_labels from subdirectory .tpl file;\ngot:\n%s", helpersCUE)
+	}
+
+	// Run cue vet on the output.
+	vetCmd := exec.Command(cuePath, "vet", "-c=false", "./...")
+	vetCmd.Dir = outDir
+	if out, err := vetCmd.CombinedOutput(); err != nil {
+		t.Fatalf("cue vet failed: %v\n%s", err, out)
+	}
+
+	// Run cue export with a release name.
+	exportCmd := exec.Command(cuePath, "export", ".", "-t", "release_name=test", "--out", "yaml")
+	exportCmd.Dir = outDir
+	out, err := exportCmd.CombinedOutput()
+	if err != nil {
+		cueFiles, _ := filepath.Glob(filepath.Join(outDir, "*.cue"))
+		for _, f := range cueFiles {
+			data, _ := os.ReadFile(f)
+			t.Logf("--- %s ---\n%s", filepath.Base(f), data)
+		}
+		t.Fatalf("cue export failed: %v\n%s", err, out)
+	}
+	if len(strings.TrimSpace(string(out))) == 0 {
+		t.Error("cue export produced empty output")
+	}
+}
+
 func TestSanitizePackageName(t *testing.T) {
 	tests := []struct {
 		input string
