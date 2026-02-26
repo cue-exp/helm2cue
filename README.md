@@ -235,7 +235,7 @@ removed once those exist.
 | `{{ print .Values.a "-" .Values.b }}` | String interpolation: `"\(#values.a)-\(#values.b)"` | Done |
 | `{{ required "msg" .Values.x }}` | Reference with comment: `#values.x // required: "msg"` | Done |
 | `{{- ... -}}` (whitespace trim) | Handled by Go's template parser | Done |
-| `{{/* comment */}}` | Dropped from output | Done |
+| `{{/* comment */}}` | CUE comment: `// ...` | Done |
 | `{{ define "name" }}...{{ end }}` | CUE hidden field: `_name: <expr>` | Done |
 | `{{ include "name" . }}` | Reference to hidden field: `_name` | Done |
 | `{{ include "name" .Values.x }}` | `_name & {#arg: #values.x, _}` with schema propagation | Done |

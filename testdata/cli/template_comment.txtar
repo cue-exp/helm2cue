@@ -1,0 +1,16 @@
+# Template and YAML comments should be converted to CUE comments.
+stdin input.yaml
+exec helm2cue template
+cmp stdout want-stdout
+
+-- input.yaml --
+{{- /* This is a template comment */ -}}
+# This is a YAML comment
+- ipBlock:
+    cidr: 123.45.678.9/29
+-- want-stdout --
+// This is a template comment
+// This is a YAML comment
+{
+	ipBlock: cidr: "123.45.678.9/29"
+}

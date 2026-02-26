@@ -1403,6 +1403,19 @@ func (c *converter) emitTextNode(text []byte) {
 		trimmed := strings.TrimSpace(content)
 		continuesInline := isLastLine && textContinuesInline
 
+		// YAML comment — emit as CUE comment.
+		if strings.HasPrefix(trimmed, "#") {
+			commentText := strings.TrimPrefix(trimmed, "#")
+			commentText = strings.TrimPrefix(commentText, " ")
+			writeIndent(&c.out, cueInd)
+			if commentText == "" {
+				fmt.Fprintf(&c.out, "//\n")
+			} else {
+				fmt.Fprintf(&c.out, "// %s\n", commentText)
+			}
+			continue
+		}
+
 		// Parse the line.
 		if strings.HasPrefix(content, "- ") {
 			c.processListItem(content, yamlIndent, cueInd, isLastLine, continuesInline)
@@ -1835,6 +1848,19 @@ func (c *converter) processNode(node parse.Node) error {
 		}
 		c.emitActionExpr(expr, "")
 	case *parse.CommentNode:
+		text := n.Text
+		text = strings.TrimPrefix(text, "/*")
+		text = strings.TrimSuffix(text, "*/")
+		text = strings.TrimSpace(text)
+		for _, line := range strings.Split(text, "\n") {
+			writeIndent(&c.out, c.currentCUEIndent())
+			line = strings.TrimSpace(line)
+			if line == "" {
+				fmt.Fprintf(&c.out, "//\n")
+			} else {
+				fmt.Fprintf(&c.out, "// %s\n", line)
+			}
+		}
 	default:
 		return fmt.Errorf("unsupported template construct: %s", node)
 	}
