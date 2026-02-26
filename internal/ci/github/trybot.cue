@@ -69,6 +69,7 @@ workflows: trybot: _repo.bashWorkflow & {
 				{
 					name: "Race test"
 					run:  "go test -race ./..."
+					if:   "github.repository == '\(_repo.githubRepositoryPath)' && (\(_repo.isProtectedBranch) || \(_repo.isTestDefaultBranch))"
 				},
 				_repo.staticcheck,
 				_repo.goChecks,

@@ -98,6 +98,9 @@ jobs:
         run: go test ./...
       - name: Race test
         run: go test -race ./...
+        if: |-
+          github.repository == 'cue-exp/helm2cue' && (((github.ref == 'refs/heads/main') && (! (contains(github.event.head_commit.message, '
+          Dispatch-Trailer: {"type":"')))) || (github.ref == 'refs/heads/ci/test'))
       - env:
           STATICCHECK_CACHE: /cache/staticcheck
         run: go tool staticcheck ./...
