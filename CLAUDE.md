@@ -46,7 +46,8 @@ Follow the cue-lang/cue commit message conventions:
   **why**, not just what.
 - **Issue references** go in the body before trailers: `Fixes #N`, `Updates #N`.
   Cross-repo: `Fixes cue-lang/cue#N`.
-- **Do not** add a `Co-Authored-By` trailer.
+- **Do not** add a `Co-Authored-By` trailer or any other non-hook trailers
+  (e.g. `Reported-by`).
 - **Trailers added automatically by hooks** — `Signed-off-by` (via
   `prepare-commit-msg`) and `Change-Id` (via `git-codereview commit-msg` hook).
   Do not add these manually.
@@ -66,6 +67,12 @@ Follow the cue-lang/cue commit message conventions:
 - Changes should be linked to a GitHub issue (except trivial changes).
 - Run `go test ./...` before submitting; all tests must pass.
 - Run `go vet ./...` to catch common mistakes.
+
+## GitHub Issues
+
+When creating issues, follow the repo's issue templates in
+`.github/ISSUE_TEMPLATE/`. Pick the appropriate template (bug report, feature
+request) and fill in all required fields. Do not use freeform bodies.
 
 ## Rules
 
