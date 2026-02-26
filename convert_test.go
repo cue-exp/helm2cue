@@ -67,6 +67,8 @@ func TestConvert(t *testing.T) {
 	for _, file := range files {
 		name := strings.TrimSuffix(filepath.Base(file), ".txtar")
 		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
 			ar, err := txtar.ParseFile(file)
 			if err != nil {
 				t.Fatal(err)
@@ -420,6 +422,8 @@ func TestConvertCore(t *testing.T) {
 	for _, file := range files {
 		name := strings.TrimSuffix(filepath.Base(file), ".txtar")
 		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
 			ar, err := txtar.ParseFile(file)
 			if err != nil {
 				t.Fatal(err)
