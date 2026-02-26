@@ -1,4 +1,5 @@
 list function: construct a list from arguments.
+No round-trip: Helm renders Go slice format, not comparable to CUE list.
 
 -- values.yaml --
 x: hello

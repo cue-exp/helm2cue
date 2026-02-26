@@ -1,4 +1,5 @@
 dict function: construct a struct from key-value pairs.
+No round-trip: Helm renders Go map format, not comparable to CUE struct.
 
 -- values.yaml --
 x: myapp

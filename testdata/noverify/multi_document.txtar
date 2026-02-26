@@ -1,4 +1,6 @@
 Multi-document YAML template with --- separator.
+No round-trip: CUE wraps documents in separate fields, differs from
+Helm multi-document YAML output.
 
 -- _helpers.tpl --
 -- values.yaml --

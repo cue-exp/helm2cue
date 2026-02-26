@@ -1,0 +1,33 @@
+Structural helper accessing argument fields, called with a field expression.
+No round-trip: parametric helper output cannot be validated without
+concrete fixture values.
+
+-- _helpers.tpl --
+{{- define "myapp.labels" -}}
+app: {{ .name }}
+version: {{ .version }}
+{{- end -}}
+-- input.yaml --
+metadata:
+  labels:
+    {{ include "myapp.labels" .Values.meta | nindent 4 }}
+-- output.cue --
+#values: {
+	meta!: {
+		name!:    bool | number | string | null
+		version!: bool | number | string | null
+		...
+	}
+	...
+}
+_myapp_labels: {
+	#arg: {
+		name?:    bool | number | string | null
+		version?: bool | number | string | null
+		...
+	}
+	app:     #arg.name
+	version: #arg.version
+}
+
+metadata: labels: _myapp_labels & {#arg: #values.meta, _}

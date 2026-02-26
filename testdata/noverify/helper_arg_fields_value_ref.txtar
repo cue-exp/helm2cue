@@ -1,5 +1,7 @@
 Helper that accesses fields on its argument, called with .Values
 (a top-level context object field expression).
+No round-trip: parametric helper output cannot be validated without
+concrete fixture values.
 
 -- _helpers.tpl --
 {{- define "myapp.labels" -}}
