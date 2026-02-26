@@ -1,4 +1,6 @@
 Include with a field expression context argument.
+No round-trip: parametric helper output cannot be validated without
+concrete fixture values.
 
 -- _helpers.tpl --
 {{- define "myapp.name" -}}

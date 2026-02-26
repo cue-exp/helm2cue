@@ -70,103 +70,156 @@ func TestConvert(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			var input, expectedOutput, valuesYAML, expectedHelmOutput, expectedError []byte
-			var helpers [][]byte
-			var hasOutput, hasHelmOutput, hasError bool
-			for _, f := range ar.Files {
-				switch {
-				case f.Name == "input.yaml":
-					input = f.Data
-				case f.Name == "output.cue":
-					expectedOutput = f.Data
-					hasOutput = true
-				case f.Name == "values.yaml":
-					valuesYAML = f.Data
-				case f.Name == "helm_output.yaml":
-					expectedHelmOutput = f.Data
-					hasHelmOutput = true
-				case strings.HasSuffix(f.Name, ".tpl"):
-					helpers = append(helpers, f.Data)
-				case f.Name == "error":
-					expectedError = f.Data
-					hasError = true
-				}
-			}
-
-			if input == nil {
-				t.Fatal("missing input.yaml section")
-			}
-
-			// If an error section is present, verify Convert returns
-			// an error containing the expected substring.
-			if hasError {
-				_, err := Convert(HelmConfig(), input, helpers...)
-				if err == nil {
-					t.Fatal("expected Convert() to fail, but it succeeded")
-				}
-				wantErr := strings.TrimSpace(string(expectedError))
-				if !strings.Contains(err.Error(), wantErr) {
-					t.Errorf("error mismatch:\n  want substring: %s\n  got: %s", wantErr, err)
-				}
-				return
-			}
-
-			// Validate that the input is a valid Helm template and
-			// check rendered output if expected. Skip helm validation
-			// if it fails (e.g., undefined helpers).
-			helmOut, helmErr := helmTemplate(t, helmPath, input, valuesYAML, helpers)
-			if helmErr != nil {
-				if hasHelmOutput {
-					t.Fatalf("helm template failed: %v", helmErr)
-				}
-			} else if hasHelmOutput {
-				if !bytes.Equal(helmOut, expectedHelmOutput) {
-					t.Errorf("helm output mismatch (-want +got):\n--- want:\n%s\n--- got:\n%s", expectedHelmOutput, helmOut)
-				}
-			}
-
-			got, err := Convert(HelmConfig(), input, helpers...)
-			if err != nil {
-				t.Fatalf("Convert() error: %v", err)
-			}
-
-			// If values and expected helm output are provided, verify that
-			// cue export of the generated CUE with those values produces
-			// semantically equivalent output to helm template.
-			if valuesYAML != nil && hasHelmOutput && helmErr == nil {
-				cueOut := cueExport(t, got, valuesYAML)
-				if err := yamlSemanticEqual(helmOut, cueOut); err != nil {
-					t.Errorf("cue export vs helm template: %v", err)
-				}
-			}
-
-			if *update {
-				var newFiles []txtar.File
-				for _, f := range ar.Files {
-					if f.Name == "output.cue" {
-						continue
-					}
-					newFiles = append(newFiles, f)
-				}
-				newFiles = append(newFiles, txtar.File{
-					Name: "output.cue",
-					Data: got,
-				})
-				ar.Files = newFiles
-				if err := os.WriteFile(filepath.Join("testdata", file), txtar.Format(ar), 0o644); err != nil {
-					t.Fatal(err)
-				}
-				return
-			}
-
-			if !hasOutput {
-				t.Fatal("missing output.cue section (run with -update to generate)")
-			}
-
-			if !bytes.Equal(got, expectedOutput) {
-				t.Errorf("output mismatch (-want +got):\n--- want:\n%s\n--- got:\n%s", expectedOutput, got)
-			}
+			runHelmConvertTest(t, helmPath, ar, file, true)
 		})
+	}
+}
+
+func TestConvertNoVerify(t *testing.T) {
+	helmPath, err := exec.LookPath("helm")
+	if err != nil {
+		t.Fatal("helm not found in PATH")
+	}
+	files, err := fs.Glob(testdataFS, "noverify/*.txtar")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(files) == 0 {
+		t.Fatal("no testdata/noverify/*.txtar files found")
+	}
+
+	for _, file := range files {
+		name := strings.TrimSuffix(filepath.Base(file), ".txtar")
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			ar, err := parseTxtarFS(testdataFS, file)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			// Enforce noverify invariants: helm_output.yaml must not
+			// be present, and the txtar comment must be non-empty.
+			for _, f := range ar.Files {
+				if f.Name == "helm_output.yaml" {
+					t.Fatal("noverify test must not contain helm_output.yaml; move to testdata/ if Helm comparison is possible")
+				}
+			}
+			if len(bytes.TrimSpace(ar.Comment)) == 0 {
+				t.Fatal("noverify test must have a txtar comment explaining why Helm comparison is not possible")
+			}
+
+			runHelmConvertTest(t, helmPath, ar, file, false)
+		})
+	}
+}
+
+// runHelmConvertTest runs a single Helm conversion test from a txtar archive.
+// When requireHelmOutput is true, non-error tests without helm_output.yaml
+// are failed.
+func runHelmConvertTest(t *testing.T, helmPath string, ar *txtar.Archive,
+	file string, requireHelmOutput bool) {
+	t.Helper()
+
+	var input, expectedOutput, valuesYAML, expectedHelmOutput, expectedError []byte
+	var helpers [][]byte
+	var hasOutput, hasHelmOutput, hasError bool
+	for _, f := range ar.Files {
+		switch {
+		case f.Name == "input.yaml":
+			input = f.Data
+		case f.Name == "output.cue":
+			expectedOutput = f.Data
+			hasOutput = true
+		case f.Name == "values.yaml":
+			valuesYAML = f.Data
+		case f.Name == "helm_output.yaml":
+			expectedHelmOutput = f.Data
+			hasHelmOutput = true
+		case strings.HasSuffix(f.Name, ".tpl"):
+			helpers = append(helpers, f.Data)
+		case f.Name == "error":
+			expectedError = f.Data
+			hasError = true
+		}
+	}
+
+	if input == nil {
+		t.Fatal("missing input.yaml section")
+	}
+
+	// If an error section is present, verify Convert returns
+	// an error containing the expected substring.
+	if hasError {
+		_, err := Convert(HelmConfig(), input, helpers...)
+		if err == nil {
+			t.Fatal("expected Convert() to fail, but it succeeded")
+		}
+		wantErr := strings.TrimSpace(string(expectedError))
+		if !strings.Contains(err.Error(), wantErr) {
+			t.Errorf("error mismatch:\n  want substring: %s\n  got: %s", wantErr, err)
+		}
+		return
+	}
+
+	if requireHelmOutput && !hasHelmOutput {
+		t.Fatal("missing helm_output.yaml section (move to testdata/noverify/ if Helm comparison is not possible)")
+	}
+
+	// Validate that the input is a valid Helm template and
+	// check rendered output if expected. Skip helm validation
+	// if it fails (e.g., undefined helpers).
+	helmOut, helmErr := helmTemplate(t, helmPath, input, valuesYAML, helpers)
+	if helmErr != nil {
+		if hasHelmOutput {
+			t.Fatalf("helm template failed: %v", helmErr)
+		}
+	} else if hasHelmOutput {
+		if !bytes.Equal(helmOut, expectedHelmOutput) {
+			t.Errorf("helm output mismatch (-want +got):\n--- want:\n%s\n--- got:\n%s", expectedHelmOutput, helmOut)
+		}
+	}
+
+	got, err := Convert(HelmConfig(), input, helpers...)
+	if err != nil {
+		t.Fatalf("Convert() error: %v", err)
+	}
+
+	// If values and expected helm output are provided, verify that
+	// cue export of the generated CUE with those values produces
+	// semantically equivalent output to helm template.
+	if valuesYAML != nil && hasHelmOutput && helmErr == nil {
+		cueOut := cueExport(t, got, valuesYAML)
+		if err := yamlSemanticEqual(helmOut, cueOut); err != nil {
+			t.Errorf("cue export vs helm template: %v", err)
+		}
+	}
+
+	if *update {
+		var newFiles []txtar.File
+		for _, f := range ar.Files {
+			if f.Name == "output.cue" {
+				continue
+			}
+			newFiles = append(newFiles, f)
+		}
+		newFiles = append(newFiles, txtar.File{
+			Name: "output.cue",
+			Data: got,
+		})
+		ar.Files = newFiles
+		if err := os.WriteFile(filepath.Join("testdata", file), txtar.Format(ar), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		return
+	}
+
+	if !hasOutput {
+		t.Fatal("missing output.cue section (run with -update to generate)")
+	}
+
+	if !bytes.Equal(got, expectedOutput) {
+		t.Errorf("output mismatch (-want +got):\n--- want:\n%s\n--- got:\n%s", expectedOutput, got)
 	}
 }
 

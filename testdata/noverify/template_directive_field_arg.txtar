@@ -1,4 +1,6 @@
 Template directive ({{ template }}) with a field expression argument.
+No round-trip: parametric helper output cannot be validated without
+concrete fixture values.
 
 -- _helpers.tpl --
 {{- define "myapp.name" -}}

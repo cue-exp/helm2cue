@@ -1,4 +1,6 @@
 Variable assignment and reference.
+No round-trip: parametric helper output cannot be validated without
+concrete fixture values.
 
 -- _helpers.tpl --
 {{- define "myapp.labels" -}}

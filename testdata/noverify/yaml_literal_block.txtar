@@ -1,4 +1,6 @@
 YAML literal block (|-) followed by placeholder.
+No round-trip: literal block scalar handling differs between Helm and
+CUE output.
 
 -- _helpers.tpl --
 {{- define "myconfig" -}}

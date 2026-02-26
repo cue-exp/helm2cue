@@ -128,3 +128,27 @@ When adding or modifying core tests:
 
 When adding or modifying Helm tests (`testdata/*.txtar`, run by `TestConvert`):
 - These use `HelmConfig()` and may use any supported Helm/Sprig function.
+
+## Helm test split: verified vs noverify
+
+Helm tests are split into two directories based on whether semantic
+round-trip comparison against `helm template` is possible:
+
+- **`testdata/*.txtar`** (verified, run by `TestConvert`): must contain
+  `helm_output.yaml`. The test validates that `helm template` produces the
+  expected output and that `cue export` of the generated CUE is semantically
+  equivalent. Tests without `helm_output.yaml` will fail.
+- **`testdata/noverify/*.txtar`** (unverified, run by `TestConvertNoVerify`):
+  must **not** contain `helm_output.yaml`. Each file must have a txtar comment
+  (text before the first `--` marker) explaining why Helm comparison is not
+  possible.
+
+When adding new Helm tests:
+- Prefer verified tests (`testdata/`) whenever possible.
+- Error tests belong in `testdata/noverify/` (conversion fails, no output to
+  compare).
+- Tests where Helm renders Go format output (e.g. `map[...]`, `[a b c]`),
+  uses undefined helpers, or otherwise cannot produce comparable YAML go in
+  `testdata/noverify/`.
+- Promoting tests from `testdata/noverify/` to `testdata/` is encouraged when
+  the underlying limitation is resolved.

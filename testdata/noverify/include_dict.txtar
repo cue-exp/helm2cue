@@ -1,4 +1,5 @@
 Include with dict context: field references from dict values are tracked.
+No round-trip: includes undefined helper, Helm template would fail.
 
 -- input.yaml --
 apiVersion: v1

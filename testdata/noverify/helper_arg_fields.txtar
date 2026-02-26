@@ -1,4 +1,6 @@
-Structural helper accessing argument fields, called with a field expression.
+Helper that accesses fields on its argument via {{ .name }} and {{ .version }}.
+No round-trip: parametric helper output cannot be validated without
+concrete fixture values.
 
 -- _helpers.tpl --
 {{- define "myapp.labels" -}}
@@ -8,16 +10,8 @@ version: {{ .version }}
 -- input.yaml --
 metadata:
   labels:
-    {{ include "myapp.labels" .Values.meta | nindent 4 }}
+    {{ include "myapp.labels" . | nindent 4 }}
 -- output.cue --
-#values: {
-	meta!: {
-		name!:    bool | number | string | null
-		version!: bool | number | string | null
-		...
-	}
-	...
-}
 _myapp_labels: {
 	#arg: {
 		name?:    bool | number | string | null
@@ -28,4 +22,4 @@ _myapp_labels: {
 	version: #arg.version
 }
 
-metadata: labels: _myapp_labels & {#arg: #values.meta, _}
+metadata: labels: _myapp_labels
