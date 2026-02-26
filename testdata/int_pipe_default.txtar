@@ -1,0 +1,33 @@
+int function piped from a default expression inside printf.
+No round-trip comparison: Helm renders an integer while CUE
+produces a string interpolation.
+
+-- values.yaml --
+containerPorts:
+  http: 80
+metrics:
+  port: 9113
+-- input.yaml --
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test
+data:
+  port: {{ printf "%d" (default .Values.containerPorts.http .Values.metrics.port | int) }}
+-- output.cue --
+#values: {
+	containerPorts?: {
+		http!: bool | number | string | null
+		...
+	}
+	metrics?: {
+		port!: bool | number | string | null
+		...
+	}
+	...
+}
+
+apiVersion: "v1"
+kind:       "ConfigMap"
+metadata: name: "test"
+data: port: "\(int & *#values.containerPorts.http | #values.metrics.port)"

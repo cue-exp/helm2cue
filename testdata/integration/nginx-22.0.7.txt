@@ -2,7 +2,7 @@
 warning: skipping context-includes-configmap.yaml (doc 0): parsing template: template: chart_context_includes_configmap_0:19: unexpected EOF
 warning: skipping context-includes-configmap.yaml (doc 1): parsing template: template: chart_context_includes_configmap_1:1: unexpected {{end}}
 warning: skipping context-includes-configmap.yaml (doc 2): parsing template: template: chart_context_includes_configmap_2:1: unexpected {{end}}
-warning: skipping deployment.yaml (doc 0): printf argument 1: unsupported pipe node: int (default .Values.containerPorts.http .Values.metrics.port)
+warning: skipping deployment.yaml (doc 0): missing ',' before newline in list literal (and 18 more errors)
 warning: skipping extra-list.yaml (doc 0): parsing template: template: chart_extra_list_0:7: unexpected EOF
 warning: skipping extra-list.yaml (doc 1): parsing template: template: chart_extra_list_1:2: unexpected {{end}}
 warning: skipping health-ingress.yaml (doc 0): missing ',' in list literal (and 4 more errors)
@@ -14,8 +14,8 @@ warning: skipping ingress-tls-secret.yaml (doc 4): parsing template: template: c
 warning: skipping ingress.yaml (doc 0): unsupported template action: {{(tpl .Values.ingress.hostname .) | quote}}
 warning: skipping networkpolicy.yaml (doc 0): expected 'EOF', found '}'
 warning: skipping tls-secret.yaml (doc 0): unsupported template action: {{$ca := genCA "nginx-ca" 365}}
-warning: values schema inconsistency: #values.metrics.prometheusRule.namespace: reference "_common_names_namespace" not found (and 4 more errors)
-warning: values.yaml does not satisfy inferred schema: #values.metrics.prometheusRule.namespace: reference "_common_names_namespace" not found (and 4 more errors)
+warning: values schema inconsistency: #values.nameOverride: reference "#chart" not found (and 4 more errors)
+warning: values.yaml does not satisfy inferred schema: #values.nameOverride: reference "#chart" not found (and 4 more errors)
 converted 8/23 templates from nginx
 -- cue vet --
 exit status 1
