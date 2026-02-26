@@ -1,0 +1,40 @@
+coalesce in pipeline position: piped value becomes last (fallback) argument.
+Helm's coalesce does not support piped input, so no Helm comparison.
+
+-- values.yaml --
+primary: ""
+fallback: backup
+-- input.yaml --
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test
+data:
+  result: {{ .Values.fallback | coalesce .Values.primary }}
+-- output.cue --
+import "struct"
+
+#values: {
+	fallback!: bool | number | string | null
+	primary!:  bool | number | string | null
+	...
+}
+
+apiVersion: "v1"
+kind:       "ConfigMap"
+metadata: name: "test"
+data: result: [if (_nonzero & {#arg: #values.primary, _}) {#values.primary}, #values.fallback][0]
+_nonzero: {
+	#arg?: _
+	[if #arg != _|_ {
+		[
+			if (#arg & int) != _|_ {#arg != 0},
+			if (#arg & string) != _|_ {#arg != ""},
+			if (#arg & float) != _|_ {#arg != 0.0},
+			if (#arg & bool) != _|_ {#arg},
+			if (#arg & [...]) != _|_ {len(#arg) > 0},
+			if (#arg & {...}) != _|_ {(#arg & struct.MaxFields(0)) == _|_},
+			false,
+		][0]
+	}, false][0]
+}

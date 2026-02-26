@@ -2842,18 +2842,14 @@ func (c *converter) actionToCUE(n *parse.ActionNode) (expr string, helmObj strin
 				return "", "", fmt.Errorf("{{ . }} outside range/with not supported")
 			}
 		} else if id, ok := first.Args[0].(*parse.IdentifierNode); ok {
-			switch id.Ident {
-			case "list":
-				if c.isCoreFunc(id.Ident) {
-					expr = "[]"
-				} else {
+			if cf, ok := coreFuncs[id.Ident]; ok {
+				if !c.isCoreFunc(id.Ident) {
 					gatedFunc = id.Ident
-				}
-			case "dict":
-				if c.isCoreFunc(id.Ident) {
-					expr = "{}"
 				} else {
-					gatedFunc = id.Ident
+					expr, helmObj, err = cf.convert(c, nil)
+					if err != nil {
+						return "", "", err
+					}
 				}
 			}
 		} else if s, ok := first.Args[0].(*parse.StringNode); ok {
@@ -2872,379 +2868,78 @@ func (c *converter) actionToCUE(n *parse.ActionNode) (expr string, helmObj strin
 		if !ok {
 			break
 		}
-		switch id.Ident {
-		case "default":
+		if cf, ok := coreFuncs[id.Ident]; ok {
 			if !c.isCoreFunc(id.Ident) {
 				gatedFunc = id.Ident
 				break
 			}
-			if len(first.Args) != 3 {
-				return "", "", fmt.Errorf("default requires 2 arguments, got %d", len(first.Args)-1)
+			args := make([]funcArg, len(first.Args)-1)
+			for i, n := range first.Args[1:] {
+				args[i] = funcArg{node: n}
 			}
-			defaultVal, litErr := nodeToCUELiteral(first.Args[1])
-			if litErr != nil {
-				defaultExpr, _, exprErr := c.nodeToExpr(first.Args[1])
-				if exprErr != nil {
-					return "", "", fmt.Errorf("default value: %w", litErr)
-				}
-				defaultVal = defaultExpr
-			}
-			switch arg := first.Args[2].(type) {
-			case *parse.FieldNode:
-				expr, helmObj = fieldToCUE(c.config.ContextObjects, arg.Ident)
-				if helmObj != "" {
-					fieldPath = arg.Ident[1:]
-					c.trackFieldRef(helmObj, fieldPath)
-					c.defaults[helmObj] = append(c.defaults[helmObj], fieldDefault{
-						path:     fieldPath,
-						cueValue: defaultVal,
-					})
-				}
-			case *parse.VariableNode:
-				if len(arg.Ident) >= 2 && arg.Ident[0] == "$" {
-					expr, helmObj = fieldToCUE(c.config.ContextObjects, arg.Ident[1:])
-					if helmObj != "" {
-						if len(arg.Ident) >= 3 {
-							fieldPath = arg.Ident[2:]
-						}
-						c.trackFieldRef(helmObj, fieldPath)
-						c.defaults[helmObj] = append(c.defaults[helmObj], fieldDefault{
-							path:     fieldPath,
-							cueValue: defaultVal,
-						})
-					}
-				} else if len(arg.Ident) >= 2 && arg.Ident[0] != "$" {
-					if localExpr, ok := c.localVars[arg.Ident[0]]; ok {
-						expr = localExpr + "." + strings.Join(arg.Ident[1:], ".")
-					}
-				} else if len(arg.Ident) == 1 && arg.Ident[0] != "$" {
-					if localExpr, ok := c.localVars[arg.Ident[0]]; ok {
-						expr = localExpr
-					}
-				}
-			default:
-				argExpr, argObj, argErr := c.nodeToExpr(first.Args[2])
-				if argErr != nil {
-					return "", "", fmt.Errorf("default field: %w", argErr)
-				}
-				expr = argExpr
-				helmObj = argObj
-			}
-		case "printf":
-			var cueExpr string
-			cueExpr, helmObj, err = c.convertPrintf(first.Args[1:])
+			expr, helmObj, err = cf.convert(c, args)
 			if err != nil {
 				return "", "", err
 			}
-			expr = cueExpr
-		case "required":
-			if !c.isCoreFunc(id.Ident) {
-				gatedFunc = id.Ident
-				break
+			// Track fieldPath for pipeline default/required.
+			if last := first.Args[len(first.Args)-1]; helmObj != "" {
+				switch n := last.(type) {
+				case *parse.FieldNode:
+					if len(n.Ident) >= 2 {
+						fieldPath = n.Ident[1:]
+					}
+				case *parse.VariableNode:
+					if len(n.Ident) >= 2 && n.Ident[0] == "$" && len(n.Ident) >= 3 {
+						fieldPath = n.Ident[2:]
+					}
+				}
 			}
-			if len(first.Args) != 3 {
-				return "", "", fmt.Errorf("required requires 2 arguments, got %d", len(first.Args)-1)
-			}
-			msg, err := nodeToCUELiteral(first.Args[1])
-			if err != nil {
-				return "", "", fmt.Errorf("required message: %w", err)
-			}
-			if f, ok := first.Args[2].(*parse.FieldNode); ok {
-				expr, helmObj = fieldToCUE(c.config.ContextObjects, f.Ident)
-				if helmObj != "" {
+		} else if pf, ok := c.config.Funcs[id.Ident]; ok {
+			if pf.Passthrough && len(first.Args) == 2 {
+				expr, helmObj, err = c.nodeToExpr(first.Args[1])
+				if err != nil {
+					return "", "", fmt.Errorf("%s argument: %w", id.Ident, err)
+				}
+				if f, ok := first.Args[1].(*parse.FieldNode); ok && helmObj != "" && len(f.Ident) >= 2 {
 					fieldPath = f.Ident[1:]
-					c.trackFieldRef(helmObj, fieldPath)
-				}
-				c.comments[expr] = fmt.Sprintf("// required: %s", msg)
-			}
-		case "include":
-			if !c.isCoreFunc(id.Ident) {
-				gatedFunc = id.Ident
-				break
-			}
-			if len(first.Args) < 2 {
-				return "", "", fmt.Errorf("include requires at least 2 arguments")
-			}
-			var argExpr, ctxHelmObj string
-			var ctxBasePath []string
-			if len(first.Args) >= 3 {
-				var ctxErr error
-				argExpr, ctxHelmObj, ctxBasePath, ctxErr = c.convertIncludeContext(first.Args[2])
-				if ctxErr != nil {
-					return "", "", ctxErr
-				}
-			}
-			var cueName string
-			if nameNode, ok := first.Args[1].(*parse.StringNode); ok {
-				cueName, _, err = c.handleInclude(nameNode.Text, nil)
-				if err != nil {
-					return "", "", err
-				}
-			} else {
-				nameExpr, nameErr := c.convertIncludeNameExpr(first.Args[1])
-				if nameErr != nil {
-					return "", "", nameErr
-				}
-				c.hasDynamicInclude = true
-				cueName = fmt.Sprintf("_helpers[%s]", nameExpr)
-			}
-			expr = cueName
-			if ctxHelmObj != "" {
-				c.propagateHelperArgRefs(cueName, ctxHelmObj, ctxBasePath)
-			}
-			if argExpr != "" {
-				expr = expr + " & {#arg: " + argExpr + ", _}"
-			}
-		case "ternary":
-			if !c.isCoreFunc(id.Ident) {
-				gatedFunc = id.Ident
-				break
-			}
-			if len(first.Args) != 4 {
-				return "", "", fmt.Errorf("ternary requires 3 arguments, got %d", len(first.Args)-1)
-			}
-			trueVal, trueObj, err := c.nodeToExpr(first.Args[1])
-			if err != nil {
-				return "", "", fmt.Errorf("ternary true value: %w", err)
-			}
-			falseVal, falseObj, err := c.nodeToExpr(first.Args[2])
-			if err != nil {
-				return "", "", fmt.Errorf("ternary false value: %w", err)
-			}
-			condExpr, err := c.conditionNodeToExpr(first.Args[3])
-			if err != nil {
-				return "", "", fmt.Errorf("ternary condition: %w", err)
-			}
-			c.hasConditions = true
-			expr = fmt.Sprintf("[if %s {%s}, %s][0]", condExpr, trueVal, falseVal)
-			if trueObj != "" {
-				helmObj = trueObj
-			}
-			if falseObj != "" {
-				helmObj = falseObj
-			}
-		case "list":
-			if !c.isCoreFunc(id.Ident) {
-				gatedFunc = id.Ident
-				break
-			}
-			var elems []string
-			for _, arg := range first.Args[1:] {
-				e, obj, err := c.nodeToExpr(arg)
-				if err != nil {
-					return "", "", fmt.Errorf("list argument: %w", err)
-				}
-				if obj != "" {
-					helmObj = obj
-				}
-				elems = append(elems, e)
-			}
-			expr = "[" + strings.Join(elems, ", ") + "]"
-		case "dict":
-			if !c.isCoreFunc(id.Ident) {
-				gatedFunc = id.Ident
-				break
-			}
-			args := first.Args[1:]
-			if len(args)%2 != 0 {
-				return "", "", fmt.Errorf("dict requires an even number of arguments, got %d", len(args))
-			}
-			var parts []string
-			for i := 0; i < len(args); i += 2 {
-				keyNode, ok := args[i].(*parse.StringNode)
-				if !ok {
-					return "", "", fmt.Errorf("dict key must be a string literal")
-				}
-				valExpr, valObj, err := c.nodeToExpr(args[i+1])
-				if err != nil {
-					return "", "", fmt.Errorf("dict value: %w", err)
-				}
-				if valObj != "" {
-					helmObj = valObj
-				}
-				parts = append(parts, cueKey(keyNode.Text)+": "+valExpr)
-			}
-			expr = "{" + strings.Join(parts, ", ") + "}"
-		case "get":
-			if !c.isCoreFunc(id.Ident) {
-				gatedFunc = id.Ident
-				break
-			}
-			if len(first.Args) != 3 {
-				return "", "", fmt.Errorf("get requires 2 arguments, got %d", len(first.Args)-1)
-			}
-			mapExpr, mapObj, err := c.nodeToExpr(first.Args[1])
-			if err != nil {
-				return "", "", fmt.Errorf("get map argument: %w", err)
-			}
-			if mapObj != "" {
-				helmObj = mapObj
-				// The map argument to get is non-scalar (a map/struct).
-				refs := c.fieldRefs[mapObj]
-				if len(refs) > 0 {
-					c.trackNonScalarRef(mapObj, refs[len(refs)-1])
-				}
-			}
-			if keyNode, ok := first.Args[2].(*parse.StringNode); ok {
-				if identRe.MatchString(keyNode.Text) {
-					expr = mapExpr + "." + keyNode.Text
-				} else {
-					expr = mapExpr + "[" + strconv.Quote(keyNode.Text) + "]"
-				}
-			} else {
-				keyExpr, _, err := c.nodeToExpr(first.Args[2])
-				if err != nil {
-					return "", "", fmt.Errorf("get key argument: %w", err)
-				}
-				expr = mapExpr + "[" + keyExpr + "]"
-			}
-		case "coalesce":
-			if !c.isCoreFunc(id.Ident) {
-				gatedFunc = id.Ident
-				break
-			}
-			if len(first.Args) < 2 {
-				return "", "", fmt.Errorf("coalesce requires at least 1 argument")
-			}
-			c.hasConditions = true
-			args := first.Args[1:]
-			var elems []string
-			for i, arg := range args {
-				e, obj, err := c.nodeToExpr(arg)
-				if err != nil {
-					return "", "", fmt.Errorf("coalesce argument: %w", err)
-				}
-				if obj != "" {
-					helmObj = obj
-				}
-				if i < len(args)-1 {
-					condExpr, err := c.conditionNodeToExpr(arg)
-					if err != nil {
-						return "", "", fmt.Errorf("coalesce condition: %w", err)
+					if pf.NonScalar {
+						c.trackNonScalarRef(helmObj, fieldPath)
 					}
-					elems = append(elems, fmt.Sprintf("if %s {%s}", condExpr, e))
-				} else {
-					elems = append(elems, e)
 				}
-			}
-			expr = "[" + strings.Join(elems, ", ") + "][0]"
-		case "max":
-			if !c.isCoreFunc(id.Ident) {
-				gatedFunc = id.Ident
-				break
-			}
-			if len(first.Args) < 3 {
-				return "", "", fmt.Errorf("max requires at least 2 arguments, got %d", len(first.Args)-1)
-			}
-			var elems []string
-			for _, arg := range first.Args[1:] {
-				e, obj, err := c.nodeToExpr(arg)
-				if err != nil {
-					return "", "", fmt.Errorf("max argument: %w", err)
-				}
-				if obj != "" {
-					helmObj = obj
-				}
-				elems = append(elems, e)
-			}
-			c.addImport("list")
-			expr = "list.Max([" + strings.Join(elems, ", ") + "])"
-		case "min":
-			if !c.isCoreFunc(id.Ident) {
-				gatedFunc = id.Ident
-				break
-			}
-			if len(first.Args) < 3 {
-				return "", "", fmt.Errorf("min requires at least 2 arguments, got %d", len(first.Args)-1)
-			}
-			var elems []string
-			for _, arg := range first.Args[1:] {
-				e, obj, err := c.nodeToExpr(arg)
-				if err != nil {
-					return "", "", fmt.Errorf("min argument: %w", err)
-				}
-				if obj != "" {
-					helmObj = obj
-				}
-				elems = append(elems, e)
-			}
-			c.addImport("list")
-			expr = "list.Min([" + strings.Join(elems, ", ") + "])"
-		case "tpl":
-			if !c.isCoreFunc(id.Ident) {
-				gatedFunc = id.Ident
-				break
-			}
-			if len(first.Args) != 3 {
-				return "", "", fmt.Errorf("tpl requires 2 arguments, got %d", len(first.Args)-1)
-			}
-			tmplExpr, tmplObj, tmplErr := c.convertTplArg(first.Args[1])
-			if tmplErr != nil {
-				return "", "", fmt.Errorf("tpl template argument: %w", tmplErr)
-			}
-			c.convertTplContext(first.Args[2])
-			c.addImport("encoding/yaml")
-			c.addImport("text/template")
-			h := c.tplContextDef()
-			c.usedHelpers[h.Name] = h
-			expr = fmt.Sprintf("yaml.Unmarshal(template.Execute(%s, _tplContext))", tmplExpr)
-			if tmplObj != "" {
-				helmObj = tmplObj
-			}
-		case "merge", "mergeOverwrite":
-			if !c.isCoreFunc(id.Ident) {
-				gatedFunc = id.Ident
-				break
-			}
-			return "", "", fmt.Errorf("function %q has no CUE equivalent: CUE uses unification instead of mutable map merging", id.Ident)
-		default:
-			if pf, ok := c.config.Funcs[id.Ident]; ok {
-				if pf.Passthrough && len(first.Args) == 2 {
-					expr, helmObj, err = c.nodeToExpr(first.Args[1])
-					if err != nil {
-						return "", "", fmt.Errorf("%s argument: %w", id.Ident, err)
-					}
-					if f, ok := first.Args[1].(*parse.FieldNode); ok && helmObj != "" && len(f.Ident) >= 2 {
-						fieldPath = f.Ident[1:]
-						if pf.NonScalar {
-							c.trackNonScalarRef(helmObj, fieldPath)
-						}
-					}
-				} else if pf.Convert != nil && len(first.Args) == pf.Nargs+2 {
-					// Function with explicit args in first-command position:
-					// {{ func arg1 ... argN pipedValue }}
-					var args []string
-					for _, a := range first.Args[1 : 1+pf.Nargs] {
-						lit, litErr := nodeToCUELiteral(a)
+			} else if pf.Convert != nil && len(first.Args) == pf.Nargs+2 {
+				// Function with explicit args in first-command position:
+				// {{ func arg1 ... argN pipedValue }}
+				var args []string
+				for _, a := range first.Args[1 : 1+pf.Nargs] {
+					lit, litErr := nodeToCUELiteral(a)
+					if litErr != nil {
+						var exprStr string
+						exprStr, _, litErr = c.nodeToExpr(a)
 						if litErr != nil {
-							var exprStr string
-							exprStr, _, litErr = c.nodeToExpr(a)
-							if litErr != nil {
-								return "", "", fmt.Errorf("%s argument: %w", id.Ident, litErr)
-							}
-							lit = exprStr
+							return "", "", fmt.Errorf("%s argument: %w", id.Ident, litErr)
 						}
-						args = append(args, lit)
+						lit = exprStr
 					}
-					pipedNode := first.Args[pf.Nargs+1]
-					var pipedErr error
-					expr, helmObj, pipedErr = c.nodeToExpr(pipedNode)
-					if pipedErr != nil {
-						return "", "", fmt.Errorf("%s argument: %w", id.Ident, pipedErr)
+					args = append(args, lit)
+				}
+				pipedNode := first.Args[pf.Nargs+1]
+				var pipedErr error
+				expr, helmObj, pipedErr = c.nodeToExpr(pipedNode)
+				if pipedErr != nil {
+					return "", "", fmt.Errorf("%s argument: %w", id.Ident, pipedErr)
+				}
+				if f, ok := pipedNode.(*parse.FieldNode); ok && helmObj != "" && len(f.Ident) >= 2 {
+					fieldPath = f.Ident[1:]
+					if pf.NonScalar {
+						c.trackNonScalarRef(helmObj, fieldPath)
 					}
-					if f, ok := pipedNode.(*parse.FieldNode); ok && helmObj != "" && len(f.Ident) >= 2 {
-						fieldPath = f.Ident[1:]
-						if pf.NonScalar {
-							c.trackNonScalarRef(helmObj, fieldPath)
-						}
-					}
-					expr = pf.Convert(expr, args)
-					for _, pkg := range pf.Imports {
-						c.addImport(pkg)
-					}
-					for _, h := range pf.Helpers {
-						c.usedHelpers[h.Name] = h
-					}
+				}
+				expr = pf.Convert(expr, args)
+				for _, pkg := range pf.Imports {
+					c.addImport(pkg)
+				}
+				for _, h := range pf.Helpers {
+					c.usedHelpers[h.Name] = h
 				}
 			}
 		}
@@ -3264,87 +2959,30 @@ func (c *converter) actionToCUE(n *parse.ActionNode) (expr string, helmObj strin
 		if !ok {
 			return "", "", fmt.Errorf("unsupported pipeline function: %s", cmd)
 		}
-		handled := false
-		switch id.Ident {
-		case "default":
-			if c.isCoreFunc(id.Ident) {
-				if len(cmd.Args) != 2 {
-					return "", "", fmt.Errorf("default in pipeline requires 1 argument")
-				}
-				defaultVal, litErr := nodeToCUELiteral(cmd.Args[1])
-				if litErr != nil {
-					defaultExpr, _, exprErr := c.nodeToExpr(cmd.Args[1])
-					if exprErr != nil {
-						return "", "", fmt.Errorf("default value: %w", litErr)
-					}
-					defaultVal = defaultExpr
-				}
-				if helmObj != "" && fieldPath != nil {
-					c.defaults[helmObj] = append(c.defaults[helmObj], fieldDefault{
-						path:     fieldPath,
-						cueValue: defaultVal,
-					})
-				}
-				handled = true
+		if cf, ok := coreFuncs[id.Ident]; ok {
+			if !c.isCoreFunc(id.Ident) {
+				return "", "", fmt.Errorf("unsupported pipeline function: %s (not a text/template builtin)", id.Ident)
 			}
-		case "required":
-			if c.isCoreFunc(id.Ident) {
-				arg, err := c.extractPipelineArgs(cmd, 1)
-				if err != nil {
-					return "", "", err
-				}
-				c.comments[expr] = fmt.Sprintf("// required: %s", arg[0])
-				handled = true
+			piped := funcArg{expr: expr, obj: helmObj, field: fieldPath}
+			args := buildPipeArgs(cf, cmd.Args[1:], piped)
+			prevObj := helmObj
+			expr, helmObj, err = cf.convert(c, args)
+			if err != nil {
+				return "", "", err
 			}
-		case "tpl":
-			if c.isCoreFunc(id.Ident) {
-				if len(cmd.Args) != 2 {
-					return "", "", fmt.Errorf("tpl in pipeline requires 1 argument (context)")
-				}
-				c.convertTplContext(cmd.Args[1])
-				c.addImport("encoding/yaml")
-				c.addImport("text/template")
-				h := c.tplContextDef()
-				c.usedHelpers[h.Name] = h
-				expr = fmt.Sprintf("yaml.Unmarshal(template.Execute(%s, _tplContext))", expr)
-				handled = true
+			// Preserve helmObj from the piped value when the
+			// handler doesn't set one (e.g. ternary condition).
+			if helmObj == "" {
+				helmObj = prevObj
 			}
-		case "ternary":
-			if c.isCoreFunc(id.Ident) {
-				if len(cmd.Args) != 3 {
-					return "", "", fmt.Errorf("ternary in pipeline requires 2 arguments, got %d", len(cmd.Args)-1)
-				}
-				trueVal, trueObj, err := c.nodeToExpr(cmd.Args[1])
-				if err != nil {
-					return "", "", fmt.Errorf("ternary true value: %w", err)
-				}
-				falseVal, falseObj, err := c.nodeToExpr(cmd.Args[2])
-				if err != nil {
-					return "", "", fmt.Errorf("ternary false value: %w", err)
-				}
-				condExpr := fmt.Sprintf("(_nonzero & {#arg: %s, _})", expr)
-				c.hasConditions = true
-				expr = fmt.Sprintf("[if %s {%s}, %s][0]", condExpr, trueVal, falseVal)
-				if trueObj != "" {
-					helmObj = trueObj
-				}
-				if falseObj != "" {
-					helmObj = falseObj
-				}
-				handled = true
-			}
-		default:
-			handled = true
-			pf, ok := c.config.Funcs[id.Ident]
-			if !ok {
-				return "", "", fmt.Errorf("unsupported pipeline function: %s", id.Ident)
-			}
+			fieldPath = nil
+		} else if pf, ok := c.config.Funcs[id.Ident]; ok {
 			if pf.NonScalar {
 				c.trackNonScalarRef(helmObj, fieldPath)
 			}
 			if pf.Convert == nil {
 				// No-op function (e.g. nindent, indent, toYaml in pipeline).
-				break
+				continue
 			}
 			var args []string
 			if pf.Nargs > 0 {
@@ -3366,9 +3004,8 @@ func (c *converter) actionToCUE(n *parse.ActionNode) (expr string, helmObj strin
 			for _, h := range pf.Helpers {
 				c.usedHelpers[h.Name] = h
 			}
-		}
-		if !handled {
-			return "", "", fmt.Errorf("unsupported pipeline function: %s (not a text/template builtin)", id.Ident)
+		} else {
+			return "", "", fmt.Errorf("unsupported pipeline function: %s", id.Ident)
 		}
 	}
 
@@ -3548,72 +3185,6 @@ func (c *converter) nodeToExpr(node parse.Node) (string, string, error) {
 		}
 		return "", "", fmt.Errorf("{{ . }} outside range/with not supported")
 	case *parse.PipeNode:
-		// Single-command pipes with special functions that produce
-		// complete expressions not suitable for further piping.
-		if len(n.Cmds) == 1 && len(n.Cmds[0].Args) >= 1 {
-			if id, ok := n.Cmds[0].Args[0].(*parse.IdentifierNode); ok {
-				switch id.Ident {
-				case "printf":
-					return c.convertPrintf(n.Cmds[0].Args[1:])
-				case "print":
-					expr, err := c.convertPrint(n.Cmds[0].Args[1:])
-					return expr, "", err
-				case "include":
-					if len(n.Cmds[0].Args) < 2 {
-						return "", "", fmt.Errorf("include requires at least a template name")
-					}
-					var argExpr, ctxHelmObj string
-					var ctxBasePath []string
-					if len(n.Cmds[0].Args) >= 3 {
-						var ctxErr error
-						argExpr, ctxHelmObj, ctxBasePath, ctxErr = c.convertIncludeContext(n.Cmds[0].Args[2])
-						if ctxErr != nil {
-							return "", "", ctxErr
-						}
-					}
-					var inclExpr string
-					var helmObj string
-					if nameNode, ok := n.Cmds[0].Args[1].(*parse.StringNode); ok {
-						var err error
-						inclExpr, helmObj, err = c.handleInclude(nameNode.Text, nil)
-						if err != nil {
-							return "", "", err
-						}
-					} else {
-						nameExpr, err := c.convertIncludeNameExpr(n.Cmds[0].Args[1])
-						if err != nil {
-							return "", "", err
-						}
-						c.hasDynamicInclude = true
-						inclExpr = fmt.Sprintf("_helpers[%s]", nameExpr)
-					}
-					if ctxHelmObj != "" {
-						c.propagateHelperArgRefs(inclExpr, ctxHelmObj, ctxBasePath)
-					}
-					if argExpr != "" {
-						inclExpr = inclExpr + " & {#arg: " + argExpr + ", _}"
-					}
-					return inclExpr, helmObj, nil
-				case "tpl":
-					if len(n.Cmds[0].Args) != 3 {
-						return "", "", fmt.Errorf("tpl requires 2 arguments")
-					}
-					tmplExpr, tmplObj, tmplErr := c.convertTplArg(n.Cmds[0].Args[1])
-					if tmplErr != nil {
-						return "", "", fmt.Errorf("tpl template argument: %w", tmplErr)
-					}
-					c.convertTplContext(n.Cmds[0].Args[2])
-					c.addImport("encoding/yaml")
-					c.addImport("text/template")
-					h := c.tplContextDef()
-					c.usedHelpers[h.Name] = h
-					return fmt.Sprintf("yaml.Unmarshal(template.Execute(%s, _tplContext))", tmplExpr), tmplObj, nil
-				}
-			}
-		}
-		// General pipe expression: first command may be a simple
-		// value or a function call, followed by zero or more pipe
-		// functions from the Funcs map.
 		return c.convertSubPipe(n)
 	default:
 		return "", "", fmt.Errorf("unsupported node type: %s", node)
@@ -3650,6 +3221,8 @@ func (c *converter) convertSubPipe(pipe *parse.PipeNode) (string, string, error)
 		}
 		switch {
 		case id.Ident == "default" && c.isCoreFunc(id.Ident) && len(first.Args) == 3:
+			// In sub-pipe context, default produces *defaultVal | expr
+			// inline rather than recording a schema-level default.
 			defaultVal, litErr := nodeToCUELiteral(first.Args[1])
 			if litErr != nil {
 				defaultVal, _, litErr = c.nodeToExpr(first.Args[1])
@@ -3664,36 +3237,45 @@ func (c *converter) convertSubPipe(pipe *parse.PipeNode) (string, string, error)
 			}
 			expr = fmt.Sprintf("*%s | %s", defaultVal, expr)
 		default:
-			// Funcs-map function with explicit args and piped value.
-			pf, ok := c.config.Funcs[id.Ident]
-			if !ok {
-				return "", "", fmt.Errorf("unsupported pipe node: %s", pipe)
-			}
-			lastArg := first.Args[len(first.Args)-1]
-			var err error
-			expr, helmObj, err = c.nodeToExpr(lastArg)
-			if err != nil {
-				return "", "", fmt.Errorf("%s argument: %w", id.Ident, err)
-			}
-			if pf.Convert != nil {
-				var args []string
-				for _, a := range first.Args[1 : len(first.Args)-1] {
-					lit, litErr := nodeToCUELiteral(a)
-					if litErr != nil {
-						lit, _, litErr = c.nodeToExpr(a)
+			if cf, ok := coreFuncs[id.Ident]; ok && c.isCoreFunc(id.Ident) {
+				args := make([]funcArg, len(first.Args)-1)
+				for i, n := range first.Args[1:] {
+					args[i] = funcArg{node: n}
+				}
+				var err error
+				expr, helmObj, err = cf.convert(c, args)
+				if err != nil {
+					return "", "", err
+				}
+			} else if pf, ok := c.config.Funcs[id.Ident]; ok {
+				lastArg := first.Args[len(first.Args)-1]
+				var err error
+				expr, helmObj, err = c.nodeToExpr(lastArg)
+				if err != nil {
+					return "", "", fmt.Errorf("%s argument: %w", id.Ident, err)
+				}
+				if pf.Convert != nil {
+					var args []string
+					for _, a := range first.Args[1 : len(first.Args)-1] {
+						lit, litErr := nodeToCUELiteral(a)
 						if litErr != nil {
-							return "", "", fmt.Errorf("%s argument: %w", id.Ident, litErr)
+							lit, _, litErr = c.nodeToExpr(a)
+							if litErr != nil {
+								return "", "", fmt.Errorf("%s argument: %w", id.Ident, litErr)
+							}
 						}
+						args = append(args, lit)
 					}
-					args = append(args, lit)
+					expr = pf.Convert(expr, args)
+					for _, pkg := range pf.Imports {
+						c.addImport(pkg)
+					}
+					for _, h := range pf.Helpers {
+						c.usedHelpers[h.Name] = h
+					}
 				}
-				expr = pf.Convert(expr, args)
-				for _, pkg := range pf.Imports {
-					c.addImport(pkg)
-				}
-				for _, h := range pf.Helpers {
-					c.usedHelpers[h.Name] = h
-				}
+			} else {
+				return "", "", fmt.Errorf("unsupported pipe node: %s", pipe)
 			}
 		}
 	}
@@ -3702,7 +3284,7 @@ func (c *converter) convertSubPipe(pipe *parse.PipeNode) (string, string, error)
 		return "", "", fmt.Errorf("unsupported pipe node: %s", pipe)
 	}
 
-	// Apply remaining pipe commands using the Funcs map.
+	// Apply remaining pipe commands.
 	for _, cmd := range pipe.Cmds[1:] {
 		if len(cmd.Args) == 0 {
 			return "", "", fmt.Errorf("unsupported pipe node: %s", pipe)
@@ -3711,30 +3293,59 @@ func (c *converter) convertSubPipe(pipe *parse.PipeNode) (string, string, error)
 		if !ok {
 			return "", "", fmt.Errorf("unsupported pipe node: %s", pipe)
 		}
-		pf, ok := c.config.Funcs[id.Ident]
-		if !ok {
-			return "", "", fmt.Errorf("unsupported pipe node: %s", pipe)
-		}
-		if pf.Convert == nil {
-			continue // No-op/passthrough function.
-		}
-		var args []string
-		for _, a := range cmd.Args[1:] {
-			lit, litErr := nodeToCUELiteral(a)
+		if id.Ident == "default" && c.isCoreFunc(id.Ident) {
+			// In sub-pipe context, default wraps inline.
+			if len(cmd.Args) != 2 {
+				return "", "", fmt.Errorf("default in pipeline requires 1 argument")
+			}
+			defaultVal, litErr := nodeToCUELiteral(cmd.Args[1])
 			if litErr != nil {
-				lit, _, litErr = c.nodeToExpr(a)
+				defaultVal, _, litErr = c.nodeToExpr(cmd.Args[1])
 				if litErr != nil {
-					return "", "", fmt.Errorf("%s argument: %w", id.Ident, litErr)
+					return "", "", fmt.Errorf("default value: %w", litErr)
 				}
 			}
-			args = append(args, lit)
-		}
-		expr = pf.Convert(expr, args)
-		for _, pkg := range pf.Imports {
-			c.addImport(pkg)
-		}
-		for _, h := range pf.Helpers {
-			c.usedHelpers[h.Name] = h
+			expr = fmt.Sprintf("*%s | %s", defaultVal, expr)
+		} else if cf, ok := coreFuncs[id.Ident]; ok && c.isCoreFunc(id.Ident) {
+			piped := funcArg{expr: expr, obj: helmObj}
+			args := buildPipeArgs(cf, cmd.Args[1:], piped)
+			prevObj := helmObj
+			var err error
+			expr, helmObj, err = cf.convert(c, args)
+			if err != nil {
+				return "", "", err
+			}
+			if helmObj == "" {
+				helmObj = prevObj
+			}
+		} else if pf, ok := c.config.Funcs[id.Ident]; ok {
+			if pf.Convert == nil {
+				continue // No-op/passthrough function.
+			}
+			var args []string
+			for _, a := range cmd.Args[1:] {
+				lit, litErr := nodeToCUELiteral(a)
+				if litErr != nil {
+					lit, _, litErr = c.nodeToExpr(a)
+					if litErr != nil {
+						return "", "", fmt.Errorf("%s argument: %w", id.Ident, litErr)
+					}
+				}
+				args = append(args, lit)
+			}
+			result := pf.Convert(expr, args)
+			if result == "" {
+				return "", "", fmt.Errorf("unsupported pipe node: %s", pipe)
+			}
+			expr = result
+			for _, pkg := range pf.Imports {
+				c.addImport(pkg)
+			}
+			for _, h := range pf.Helpers {
+				c.usedHelpers[h.Name] = h
+			}
+		} else {
+			return "", "", fmt.Errorf("unsupported pipe node: %s", pipe)
 		}
 	}
 

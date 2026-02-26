@@ -1,0 +1,26 @@
+list in pipeline position: piped value appended as last element.
+Helm's list function does not support piped input, so no Helm comparison.
+
+-- values.yaml --
+item: hello
+-- input.yaml --
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test
+data:
+  single: {{ .Values.item | list | toJson }}
+  multi: {{ .Values.item | list "a" "b" | toJson }}
+-- output.cue --
+#values: {
+	item!: bool | number | string | null
+	...
+}
+
+apiVersion: "v1"
+kind:       "ConfigMap"
+metadata: name: "test"
+data: {
+	single: [#values.item]
+	multi: ["a", "b", #values.item]
+}
