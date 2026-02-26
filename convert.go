@@ -3505,6 +3505,8 @@ func (c *converter) nodeToExpr(node parse.Node) (string, string, error) {
 		}
 		return "", "", fmt.Errorf("{{ . }} outside range/with not supported")
 	case *parse.PipeNode:
+		// Single-command pipes with special functions that produce
+		// complete expressions not suitable for further piping.
 		if len(n.Cmds) == 1 && len(n.Cmds[0].Args) >= 1 {
 			if id, ok := n.Cmds[0].Args[0].(*parse.IdentifierNode); ok {
 				switch id.Ident {
@@ -3566,7 +3568,10 @@ func (c *converter) nodeToExpr(node parse.Node) (string, string, error) {
 				}
 			}
 		}
-		return "", "", fmt.Errorf("unsupported pipe node: %s", node)
+		// General pipe expression: first command may be a simple
+		// value or a function call, followed by zero or more pipe
+		// functions from the Funcs map.
+		return c.convertSubPipe(n)
 	default:
 		return "", "", fmt.Errorf("unsupported node type: %s", node)
 	}
@@ -3575,6 +3580,124 @@ func (c *converter) nodeToExpr(node parse.Node) (string, string, error) {
 // convertTplArg converts the template expression argument of tpl.
 // For simple nodes it delegates to nodeToExpr. For PipeNode, it walks
 // the commands to detect toYaml and wraps in yaml.Marshal if needed.
+// convertSubPipe converts a PipeNode used as a sub-expression (e.g. inside
+// a printf argument). It handles:
+//   - simple values piped through functions: .Values.port | int
+//   - function calls piped through functions: default .Values.x .Values.y | int
+//   - function calls wrapping sub-expressions: int (default .Values.x .Values.y)
+func (c *converter) convertSubPipe(pipe *parse.PipeNode) (string, string, error) {
+	if len(pipe.Cmds) == 0 {
+		return "", "", fmt.Errorf("unsupported pipe node: %s", pipe)
+	}
+
+	first := pipe.Cmds[0]
+	var expr, helmObj string
+
+	if len(first.Args) == 1 {
+		// Single-arg first command: field, variable, dot, or literal.
+		var err error
+		expr, helmObj, err = c.nodeToExpr(first.Args[0])
+		if err != nil {
+			return "", "", fmt.Errorf("unsupported pipe node: %s", pipe)
+		}
+	} else if len(first.Args) >= 2 {
+		id, ok := first.Args[0].(*parse.IdentifierNode)
+		if !ok {
+			return "", "", fmt.Errorf("unsupported pipe node: %s", pipe)
+		}
+		switch {
+		case id.Ident == "default" && c.isCoreFunc(id.Ident) && len(first.Args) == 3:
+			defaultVal, litErr := nodeToCUELiteral(first.Args[1])
+			if litErr != nil {
+				defaultVal, _, litErr = c.nodeToExpr(first.Args[1])
+				if litErr != nil {
+					return "", "", fmt.Errorf("default value: %w", litErr)
+				}
+			}
+			var err error
+			expr, helmObj, err = c.nodeToExpr(first.Args[2])
+			if err != nil {
+				return "", "", fmt.Errorf("default field: %w", err)
+			}
+			expr = fmt.Sprintf("*%s | %s", defaultVal, expr)
+		default:
+			// Funcs-map function with explicit args and piped value.
+			pf, ok := c.config.Funcs[id.Ident]
+			if !ok {
+				return "", "", fmt.Errorf("unsupported pipe node: %s", pipe)
+			}
+			lastArg := first.Args[len(first.Args)-1]
+			var err error
+			expr, helmObj, err = c.nodeToExpr(lastArg)
+			if err != nil {
+				return "", "", fmt.Errorf("%s argument: %w", id.Ident, err)
+			}
+			if pf.Convert != nil {
+				var args []string
+				for _, a := range first.Args[1 : len(first.Args)-1] {
+					lit, litErr := nodeToCUELiteral(a)
+					if litErr != nil {
+						lit, _, litErr = c.nodeToExpr(a)
+						if litErr != nil {
+							return "", "", fmt.Errorf("%s argument: %w", id.Ident, litErr)
+						}
+					}
+					args = append(args, lit)
+				}
+				expr = pf.Convert(expr, args)
+				for _, pkg := range pf.Imports {
+					c.addImport(pkg)
+				}
+				for _, h := range pf.Helpers {
+					c.usedHelpers[h.Name] = h
+				}
+			}
+		}
+	}
+
+	if expr == "" {
+		return "", "", fmt.Errorf("unsupported pipe node: %s", pipe)
+	}
+
+	// Apply remaining pipe commands using the Funcs map.
+	for _, cmd := range pipe.Cmds[1:] {
+		if len(cmd.Args) == 0 {
+			return "", "", fmt.Errorf("unsupported pipe node: %s", pipe)
+		}
+		id, ok := cmd.Args[0].(*parse.IdentifierNode)
+		if !ok {
+			return "", "", fmt.Errorf("unsupported pipe node: %s", pipe)
+		}
+		pf, ok := c.config.Funcs[id.Ident]
+		if !ok {
+			return "", "", fmt.Errorf("unsupported pipe node: %s", pipe)
+		}
+		if pf.Convert == nil {
+			continue // No-op/passthrough function.
+		}
+		var args []string
+		for _, a := range cmd.Args[1:] {
+			lit, litErr := nodeToCUELiteral(a)
+			if litErr != nil {
+				lit, _, litErr = c.nodeToExpr(a)
+				if litErr != nil {
+					return "", "", fmt.Errorf("%s argument: %w", id.Ident, litErr)
+				}
+			}
+			args = append(args, lit)
+		}
+		expr = pf.Convert(expr, args)
+		for _, pkg := range pf.Imports {
+			c.addImport(pkg)
+		}
+		for _, h := range pf.Helpers {
+			c.usedHelpers[h.Name] = h
+		}
+	}
+
+	return expr, helmObj, nil
+}
+
 func (c *converter) convertTplArg(node parse.Node) (string, string, error) {
 	pn, ok := node.(*parse.PipeNode)
 	if !ok {
