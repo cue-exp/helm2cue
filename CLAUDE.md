@@ -74,6 +74,12 @@ When creating issues, follow the repo's issue templates in
 `.github/ISSUE_TEMPLATE/`. Pick the appropriate template (bug report, feature
 request) and fill in all required fields. Do not use freeform bodies.
 
+For the "helm2cue version" field in bug reports, build a binary first so that
+VCS metadata is included (`go run` does not embed it):
+
+    go build -o tmp/helm2cue .
+    tmp/helm2cue version
+
 In issue bodies, use **indented code blocks** (4-space indent), not fenced
 backtick blocks.
 

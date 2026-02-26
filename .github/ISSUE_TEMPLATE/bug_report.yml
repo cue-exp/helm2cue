@@ -6,11 +6,15 @@ body:
     id: version
     attributes:
       label: helm2cue version
-      description: What version of helm2cue are you using? Paste the output of `helm2cue version`.
+      description: |
+        What version of helm2cue are you using? Build a binary first so VCS info is included
+        (`go run` omits it): `go build -o helm2cue . && ./helm2cue version`
       placeholder: |
-        helm2cue (devel)
-        go go1.24.0
-        commit abc1234...
+        helm2cue version v0.0.0-20260226072626-a715c11eae6f
+
+        go version go1.26.0
+            vcs.revision a715c11eae6f...
+                vcs.time 2026-02-26T07:26:26Z
     validations:
       required: true
   - type: textarea
