@@ -608,7 +608,11 @@ func Convert(cfg *Config, input []byte, helpers ...[]byte) ([]byte, error) {
 		return nil, err
 	}
 
-	docs := splitYAMLDocuments(input)
+	// Try AST-aware splitting to handle cross-document blocks.
+	docs := splitTemplateDocuments(input, treeSet)
+	if docs == nil {
+		docs = splitYAMLDocuments(input)
+	}
 	if len(docs) <= 1 {
 		// Single document — original behavior.
 		doc := input

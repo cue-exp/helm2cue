@@ -23,6 +23,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"text/template/parse"
 
 	"cuelang.org/go/cue"
 	"cuelang.org/go/cue/cuecontext"
@@ -167,7 +168,10 @@ func ConvertChart(chartDir, outDir string, opts ChartOptions) error {
 		}
 
 		fieldName := templateFieldName(relPath)
-		docs := splitYAMLDocuments(content)
+		docs := splitTemplateDocuments(content, treeSet)
+		if docs == nil {
+			docs = splitYAMLDocuments(content)
+		}
 
 		for i, doc := range docs {
 			totalDocs++
@@ -355,6 +359,242 @@ func splitYAMLDocuments(content []byte) [][]byte {
 		docs = append(docs, []byte(s+"\n"))
 	}
 	return docs
+}
+
+// blockWrapper records the opening/closing template text for a block
+// (if/range/with) that spans a --- boundary. Fragments inside the
+// block get these prepended/appended so each is independently parseable.
+type blockWrapper struct {
+	open  string // e.g. "{{- if .Values.enabled }}\n"
+	close string // e.g. "{{- end }}\n"
+}
+
+// splitTemplateDocuments splits a template file into per-document
+// fragments, handling control blocks (if/range/with) that span ---
+// boundaries. It parses the whole file as a single template to find
+// block structure, then splits the raw text and augments each fragment
+// with enclosing block wrappers and variable definitions from earlier
+// fragments.
+//
+// If the whole-file parse fails, it returns nil (caller should fall
+// back to splitYAMLDocuments). If no --- separator is found, it
+// returns nil.
+func splitTemplateDocuments(content []byte, treeSet map[string]*parse.Tree) [][]byte {
+	// Quick check: any --- at all?
+	if !yamlDocSep.Match(content) {
+		return nil
+	}
+
+	// Parse the whole file as a single template.
+	tmpl := parse.New("__splitcheck__")
+	tmpl.Mode = parse.SkipFuncCheck | parse.ParseComments
+	// Clone treeSet to avoid polluting the shared set.
+	tsCopy := make(map[string]*parse.Tree, len(treeSet))
+	for k, v := range treeSet {
+		tsCopy[k] = v
+	}
+	if _, err := tmpl.Parse(string(content), "{{", "}}", tsCopy); err != nil {
+		return nil
+	}
+	root := tmpl.Root
+	if root == nil {
+		return nil
+	}
+
+	// Walk the AST to find --- separators and their block context.
+	var info docSplitInfo
+	info.varDefs = make(map[string]string)
+	walkDocBoundaries(root.Nodes, nil, &info)
+
+	if len(info.boundaries) == 0 {
+		return nil
+	}
+
+	// Split the raw content on --- lines.
+	rawDocs := splitYAMLDocuments(content)
+	if len(rawDocs) <= 1 {
+		return rawDocs
+	}
+
+	// Build augmented fragments.
+	//
+	// boundaries[i] describes the block context at the i-th ---
+	// separator (between rawDocs[i] and rawDocs[i+1]).
+	//
+	// The raw text of each fragment already contains the original
+	// template actions. When a block spans a ---, the first fragment
+	// has the opener (e.g. {{if ...}}) but no closer, and the last
+	// fragment has the closer ({{end}}) but no opener. So:
+	//
+	//   Fragment 0:     add closers for boundary[0].wrappers
+	//   Fragment i>0:   add openers from boundary[i-1].wrappers
+	//                   add closers from boundary[i].wrappers (if exists)
+	//   Fragment last:  add openers from boundary[last].wrappers only
+	//
+	// Variable definitions from earlier fragments are also prepended.
+	result := make([][]byte, len(rawDocs))
+
+	// Fragment 0: may need closers if boundary[0] has wrappers.
+	if len(info.boundaries) > 0 && len(info.boundaries[0].wrappers) > 0 {
+		var buf bytes.Buffer
+		buf.Write(rawDocs[0])
+		for j := len(info.boundaries[0].wrappers) - 1; j >= 0; j-- {
+			buf.WriteString(info.boundaries[0].wrappers[j].close)
+		}
+		result[0] = stripLeadingClean(buf.Bytes())
+	} else {
+		result[0] = rawDocs[0]
+	}
+
+	for i := 1; i < len(rawDocs); i++ {
+		prevBIdx := i - 1
+		if prevBIdx >= len(info.boundaries) {
+			result[i] = rawDocs[i]
+			continue
+		}
+		prevB := info.boundaries[prevBIdx]
+
+		var buf bytes.Buffer
+		// Prepend variable definitions from earlier documents.
+		for _, vd := range prevB.varDefs {
+			buf.WriteString(vd)
+			buf.WriteByte('\n')
+		}
+		// Prepend block openers from the boundary before this fragment.
+		for _, w := range prevB.wrappers {
+			buf.WriteString(w.open)
+		}
+		buf.Write(rawDocs[i])
+		// Append block closers only if there's a next boundary
+		// (i.e. this isn't the last fragment) with wrappers.
+		nextBIdx := i
+		if nextBIdx < len(info.boundaries) {
+			nextB := info.boundaries[nextBIdx]
+			for j := len(nextB.wrappers) - 1; j >= 0; j-- {
+				buf.WriteString(nextB.wrappers[j].close)
+			}
+		}
+
+		result[i] = stripLeadingClean(buf.Bytes())
+	}
+
+	return result
+}
+
+// stripLeadingClean strips leading blank/comment lines and trailing
+// whitespace, like splitYAMLDocuments does for each fragment.
+func stripLeadingClean(data []byte) []byte {
+	s := string(data)
+	for {
+		loc := yamlLeadingRe.FindStringIndex(s)
+		if loc == nil || loc[0] != 0 {
+			break
+		}
+		s = s[loc[1]:]
+	}
+	s = strings.TrimRight(s, "\n\t ")
+	if s == "" {
+		return data
+	}
+	return []byte(s + "\n")
+}
+
+// docBoundary records the block context and variable definitions at a
+// single --- separator.
+type docBoundary struct {
+	wrappers []blockWrapper // enclosing blocks, outermost first
+	varDefs  []string       // "{{$var := expr}}" lines to prepend
+}
+
+// docSplitInfo accumulates state while walking the AST for --- boundaries.
+type docSplitInfo struct {
+	boundaries []docBoundary
+	varDefs    map[string]string // accumulated $var definitions
+}
+
+// walkDocBoundaries walks a list of AST nodes looking for TextNodes
+// containing ---. wrappers is the stack of enclosing blocks.
+func walkDocBoundaries(nodes []parse.Node, wrappers []blockWrapper, info *docSplitInfo) {
+	for _, node := range nodes {
+		switch n := node.(type) {
+		case *parse.TextNode:
+			// Check if this text contains --- separators.
+			text := string(n.Text)
+			locs := yamlDocSep.FindAllStringIndex(text, -1)
+			for range locs {
+				// Snapshot current variable definitions.
+				var vds []string
+				// Collect in sorted order for determinism.
+				var keys []string
+				for k := range info.varDefs {
+					keys = append(keys, k)
+				}
+				slices.Sort(keys)
+				for _, k := range keys {
+					vds = append(vds, info.varDefs[k])
+				}
+				info.boundaries = append(info.boundaries, docBoundary{
+					wrappers: slices.Clone(wrappers),
+					varDefs:  vds,
+				})
+			}
+
+		case *parse.ActionNode:
+			// Check for variable declarations: {{$var := expr}}.
+			if n.Pipe != nil && len(n.Pipe.Decl) > 0 && !n.Pipe.IsAssign {
+				for _, v := range n.Pipe.Decl {
+					varName := v.Ident[0] // e.g. "$var"
+					// Reconstruct the declaration action text.
+					info.varDefs[varName] = "{{" + n.Pipe.String() + "}}"
+				}
+			}
+
+		case *parse.IfNode:
+			walkBranchForBoundaries(&n.BranchNode, parse.NodeIf, wrappers, info)
+
+		case *parse.RangeNode:
+			walkBranchForBoundaries(&n.BranchNode, parse.NodeRange, wrappers, info)
+
+		case *parse.WithNode:
+			walkBranchForBoundaries(&n.BranchNode, parse.NodeWith, wrappers, info)
+		}
+	}
+}
+
+// walkBranchForBoundaries walks if/range/with branch nodes looking for
+// --- boundaries in their bodies. If found, the block's open/close
+// actions are added to the wrapper stack for inner boundaries.
+func walkBranchForBoundaries(br *parse.BranchNode, nodeType parse.NodeType, wrappers []blockWrapper, info *docSplitInfo) {
+	// Check if the body or else-body contain --- separators.
+	var keyword string
+	switch nodeType {
+	case parse.NodeIf:
+		keyword = "if"
+	case parse.NodeRange:
+		keyword = "range"
+	case parse.NodeWith:
+		keyword = "with"
+	}
+
+	open := "{{" + keyword + " " + br.Pipe.String() + "}}\n"
+	close := "{{end}}\n"
+	w := blockWrapper{open: open, close: close}
+
+	if br.List != nil {
+		innerWrappers := append(slices.Clone(wrappers), w)
+		walkDocBoundaries(br.List.Nodes, innerWrappers, info)
+	}
+	if br.ElseList != nil {
+		// For else branches, use "{{else}}" as the opener and the
+		// whole if/range/with as the outer wrapper.
+		// Actually, for simplicity, wrap the else body with the full
+		// block + else structure.
+		elseOpen := "{{" + keyword + " " + br.Pipe.String() + "}}{{else}}\n"
+		elseClose := "{{end}}\n"
+		elseW := blockWrapper{open: elseOpen, close: elseClose}
+		innerWrappers := append(slices.Clone(wrappers), elseW)
+		walkDocBoundaries(br.ElseList.Nodes, innerWrappers, info)
+	}
 }
 
 // writeCUEFile formats CUE source and writes it to path.
