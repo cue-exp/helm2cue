@@ -24,7 +24,11 @@ import "strings"
 	...
 }
 
-apiVersion: "v1"
-kind:       "ConfigMap"
-metadata: name: "test"
-data: replaced: strings.Replace(#values.name, "-", "_", -1)
+output: [
+	{
+		apiVersion: "v1"
+		kind:       "ConfigMap"
+		metadata: name: "test"
+		data: replaced: strings.Replace(#values.name, "-", "_", -1)
+	},
+]

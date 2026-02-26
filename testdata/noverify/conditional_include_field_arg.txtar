@@ -22,9 +22,13 @@ _myapp_name: {
 	#arg
 }
 
-if (_nonzero & {#arg: _myapp_name & {#arg: #values.name, _}, _}) {
-	label: "present"
-}
+output: [
+	if (_nonzero & {#arg: _myapp_name & {#arg: #values.name, _}, _}) {
+		{
+			label: "present"
+		}
+	},
+]
 _nonzero: {
 	#arg?: _
 	[if #arg != _|_ {

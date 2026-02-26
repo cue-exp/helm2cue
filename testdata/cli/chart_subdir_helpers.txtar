@@ -81,7 +81,7 @@ _subdir_helpers_operator_labels: {
 
 package subdir_helpers
 
-deployment: {
+deployment: [{
 	apiVersion: "apps/v1"
 	kind:       "Deployment"
 	metadata: {
@@ -111,4 +111,4 @@ deployment: {
 			}
 		}
 	}
-}
+}]

@@ -27,6 +27,10 @@ metadata:
 }
 _myapp_name: #release.Name
 
-apiVersion: "v1"
-kind:       "Service"
-metadata: name: _myapp_name
+output: [
+	{
+		apiVersion: "v1"
+		kind:       "Service"
+		metadata: name: _myapp_name
+	},
+]

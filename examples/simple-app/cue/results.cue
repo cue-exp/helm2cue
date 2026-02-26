@@ -2,8 +2,10 @@
 
 package simple_app
 
-results: [
+import "list"
+
+results: list.FlattenN([
 	configmap,
 	deployment,
 	service,
-]
+], 1)

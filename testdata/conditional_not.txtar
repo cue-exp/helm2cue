@@ -28,12 +28,16 @@ import "struct"
 	...
 }
 
-apiVersion: "v1"
-kind:       "ConfigMap"
-metadata: name: #values.name
-if !(_nonzero & {#arg: #values.debug, _}) {
-	data: env: "production"
-}
+output: [
+	{
+		apiVersion: "v1"
+		kind:       "ConfigMap"
+		metadata: name: #values.name
+		if !(_nonzero & {#arg: #values.debug, _}) {
+			data: env: "production"
+		}
+	},
+]
 _nonzero: {
 	#arg?: _
 	[if #arg != _|_ {

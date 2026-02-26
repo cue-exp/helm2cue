@@ -9,8 +9,12 @@ cmp stdout want-stdout
 - ipBlock:
     cidr: 123.45.678.9/29
 -- want-stdout --
-// This is a template comment
-// This is a YAML comment
-{
-	ipBlock: cidr: "123.45.678.9/29"
-}
+output: [
+	{
+		// This is a template comment
+		// This is a YAML comment
+		{
+			ipBlock: cidr: "123.45.678.9/29"
+		}
+	},
+]

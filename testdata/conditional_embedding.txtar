@@ -36,17 +36,21 @@ import "struct"
 }
 _myapp_annotations: "checksum/config": "abc123"
 
-apiVersion: "v1"
-kind:       "ConfigMap"
-metadata: {
-	name: "test"
-	annotations: {
-		if (_nonzero & {#arg: #values.enabled, _}) {
-			_myapp_annotations
+output: [
+	{
+		apiVersion: "v1"
+		kind:       "ConfigMap"
+		metadata: {
+			name: "test"
+			annotations: {
+				if (_nonzero & {#arg: #values.enabled, _}) {
+					_myapp_annotations
+				}
+			}
 		}
-	}
-}
-data: key: "value"
+		data: key: "value"
+	},
+]
 _nonzero: {
 	#arg?: _
 	[if #arg != _|_ {

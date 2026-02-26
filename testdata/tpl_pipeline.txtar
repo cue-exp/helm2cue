@@ -23,7 +23,11 @@ import (
 	...
 }
 
-data: "\(yaml.Unmarshal(template.Execute(#values.greeting, _tplContext)))"
+output: [
+	{
+		data: "\(yaml.Unmarshal(template.Execute(#values.greeting, _tplContext)))"
+	},
+]
 _tplContext: {
 	Capabilities: #capabilities
 	Chart:        #chart

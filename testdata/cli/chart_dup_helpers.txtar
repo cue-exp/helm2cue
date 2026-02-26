@@ -89,7 +89,7 @@ package dup_helpers
 
 package dup_helpers
 
-deployment: {
+deployment: [{
 	apiVersion: "apps/v1"
 	kind:       "Deployment"
 	metadata: {
@@ -109,4 +109,4 @@ deployment: {
 			}
 		}
 	}
-}
+}]

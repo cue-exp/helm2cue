@@ -15,8 +15,12 @@ labels:
 	...
 }
 
-labels: {
-	for _key0, _val0 in #input.labels {
-		(_key0): _val0
-	}
-}
+output: [
+	{
+		labels: {
+			for _key0, _val0 in #input.labels {
+				(_key0): _val0
+			}
+		}
+	},
+]

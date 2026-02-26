@@ -31,9 +31,13 @@ metadata:
 }
 _myapp_fullname: "\(#release.Name)-\(#chart.Name)"
 
-apiVersion: "v1"
-kind:       "Service"
-metadata: {
-	name: "\(_myapp_fullname)-metrics"
-	labels: app: "\(_myapp_fullname)-metrics"
-}
+output: [
+	{
+		apiVersion: "v1"
+		kind:       "Service"
+		metadata: {
+			name: "\(_myapp_fullname)-metrics"
+			labels: app: "\(_myapp_fullname)-metrics"
+		}
+	},
+]

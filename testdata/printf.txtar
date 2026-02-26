@@ -24,7 +24,11 @@ data:
 	...
 }
 
-apiVersion: "v1"
-kind:       "ConfigMap"
-metadata: name: "\(#values.app)-\(#values.env)"
-data: label: "test"
+output: [
+	{
+		apiVersion: "v1"
+		kind:       "ConfigMap"
+		metadata: name: "\(#values.app)-\(#values.env)"
+		data: label: "test"
+	},
+]

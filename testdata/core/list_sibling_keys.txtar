@@ -17,28 +17,32 @@ rules:
   verbs:
   - watch
 -- output.cue --
-rules: [
+output: [
 	{
-		apiGroups: [
-			"apps",
-		]
-		resources: [
-			"deployments",
-		]
-		verbs: [
-			"get",
-			"list",
-		]
-	},
-	{
-		apiGroups: [
-			"",
-		]
-		resources: [
-			"pods",
-		]
-		verbs: [
-			"watch",
+		rules: [
+			{
+				apiGroups: [
+					"apps",
+				]
+				resources: [
+					"deployments",
+				]
+				verbs: [
+					"get",
+					"list",
+				]
+			},
+			{
+				apiGroups: [
+					"",
+				]
+				resources: [
+					"pods",
+				]
+				verbs: [
+					"watch",
+				]
+			},
 		]
 	},
 ]

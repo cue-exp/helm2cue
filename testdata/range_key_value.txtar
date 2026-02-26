@@ -27,13 +27,17 @@ metadata:
 	...
 }
 
-apiVersion: "v1"
-kind:       "ConfigMap"
-metadata: {
-	name: "test"
-	labels: {
-		for _key0, _val0 in #values.labels {
-			(_key0): _val0
+output: [
+	{
+		apiVersion: "v1"
+		kind:       "ConfigMap"
+		metadata: {
+			name: "test"
+			labels: {
+				for _key0, _val0 in #values.labels {
+					(_key0): _val0
+				}
+			}
 		}
-	}
-}
+	},
+]

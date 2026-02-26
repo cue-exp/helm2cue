@@ -23,6 +23,10 @@ metadata:
 }
 _myapp_name: #chart.Name
 
-apiVersion: "v1"
-kind:       "ConfigMap"
-metadata: name: _myapp_name
+output: [
+	{
+		apiVersion: "v1"
+		kind:       "ConfigMap"
+		metadata: name: _myapp_name
+	},
+]

@@ -18,11 +18,15 @@ data:
 	...
 }
 
-apiVersion: "v1"
-kind:       "ConfigMap"
-metadata: name: "test"
-data: {
-	items: ["a", "b", "c"]
-	mixed: [#values.x, "literal"]
-	empty: []
-}
+output: [
+	{
+		apiVersion: "v1"
+		kind:       "ConfigMap"
+		metadata: name: "test"
+		data: {
+			items: ["a", "b", "c"]
+			mixed: [#values.x, "literal"]
+			empty: []
+		}
+	},
+]

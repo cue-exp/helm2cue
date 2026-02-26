@@ -44,20 +44,24 @@ spec:
 	...
 }
 
-apiVersion: "v1"
-kind:       "ConfigMap"
-metadata: name: "test"
-spec: {
-	rules: [
-		{
-			podSelector: matchExpressions: [
-				{key: #values.labelKey, operator: "In", values: [#values.appName]},
+output: [
+	{
+		apiVersion: "v1"
+		kind:       "ConfigMap"
+		metadata: name: "test"
+		spec: {
+			rules: [
+				{
+					podSelector: matchExpressions: [
+						{key: #values.labelKey, operator: "In", values: [#values.appName]},
+					]
+				},
 			]
-		},
-	]
-	data: {
-		tags: [#values.labelKey, "static"]
-		config: {port: #values.port, name: #values.appName}
-		deep: outer: inner: #values.nested
-	}
-}
+			data: {
+				tags: [#values.labelKey, "static"]
+				config: {port: #values.port, name: #values.appName}
+				deep: outer: inner: #values.nested
+			}
+		}
+	},
+]

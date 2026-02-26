@@ -24,11 +24,15 @@ data:
 	...
 }
 
-apiVersion: "v1"
-kind:       "ConfigMap"
-metadata: {
-	name: #values.name // required: "name is required"
-}
-data: {
-	env: #values.env // required: "env is required"
-}
+output: [
+	{
+		apiVersion: "v1"
+		kind:       "ConfigMap"
+		metadata: {
+			name: #values.name // required: "name is required"
+		}
+		data: {
+			env: #values.env // required: "env is required"
+		}
+	},
+]

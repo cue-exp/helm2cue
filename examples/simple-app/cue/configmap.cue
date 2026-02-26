@@ -2,7 +2,7 @@
 
 package simple_app
 
-configmap: {
+configmap: [{
 	apiVersion: "v1"
 	kind:       "ConfigMap"
 	metadata: {
@@ -18,4 +18,4 @@ configmap: {
 			logLevel: "info"
 		}
 	}
-}
+}]

@@ -20,10 +20,14 @@ import "struct"
 	...
 }
 
-apiVersion: "v1"
-kind:       "ConfigMap"
-metadata: name: "test"
-data: result: [if (_nonzero & {#arg: #values.primary, _}) {#values.primary}, #values.fallback][0]
+output: [
+	{
+		apiVersion: "v1"
+		kind:       "ConfigMap"
+		metadata: name: "test"
+		data: result: [if (_nonzero & {#arg: #values.primary, _}) {#values.primary}, #values.fallback][0]
+	},
+]
 _nonzero: {
 	#arg?: _
 	[if #arg != _|_ {

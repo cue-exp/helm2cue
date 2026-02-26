@@ -24,7 +24,11 @@ import (
 	...
 }
 
-data: yaml.Unmarshal(template.Execute(yaml.Marshal(#values.sel), _tplContext))
+output: [
+	{
+		data: yaml.Unmarshal(template.Execute(yaml.Marshal(#values.sel), _tplContext))
+	},
+]
 _tplContext: {
 	Capabilities: #capabilities
 	Chart:        #chart

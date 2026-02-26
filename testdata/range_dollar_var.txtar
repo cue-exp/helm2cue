@@ -29,11 +29,15 @@ data:
 	...
 }
 
-apiVersion: "v1"
-kind:       "ConfigMap"
-metadata: name: "test"
-data: items: [
-	for _, _range0 in #values.items {
-		_range0
+output: [
+	{
+		apiVersion: "v1"
+		kind:       "ConfigMap"
+		metadata: name: "test"
+		data: items: [
+			for _, _range0 in #values.items {
+				_range0
+			},
+		]
 	},
 ]

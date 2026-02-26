@@ -1,0 +1,54 @@
+Multi-document YAML template with --- separator.
+
+-- _helpers.tpl --
+-- values.yaml --
+name: test
+-- input.yaml --
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Values.name }}
+data:
+  key: one
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Values.name }}
+data:
+  key: two
+-- helm_output.yaml --
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test
+data:
+  key: one
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test
+data:
+  key: two
+-- output.cue --
+#values: {
+	name!: bool | number | string | null
+	...
+}
+
+output: [
+	{
+		apiVersion: "v1"
+		kind:       "ConfigMap"
+		metadata: name: #values.name
+		data: key: "one"
+	},
+	{
+		apiVersion: "v1"
+		kind:       "ConfigMap"
+		metadata: name: #values.name
+		data: key: "two"
+	},
+]
