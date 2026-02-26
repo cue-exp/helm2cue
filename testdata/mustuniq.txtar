@@ -1,0 +1,40 @@
+mustUniq function: same as uniq (error-returning variant).
+Use toJson to produce a proper list so Helm and CUE outputs match.
+
+-- values.yaml --
+items:
+  - apple
+  - banana
+  - apple
+  - cherry
+  - banana
+-- helm_output.yaml --
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test
+data:
+  unique: ["apple","banana","cherry"]
+-- input.yaml --
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test
+data:
+  unique: {{ .Values.items | mustUniq | toJson }}
+-- output.cue --
+import "list"
+
+#values: {
+	items!: _
+	...
+}
+
+apiVersion: "v1"
+kind:       "ConfigMap"
+metadata: name: "test"
+data: unique: (_uniq & {#in: #values.items}).out
+_uniq: {
+	#in: [...]
+	out: [for i, x in #in if !list.Contains(list.Slice(#in, 0, i), x) {x}]
+}

@@ -97,7 +97,7 @@ warning: skipping prometheus-operator/certmanager.yaml (doc 0): parsing template
 warning: skipping prometheus-operator/certmanager.yaml (doc 2): parsing template: template: chart_prometheus_operator_certmanager_2:9: unexpected {{end}}
 warning: skipping prometheus-operator/certmanager.yaml (doc 3): parsing template: template: chart_prometheus_operator_certmanager_3:20: unexpected {{end}}
 warning: skipping prometheus-operator/ciliumnetworkpolicy.yaml (doc 0): square bracket must have exactly one element (and 5 more errors)
-warning: skipping prometheus-operator/deployment.yaml (doc 0): unsupported pipeline function: mustUniq
+warning: skipping prometheus-operator/deployment.yaml (doc 0): unsupported template action: {{(((.Values.prometheusOperator.prometheusConfigReloader.resources).requests).cpu) | default 0}}
 warning: skipping prometheus-operator/pdb.yaml (doc 0): toYaml argument: unsupported pipe node: omit .Values.prometheusOperator.podDisruptionBudget "enabled"
 warning: skipping prometheus-operator/servicemonitor.yaml (doc 0): expected operand, found ']' (and 2 more errors)
 warning: skipping prometheus-operator/verticalpodautoscaler.yaml (doc 0): top-level if condition: unsupported condition: .Capabilities.APIVersions.Has "autoscaling.k8s.io/v1"
@@ -142,8 +142,8 @@ warning: skipping thanos-ruler/route.yaml (doc 0): parsing template: template: c
 warning: skipping thanos-ruler/route.yaml (doc 1): parsing template: template: chart_thanos_ruler_route_1:1: undefined variable "$route"
 warning: skipping thanos-ruler/ruler.yaml (doc 0): tpl template argument: unsupported pipe node: index .Values.thanosRuler.ingress.hosts 0
 warning: skipping thanos-ruler/servicemonitor.yaml (doc 0): tpl template argument: unsupported pipe node: default $.Values.thanosRuler.serviceMonitor.metricRelabelings .metricRelabelings | toYaml | nindent 6
-warning: values schema inconsistency: #values.alertmanager.ingress.serviceName: reference "_kube_prometheus_stack_fullname" not found (and 19 more errors)
-warning: values.yaml does not satisfy inferred schema: #values.alertmanager.ingress.serviceName: reference "_kube_prometheus_stack_fullname" not found (and 19 more errors)
+warning: values schema inconsistency: #values.alertmanager.ingress.serviceName: reference "_kube_prometheus_stack_fullname" not found (and 20 more errors)
+warning: values.yaml does not satisfy inferred schema: #values.alertmanager.ingress.serviceName: reference "_kube_prometheus_stack_fullname" not found (and 20 more errors)
 converted 73/216 templates from kube-prometheus-stack
 -- cue vet --
 exit status 1
