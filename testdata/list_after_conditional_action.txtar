@@ -1,0 +1,64 @@
+List key followed by conditional action-only block then static list items.
+The key must be opened as a list even though the {{if}} body has no text.
+
+-- _helpers.tpl --
+-- values.yaml --
+-- input.yaml --
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test
+data:
+  items:
+  {{- if .Values.extra }}
+  {{- toYaml .Values.extra | nindent 2 }}
+  {{- end }}
+  - path: /main
+    backend: main-svc
+-- helm_output.yaml --
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test
+data:
+  items:
+  - path: /main
+    backend: main-svc
+-- output.cue --
+import "struct"
+
+#values: {
+	extra!: _
+	...
+}
+
+output: [
+	{
+		apiVersion: "v1"
+		kind:       "ConfigMap"
+		metadata: name: "test"
+		data: items: [
+			if (_nonzero & {#arg: #values.extra, _}) {
+				#values.extra
+			},
+			{
+				path:    "/main"
+				backend: "main-svc"
+			},
+		]
+	},
+]
+_nonzero: {
+	#arg?: _
+	[if #arg != _|_ {
+		[
+			if (#arg & int) != _|_ {#arg != 0},
+			if (#arg & string) != _|_ {#arg != ""},
+			if (#arg & float) != _|_ {#arg != 0.0},
+			if (#arg & bool) != _|_ {#arg},
+			if (#arg & [...]) != _|_ {len(#arg) > 0},
+			if (#arg & {...}) != _|_ {(#arg & struct.MaxFields(0)) == _|_},
+			false,
+		][0]
+	}, false][0]
+}

@@ -2,7 +2,6 @@
 warning: skipping alertmanager/alertmanager.yaml (doc 0): tpl template argument: unsupported pipe node: index .Values.alertmanager.ingress.hosts 0
 warning: skipping alertmanager/ingress.yaml (doc 0): default value: unsupported literal node: list
 warning: skipping alertmanager/ingressperreplica.yaml (doc 0): range: unsupported pipe: $i, $e := until $count
-warning: skipping alertmanager/route.yaml (doc 1): missing ',' in list literal (and 4 more errors)
 warning: skipping alertmanager/secret.yaml (doc 0): if condition: unsupported condition function: typeOf
 warning: skipping alertmanager/serviceperreplica.yaml (doc 0): range: unsupported pipe: $i, $e := until $count
 warning: skipping extra-objects.yaml (doc 0): default value: unsupported literal node: list
@@ -57,7 +56,6 @@ warning: skipping prometheus/ingress.yaml (doc 0): default value: unsupported li
 warning: skipping prometheus/ingressThanosSidecar.yaml (doc 0): range: unsupported node: $paths
 warning: skipping prometheus/ingressperreplica.yaml (doc 0): range: unsupported pipe: $i, $e := until $count
 warning: skipping prometheus/prometheus.yaml (doc 0): if condition: unsupported condition function: kindIs
-warning: skipping prometheus/route.yaml (doc 1): missing ',' in list literal (and 4 more errors)
 warning: skipping prometheus/rules-1.14/alertmanager.rules.yaml (doc 0): unsupported template action: {{dig "AlertmanagerFailedReload" "for" "10m" .Values.customRules}}
 warning: skipping prometheus/rules-1.14/config-reloaders.yaml (doc 0): unsupported template action: {{dig "ConfigReloaderSidecarErrors" "for" "10m" .Values.customRules}}
 warning: skipping prometheus/rules-1.14/etcd.yaml (doc 0): unsupported template action: {{dig "etcdMembersDown" "for" "20m" .Values.customRules}}
@@ -79,11 +77,10 @@ warning: skipping prometheus/rules-1.14/prometheus-operator.yaml (doc 0): unsupp
 warning: skipping prometheus/rules-1.14/prometheus.yaml (doc 0): unsupported template action: {{dig "PrometheusBadConfig" "for" "10m" .Values.customRules}}
 warning: skipping prometheus/serviceperreplica.yaml (doc 0): range: unsupported pipe: $i, $e := until $count
 warning: skipping thanos-ruler/ingress.yaml (doc 0): range: unsupported node: $paths
-warning: skipping thanos-ruler/route.yaml (doc 1): missing ',' in list literal (and 2 more errors)
 warning: skipping thanos-ruler/ruler.yaml (doc 0): tpl template argument: unsupported pipe node: index .Values.thanosRuler.ingress.hosts 0
 warning: values schema inconsistency: #values.alertmanager.ingress.serviceName: reference "_kube_prometheus_stack_fullname" not found (and 19 more errors)
 warning: values.yaml does not satisfy inferred schema: #values.alertmanager.ingress.serviceName: reference "_kube_prometheus_stack_fullname" not found (and 19 more errors)
-converted 89/181 templates from kube-prometheus-stack
+converted 92/181 templates from kube-prometheus-stack
 -- cue vet --
 exit status 1
 prometheus_operator_admission_webhooks_job_patch_job_createSecret.spec.template.spec.containers.args: invalid string: invalid whitespace:

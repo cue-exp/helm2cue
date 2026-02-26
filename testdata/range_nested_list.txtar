@@ -1,0 +1,69 @@
+Range producing list items that contain nested lists.
+Nested list items must use normal struct wrapping.
+
+-- values.yaml --
+hosts:
+  - name: example.com
+    port: 80
+  - name: other.com
+    port: 443
+-- input.yaml --
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test
+data:
+  rules:
+  {{- range .Values.hosts }}
+  - host: {{ .name }}
+    port: {{ .port }}
+    paths:
+    - path: /
+      backend: default
+  {{- end }}
+-- helm_output.yaml --
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test
+data:
+  rules:
+  - host: example.com
+    port: 80
+    paths:
+    - path: /
+      backend: default
+  - host: other.com
+    port: 443
+    paths:
+    - path: /
+      backend: default
+-- output.cue --
+#values: {
+	hosts!: [...{
+		name!: bool | number | string | null
+		port!: bool | number | string | null
+		...
+	}]
+	...
+}
+
+output: [
+	{
+		apiVersion: "v1"
+		kind:       "ConfigMap"
+		metadata: name: "test"
+		data: rules: [
+			for _, _range0 in #values.hosts {
+				host: _range0.name
+				port: _range0.port
+				paths: [
+					{
+						path:    "/"
+						backend: "default"
+					},
+				]
+			},
+		]
+	},
+]
