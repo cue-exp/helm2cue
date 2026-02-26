@@ -1,3 +1,4 @@
-# Version should succeed and print helm2cue.
+# Version should succeed and print helm2cue version.
 exec helm2cue version
-stdout 'helm2cue'
+stdout 'helm2cue version'
+stdout 'go version'

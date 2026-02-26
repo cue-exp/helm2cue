@@ -136,27 +136,12 @@ func cmdVersion() {
 	if version == "" {
 		version = "(devel)"
 	}
-	fmt.Printf("helm2cue %s\n", version)
-	fmt.Printf("go %s\n", bi.GoVersion)
-
-	var revision, timeVal, modified string
+	fmt.Printf("helm2cue version %s\n\n", version)
+	fmt.Printf("go version %s\n", bi.GoVersion)
 	for _, s := range bi.Settings {
-		switch s.Key {
-		case "vcs.revision":
-			revision = s.Value
-		case "vcs.time":
-			timeVal = s.Value
-		case "vcs.modified":
-			modified = s.Value
+		if s.Value == "" {
+			continue
 		}
-	}
-	if revision != "" {
-		fmt.Printf("commit %s\n", revision)
-	}
-	if timeVal != "" {
-		fmt.Printf("committed %s\n", timeVal)
-	}
-	if modified == "true" {
-		fmt.Println("modified true")
+		fmt.Printf("%16s %s\n", s.Key, s.Value)
 	}
 }
