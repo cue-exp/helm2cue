@@ -26,7 +26,6 @@ import (
 	"strings"
 	"testing"
 	"text/template"
-	"text/template/parse"
 
 	"golang.org/x/tools/txtar"
 	"gopkg.in/yaml.v3"
@@ -36,19 +35,15 @@ var update = flag.Bool("update", false, "update golden files in testdata")
 
 var contextDefRe = regexp.MustCompile(`(?m)^(#\w+):\s`)
 
-// coreParseFuncs provides stub entries for Go text/template built-in
-// functions. The parse package doesn't pre-register these, so they must
-// be listed here. Any function NOT in this map will cause a parse error,
-// catching accidental use of non-builtin functions in core tests.
-var coreParseFuncs = map[string]any{
-	"and": (func())(nil), "or": (func())(nil), "not": (func())(nil),
-	"eq": (func())(nil), "ne": (func())(nil),
-	"lt": (func())(nil), "le": (func())(nil),
-	"gt": (func())(nil), "ge": (func())(nil),
-	"call": (func())(nil),
-	"html": (func())(nil), "js": (func())(nil), "urlquery": (func())(nil),
-	"index": (func())(nil), "slice": (func())(nil), "len": (func())(nil),
-	"print": (func())(nil), "printf": (func())(nil), "println": (func())(nil),
+// helmContextFixtures maps CUE definition names from HelmConfig's
+// ContextObjects to fixture CUE data for round-trip testing.
+// #values is excluded because it is loaded from each test's values.yaml.
+var helmContextFixtures = map[string]string{
+	"#release":      "#release: {\n\tName: \"test\"\n\tNamespace: \"default\"\n\tService: \"Helm\"\n\tIsUpgrade: false\n\tIsInstall: true\n\tRevision: 1\n}\n",
+	"#chart":        "#chart: {\n\tName: \"test\"\n\tVersion: \"0.1.0\"\n\tAppVersion: \"0.1.0\"\n}\n",
+	"#capabilities": "#capabilities: {\n\tKubeVersion: {\n\t\tVersion: \"v1.25.0\"\n\t\tMajor: \"1\"\n\t\tMinor: \"25\"\n\t}\n\tAPIVersions: [\"v1\"]\n}\n",
+	"#template":     "#template: {\n\tName: \"test\"\n\tBasePath: \"test/templates\"\n}\n",
+	"#files":        "#files: {}\n",
 }
 
 func TestConvert(t *testing.T) {
@@ -251,46 +246,12 @@ func cueExport(t *testing.T, cueSrc, valuesYAML []byte) []byte {
 
 	args := []string{"export", cueFile}
 
-	if usedDefs["#release"] {
-		data := "#release: {\n\tName: \"test\"\n\tNamespace: \"default\"\n\tService: \"Helm\"\n\tIsUpgrade: false\n\tIsInstall: true\n\tRevision: 1\n}\n"
-		p := filepath.Join(dir, "release.cue")
-		if err := os.WriteFile(p, []byte(data), 0o644); err != nil {
-			t.Fatal(err)
+	for defName, fixture := range helmContextFixtures {
+		if !usedDefs[defName] {
+			continue
 		}
-		args = append(args, p)
-	}
-
-	if usedDefs["#chart"] {
-		data := "#chart: {\n\tName: \"test\"\n\tVersion: \"0.1.0\"\n\tAppVersion: \"0.1.0\"\n}\n"
-		p := filepath.Join(dir, "chart.cue")
-		if err := os.WriteFile(p, []byte(data), 0o644); err != nil {
-			t.Fatal(err)
-		}
-		args = append(args, p)
-	}
-
-	if usedDefs["#capabilities"] {
-		data := "#capabilities: {\n\tKubeVersion: {\n\t\tVersion: \"v1.25.0\"\n\t\tMajor: \"1\"\n\t\tMinor: \"25\"\n\t}\n\tAPIVersions: [\"v1\"]\n}\n"
-		p := filepath.Join(dir, "capabilities.cue")
-		if err := os.WriteFile(p, []byte(data), 0o644); err != nil {
-			t.Fatal(err)
-		}
-		args = append(args, p)
-	}
-
-	if usedDefs["#template"] {
-		data := "#template: {\n\tName: \"test\"\n\tBasePath: \"test/templates\"\n}\n"
-		p := filepath.Join(dir, "template.cue")
-		if err := os.WriteFile(p, []byte(data), 0o644); err != nil {
-			t.Fatal(err)
-		}
-		args = append(args, p)
-	}
-
-	if usedDefs["#files"] {
-		data := "#files: {}\n"
-		p := filepath.Join(dir, "files.cue")
-		if err := os.WriteFile(p, []byte(data), 0o644); err != nil {
+		p := filepath.Join(dir, strings.TrimPrefix(defName, "#")+".cue")
+		if err := os.WriteFile(p, []byte(fixture), 0o644); err != nil {
 			t.Fatal(err)
 		}
 		args = append(args, p)
@@ -392,20 +353,14 @@ func cueExportCore(t *testing.T, cueSrc, valuesYAML []byte) []byte {
 }
 
 // testCoreConfig returns a non-Helm Config for testing the core converter.
-// It uses a single context object ("input" → "#input") with no Funcs
-// and CoreFuncs restricted to Go text/template builtins (printf, print),
-// matching TemplateConfig().
+// It derives from TemplateConfig() so that any changes to core functions
+// are automatically picked up, then overrides ContextObjects and RootExpr
+// for the simpler core test data model.
 func testCoreConfig() *Config {
-	return &Config{
-		ContextObjects: map[string]string{
-			"input": "#input",
-		},
-		Funcs: map[string]PipelineFunc{},
-		CoreFuncs: map[string]bool{
-			"printf": true,
-			"print":  true,
-		},
-	}
+	cfg := TemplateConfig()
+	cfg.ContextObjects = map[string]string{"input": "#input"}
+	cfg.RootExpr = ""
+	return cfg
 }
 
 func TestConvertCore(t *testing.T) {
@@ -467,16 +422,6 @@ func TestConvertCore(t *testing.T) {
 				return
 			}
 
-			// Validate that the input is valid text/template syntax
-			// using only Go builtins. This catches accidental use of
-			// non-builtin functions in positive core tests. Skipped
-			// for error tests which intentionally use such functions.
-			tmpl := parse.New("test")
-			tmpl.Mode = parse.ParseComments
-			if _, err := tmpl.Parse(string(input), "{{", "}}", make(map[string]*parse.Tree), coreParseFuncs); err != nil {
-				t.Fatalf("template parse failed: %v", err)
-			}
-
 			got, err := Convert(cfg, input, helpers...)
 			if err != nil {
 				t.Fatalf("Convert() error: %v", err)
@@ -522,113 +467,20 @@ func TestConvertCore(t *testing.T) {
 	}
 }
 
-// TestTemplateConfig verifies that TemplateConfig() rejects Sprig/Helm
-// functions with clear error messages, while accepting Go builtins.
+// TestTemplateConfig verifies TemplateConfig-specific behavior:
+// bare dot support (via RootExpr) and HelmConfig rejecting bare dot.
 func TestTemplateConfig(t *testing.T) {
-	cfg := TemplateConfig()
-
-	// Templates that should succeed (Go text/template builtins only).
-	okCases := []struct {
-		name  string
-		input string
-	}{
-		{"value_ref", "x: {{ .Values.name }}"},
-		{"printf", `x: {{ printf "%s-%s" .Values.a .Values.b }}`},
-		{"conditional", "{{ if .Values.x }}x: 1{{ end }}"},
-		{"with", "{{ with .Values.x }}val: {{ . }}{{ end }}"},
-		{"bare_dot", "name: {{ . }}"},
-	}
-	for _, tc := range okCases {
-		t.Run("ok/"+tc.name, func(t *testing.T) {
-			_, err := Convert(cfg, []byte(tc.input))
-			if err != nil {
-				t.Fatalf("expected success, got error: %v", err)
-			}
-		})
-	}
-
-	// Templates that should fail (Sprig/Helm functions).
-	errCases := []struct {
-		name    string
-		input   string
-		wantErr string
-	}{
-		{
-			"default_pipeline",
-			"x: {{ .Values.x | default \"hi\" }}",
-			"unsupported pipeline function: default",
-		},
-		{
-			"default_first_cmd",
-			`x: {{ default "fallback" .Values.name }}`,
-			"unsupported pipeline function: default (not a text/template builtin)",
-		},
-		{
-			"required",
-			`x: {{ required "msg" .Values.name }}`,
-			"unsupported pipeline function: required (not a text/template builtin)",
-		},
-		{
-			"include",
-			`x: {{ include "helper" . }}`,
-			"unsupported pipeline function: include (not a text/template builtin)",
-		},
-		{
-			"ternary",
-			`x: {{ ternary "a" "b" .Values.x }}`,
-			"unsupported pipeline function: ternary (not a text/template builtin)",
-		},
-		{
-			"list",
-			`x: {{ list "a" "b" }}`,
-			"unsupported pipeline function: list (not a text/template builtin)",
-		},
-		{
-			"dict",
-			`x: {{ dict "k" "v" }}`,
-			"unsupported pipeline function: dict (not a text/template builtin)",
-		},
-		{
-			"coalesce",
-			`x: {{ coalesce .Values.a .Values.b }}`,
-			"unsupported pipeline function: coalesce (not a text/template builtin)",
-		},
-		{
-			"empty_in_condition",
-			`{{ if empty .Values.x }}x: 1{{ end }}`,
-			"unsupported condition function: empty (not a text/template builtin)",
-		},
-		{
-			"hasKey_in_condition",
-			`{{ if hasKey .Values "x" }}x: 1{{ end }}`,
-			"unsupported condition function: hasKey (not a text/template builtin)",
-		},
-	}
-	for _, tc := range errCases {
-		t.Run("err/"+tc.name, func(t *testing.T) {
-			_, err := Convert(cfg, []byte(tc.input))
-			if err == nil {
-				t.Fatal("expected Convert() to fail, but it succeeded")
-			}
-			if !strings.Contains(err.Error(), tc.wantErr) {
-				t.Errorf("error mismatch:\n  want substring: %s\n  got: %s", tc.wantErr, err)
-			}
-		})
-	}
-
-	// Verify the same input succeeds with HelmConfig.
-	t.Run("helm_config_accepts_default", func(t *testing.T) {
-		input := []byte("x: {{ .Values.x | default \"hi\" }}")
-		_, err := Convert(HelmConfig(), input)
+	// TemplateConfig accepts bare {{ . }} because RootExpr is set.
+	t.Run("bare_dot", func(t *testing.T) {
+		_, err := Convert(TemplateConfig(), []byte("name: {{ . }}"))
 		if err != nil {
-			t.Fatalf("expected HelmConfig to accept default, got: %v", err)
+			t.Fatalf("expected success, got error: %v", err)
 		}
 	})
 
-	// Verify bare dot at top level errors with HelmConfig (no RootExpr).
+	// HelmConfig rejects bare {{ . }} because RootExpr is empty.
 	t.Run("helm_config_rejects_bare_dot", func(t *testing.T) {
-		input := []byte("name: {{ . }}")
-		_, err := Convert(HelmConfig(), input)
+		_, err := Convert(HelmConfig(), []byte("name: {{ . }}"))
 		if err == nil {
 			t.Fatal("expected HelmConfig to reject bare dot, but it succeeded")
 		}
@@ -636,21 +488,17 @@ func TestTemplateConfig(t *testing.T) {
 			t.Errorf("unexpected error: %v", err)
 		}
 	})
+}
 
-	// Verify bare dot in a helper body succeeds with HelmConfig
-	// when the include call site passes a field expression.
-	t.Run("helm_config_helper_field_arg", func(t *testing.T) {
-		helper := []byte("{{- define \"myapp.name\" -}}{{ . }}{{- end -}}")
-		input := []byte("name: {{ include \"myapp.name\" .Values.name }}")
-		got, err := Convert(HelmConfig(), input, helper)
-		if err != nil {
-			t.Fatalf("expected success, got error: %v", err)
+// TestHelmContextFixtures verifies that helmContextFixtures has an entry
+// for every context object in HelmConfig except #values.
+func TestHelmContextFixtures(t *testing.T) {
+	for _, cueDef := range HelmConfig().ContextObjects {
+		if cueDef == "#values" {
+			continue
 		}
-		if !strings.Contains(string(got), "#arg") {
-			t.Errorf("expected helper definition with #arg, got:\n%s", got)
+		if _, ok := helmContextFixtures[cueDef]; !ok {
+			t.Errorf("helmContextFixtures missing entry for %s", cueDef)
 		}
-		if !strings.Contains(string(got), "{#arg: #values.name, _}") {
-			t.Errorf("expected call site with #arg unification, got:\n%s", got)
-		}
-	})
+	}
 }

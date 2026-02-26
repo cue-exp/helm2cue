@@ -1,0 +1,7 @@
+The hasKey function is not a text/template builtin.
+Core tests reject it; use Helm-mode tests for hasKey.
+
+-- input.yaml --
+{{ if hasKey .input "x" }}x: 1{{ end }}
+-- error --
+unsupported condition function: hasKey (not a text/template builtin)

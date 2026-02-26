@@ -1,0 +1,7 @@
+The dict function is not a text/template builtin.
+Core tests reject it; use Helm-mode tests for dict.
+
+-- input.yaml --
+x: {{ dict "k" "v" }}
+-- error --
+unsupported pipeline function: dict (not a text/template builtin)

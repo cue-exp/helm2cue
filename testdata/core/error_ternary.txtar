@@ -1,0 +1,7 @@
+The ternary function is not a text/template builtin.
+Core tests reject it; use Helm-mode tests for ternary.
+
+-- input.yaml --
+x: {{ ternary "a" "b" .input.x }}
+-- error --
+unsupported pipeline function: ternary (not a text/template builtin)

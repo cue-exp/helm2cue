@@ -1,0 +1,7 @@
+The required function is not a text/template builtin.
+Core tests reject it; use Helm-mode tests for required.
+
+-- input.yaml --
+name: {{ required "msg" .input.name }}
+-- error --
+unsupported pipeline function: required (not a text/template builtin)

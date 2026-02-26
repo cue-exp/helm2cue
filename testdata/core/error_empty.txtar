@@ -1,0 +1,7 @@
+The empty function is not a text/template builtin.
+Core tests reject it; use Helm-mode tests for empty.
+
+-- input.yaml --
+{{ if empty .input.x }}x: 1{{ end }}
+-- error --
+unsupported condition function: empty (not a text/template builtin)

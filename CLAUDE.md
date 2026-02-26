@@ -113,9 +113,9 @@ Follow the conventions of existing CLI tests:
 
 Core tests (`testdata/core/*.txtar`, run by `TestConvertCore`) must use **only
 Go `text/template` builtins** — no Helm/Sprig functions like `include`,
-`default`, `required`, `list`, `dict`, etc. The `testCoreConfig()` explicitly
-restricts `CoreFuncs` to `printf` and `print`, and the parse-validation step
-rejects any non-builtin function in positive tests.
+`default`, `required`, `list`, `dict`, etc. The `testCoreConfig()` derives
+from `TemplateConfig()` and restricts `CoreFuncs` to `printf` and `print`;
+non-builtin functions are rejected during conversion.
 
 When adding or modifying core tests:
 - Do **not** use non-builtin functions. If a feature requires `include`,

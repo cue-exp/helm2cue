@@ -1,0 +1,7 @@
+The coalesce function is not a text/template builtin.
+Core tests reject it; use Helm-mode tests for coalesce.
+
+-- input.yaml --
+x: {{ coalesce .input.a .input.b }}
+-- error --
+unsupported pipeline function: coalesce (not a text/template builtin)

@@ -1,0 +1,7 @@
+The list function is not a text/template builtin.
+Core tests reject it; use Helm-mode tests for list.
+
+-- input.yaml --
+x: {{ list "a" "b" }}
+-- error --
+unsupported pipeline function: list (not a text/template builtin)
