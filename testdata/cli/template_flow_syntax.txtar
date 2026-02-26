@@ -1,0 +1,22 @@
+# YAML flow syntax (flow mappings and flow sequences) in static values.
+# Fixes #13.
+stdin input.yaml
+exec helm2cue template
+cmp stdout expected
+
+-- input.yaml --
+- podSelector:
+    matchExpressions:
+      - {key: "app", operator: "In", values: ["coremedia"]}
+-- expected --
+{
+	podSelector: matchExpressions: [
+		{
+			key:      "app"
+			operator: "In"
+			values: [
+				"coremedia",
+			]
+		},
+	]
+}
