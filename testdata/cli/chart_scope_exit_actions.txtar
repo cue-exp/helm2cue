@@ -1,0 +1,36 @@
+# Conditional block with action nodes that exits parent list scope.
+# https://github.com/cue-exp/helm2cue/issues/25
+! exec helm2cue chart chartdir outdir
+cmp stderr stderr.golden
+
+-- chartdir/Chart.yaml --
+apiVersion: v2
+name: test-app
+version: 0.1.0
+appVersion: "1.0.0"
+-- chartdir/values.yaml --
+tls:
+  enabled: true
+  port: 443
+-- chartdir/templates/deployment.yaml --
+apiVersion: v1
+kind: Pod
+metadata:
+  name: test
+spec:
+  containers:
+  - name: test
+    args:
+    {{- if .Values.tls.enabled }}
+      - {{ .Values.tls.port }}
+    ports:
+      - containerPort: {{ .Values.tls.port }}
+        name: https
+    {{- else }}
+      - "8080"
+    ports:
+      - containerPort: 8080
+        name: http
+    {{- end }}
+-- stderr.golden --
+helm2cue: no templates converted successfully
