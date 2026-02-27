@@ -122,9 +122,9 @@ func runHelmConvertTest(t *testing.T, helmPath string, ar *txtar.Archive,
 	file string, requireHelmOutput bool) {
 	t.Helper()
 
-	var input, expectedOutput, valuesYAML, expectedHelmOutput, expectedError []byte
+	var input, expectedOutput, valuesYAML, expectedHelmOutput, expectedError, expectedBroken []byte
 	var helpers [][]byte
-	var hasOutput, hasHelmOutput, hasError bool
+	var hasOutput, hasHelmOutput, hasError, hasBroken bool
 	for _, f := range ar.Files {
 		switch {
 		case f.Name == "input.yaml":
@@ -142,11 +142,22 @@ func runHelmConvertTest(t *testing.T, helmPath string, ar *txtar.Archive,
 		case f.Name == "error":
 			expectedError = f.Data
 			hasError = true
+		case f.Name == "broken":
+			expectedBroken = f.Data
+			hasBroken = true
 		}
 	}
 
 	if input == nil {
 		t.Fatal("missing input.yaml section")
+	}
+
+	// Enforce mutual exclusivity of error, broken, and output.cue.
+	if hasBroken && hasError {
+		t.Fatal("broken and error sections are mutually exclusive")
+	}
+	if hasBroken && hasOutput {
+		t.Fatal("broken and output.cue sections are mutually exclusive")
 	}
 
 	// If an error section is present, verify Convert returns
@@ -179,6 +190,20 @@ func runHelmConvertTest(t *testing.T, helmPath string, ar *txtar.Archive,
 		if !bytes.Equal(helmOut, expectedHelmOutput) {
 			t.Errorf("helm output mismatch (-want +got):\n--- want:\n%s\n--- got:\n%s", expectedHelmOutput, helmOut)
 		}
+	}
+
+	// If a broken section is present, the CUE conversion is expected
+	// to fail (known bug). Verify the error matches and return early.
+	if hasBroken {
+		_, err := Convert(HelmConfig(), input, helpers...)
+		if err == nil {
+			t.Fatal("expected Convert() to fail (broken), but it succeeded; remove the broken section")
+		}
+		wantErr := strings.TrimSpace(string(expectedBroken))
+		if !strings.Contains(err.Error(), wantErr) {
+			t.Errorf("broken error mismatch:\n  want substring: %s\n  got: %s", wantErr, err)
+		}
+		return
 	}
 
 	got, err := Convert(HelmConfig(), input, helpers...)
