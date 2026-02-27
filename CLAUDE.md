@@ -118,7 +118,10 @@ or discovered in integration tests:
    trigger the bug — a 3-line template that fails is better than a
    50-line chart. Run the test and confirm it **fails**.
    - **User-reported bugs** (GitHub issues): prefer `testdata/cli/*.txtar`
-     since this mirrors how users interact with `helm2cue chart`.
+     since this mirrors how users interact with `helm2cue chart`. Note
+     that CLI tests validate chart-level conversion but do **not** do
+     round-trip semantic comparison against `helm template` — that
+     requires a verified Helm test (see step 9).
    - **Integration-test failures**: a `testdata/*.txtar` Helm test (with
      `-- broken --`) is fine — no need to create a CLI test.
    - Use `testdata/*.txtar` (Helm tests) or `testdata/noverify/*.txtar`
@@ -161,7 +164,12 @@ or discovered in integration tests:
 8. **Run the full test suite.** `go test ./...` and `go vet ./...` must
    pass.
 9. **Commit the fix.** The fix goes in a second commit (`Fixes #N`),
-   including both the code change and the test update.
+   including the code change, the updated reproduction test, and — when
+   the bug is reproducible at the template level — a **verified Helm
+   test** (`testdata/*.txtar`) that validates round-trip semantic
+   equivalence against `helm template`. The CLI test links to the
+   issue and confirms chart-level conversion; the Helm test provides
+   direct converter coverage with round-trip validation.
 
 For integration-test failures, treat the failing integration test as the
 "report" — the same reduce-then-fix discipline applies.
@@ -177,48 +185,101 @@ For integration-test failures, treat the failing integration test as the
 
 ## Debugging tips
 
-### Manual testing with `helm2cue chart`
+### The `tmp/` directory
 
-`helm2cue template` only supports Go `text/template` builtins. Templates
-using Helm/Sprig functions (`include`, `default`, `ternary`, etc.) **must**
-be tested via `helm2cue chart`. Create a minimal chart directory:
+`tmp/` is gitignored and holds all temporary artifacts: chart
+conversion output, minimal chart directories for reduction, cached
+integration test charts, built binaries, and throwaway scripts or
+programs. Use it as a local scratch space.
 
-    mkdir -p tmp/testchart/templates
-    # write Chart.yaml, values.yaml, templates/foo.yaml
-    go run . chart tmp/testchart tmp/testchart-out
+**Go source files need their own module.** The Go tool's `./...`
+pattern matches all subdirectories including `tmp/`. A `.go` file
+without its own `go.mod` becomes part of this repo's module, causing
+build or vet errors. This is defined Go module behaviour. If you need
+a throwaway Go program, create it in a subdirectory of `tmp/` with
+its own `go.mod` to isolate it (e.g. `tmp/investigate/main.go` +
+`tmp/investigate/go.mod`), and run `go` commands from within that
+subdirectory.
 
-To isolate a single template from a large chart, copy the original
-`Chart.yaml`, `values.yaml`, and `_helpers.tpl` alongside just the
-template under investigation.
+Consequences:
+- Use `go test .` or `go test -run <pattern>` during development.
+  Reserve `go test ./...` for the final check in bug-fix workflow
+  step 8.
+- Temporary scripts (shell, Python, etc.) are fine anywhere in `tmp/`.
+- Temporary Go programs are fine in `tmp/` subdirectories provided
+  they have their own `go.mod`.
+
+### Bug reduction process
+
+Step 3 of the bug-fix workflow says "reduce to a minimal test". Follow
+this procedure:
+
+1. **Identify the template.** For integration failures, find the
+   template named in the warning/error output. Cached charts live in
+   `tmp/` (e.g. `tmp/kube-prometheus-stack/templates/...`).
+
+2. **Create a minimal chart directory.** `helm2cue template` only
+   supports Go `text/template` builtins. Templates using Helm/Sprig
+   functions (`include`, `default`, `ternary`, etc.) **must** be tested
+   via `helm2cue chart`, which requires a chart directory:
+
+       mkdir -p tmp/reduce/templates
+
+   Write a minimal `Chart.yaml`:
+
+       apiVersion: v2
+       name: test-app
+       version: 0.1.0
+
+   Copy the template into `templates/`. Copy `values.yaml` (and
+   `_helpers.tpl` if the template uses `include`/`template`) from the
+   source chart.
+
+3. **Confirm reproduction.**
+
+       go run . chart tmp/reduce tmp/reduce-out
+
+   If the conversion fails with no detail, use `HELM2CUE_DEBUG=1` to
+   see the raw CUE source before `cue/parser.ParseFile` rejects it:
+
+       HELM2CUE_DEBUG=1 go run . chart tmp/reduce tmp/reduce-out
+
+4. **Simplify iteratively.** Each iteration: remove some YAML
+   structure, template logic, or values, then re-run. If the bug still
+   reproduces, keep the removal; if not, restore it. Continue until
+   every remaining line is necessary.
+
+   Typical simplifications (in order):
+   - Remove unrelated YAML keys and nested structures.
+   - Replace `include`/`template` calls with literal strings.
+   - Inline helper definitions.
+   - Reduce values to the minimum needed.
+   - Replace complex Sprig pipelines with simple `.Values.x`.
+
+5. **Check whether `helm2cue template` suffices.** If the minimal
+   reproducer no longer uses Helm/Sprig functions, test with:
+
+       echo '<template>' | go run . template
+
+   If this reproduces the bug, the test can go in `testdata/core/` or
+   `testdata/` rather than `testdata/cli/`.
+
+6. **Translate to a test file.** See bug-fix workflow step 3 for which
+   test directory to use.
 
 ### Seeing raw converter output
 
 Set `HELM2CUE_DEBUG=1` to see the raw CUE source when validation fails:
 
-    HELM2CUE_DEBUG=1 go run . chart tmp/testchart tmp/testchart-out
+    HELM2CUE_DEBUG=1 go run . chart tmp/reduce tmp/reduce-out
 
 This shows what the converter produced before `cue/parser.ParseFile`
 rejects it, which is essential for diagnosing malformed output. Without
 it you only see "no templates converted successfully" with no detail.
 
-### Using integration test chart caches
-
-Integration tests (`TestConvertChartIntegration`) pull real charts into
-`tmp/` (e.g. `tmp/kube-prometheus-stack/`, `tmp/nginx/`). These cached
-copies are useful for examining templates that trigger bugs. To test a
-single template from a cached chart, copy it into a minimal chart
-directory as described above.
-
 When a fix does **not** change the integration golden file, use
 `HELM2CUE_DEBUG=1` on the full chart to check whether the template
 has additional issues beyond what was fixed.
-
-### Avoiding tmp/ build noise
-
-`go test ./...` may fail in `tmp/` due to stale Go files or build
-caches. Use `go test .` (main package only) or a `-run` pattern to
-avoid this. Clean stale `.go` files from `tmp/` if they cause build
-errors.
 
 ### Template parse tree model
 
