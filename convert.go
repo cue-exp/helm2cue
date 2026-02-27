@@ -3435,6 +3435,13 @@ func (c *converter) nodeToExpr(node parse.Node) (string, string, error) {
 		return baseExpr, helmObj, nil
 	case *parse.PipeNode:
 		return c.convertSubPipe(n)
+	case *parse.IdentifierNode:
+		// Bare function name used as a value (e.g. "list" or "dict"
+		// in "default list .Values.x"). Treat as zero-arg call.
+		if cf, ok := coreFuncs[n.Ident]; ok && c.isCoreFunc(n.Ident) {
+			return cf.convert(c, nil)
+		}
+		return "", "", fmt.Errorf("unsupported identifier: %s", n.Ident)
 	default:
 		return "", "", fmt.Errorf("unsupported node type: %s", node)
 	}
@@ -3458,6 +3465,12 @@ func (c *converter) convertSubPipe(pipe *parse.PipeNode) (string, string, error)
 
 	if len(first.Args) == 1 {
 		// Single-arg first command: field, variable, dot, or literal.
+		// Check for zero-arg core funcs like list or dict.
+		if id, ok := first.Args[0].(*parse.IdentifierNode); ok {
+			if cf, ok := coreFuncs[id.Ident]; ok && c.isCoreFunc(id.Ident) {
+				return cf.convert(c, nil)
+			}
+		}
 		var err error
 		expr, helmObj, err = c.nodeToExpr(first.Args[0])
 		if err != nil {
