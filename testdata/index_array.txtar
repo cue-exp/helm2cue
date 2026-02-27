@@ -1,0 +1,35 @@
+Index call with integer key on a list value.
+
+-- _helpers.tpl --
+-- values.yaml --
+hosts:
+  - example.com
+  - other.com
+-- input.yaml --
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test
+data:
+  primary: {{ index .Values.hosts 0 }}
+-- helm_output.yaml --
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test
+data:
+  primary: example.com
+-- output.cue --
+#values: {
+	hosts!: _
+	...
+}
+
+output: [
+	{
+		apiVersion: "v1"
+		kind:       "ConfigMap"
+		metadata: name: "test"
+		data: primary: #values.hosts[0]
+	},
+]

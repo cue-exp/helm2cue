@@ -66,6 +66,7 @@ func init() {
 		"max":            {nargs: -1, convert: convertMax},
 		"min":            {nargs: -1, convert: convertMin},
 		"tpl":            {nargs: 2, pipedFirst: true, convert: convertTpl},
+		"index":          {nargs: -1, convert: convertIndex},
 		"merge":          {nargs: -1, convert: convertMergeUnsupported("merge")},
 		"mergeOverwrite": {nargs: -1, convert: convertMergeUnsupported("mergeOverwrite")},
 	}
@@ -116,6 +117,9 @@ func (c *converter) resolveField(a funcArg) (expr, helmObj string, fieldPath []s
 			}
 		}
 		// Fall through to nodeToExpr for other variable forms.
+		expr, helmObj, err = c.nodeToExpr(a.node)
+		return expr, helmObj, nil, err
+	case *parse.ChainNode:
 		expr, helmObj, err = c.nodeToExpr(a.node)
 		return expr, helmObj, nil, err
 	default:
@@ -393,6 +397,44 @@ func convertGet(c *converter, args []funcArg) (string, string, error) {
 		return "", "", fmt.Errorf("get key argument: %w", err)
 	}
 	return mapExpr + "[" + keyExpr + "]", helmObj, nil
+}
+
+func convertIndex(c *converter, args []funcArg) (string, string, error) {
+	if len(args) < 2 {
+		return "", "", fmt.Errorf("index requires at least 2 arguments, got %d", len(args))
+	}
+	expr, helmObj, err := c.resolveExpr(args[0])
+	if err != nil {
+		return "", "", fmt.Errorf("index collection: %w", err)
+	}
+	if helmObj != "" {
+		refs := c.fieldRefs[helmObj]
+		if len(refs) > 0 {
+			c.trackNonScalarRef(helmObj, refs[len(refs)-1])
+		}
+	}
+	for _, keyArg := range args[1:] {
+		if keyArg.node != nil {
+			switch kn := keyArg.node.(type) {
+			case *parse.StringNode:
+				if identRe.MatchString(kn.Text) {
+					expr += "." + kn.Text
+				} else {
+					expr += "[" + fmt.Sprintf("%q", kn.Text) + "]"
+				}
+				continue
+			case *parse.NumberNode:
+				expr += "[" + kn.Text + "]"
+				continue
+			}
+		}
+		keyExpr, _, err := c.resolveExpr(keyArg)
+		if err != nil {
+			return "", "", fmt.Errorf("index key: %w", err)
+		}
+		expr += "[" + keyExpr + "]"
+	}
+	return expr, helmObj, nil
 }
 
 func convertCoalesce(c *converter, args []funcArg) (string, string, error) {

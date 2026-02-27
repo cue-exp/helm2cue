@@ -1,0 +1,60 @@
+Index call with field chain in if condition and value interpolation.
+
+-- _helpers.tpl --
+-- values.yaml --
+prometheus-node-exporter:
+  kubeRBACProxy:
+    enabled: true
+    port: 8443
+-- input.yaml --
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test
+data:
+  {{- if (index .Values "prometheus-node-exporter").kubeRBACProxy.enabled }}
+  proxy: enabled
+  port: {{ (index .Values "prometheus-node-exporter").kubeRBACProxy.port | quote }}
+  {{- end }}
+-- helm_output.yaml --
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test
+data:
+  proxy: enabled
+  port: "8443"
+-- output.cue --
+import "struct"
+
+#values: {
+	...
+}
+
+output: [
+	{
+		apiVersion: "v1"
+		kind:       "ConfigMap"
+		metadata: name: "test"
+		data: {
+			if (_nonzero & {#arg: #values["prometheus-node-exporter"].kubeRBACProxy.enabled, _}) {
+				proxy: "enabled"
+				port:  "\(#values["prometheus-node-exporter"].kubeRBACProxy.port)"
+			}
+		}
+	},
+]
+_nonzero: {
+	#arg?: _
+	[if #arg != _|_ {
+		[
+			if (#arg & int) != _|_ {#arg != 0},
+			if (#arg & string) != _|_ {#arg != ""},
+			if (#arg & float) != _|_ {#arg != 0.0},
+			if (#arg & bool) != _|_ {#arg},
+			if (#arg & [...]) != _|_ {len(#arg) > 0},
+			if (#arg & {...}) != _|_ {(#arg & struct.MaxFields(0)) == _|_},
+			false,
+		][0]
+	}, false][0]
+}
