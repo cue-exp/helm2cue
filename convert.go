@@ -2142,6 +2142,131 @@ func (c *converter) emitActionExpr(expr string, comment string) {
 	}
 }
 
+// emitConditionalBlock emits a CUE conditional guard around body text.
+// It handles the full body processing lifecycle: push context frame,
+// emit text, finalize state, close inner frames, pop context, close guard.
+func (c *converter) emitConditionalBlock(cueInd int, condition string, bodyIndent int, isList bool, bodyText []byte) error {
+	if len(bytes.TrimSpace(bodyText)) == 0 {
+		return nil
+	}
+	savedStackLen := len(c.stack)
+	savedState := c.state
+	c.state = stateNormal
+
+	writeIndent(&c.out, cueInd)
+	fmt.Fprintf(&c.out, "if %s {\n", condition)
+
+	// Push body context frame.
+	bodyCtxIndent := bodyIndent - 1
+	if bodyCtxIndent < -1 {
+		bodyCtxIndent = -1
+	}
+	c.stack = append(c.stack, frame{
+		yamlIndent: bodyCtxIndent,
+		cueIndent:  cueInd + 1,
+		isList:     isList,
+	})
+
+	// Ensure text ends with a newline so emitTextNode processes all
+	// lines through the normal (non-inline) path, and clear the
+	// nextNodeIsInline flag to prevent the last line being treated
+	// as an inline continuation from the parent context.
+	savedNextInline := c.nextNodeIsInline
+	c.nextNodeIsInline = false
+	text := bodyText
+	if len(text) > 0 && text[len(text)-1] != '\n' {
+		text = append(bytes.Clone(text), '\n')
+	}
+	c.emitTextNode(text)
+	c.nextNodeIsInline = savedNextInline
+	c.finalizeInline()
+	c.finalizeFlow()
+	c.flushPendingAction()
+	c.flushDeferred()
+
+	// Close all frames opened inside the body.
+	for len(c.stack) > savedStackLen+1 {
+		c.closeOneFrame()
+	}
+	// Pop body context frame without emitting brace.
+	if len(c.stack) > savedStackLen {
+		c.stack = c.stack[:savedStackLen]
+	}
+	c.state = savedState
+
+	writeIndent(&c.out, cueInd)
+	c.out.WriteString("}\n")
+	return nil
+}
+
+// processIfScopeExit handles an if/else whose body starts with list items
+// but then continues with struct-level content at a shallower indent.
+// It splits each branch at the scope boundary and emits list items inside
+// the current list, then closes the list and emits the struct content.
+func (c *converter) processIfScopeExit(
+	n *parse.IfNode,
+	condition, negCondition string,
+	bodyIndent int,
+	cueInd int,
+) error {
+	// Split if-body into in-scope (list items) and out-of-scope (struct).
+	ifIn, ifOut := splitBodyText(n.List.Nodes, bodyIndent)
+
+	// Split else-body if present.
+	var elseIn, elseOut []byte
+	if n.ElseList != nil && len(n.ElseList.Nodes) > 0 {
+		if peekBodyIndent(n.ElseList.Nodes) >= 0 {
+			elseIn, elseOut = splitBodyText(n.ElseList.Nodes, bodyIndent)
+		}
+	}
+
+	// Phase 1: Emit each list item inside its own conditional guard.
+	// CUE unifies multiple values inside a single if block rather than
+	// treating them as separate list items, so each item needs its own guard.
+	for _, item := range splitListItems(ifIn, bodyIndent) {
+		if err := c.emitConditionalBlock(cueInd, condition, bodyIndent, true, item); err != nil {
+			return err
+		}
+	}
+	if len(bytes.TrimSpace(elseIn)) > 0 {
+		elseBI := peekTextIndent(elseIn)
+		if elseBI < 0 {
+			elseBI = bodyIndent
+		}
+		for _, item := range splitListItems(elseIn, elseBI) {
+			if err := c.emitConditionalBlock(cueInd, negCondition, elseBI, true, item); err != nil {
+				return err
+			}
+		}
+	}
+
+	// Close list frames to the indent of the struct content.
+	afterIndent := peekTextIndent(ifOut)
+	if afterIndent < 0 {
+		afterIndent = peekTextIndent(elseOut)
+	}
+	if afterIndent >= 0 {
+		c.closeBlocksTo(afterIndent)
+	}
+
+	// Phase 2: Emit struct content inside conditional guards.
+	cueInd = c.currentCUEIndent()
+	if len(bytes.TrimSpace(ifOut)) > 0 {
+		outBI := peekTextIndent(ifOut)
+		if err := c.emitConditionalBlock(cueInd, condition, outBI, false, ifOut); err != nil {
+			return err
+		}
+	}
+	if len(bytes.TrimSpace(elseOut)) > 0 {
+		outBI := peekTextIndent(elseOut)
+		if err := c.emitConditionalBlock(cueInd, negCondition, outBI, false, elseOut); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 func (c *converter) processIf(n *parse.IfNode) error {
 	c.hasConditions = true
 	c.finalizeInline()
@@ -2194,6 +2319,15 @@ func (c *converter) processIf(n *parse.IfNode) error {
 
 	cueInd := c.currentCUEIndent()
 	inList := len(c.stack) > 0 && c.stack[len(c.stack)-1].isList
+
+	// Detect conditional body that exits the current list scope.
+	// When the body starts with list items but then continues with a
+	// sibling key at a shallower indent, split into two phases: emit
+	// list items inside the list, then struct content outside it.
+	if inList && isList && bodyIndent >= 0 &&
+		bodyExitsScope(n.List.Nodes, bodyIndent) {
+		return c.processIfScopeExit(n, condition, negCondition, bodyIndent, cueInd)
+	}
 
 	// Detect conditional list item with continuation fields after {{end}}.
 	// When each branch has exactly one list item and continuation fields
@@ -2708,6 +2842,98 @@ func peekBodyIndent(nodes []parse.Node) int {
 		if trimmed != "" {
 			return len(line) - len(strings.TrimLeft(line, " "))
 		}
+	}
+	return -1
+}
+
+// bodyExitsScope reports whether the body nodes contain text that exits the
+// current list scope. It returns true only when all body nodes are TextNodes
+// (so the text can be cleanly split) and some non-empty line has indent <
+// scopeIndent.
+func bodyExitsScope(nodes []parse.Node, scopeIndent int) bool {
+	for _, node := range nodes {
+		if _, ok := node.(*parse.TextNode); !ok {
+			return false
+		}
+	}
+	text := textContent(nodes)
+	for _, line := range strings.Split(text, "\n") {
+		trimmed := strings.TrimSpace(line)
+		if trimmed == "" {
+			continue
+		}
+		indent := len(line) - len(strings.TrimLeft(line, " "))
+		if indent < scopeIndent {
+			return true
+		}
+	}
+	return false
+}
+
+// splitBodyText concatenates all TextNode text in nodes and splits it at the
+// first non-empty line whose indent < scopeIndent. Returns in-scope bytes
+// (list items) and out-of-scope bytes (struct content).
+func splitBodyText(nodes []parse.Node, scopeIndent int) (inScope, outOfScope []byte) {
+	text := []byte(textContent(nodes))
+	lines := bytes.Split(text, []byte("\n"))
+	for i, line := range lines {
+		trimmed := bytes.TrimSpace(line)
+		if len(trimmed) == 0 {
+			continue
+		}
+		indent := len(line) - len(bytes.TrimLeft(line, " "))
+		if indent < scopeIndent {
+			// Split at this line boundary. Join everything before into inScope
+			// and everything from this line onward into outOfScope.
+			inScope = bytes.Join(lines[:i], []byte("\n"))
+			outOfScope = bytes.Join(lines[i:], []byte("\n"))
+			return inScope, outOfScope
+		}
+	}
+	return text, nil
+}
+
+// splitListItems splits YAML list text into individual list items.
+// Each item starts with "- " at listIndent; continuation lines are
+// at deeper indents. Returns a slice of byte slices, each containing
+// one complete list item (with its "- " prefix and any continuation).
+func splitListItems(text []byte, listIndent int) [][]byte {
+	lines := bytes.Split(text, []byte("\n"))
+	var items [][]byte
+	var current [][]byte
+	prefix := bytes.Repeat([]byte(" "), listIndent)
+	dashPrefix := append(prefix, "- "...)
+	for _, line := range lines {
+		trimmed := bytes.TrimSpace(line)
+		if len(trimmed) == 0 {
+			continue
+		}
+		if bytes.HasPrefix(line, dashPrefix) {
+			// New list item — flush previous.
+			if len(current) > 0 {
+				items = append(items, bytes.Join(current, []byte("\n")))
+			}
+			current = [][]byte{line}
+		} else if len(current) > 0 {
+			// Continuation of current item.
+			current = append(current, line)
+		}
+	}
+	if len(current) > 0 {
+		items = append(items, bytes.Join(current, []byte("\n")))
+	}
+	return items
+}
+
+// peekTextIndent returns the YAML indent of the first non-empty line
+// in a byte slice, or -1 if there are no non-empty lines.
+func peekTextIndent(text []byte) int {
+	for _, line := range bytes.Split(text, []byte("\n")) {
+		trimmed := bytes.TrimSpace(line)
+		if len(trimmed) == 0 {
+			continue
+		}
+		return len(line) - len(bytes.TrimLeft(line, " "))
 	}
 	return -1
 }
