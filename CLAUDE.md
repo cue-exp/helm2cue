@@ -113,32 +113,44 @@ or discovered in integration tests:
    still exists.
    - If the bug no longer reproduces, identify which commit fixed it, add a
      regression test if one does not already exist, and close the issue.
-3. **Reduce to a minimal test.** Create the smallest possible
-   `testdata/cli/*.txtar` (or `testdata/*.txtar` / `testdata/noverify/*.txtar`
-   for Helm-level bugs) that demonstrates the failure. Strip away everything
-   not needed to trigger the bug — a 3-line template that fails is better
-   than a 50-line chart. Run the test and confirm it **fails**.
+3. **Reduce to a minimal test.** Create the smallest possible test
+   that demonstrates the failure. Strip away everything not needed to
+   trigger the bug — a 3-line template that fails is better than a
+   50-line chart. Run the test and confirm it **fails**.
+   - **User-reported bugs** (GitHub issues): prefer `testdata/cli/*.txtar`
+     since this mirrors how users interact with `helm2cue chart`.
+   - **Integration-test failures**: a `testdata/*.txtar` Helm test (with
+     `-- broken --`) is fine — no need to create a CLI test.
+   - Use `testdata/*.txtar` (Helm tests) or `testdata/noverify/*.txtar`
+     for bugs that can be reproduced with `helm2cue template`.
+   - Use `testdata/core/*.txtar` only for Go `text/template` builtin
+     features.
 4. **Commit the reproduction test.** Commit the test on its own
    (`Updates #N`). This records the problem independently of the fix.
    **Every commit must pass CI** (Gerrit reviews each commit individually),
    so the test must demonstrate the bug in a way that passes the test
    framework:
-   - If the converter **errors out** (e.g. produces invalid CUE), prefer a
-     `testdata/` test with `-- broken --` matching the error. Include
-     `helm_output.yaml` so helm validation still runs. This keeps the test
-     in the verified directory from the start.
-   - Alternatively, use a `testdata/noverify/` error test with
-     `-- error --` matching the error (when helm comparison is also not
-     possible).
+   - **CLI tests** (`testdata/cli/`): use `! exec helm2cue chart ...`
+     to expect the failure, with a `stderr` assertion matching the
+     error message.
+   - **Helm tests** (`testdata/`): if the converter **errors out**
+     (e.g. produces invalid CUE), use `-- broken --` matching the
+     error. Include `helm_output.yaml` so helm validation still runs.
+     This keeps the test in the verified directory from the start.
+   - **Noverify tests** (`testdata/noverify/`): use `-- error --`
+     matching the error (when helm comparison is also not possible).
    - If the converter **succeeds but produces wrong output**, put the
      current (wrong) output in `-- output.cue --`.
 5. **Fix the bug.** With the reproduction test in hand the scope is clear —
    make the minimal code change that fixes the issue.
 6. **Update the test in the same file.** Edit the reproduction test
-   in-place to reflect the correct behaviour (e.g. remove `-- broken --`
-   and add `-- output.cue --`, or update the expected output). **Do not
-   move or rename the file** between commits — keep the test at the same
-   path so the diff clearly shows how expectations changed.
+   in-place to reflect the correct behaviour. **Do not move or rename
+   the file** between commits — keep the test at the same path so the
+   diff clearly shows how expectations changed.
+   - **CLI tests**: change `! exec` to `exec`, update `stderr`
+     assertions, and add golden output comparisons (`cmp`).
+   - **Helm tests**: remove `-- broken --` and add `-- output.cue --`,
+     or update the expected output.
 7. **Cross-check against the original report.** Go back to the original
    reproducer (from the issue or integration test) and verify it is also
    fixed. If the original report involved the `chart` subcommand, run the
@@ -162,6 +174,68 @@ For integration-test failures, treat the failing integration test as the
   directories.
 - When adding a regression test for a bug fix, ensure the test fails without the
   fix.
+
+## Debugging tips
+
+### Manual testing with `helm2cue chart`
+
+`helm2cue template` only supports Go `text/template` builtins. Templates
+using Helm/Sprig functions (`include`, `default`, `ternary`, etc.) **must**
+be tested via `helm2cue chart`. Create a minimal chart directory:
+
+    mkdir -p tmp/testchart/templates
+    # write Chart.yaml, values.yaml, templates/foo.yaml
+    go run . chart tmp/testchart tmp/testchart-out
+
+To isolate a single template from a large chart, copy the original
+`Chart.yaml`, `values.yaml`, and `_helpers.tpl` alongside just the
+template under investigation.
+
+### Seeing raw converter output
+
+Set `HELM2CUE_DEBUG=1` to see the raw CUE source when validation fails:
+
+    HELM2CUE_DEBUG=1 go run . chart tmp/testchart tmp/testchart-out
+
+This shows what the converter produced before `cue/parser.ParseFile`
+rejects it, which is essential for diagnosing malformed output. Without
+it you only see "no templates converted successfully" with no detail.
+
+### Using integration test chart caches
+
+Integration tests (`TestConvertChartIntegration`) pull real charts into
+`tmp/` (e.g. `tmp/kube-prometheus-stack/`, `tmp/nginx/`). These cached
+copies are useful for examining templates that trigger bugs. To test a
+single template from a cached chart, copy it into a minimal chart
+directory as described above.
+
+When a fix does **not** change the integration golden file, use
+`HELM2CUE_DEBUG=1` on the full chart to check whether the template
+has additional issues beyond what was fixed.
+
+### Avoiding tmp/ build noise
+
+`go test ./...` may fail in `tmp/` due to stale Go files or build
+caches. Use `go test .` (main package only) or a `-run` pattern to
+avoid this. Clean stale `.go` files from `tmp/` if they cause build
+errors.
+
+### Template parse tree model
+
+The Go template parser splits templates into node types. Understanding
+this model is important when working on the converter:
+
+- **TextNode**: carries the raw YAML text including indentation and
+  line structure. `emitTextNode` processes these line-by-line.
+- **ActionNode**: inline interpolations (`{{ .Values.foo }}`). These
+  do **not** carry indentation — they appear mid-line within TextNodes.
+  Processed via `emitActionExpr`.
+- **IfNode / RangeNode / WithNode**: block control structures.
+  `processIf`, `processRange`, `processWith` handle these.
+
+Key implication: YAML structural analysis (indentation, list detection,
+scope exit) can be determined from TextNode content alone. ActionNodes
+are inline and never affect the indent structure.
 
 ## Core vs Helm test split
 
