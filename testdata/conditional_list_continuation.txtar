@@ -1,0 +1,69 @@
+Conditional list item with continuation fields after {{end}}.
+
+-- values.yaml --
+useHttps: true
+-- input.yaml --
+apiVersion: v1
+kind: Service
+metadata:
+  name: test
+spec:
+  endpoints:
+    {{- if .Values.useHttps }}
+    - port: https
+      scheme: https
+    {{- else }}
+    - port: http
+    {{- end }}
+      honorLabels: true
+-- helm_output.yaml --
+apiVersion: v1
+kind: Service
+metadata:
+  name: test
+spec:
+  endpoints:
+    - port: https
+      scheme: https
+      honorLabels: true
+-- output.cue --
+import "struct"
+
+#values: {
+	useHttps?: bool | number | string | null
+	...
+}
+
+output: [
+	{
+		apiVersion: "v1"
+		kind:       "Service"
+		metadata: name: "test"
+		spec: endpoints: [
+			{
+				if (_nonzero & {#arg: #values.useHttps, _}) {
+					port:   "https"
+					scheme: "https"
+				}
+				if !(_nonzero & {#arg: #values.useHttps, _}) {
+					port: "http"
+				}
+				honorLabels: true
+			},
+		]
+	},
+]
+_nonzero: {
+	#arg?: _
+	[if #arg != _|_ {
+		[
+			if (#arg & int) != _|_ {#arg != 0},
+			if (#arg & string) != _|_ {#arg != ""},
+			if (#arg & float) != _|_ {#arg != 0.0},
+			if (#arg & bool) != _|_ {#arg},
+			if (#arg & [...]) != _|_ {len(#arg) > 0},
+			if (#arg & {...}) != _|_ {(#arg & struct.MaxFields(0)) == _|_},
+			false,
+		][0]
+	}, false][0]
+}

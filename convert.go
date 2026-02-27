@@ -244,6 +244,8 @@ type converter struct {
 	blockScalarFolded     bool     // true for > and >- (fold newlines to spaces)
 	blockScalarStrip      bool     // true for |- and >- (strip trailing newline)
 
+	stripListDash bool // strip "- " prefix from next list item line
+
 	// Helper template state (shared across main and sub-converters).
 	treeSet           map[string]*parse.Tree
 	helperExprs       map[string]string // template name → CUE hidden field name
@@ -1532,6 +1534,13 @@ func (c *converter) emitTextNode(text []byte) {
 		// Use left-trimmed content to preserve trailing spaces (important for "- ").
 		content := rawLine[yamlIndent:]
 
+		// Strip "- " prefix when a pre-opened list item struct absorbed the dash.
+		if c.stripListDash && strings.HasPrefix(content, "- ") {
+			c.stripListDash = false
+			content = content[2:]
+			yamlIndent += 2
+		}
+
 		// Check if pending action should be resolved as dynamic key.
 		if c.pendingActionExpr != "" {
 			if strings.HasPrefix(content, ": ") || content == ":" {
@@ -2186,6 +2195,30 @@ func (c *converter) processIf(n *parse.IfNode) error {
 	cueInd := c.currentCUEIndent()
 	inList := len(c.stack) > 0 && c.stack[len(c.stack)-1].isList
 
+	// Detect conditional list item with continuation fields after {{end}}.
+	// When each branch has exactly one list item and continuation fields
+	// follow at the item content indent, pre-open the list item struct so
+	// it survives body cleanup and the continuation attaches correctly.
+	preOpenedListItem := false
+	if inList && isList && bodyIndent >= 0 && n.ElseList != nil {
+		itemContentIndent := bodyIndent + 2
+		elseBI := peekBodyIndent(n.ElseList.Nodes)
+		if isListBody(n.ElseList.Nodes) &&
+			countTopListItems(n.List.Nodes, bodyIndent) == 1 &&
+			countTopListItems(n.ElseList.Nodes, elseBI) == 1 &&
+			hasListItemContinuation(c.remainingNodes, itemContentIndent) {
+			writeIndent(&c.out, cueInd)
+			c.out.WriteString("{\n")
+			c.stack = append(c.stack, frame{
+				yamlIndent: itemContentIndent,
+				cueIndent:  cueInd + 1,
+				isListItem: true,
+			})
+			cueInd = cueInd + 1
+			preOpenedListItem = true
+		}
+	}
+
 	// Emit the if guard.
 	writeIndent(&c.out, cueInd)
 	fmt.Fprintf(&c.out, "if %s {\n", condition)
@@ -2203,12 +2236,16 @@ func (c *converter) processIf(n *parse.IfNode) error {
 	c.stack = append(c.stack, frame{
 		yamlIndent: bodyCtxIndent,
 		cueIndent:  cueInd + 1,
-		isList:     inList && isList,
+		isList:     inList && isList && !preOpenedListItem,
 	})
 
+	if preOpenedListItem {
+		c.stripListDash = true
+	}
 	if err := c.processBodyNodes(n.List.Nodes); err != nil {
 		return err
 	}
+	c.stripListDash = false
 	c.finalizeInline()
 	c.finalizeFlow()
 	c.flushPendingAction()
@@ -2242,12 +2279,16 @@ func (c *converter) processIf(n *parse.IfNode) error {
 		c.stack = append(c.stack, frame{
 			yamlIndent: elseCtxIndent,
 			cueIndent:  cueInd + 1,
-			isList:     inList && elseIsList,
+			isList:     inList && elseIsList && !preOpenedListItem,
 		})
 
+		if preOpenedListItem {
+			c.stripListDash = true
+		}
 		if err := c.processBodyNodes(n.ElseList.Nodes); err != nil {
 			return err
 		}
+		c.stripListDash = false
 		c.finalizeInline()
 		c.finalizeFlow()
 		c.flushPendingAction()
@@ -2669,6 +2710,41 @@ func peekBodyIndent(nodes []parse.Node) int {
 		}
 	}
 	return -1
+}
+
+// countTopListItems counts "- " lines at the given YAML indent in
+// the text content of nodes. It only counts top-level items (not
+// nested sub-items at deeper indents).
+func countTopListItems(nodes []parse.Node, listIndent int) int {
+	text := textContent(nodes)
+	count := 0
+	for _, line := range strings.Split(text, "\n") {
+		if strings.TrimSpace(line) == "" {
+			continue
+		}
+		indent := len(line) - len(strings.TrimLeft(line, " "))
+		if indent == listIndent && strings.HasPrefix(line[indent:], "- ") {
+			count++
+		}
+	}
+	return count
+}
+
+// hasListItemContinuation reports whether the remaining sibling nodes
+// contain a continuation field at itemContentIndent that is NOT a new
+// list item. This detects text like "  honorLabels: true" following
+// an {{end}} when the list item content indent matches.
+func hasListItemContinuation(nodes []parse.Node, itemContentIndent int) bool {
+	text := textContent(nodes)
+	for _, line := range strings.Split(text, "\n") {
+		if strings.TrimSpace(line) == "" {
+			continue
+		}
+		indent := len(line) - len(strings.TrimLeft(line, " "))
+		content := line[indent:]
+		return indent == itemContentIndent && !strings.HasPrefix(content, "- ")
+	}
+	return false
 }
 
 func (c *converter) pipeToFieldExpr(pipe *parse.PipeNode) (string, string, []string, error) {
