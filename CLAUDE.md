@@ -75,7 +75,12 @@ When creating issues, follow the repo's issue templates in
 request) and fill in all required fields. Do not use freeform bodies.
 
 When creating issues via `gh issue create`, use `--label bug` for bug reports
-and `--label "feature request"` for feature requests.
+and `--label "feature request"` for feature requests. **Do not use
+`gh issue view`** — it fails on this repo due to a GitHub Projects (classic)
+deprecation error. Use `gh api` instead:
+
+    gh api repos/cue-exp/helm2cue/issues/N --jq '.body'
+    gh api repos/cue-exp/helm2cue/issues/N --jq '.title'
 
 For the "helm2cue version" field in bug reports, build a binary first so that
 VCS metadata is included (`go run` does not embed it):
