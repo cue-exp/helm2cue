@@ -2651,6 +2651,19 @@ func (c *converter) conditionNodeToExpr(node parse.Node) (string, error) {
 			}
 		}
 		return "", fmt.Errorf("unsupported variable in condition: %s", n)
+	case *parse.ChainNode:
+		pipe, ok := n.Node.(*parse.PipeNode)
+		if !ok {
+			return "", fmt.Errorf("unsupported chain base: %T", n.Node)
+		}
+		baseExpr, _, err := c.convertSubPipe(pipe)
+		if err != nil {
+			return "", err
+		}
+		for _, field := range n.Field {
+			baseExpr += "." + cueKey(field)
+		}
+		return fmt.Sprintf("(_nonzero & {#arg: %s, _})", baseExpr), nil
 	case *parse.PipeNode:
 		return c.conditionPipeToExpr(n)
 	default:
@@ -2700,6 +2713,19 @@ func (c *converter) conditionNodeToRawExpr(node parse.Node) (string, error) {
 			return "true", nil
 		}
 		return "false", nil
+	case *parse.ChainNode:
+		pipe, ok := n.Node.(*parse.PipeNode)
+		if !ok {
+			return "", fmt.Errorf("unsupported chain base: %T", n.Node)
+		}
+		baseExpr, _, err := c.convertSubPipe(pipe)
+		if err != nil {
+			return "", err
+		}
+		for _, field := range n.Field {
+			baseExpr += "." + cueKey(field)
+		}
+		return baseExpr, nil
 	case *parse.PipeNode:
 		return c.conditionPipeToExpr(n)
 	default:
@@ -2888,6 +2914,23 @@ func (c *converter) conditionPipeToExpr(pipe *parse.PipeNode) (string, error) {
 			return fmt.Sprintf(
 				"(_semverCompare & {#constraint: %s, #version: %s}).out",
 				strconv.Quote(constraintNode.Text), verExpr), nil
+		case "index":
+			if !c.isCoreFunc(id.Ident) {
+				return "", fmt.Errorf("unsupported condition function: %s (not a text/template builtin)", id.Ident)
+			}
+			if len(args) < 2 {
+				return "", fmt.Errorf("index requires at least 2 arguments, got %d", len(args))
+			}
+			cf := coreFuncs[id.Ident]
+			funcArgs := make([]funcArg, len(args))
+			for i, a := range args {
+				funcArgs[i] = funcArg{node: a}
+			}
+			expr, _, err := cf.convert(c, funcArgs)
+			if err != nil {
+				return "", err
+			}
+			return fmt.Sprintf("(_nonzero & {#arg: %s, _})", expr), nil
 		default:
 			return "", fmt.Errorf("unsupported condition function: %s", id.Ident)
 		}
@@ -3031,6 +3074,17 @@ func (c *converter) actionToCUE(n *parse.ActionNode) (expr string, helmObj strin
 					expr, helmObj, err = cf.convert(c, nil)
 					if err != nil {
 						return "", "", err
+					}
+				}
+			}
+		} else if ch, ok := first.Args[0].(*parse.ChainNode); ok {
+			pipe, pipeOK := ch.Node.(*parse.PipeNode)
+			if pipeOK {
+				var subErr error
+				expr, helmObj, subErr = c.convertSubPipe(pipe)
+				if subErr == nil {
+					for _, field := range ch.Field {
+						expr += "." + cueKey(field)
 					}
 				}
 			}
@@ -3366,6 +3420,19 @@ func (c *converter) nodeToExpr(node parse.Node) (string, string, error) {
 			return c.config.RootExpr, "", nil
 		}
 		return "", "", fmt.Errorf("{{ . }} outside range/with not supported")
+	case *parse.ChainNode:
+		pipe, ok := n.Node.(*parse.PipeNode)
+		if !ok {
+			return "", "", fmt.Errorf("unsupported chain base: %T", n.Node)
+		}
+		baseExpr, helmObj, err := c.convertSubPipe(pipe)
+		if err != nil {
+			return "", "", err
+		}
+		for _, field := range n.Field {
+			baseExpr += "." + cueKey(field)
+		}
+		return baseExpr, helmObj, nil
 	case *parse.PipeNode:
 		return c.convertSubPipe(n)
 	default:

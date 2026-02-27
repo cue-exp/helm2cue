@@ -1,5 +1,4 @@
 -- ConvertChart --
-warning: skipping alertmanager/alertmanager.yaml (doc 0): tpl template argument: unsupported pipe node: index .Values.alertmanager.ingress.hosts 0
 warning: skipping alertmanager/ingress.yaml (doc 0): default value: unsupported literal node: list
 warning: skipping alertmanager/ingressperreplica.yaml (doc 0): range: unsupported pipe: $i, $e := until $count
 warning: skipping alertmanager/secret.yaml (doc 0): if condition: unsupported condition function: typeOf
@@ -51,7 +50,6 @@ warning: skipping prometheus-operator/pdb.yaml (doc 0): toYaml argument: unsuppo
 warning: skipping prometheus-operator/servicemonitor.yaml (doc 0): missing ',' in list literal (and 5 more errors)
 warning: skipping prometheus-operator/verticalpodautoscaler.yaml (doc 0): top-level if condition: unsupported condition: .Capabilities.APIVersions.Has "autoscaling.k8s.io/v1"
 warning: skipping prometheus/additionalScrapeConfigs.yaml (doc 0): if condition: unsupported condition function: typeOf
-warning: skipping prometheus/clusterrole.yaml (doc 0): if condition: unsupported condition node: (index .Values "prometheus-node-exporter").kubeRBACProxy.enabled
 warning: skipping prometheus/ingress.yaml (doc 0): default value: unsupported literal node: list
 warning: skipping prometheus/ingressThanosSidecar.yaml (doc 0): range: unsupported node: $paths
 warning: skipping prometheus/ingressperreplica.yaml (doc 0): range: unsupported pipe: $i, $e := until $count
@@ -77,10 +75,9 @@ warning: skipping prometheus/rules-1.14/prometheus-operator.yaml (doc 0): unsupp
 warning: skipping prometheus/rules-1.14/prometheus.yaml (doc 0): unsupported template action: {{dig "PrometheusBadConfig" "for" "10m" .Values.customRules}}
 warning: skipping prometheus/serviceperreplica.yaml (doc 0): range: unsupported pipe: $i, $e := until $count
 warning: skipping thanos-ruler/ingress.yaml (doc 0): range: unsupported node: $paths
-warning: skipping thanos-ruler/ruler.yaml (doc 0): tpl template argument: unsupported pipe node: index .Values.thanosRuler.ingress.hosts 0
-warning: values schema inconsistency: #values.alertmanager.ingress.serviceName: reference "_kube_prometheus_stack_fullname" not found (and 19 more errors)
-warning: values.yaml does not satisfy inferred schema: #values.alertmanager.ingress.serviceName: reference "_kube_prometheus_stack_fullname" not found (and 19 more errors)
-converted 92/181 templates from kube-prometheus-stack
+warning: values schema inconsistency: #values.nameOverride: reference "#chart" not found (and 19 more errors)
+warning: values.yaml does not satisfy inferred schema: #values.nameOverride: reference "#chart" not found (and 19 more errors)
+converted 95/181 templates from kube-prometheus-stack
 -- cue vet --
 exit status 1
 prometheus_operator_admission_webhooks_job_patch_job_createSecret.spec.template.spec.containers.args: invalid string: invalid whitespace:

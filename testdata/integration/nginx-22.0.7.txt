@@ -10,26 +10,26 @@ converted 12/21 templates from nginx
 exit status 1
 #values.cloneStaticSiteFromGit.extraVolumeMounts: 4 errors in empty disjunction:
 #values.cloneStaticSiteFromGit.extraVolumeMounts: conflicting values [] and bool (mismatched types list and bool):
-    ./values.cue:15:23
+    ./values.cue:16:23
     values.yaml:594:22
 #values.cloneStaticSiteFromGit.extraVolumeMounts: conflicting values [] and null (mismatched types list and null):
-    ./values.cue:15:48
+    ./values.cue:16:48
     values.yaml:594:22
 #values.cloneStaticSiteFromGit.extraVolumeMounts: conflicting values [] and number (mismatched types list and number):
-    ./values.cue:15:30
+    ./values.cue:16:30
     values.yaml:594:22
 #values.cloneStaticSiteFromGit.extraVolumeMounts: conflicting values [] and string (mismatched types list and string):
-    ./values.cue:15:39
+    ./values.cue:16:39
     values.yaml:594:22
 #values.cloneStaticSiteFromGit.image: 4 errors in empty disjunction:
 #values.cloneStaticSiteFromGit.image: conflicting values {registry:"registry-1.docker.io",repository:"bitnami/git",tag:"latest",digest:"",pullPolicy:"IfNotPresent",pullSecrets:[]} and bool (mismatched types struct and bool):
-    ./values.cue:11:23
+    ./values.cue:12:23
 #values.cloneStaticSiteFromGit.image: conflicting values {registry:"registry-1.docker.io",repository:"bitnami/git",tag:"latest",digest:"",pullPolicy:"IfNotPresent",pullSecrets:[]} and null (mismatched types struct and null):
-    ./values.cue:11:48
+    ./values.cue:12:48
 #values.cloneStaticSiteFromGit.image: conflicting values {registry:"registry-1.docker.io",repository:"bitnami/git",tag:"latest",digest:"",pullPolicy:"IfNotPresent",pullSecrets:[]} and number (mismatched types struct and number):
-    ./values.cue:11:30
+    ./values.cue:12:30
 #values.cloneStaticSiteFromGit.image: conflicting values {registry:"registry-1.docker.io",repository:"bitnami/git",tag:"latest",digest:"",pullPolicy:"IfNotPresent",pullSecrets:[]} and string (mismatched types struct and string):
-    ./values.cue:11:39
+    ./values.cue:12:39
 #values.commonAnnotations: 4 errors in empty disjunction:
 #values.commonAnnotations: conflicting values {} and bool (mismatched types struct and bool):
     ./values.cue:76:22
@@ -84,13 +84,13 @@ exit status 1
     values.yaml:444:15
 #values.global: 4 errors in empty disjunction:
 #values.global: conflicting values {imageRegistry:"",imagePullSecrets:[],security:{allowInsecureImages:false},compatibility:{openshift:{adaptSecurityContext:"auto"}}} and bool (mismatched types struct and bool):
-    ./values.cue:18:11
+    ./values.cue:7:21
 #values.global: conflicting values {imageRegistry:"",imagePullSecrets:[],security:{allowInsecureImages:false},compatibility:{openshift:{adaptSecurityContext:"auto"}}} and null (mismatched types struct and null):
-    ./values.cue:18:36
+    ./values.cue:7:46
 #values.global: conflicting values {imageRegistry:"",imagePullSecrets:[],security:{allowInsecureImages:false},compatibility:{openshift:{adaptSecurityContext:"auto"}}} and number (mismatched types struct and number):
-    ./values.cue:18:18
+    ./values.cue:7:28
 #values.global: conflicting values {imageRegistry:"",imagePullSecrets:[],security:{allowInsecureImages:false},compatibility:{openshift:{adaptSecurityContext:"auto"}}} and string (mismatched types struct and string):
-    ./values.cue:18:27
+    ./values.cue:7:37
 #values.healthIngress.annotations: 4 errors in empty disjunction:
 #values.healthIngress.annotations: conflicting values {} and bool (mismatched types struct and bool):
     ./values.cue:80:22
@@ -145,13 +145,13 @@ exit status 1
     values.yaml:962:12
 #values.image: 4 errors in empty disjunction:
 #values.image: conflicting values {registry:"registry-1.docker.io",repository:"bitnami/nginx",tag:"latest",digest:"",pullPolicy:"IfNotPresent",pullSecrets:[],debug:false} and bool (mismatched types struct and bool):
-    ./values.cue:19:11
+    ./values.cue:19:10
 #values.image: conflicting values {registry:"registry-1.docker.io",repository:"bitnami/nginx",tag:"latest",digest:"",pullPolicy:"IfNotPresent",pullSecrets:[],debug:false} and null (mismatched types struct and null):
-    ./values.cue:19:36
+    ./values.cue:19:35
 #values.image: conflicting values {registry:"registry-1.docker.io",repository:"bitnami/nginx",tag:"latest",digest:"",pullPolicy:"IfNotPresent",pullSecrets:[],debug:false} and number (mismatched types struct and number):
-    ./values.cue:19:18
+    ./values.cue:19:17
 #values.image: conflicting values {registry:"registry-1.docker.io",repository:"bitnami/nginx",tag:"latest",digest:"",pullPolicy:"IfNotPresent",pullSecrets:[],debug:false} and string (mismatched types struct and string):
-    ./values.cue:19:27
+    ./values.cue:19:26
 #values.ingress.annotations: 4 errors in empty disjunction:
 #values.ingress.annotations: conflicting values {} and bool (mismatched types struct and bool):
     ./values.cue:107:22
@@ -366,43 +366,43 @@ exit status 1
     ./values.cue:68:55
     values.yaml:475:11
 _nginx_validateValues_cloneStaticSiteFromGit: conflicting values "Please provide them by setting the `cloneStaticSiteFromGit.repository` and `cloneStaticSiteFromGit.branch` parameters." and "When enabling cloing a static site from a Git repository, both the Git repository and the Git branch must be provided.":
-    ./helpers.cue:767:47
-    ./helpers.cue:768:2
-    ./helpers.cue:770:3
-    ./helpers.cue:771:3
+    ./helpers.cue:830:47
+    ./helpers.cue:831:2
+    ./helpers.cue:833:3
+    ./helpers.cue:834:3
 _common_fips_enabled: undefined field: Annotations:
     ./helpers.cue:299:22
 #values.global: invalid interpolation: 4 errors in empty disjunction::
-    ./helpers.cue:711:2
+    ./helpers.cue:774:2
 _nginx_validateValues_cloneStaticSiteFromGit: cannot combine regular field "nginx" with "When enabling cloing a static site from a Git repository, both the Git repository and the Git branch must be provided.":
-    ./helpers.cue:769:10
-    ./helpers.cue:770:3
+    ./helpers.cue:832:10
+    ./helpers.cue:833:3
 results: error in call to list.FlattenN: 4 errors in empty disjunction::
     ./results.cue:7:10
 -- cue export --
 exit status 1
 #values.cloneStaticSiteFromGit.extraVolumeMounts: 4 errors in empty disjunction:
 #values.cloneStaticSiteFromGit.extraVolumeMounts: conflicting values [] and bool (mismatched types list and bool):
-    ./values.cue:15:23
+    ./values.cue:16:23
     values.yaml:594:22
 #values.cloneStaticSiteFromGit.extraVolumeMounts: conflicting values [] and null (mismatched types list and null):
-    ./values.cue:15:48
+    ./values.cue:16:48
     values.yaml:594:22
 #values.cloneStaticSiteFromGit.extraVolumeMounts: conflicting values [] and number (mismatched types list and number):
-    ./values.cue:15:30
+    ./values.cue:16:30
     values.yaml:594:22
 #values.cloneStaticSiteFromGit.extraVolumeMounts: conflicting values [] and string (mismatched types list and string):
-    ./values.cue:15:39
+    ./values.cue:16:39
     values.yaml:594:22
 #values.cloneStaticSiteFromGit.image: 4 errors in empty disjunction:
 #values.cloneStaticSiteFromGit.image: conflicting values {registry:"registry-1.docker.io",repository:"bitnami/git",tag:"latest",digest:"",pullPolicy:"IfNotPresent",pullSecrets:[]} and bool (mismatched types struct and bool):
-    ./values.cue:11:23
+    ./values.cue:12:23
 #values.cloneStaticSiteFromGit.image: conflicting values {registry:"registry-1.docker.io",repository:"bitnami/git",tag:"latest",digest:"",pullPolicy:"IfNotPresent",pullSecrets:[]} and null (mismatched types struct and null):
-    ./values.cue:11:48
+    ./values.cue:12:48
 #values.cloneStaticSiteFromGit.image: conflicting values {registry:"registry-1.docker.io",repository:"bitnami/git",tag:"latest",digest:"",pullPolicy:"IfNotPresent",pullSecrets:[]} and number (mismatched types struct and number):
-    ./values.cue:11:30
+    ./values.cue:12:30
 #values.cloneStaticSiteFromGit.image: conflicting values {registry:"registry-1.docker.io",repository:"bitnami/git",tag:"latest",digest:"",pullPolicy:"IfNotPresent",pullSecrets:[]} and string (mismatched types struct and string):
-    ./values.cue:11:39
+    ./values.cue:12:39
 #values.commonAnnotations: 4 errors in empty disjunction:
 #values.commonAnnotations: conflicting values {} and bool (mismatched types struct and bool):
     ./values.cue:76:22
@@ -457,13 +457,13 @@ exit status 1
     values.yaml:444:15
 #values.global: 4 errors in empty disjunction:
 #values.global: conflicting values {imageRegistry:"",imagePullSecrets:[],security:{allowInsecureImages:false},compatibility:{openshift:{adaptSecurityContext:"auto"}}} and bool (mismatched types struct and bool):
-    ./values.cue:18:11
+    ./values.cue:7:21
 #values.global: conflicting values {imageRegistry:"",imagePullSecrets:[],security:{allowInsecureImages:false},compatibility:{openshift:{adaptSecurityContext:"auto"}}} and null (mismatched types struct and null):
-    ./values.cue:18:36
+    ./values.cue:7:46
 #values.global: conflicting values {imageRegistry:"",imagePullSecrets:[],security:{allowInsecureImages:false},compatibility:{openshift:{adaptSecurityContext:"auto"}}} and number (mismatched types struct and number):
-    ./values.cue:18:18
+    ./values.cue:7:28
 #values.global: conflicting values {imageRegistry:"",imagePullSecrets:[],security:{allowInsecureImages:false},compatibility:{openshift:{adaptSecurityContext:"auto"}}} and string (mismatched types struct and string):
-    ./values.cue:18:27
+    ./values.cue:7:37
 #values.healthIngress.annotations: 4 errors in empty disjunction:
 #values.healthIngress.annotations: conflicting values {} and bool (mismatched types struct and bool):
     ./values.cue:80:22
@@ -518,13 +518,13 @@ exit status 1
     values.yaml:962:12
 #values.image: 4 errors in empty disjunction:
 #values.image: conflicting values {registry:"registry-1.docker.io",repository:"bitnami/nginx",tag:"latest",digest:"",pullPolicy:"IfNotPresent",pullSecrets:[],debug:false} and bool (mismatched types struct and bool):
-    ./values.cue:19:11
+    ./values.cue:19:10
 #values.image: conflicting values {registry:"registry-1.docker.io",repository:"bitnami/nginx",tag:"latest",digest:"",pullPolicy:"IfNotPresent",pullSecrets:[],debug:false} and null (mismatched types struct and null):
-    ./values.cue:19:36
+    ./values.cue:19:35
 #values.image: conflicting values {registry:"registry-1.docker.io",repository:"bitnami/nginx",tag:"latest",digest:"",pullPolicy:"IfNotPresent",pullSecrets:[],debug:false} and number (mismatched types struct and number):
-    ./values.cue:19:18
+    ./values.cue:19:17
 #values.image: conflicting values {registry:"registry-1.docker.io",repository:"bitnami/nginx",tag:"latest",digest:"",pullPolicy:"IfNotPresent",pullSecrets:[],debug:false} and string (mismatched types struct and string):
-    ./values.cue:19:27
+    ./values.cue:19:26
 #values.ingress.annotations: 4 errors in empty disjunction:
 #values.ingress.annotations: conflicting values {} and bool (mismatched types struct and bool):
     ./values.cue:107:22
@@ -739,16 +739,16 @@ exit status 1
     ./values.cue:68:55
     values.yaml:475:11
 _nginx_validateValues_cloneStaticSiteFromGit: conflicting values "Please provide them by setting the `cloneStaticSiteFromGit.repository` and `cloneStaticSiteFromGit.branch` parameters." and "When enabling cloing a static site from a Git repository, both the Git repository and the Git branch must be provided.":
-    ./helpers.cue:767:47
-    ./helpers.cue:768:2
-    ./helpers.cue:770:3
-    ./helpers.cue:771:3
+    ./helpers.cue:830:47
+    ./helpers.cue:831:2
+    ./helpers.cue:833:3
+    ./helpers.cue:834:3
 _common_fips_enabled: undefined field: Annotations:
     ./helpers.cue:299:22
 #values.global: invalid interpolation: 4 errors in empty disjunction::
-    ./helpers.cue:711:2
+    ./helpers.cue:774:2
 _nginx_validateValues_cloneStaticSiteFromGit: cannot combine regular field "nginx" with "When enabling cloing a static site from a Git repository, both the Git repository and the Git branch must be provided.":
-    ./helpers.cue:769:10
-    ./helpers.cue:770:3
+    ./helpers.cue:832:10
+    ./helpers.cue:833:3
 results: error in call to list.FlattenN: 4 errors in empty disjunction::
     ./results.cue:7:10
