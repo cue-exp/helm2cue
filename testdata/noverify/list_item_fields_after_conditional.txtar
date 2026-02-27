@@ -1,0 +1,22 @@
+Conditional branches inside a list each produce separate list item structs.
+Fields at the item-content indent after {{end}} are emitted as bare struct
+fields in the list, producing invalid CUE.
+
+-- _helpers.tpl --
+-- values.yaml --
+-- input.yaml --
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test
+data:
+  endpoints:
+  {{- if .Values.useHttps }}
+  - port: https
+    scheme: https
+  {{- else }}
+  - port: http
+  {{- end }}
+    honorLabels: true
+-- error --
+missing ',' in list literal
