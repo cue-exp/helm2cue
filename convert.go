@@ -2199,11 +2199,98 @@ func (c *converter) emitConditionalBlock(cueInd int, condition string, bodyInden
 	return nil
 }
 
+// emitConditionalBlockNodes emits a CUE conditional guard around body nodes.
+// Unlike emitConditionalBlock which processes raw text bytes, this method
+// processes a full node list (including ActionNodes) via processBodyNodes.
+func (c *converter) emitConditionalBlockNodes(cueInd int, condition string, bodyIndent int, isList bool, nodes []parse.Node) error {
+	if len(nodes) == 0 {
+		return nil
+	}
+	// Check if the nodes have any non-empty text content.
+	if strings.TrimSpace(textContent(nodes)) == "" {
+		return nil
+	}
+	savedStackLen := len(c.stack)
+	savedState := c.state
+	c.state = stateNormal
+
+	writeIndent(&c.out, cueInd)
+	fmt.Fprintf(&c.out, "if %s {\n", condition)
+
+	// Push body context frame.
+	bodyCtxIndent := bodyIndent - 1
+	if bodyCtxIndent < -1 {
+		bodyCtxIndent = -1
+	}
+	c.stack = append(c.stack, frame{
+		yamlIndent: bodyCtxIndent,
+		cueIndent:  cueInd + 1,
+		isList:     isList,
+	})
+
+	savedNextInline := c.nextNodeIsInline
+	c.nextNodeIsInline = false
+	savedRemaining := c.remainingNodes
+	if err := c.processBodyNodes(nodes); err != nil {
+		return err
+	}
+	c.remainingNodes = savedRemaining
+	c.nextNodeIsInline = savedNextInline
+	c.finalizeInline()
+	c.finalizeFlow()
+	c.flushPendingAction()
+	c.flushDeferred()
+
+	// Close all frames opened inside the body.
+	for len(c.stack) > savedStackLen+1 {
+		c.closeOneFrame()
+	}
+	// Pop body context frame without emitting brace.
+	if len(c.stack) > savedStackLen {
+		c.stack = c.stack[:savedStackLen]
+	}
+	c.state = savedState
+
+	writeIndent(&c.out, cueInd)
+	c.out.WriteString("}\n")
+	return nil
+}
+
+// allTextNodes reports whether all nodes in the slice are TextNodes.
+func allTextNodes(nodes []parse.Node) bool {
+	for _, node := range nodes {
+		if _, ok := node.(*parse.TextNode); !ok {
+			return false
+		}
+	}
+	return true
+}
+
 // processIfScopeExit handles an if/else whose body starts with list items
 // but then continues with struct-level content at a shallower indent.
 // It splits each branch at the scope boundary and emits list items inside
 // the current list, then closes the list and emits the struct content.
 func (c *converter) processIfScopeExit(
+	n *parse.IfNode,
+	condition, negCondition string,
+	bodyIndent int,
+	cueInd int,
+) error {
+	// Determine whether the bodies are pure text or mixed (with action nodes).
+	// Pure text bodies can be split at the text level (per list item).
+	// Mixed bodies are split at the node level.
+	pureTextIf := allTextNodes(n.List.Nodes)
+	pureTextElse := n.ElseList == nil || allTextNodes(n.ElseList.Nodes)
+
+	if pureTextIf && pureTextElse {
+		return c.processIfScopeExitText(n, condition, negCondition, bodyIndent, cueInd)
+	}
+	return c.processIfScopeExitNodes(n, condition, negCondition, bodyIndent, cueInd)
+}
+
+// processIfScopeExitText handles scope exit for pure-text bodies by splitting
+// at the text level and emitting each list item in its own conditional guard.
+func (c *converter) processIfScopeExitText(
 	n *parse.IfNode,
 	condition, negCondition string,
 	bodyIndent int,
@@ -2260,6 +2347,66 @@ func (c *converter) processIfScopeExit(
 	if len(bytes.TrimSpace(elseOut)) > 0 {
 		outBI := peekTextIndent(elseOut)
 		if err := c.emitConditionalBlock(cueInd, negCondition, outBI, false, elseOut); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// processIfScopeExitNodes handles scope exit for mixed bodies (containing
+// action nodes, nested if nodes, etc.) by splitting at the node level.
+func (c *converter) processIfScopeExitNodes(
+	n *parse.IfNode,
+	condition, negCondition string,
+	bodyIndent int,
+	cueInd int,
+) error {
+	// Split if-body nodes at scope boundary.
+	ifInNodes, ifOutNodes := splitBodyNodes(n.List.Nodes, bodyIndent)
+
+	// Split else-body nodes if present.
+	var elseInNodes, elseOutNodes []parse.Node
+	if n.ElseList != nil && len(n.ElseList.Nodes) > 0 {
+		if peekBodyIndent(n.ElseList.Nodes) >= 0 {
+			elseInNodes, elseOutNodes = splitBodyNodes(n.ElseList.Nodes, bodyIndent)
+		}
+	}
+
+	// Phase 1: Emit in-scope list items inside conditional guards.
+	if err := c.emitConditionalBlockNodes(cueInd, condition, bodyIndent, true, ifInNodes); err != nil {
+		return err
+	}
+	if len(elseInNodes) > 0 {
+		elseBI := peekBodyIndent(elseInNodes)
+		if elseBI < 0 {
+			elseBI = bodyIndent
+		}
+		if err := c.emitConditionalBlockNodes(cueInd, negCondition, elseBI, true, elseInNodes); err != nil {
+			return err
+		}
+	}
+
+	// Close list frames to the indent of the struct content.
+	afterIndent := peekBodyIndent(ifOutNodes)
+	if afterIndent < 0 {
+		afterIndent = peekBodyIndent(elseOutNodes)
+	}
+	if afterIndent >= 0 {
+		c.closeBlocksTo(afterIndent)
+	}
+
+	// Phase 2: Emit out-of-scope struct content inside conditional guards.
+	cueInd = c.currentCUEIndent()
+	if len(ifOutNodes) > 0 {
+		outBI := peekBodyIndent(ifOutNodes)
+		if err := c.emitConditionalBlockNodes(cueInd, condition, outBI, false, ifOutNodes); err != nil {
+			return err
+		}
+	}
+	if len(elseOutNodes) > 0 {
+		outBI := peekBodyIndent(elseOutNodes)
+		if err := c.emitConditionalBlockNodes(cueInd, negCondition, outBI, false, elseOutNodes); err != nil {
 			return err
 		}
 	}
@@ -2847,15 +2994,11 @@ func peekBodyIndent(nodes []parse.Node) int {
 }
 
 // bodyExitsScope reports whether the body nodes contain text that exits the
-// current list scope. It returns true only when all body nodes are TextNodes
-// (so the text can be cleanly split) and some non-empty line has indent <
-// scopeIndent.
+// current list scope. It returns true when the text content (from TextNodes)
+// contains a non-empty line with indent < scopeIndent. ActionNodes are
+// ignored for scope detection because they represent inline interpolations
+// that don't affect YAML indentation structure.
 func bodyExitsScope(nodes []parse.Node, scopeIndent int) bool {
-	for _, node := range nodes {
-		if _, ok := node.(*parse.TextNode); !ok {
-			return false
-		}
-	}
 	text := textContent(nodes)
 	for _, line := range strings.Split(text, "\n") {
 		trimmed := strings.TrimSpace(line)
@@ -2891,6 +3034,61 @@ func splitBodyText(nodes []parse.Node, scopeIndent int) (inScope, outOfScope []b
 		}
 	}
 	return text, nil
+}
+
+// splitBodyNodes splits a node list at the scope exit boundary (the first
+// TextNode line with indent < scopeIndent). Returns in-scope nodes (list
+// items with their action interpolations) and out-of-scope nodes (struct
+// content). When the split point falls within a TextNode, that node is
+// copied and its text divided between the two slices.
+func splitBodyNodes(nodes []parse.Node, scopeIndent int) (inScope, outOfScope []parse.Node) {
+	// Track cumulative text byte offset to find which TextNode
+	// contains the scope exit line.
+	textBytes := []byte(textContent(nodes))
+	splitOffset := -1
+	offset := 0
+	for _, line := range bytes.Split(textBytes, []byte("\n")) {
+		trimmed := bytes.TrimSpace(line)
+		if len(trimmed) > 0 {
+			indent := len(line) - len(bytes.TrimLeft(line, " "))
+			if indent < scopeIndent {
+				splitOffset = offset
+				break
+			}
+		}
+		offset += len(line) + 1 // +1 for newline
+	}
+	if splitOffset < 0 {
+		return nodes, nil
+	}
+
+	// Walk through nodes to find the TextNode containing splitOffset.
+	textPos := 0
+	for i, node := range nodes {
+		tn, ok := node.(*parse.TextNode)
+		if !ok {
+			inScope = append(inScope, node)
+			continue
+		}
+		end := textPos + len(tn.Text)
+		if splitOffset >= textPos && splitOffset < end {
+			// Split this TextNode.
+			localOffset := splitOffset - textPos
+			if localOffset > 0 {
+				pre := tn.Copy().(*parse.TextNode)
+				pre.Text = tn.Text[:localOffset]
+				inScope = append(inScope, pre)
+			}
+			post := tn.Copy().(*parse.TextNode)
+			post.Text = tn.Text[localOffset:]
+			outOfScope = append(outOfScope, post)
+			outOfScope = append(outOfScope, nodes[i+1:]...)
+			return inScope, outOfScope
+		}
+		textPos = end
+		inScope = append(inScope, node)
+	}
+	return nodes, nil
 }
 
 // splitListItems splits YAML list text into individual list items.
