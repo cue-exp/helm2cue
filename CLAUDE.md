@@ -113,25 +113,38 @@ or discovered in integration tests:
    still exists.
    - If the bug no longer reproduces, identify which commit fixed it, add a
      regression test if one does not already exist, and close the issue.
-3. **Reduce to a minimal CLI test.** Create the smallest possible
+3. **Reduce to a minimal test.** Create the smallest possible
    `testdata/cli/*.txtar` (or `testdata/*.txtar` / `testdata/noverify/*.txtar`
    for Helm-level bugs) that demonstrates the failure. Strip away everything
    not needed to trigger the bug — a 3-line template that fails is better
    than a 50-line chart. Run the test and confirm it **fails**.
-4. **Commit the failing test.** Commit the reproduction test on its own
+4. **Commit the reproduction test.** Commit the test on its own
    (`Updates #N`). This records the problem independently of the fix.
-5. **Fix the bug.** With the failing test in hand the scope is clear —
-   make the minimal code change that causes the test to pass.
-6. **Cross-check against the original report.** Go back to the original
+   **Every commit must pass CI** (Gerrit reviews each commit individually),
+   so the test must demonstrate the bug in a way that passes the test
+   framework:
+   - If the converter **errors out** (e.g. produces invalid CUE), use a
+     `testdata/noverify/` error test with `-- error --` matching the error.
+   - If the converter **succeeds but produces wrong output**, put the
+     current (wrong) output in `-- output.cue --`.
+5. **Fix the bug.** With the reproduction test in hand the scope is clear —
+   make the minimal code change that fixes the issue.
+6. **Update the test in the same file.** Edit the reproduction test
+   in-place to reflect the correct behaviour (e.g. replace `-- error --`
+   with `-- output.cue --`, or update the expected output). **Do not move
+   or rename the file** between commits — keep the test at the same path
+   so the diff clearly shows how expectations changed.
+7. **Cross-check against the original report.** Go back to the original
    reproducer (from the issue or integration test) and verify it is also
    fixed. If the original report involved the `chart` subcommand, run the
    full chart conversion, not just the reduced template test.
    - If the cross-check reveals the reduction was not faithful, go back to
      step 3: refine the reproduction test (amend the first commit), then
      redo the fix.
-7. **Run the full test suite.** `go test ./...` and `go vet ./...` must
+8. **Run the full test suite.** `go test ./...` and `go vet ./...` must
    pass.
-8. **Commit the fix.** The fix goes in a second commit (`Fixes #N`).
+9. **Commit the fix.** The fix goes in a second commit (`Fixes #N`),
+   including both the code change and the test update.
 
 For integration-test failures, treat the failing integration test as the
 "report" — the same reduce-then-fix discipline applies.
