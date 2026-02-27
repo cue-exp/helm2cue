@@ -1,9 +1,9 @@
 -- ConvertChart --
-warning: skipping alertmanager/ingress.yaml (doc 0): default value: unsupported literal node: list
+warning: skipping alertmanager/ingress.yaml (doc 0): range: unsupported node: $paths
 warning: skipping alertmanager/ingressperreplica.yaml (doc 0): range: unsupported pipe: $i, $e := until $count
 warning: skipping alertmanager/secret.yaml (doc 0): if condition: unsupported condition function: typeOf
 warning: skipping alertmanager/serviceperreplica.yaml (doc 0): range: unsupported pipe: $i, $e := until $count
-warning: skipping extra-objects.yaml (doc 0): default value: unsupported literal node: list
+warning: skipping extra-objects.yaml (doc 0): if condition: unsupported condition function: kindIs
 warning: skipping grafana/configmaps-datasources.yaml (doc 0): unsupported template action: {{(tpl $.Values.grafana.sidecar.datasources.labelValue $) | quote}}
 warning: skipping grafana/dashboards-1.14/alertmanager-overview.yaml (doc 0): unsupported template action: {{((tpl $.Values.grafana.sidecar.dashboards.labelValue $) | default 1) | quote}}
 warning: skipping grafana/dashboards-1.14/apiserver.yaml (doc 0): unsupported template action: {{((tpl $.Values.grafana.sidecar.dashboards.labelValue $) | default 1) | quote}}
@@ -50,7 +50,7 @@ warning: skipping prometheus-operator/pdb.yaml (doc 0): toYaml argument: unsuppo
 warning: skipping prometheus-operator/servicemonitor.yaml (doc 0): missing ',' in list literal (and 5 more errors)
 warning: skipping prometheus-operator/verticalpodautoscaler.yaml (doc 0): top-level if condition: unsupported condition: .Capabilities.APIVersions.Has "autoscaling.k8s.io/v1"
 warning: skipping prometheus/additionalScrapeConfigs.yaml (doc 0): if condition: unsupported condition function: typeOf
-warning: skipping prometheus/ingress.yaml (doc 0): default value: unsupported literal node: list
+warning: skipping prometheus/ingress.yaml (doc 0): range: unsupported node: $paths
 warning: skipping prometheus/ingressThanosSidecar.yaml (doc 0): range: unsupported node: $paths
 warning: skipping prometheus/ingressperreplica.yaml (doc 0): range: unsupported pipe: $i, $e := until $count
 warning: skipping prometheus/prometheus.yaml (doc 0): if condition: unsupported condition function: kindIs

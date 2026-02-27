@@ -1,0 +1,44 @@
+default with list and dict literals as default values.
+
+-- values.yaml --
+items:
+  - one
+  - two
+labels: {}
+-- input.yaml --
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test
+data:
+  items: {{ default (list) .Values.items | toJson }}
+  bare: {{ default list .Values.items | toJson }}
+  labels: {{ default (dict) .Values.labels | toJson }}
+-- helm_output.yaml --
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test
+data:
+  items: ["one","two"]
+  bare: ["one","two"]
+  labels: {}
+-- output.cue --
+#values: {
+	items: *[] | _
+	labels: *{} | _
+	...
+}
+
+output: [
+	{
+		apiVersion: "v1"
+		kind:       "ConfigMap"
+		metadata: name: "test"
+		data: {
+			items:  #values.items
+			bare:   #values.items
+			labels: #values.labels
+		}
+	},
+]
