@@ -1,0 +1,29 @@
+Fields after {{end}} at list-item-content indent merge into the same item.
+
+-- _helpers.tpl --
+-- values.yaml --
+-- input.yaml --
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test
+data:
+  endpoints:
+  {{- if .Values.useHttps }}
+  - port: https
+    scheme: https
+  {{- else }}
+  - port: http
+  {{- end }}
+    honorLabels: true
+-- helm_output.yaml --
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test
+data:
+  endpoints:
+  - port: http
+    honorLabels: true
+-- broken --
+missing ',' in list literal
