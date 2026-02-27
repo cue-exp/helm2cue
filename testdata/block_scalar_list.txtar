@@ -1,0 +1,53 @@
+YAML block scalar indicators as list item values.
+
+-- input.yaml --
+apiVersion: v1
+kind: Pod
+metadata:
+  name: test
+spec:
+  containers:
+  - name: test
+    image: busybox
+    args:
+      - -ec
+      - |
+        echo hello
+        echo world
+-- values.yaml --
+-- helm_output.yaml --
+apiVersion: v1
+kind: Pod
+metadata:
+  name: test
+spec:
+  containers:
+  - name: test
+    image: busybox
+    args:
+      - -ec
+      - |
+        echo hello
+        echo world
+-- output.cue --
+output: [
+	{
+		apiVersion: "v1"
+		kind:       "Pod"
+		metadata: name: "test"
+		spec: containers: [
+			{
+				name:  "test"
+				image: "busybox"
+				args: [
+					"-ec",
+					"""
+						echo hello
+						echo world
+						
+						""",
+				]
+			},
+		]
+	},
+]
