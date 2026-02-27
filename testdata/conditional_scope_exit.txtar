@@ -37,3 +37,62 @@ spec:
     ports:
       - containerPort: 443
 -- output.cue --
+import "struct"
+
+#values: {
+	tls?: bool | number | string | null
+	...
+}
+
+output: [
+	{
+		apiVersion: "v1"
+		kind:       "Pod"
+		metadata: name: "test"
+		spec: containers: [
+			{
+				name:  "test"
+				image: "busybox"
+				args: [
+					if (_nonzero & {#arg: #values.tls, _}) {
+						"--enable-tls=true"
+					},
+					if (_nonzero & {#arg: #values.tls, _}) {
+						"--port=443"
+					},
+					if !(_nonzero & {#arg: #values.tls, _}) {
+						"--enable-tls=false"
+					},
+				]
+				if (_nonzero & {#arg: #values.tls, _}) {
+					ports: [
+						{
+							containerPort: 443
+						},
+					]
+				}
+				if !(_nonzero & {#arg: #values.tls, _}) {
+					ports: [
+						{
+							containerPort: 8080
+						},
+					]
+				}
+			},
+		]
+	},
+]
+_nonzero: {
+	#arg?: _
+	[if #arg != _|_ {
+		[
+			if (#arg & int) != _|_ {#arg != 0},
+			if (#arg & string) != _|_ {#arg != ""},
+			if (#arg & float) != _|_ {#arg != 0.0},
+			if (#arg & bool) != _|_ {#arg},
+			if (#arg & [...]) != _|_ {len(#arg) > 0},
+			if (#arg & {...}) != _|_ {(#arg & struct.MaxFields(0)) == _|_},
+			false,
+		][0]
+	}, false][0]
+}
