@@ -44,10 +44,8 @@ warning: skipping prometheus-operator/admission-webhooks/deployment/pdb.yaml (do
 warning: skipping prometheus-operator/admission-webhooks/mutatingWebhookConfiguration.yaml (doc 0): with condition: unsupported condition function: omit
 warning: skipping prometheus-operator/admission-webhooks/validatingWebhookConfiguration.yaml (doc 0): with condition: unsupported condition function: omit
 warning: skipping prometheus-operator/certmanager.yaml (doc 3): unsupported pipeline function: splitList
-warning: skipping prometheus-operator/ciliumnetworkpolicy.yaml (doc 0): square bracket must have exactly one element (and 5 more errors)
 warning: skipping prometheus-operator/deployment.yaml (doc 0): unsupported template action: {{(((.Values.prometheusOperator.prometheusConfigReloader.resources).requests).cpu) | default 0}}
 warning: skipping prometheus-operator/pdb.yaml (doc 0): toYaml argument: unsupported pipe node: omit .Values.prometheusOperator.podDisruptionBudget "enabled"
-warning: skipping prometheus-operator/servicemonitor.yaml (doc 0): missing ',' in list literal (and 5 more errors)
 warning: skipping prometheus-operator/verticalpodautoscaler.yaml (doc 0): top-level if condition: unsupported condition: .Capabilities.APIVersions.Has "autoscaling.k8s.io/v1"
 warning: skipping prometheus/additionalScrapeConfigs.yaml (doc 0): if condition: unsupported condition function: typeOf
 warning: skipping prometheus/ingress.yaml (doc 0): range: unsupported node: $paths
@@ -77,7 +75,7 @@ warning: skipping prometheus/serviceperreplica.yaml (doc 0): range: unsupported 
 warning: skipping thanos-ruler/ingress.yaml (doc 0): range: unsupported node: $paths
 warning: values schema inconsistency: #values.nameOverride: reference "#chart" not found (and 19 more errors)
 warning: values.yaml does not satisfy inferred schema: #values.nameOverride: reference "#chart" not found (and 19 more errors)
-converted 95/181 templates from kube-prometheus-stack
+converted 97/181 templates from kube-prometheus-stack
 -- cue vet --
 exit status 1
 prometheus_operator_admission_webhooks_job_patch_job_createSecret.spec.template.spec.containers.args: invalid string: invalid whitespace:
