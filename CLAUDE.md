@@ -118,7 +118,10 @@ or discovered in integration tests:
    trigger the bug — a 3-line template that fails is better than a
    50-line chart. Run the test and confirm it **fails**.
    - **User-reported bugs** (GitHub issues): prefer `testdata/cli/*.txtar`
-     since this mirrors how users interact with `helm2cue chart`.
+     since this mirrors how users interact with `helm2cue chart`. Note
+     that CLI tests validate chart-level conversion but do **not** do
+     round-trip semantic comparison against `helm template` — that
+     requires a verified Helm test (see step 9).
    - **Integration-test failures**: a `testdata/*.txtar` Helm test (with
      `-- broken --`) is fine — no need to create a CLI test.
    - Use `testdata/*.txtar` (Helm tests) or `testdata/noverify/*.txtar`
@@ -161,7 +164,12 @@ or discovered in integration tests:
 8. **Run the full test suite.** `go test ./...` and `go vet ./...` must
    pass.
 9. **Commit the fix.** The fix goes in a second commit (`Fixes #N`),
-   including both the code change and the test update.
+   including the code change, the updated reproduction test, and — when
+   the bug is reproducible at the template level — a **verified Helm
+   test** (`testdata/*.txtar`) that validates round-trip semantic
+   equivalence against `helm template`. The CLI test links to the
+   issue and confirms chart-level conversion; the Helm test provides
+   direct converter coverage with round-trip validation.
 
 For integration-test failures, treat the failing integration test as the
 "report" — the same reduce-then-fix discipline applies.
