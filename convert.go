@@ -237,6 +237,13 @@ type converter struct {
 	flowCueInd int      // CUE indent for formatting
 	flowSuffix string   // appended after CUE result (",\n" or "\n")
 
+	// Block scalar accumulation state (for "- |" etc. in list items).
+	blockScalarLines      []string // non-nil when accumulating block scalar content
+	blockScalarBaseIndent int      // YAML indent of content lines (-1 until first content line)
+	blockScalarCUEInd     int      // CUE indent for emission
+	blockScalarFolded     bool     // true for > and >- (fold newlines to spaces)
+	blockScalarStrip      bool     // true for |- and >- (strip trailing newline)
+
 	// Helper template state (shared across main and sub-converters).
 	treeSet           map[string]*parse.Tree
 	helperExprs       map[string]string // template name → CUE hidden field name
@@ -1328,6 +1335,61 @@ func (c *converter) finalizeFlow() {
 	c.out.WriteString(suffix)
 }
 
+// finalizeBlockScalar emits the accumulated block scalar content as a CUE
+// value. Literal scalars (|, |-) produce a multi-line string ("""); folded
+// scalars (>, >-) join lines with spaces into a quoted string.
+func (c *converter) finalizeBlockScalar() {
+	if c.blockScalarLines == nil {
+		return
+	}
+	lines := c.blockScalarLines
+	c.blockScalarLines = nil
+
+	// Trim trailing empty lines.
+	for len(lines) > 0 && lines[len(lines)-1] == "" {
+		lines = lines[:len(lines)-1]
+	}
+
+	ind := c.blockScalarCUEInd
+
+	if len(lines) == 0 {
+		writeIndent(&c.out, ind)
+		c.out.WriteString("\"\",\n")
+		return
+	}
+
+	if c.blockScalarFolded {
+		// Folded: join lines with spaces.
+		text := strings.Join(lines, " ")
+		if !c.blockScalarStrip {
+			text += "\n"
+		}
+		writeIndent(&c.out, ind)
+		fmt.Fprintf(&c.out, "%s,\n", strconv.Quote(text))
+	} else {
+		// Literal: CUE multi-line string. Content lines and the
+		// closing """ are indented one level deeper than the opener
+		// so that cue fmt preserves the blank trailing-newline line.
+		writeIndent(&c.out, ind)
+		c.out.WriteString("\"\"\"\n")
+		for _, line := range lines {
+			writeIndent(&c.out, ind+1)
+			c.out.WriteString(line)
+			c.out.WriteByte('\n')
+		}
+		if !c.blockScalarStrip {
+			// Non-strip (| or >): add a whitespace-only line at
+			// the content indent level so that CUE's multi-line
+			// string includes a trailing newline.  The indent
+			// must match the closing """ to survive cue fmt.
+			writeIndent(&c.out, ind+1)
+			c.out.WriteByte('\n')
+		}
+		writeIndent(&c.out, ind+1)
+		c.out.WriteString("\"\"\",\n")
+	}
+}
+
 // resolveDeferredAsBlock converts a deferred key-value into a block with embedding.
 func (c *converter) resolveDeferredAsBlock(childYamlIndent int) {
 	if c.deferredKV == nil {
@@ -1433,6 +1495,31 @@ func (c *converter) emitTextNode(text []byte) {
 
 	for i, rawLine := range lines {
 		isLastLine := (i == len(lines)-1)
+
+		// Block scalar accumulation: collect indented lines for the
+		// multi-line string started by "- |" etc.
+		if c.blockScalarLines != nil {
+			trimLine := strings.TrimSpace(rawLine)
+			if c.blockScalarBaseIndent < 0 {
+				// Haven't seen first content line yet.
+				if trimLine == "" {
+					continue // Skip empty lines before first content.
+				}
+				c.blockScalarBaseIndent = len(rawLine) - len(strings.TrimLeft(rawLine, " "))
+			}
+			if trimLine == "" {
+				c.blockScalarLines = append(c.blockScalarLines, "")
+				continue
+			}
+			lineIndent := len(rawLine) - len(strings.TrimLeft(rawLine, " "))
+			if lineIndent >= c.blockScalarBaseIndent {
+				c.blockScalarLines = append(c.blockScalarLines, rawLine[c.blockScalarBaseIndent:])
+				continue
+			}
+			// Shallower line — finalize block scalar, then fall through.
+			c.finalizeBlockScalar()
+		}
+
 		if strings.TrimSpace(rawLine) == "" {
 			// Record indent hint from trailing whitespace-only line.
 			if isLastLine && rawLine != "" {
@@ -1576,6 +1663,9 @@ func (c *converter) emitTextNode(text []byte) {
 			fmt.Fprintf(&c.out, "%s\n", yamlToCUE(trimmed, 0))
 		}
 	}
+
+	// Finalize any block scalar that runs to end of text.
+	c.finalizeBlockScalar()
 }
 
 // openPendingAsList resolves a pending key as a list block.
@@ -1690,6 +1780,13 @@ func (c *converter) processListItem(trimmed string, yamlIndent, cueInd int, isLa
 		c.state = statePendingKey
 		c.pendingKey = ""
 		c.pendingKeyInd = yamlIndent
+	} else if tc := strings.TrimSpace(content); tc == "|" || tc == "|-" || tc == ">" || tc == ">-" {
+		// Block scalar as list item — start accumulation.
+		c.blockScalarLines = []string{}
+		c.blockScalarBaseIndent = -1
+		c.blockScalarCUEInd = cueInd
+		c.blockScalarFolded = tc[0] == '>'
+		c.blockScalarStrip = strings.HasSuffix(tc, "-")
 	} else if continuesInline {
 		// Scalar list item continues into next AST node — start inline.
 		writeIndent(&c.out, cueInd)

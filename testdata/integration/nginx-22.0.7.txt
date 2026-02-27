@@ -1,5 +1,5 @@
 -- ConvertChart --
-warning: skipping deployment.yaml (doc 0): missing ',' before newline in list literal (and 18 more errors)
+warning: skipping deployment.yaml (doc 0): missing ',' before newline in list literal (and 13 more errors)
 warning: skipping ingress-tls-secret.yaml (doc 2): unsupported template action: {{$ca := genCA "nginx-ca" 365}}
 warning: skipping ingress.yaml (doc 0): unsupported template action: {{(tpl .Values.ingress.hostname .) | quote}}
 warning: skipping tls-secret.yaml (doc 0): unsupported template action: {{$ca := genCA "nginx-ca" 365}}
