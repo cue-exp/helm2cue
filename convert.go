@@ -213,6 +213,7 @@ type converter struct {
 	comments            map[string]string  // expr → trailing comment
 	inRangeBody         bool               // true when processing range body (suppresses list item struct wrapping)
 	rangeBodyStackDepth int                // stack depth when inRangeBody was set; only suppress at this depth
+	hoistedListItem     bool               // true when list item struct was hoisted out of if/else branches
 	remainingNodes      []parse.Node       // sibling nodes not yet processed (set by processBodyNodes)
 
 	// Deferred action: action expression waiting to see if next text starts with ": " (dynamic key).
@@ -1707,6 +1708,14 @@ func (c *converter) processListItem(trimmed string, yamlIndent, cueInd int, isLa
 		return
 	}
 
+	// When a list item struct was hoisted out of a conditional, emit
+	// the item's fields directly without opening a new struct.
+	if c.hoistedListItem {
+		c.hoistedListItem = false
+		c.processHoistedListItem(content, yamlIndent, cueInd, isLastLine, continuesInline)
+		return
+	}
+
 	// Check for YAML flow collections (e.g., - {key: "value"}).
 	if isFlowCollection(content) {
 		writeIndent(&c.out, cueInd)
@@ -1796,6 +1805,45 @@ func (c *converter) processListItem(trimmed string, yamlIndent, cueInd int, isLa
 		// Simple scalar list item.
 		writeIndent(&c.out, cueInd)
 		fmt.Fprintf(&c.out, "%s,\n", yamlToCUE(strings.TrimSpace(content), 0))
+	}
+}
+
+// processHoistedListItem handles a list item whose struct wrapper was
+// hoisted out of a conditional block. It emits the item's fields directly
+// without opening a new { } struct or pushing a frame.
+func (c *converter) processHoistedListItem(content string, yamlIndent, cueInd int, isLastLine, continuesInline bool) {
+	itemContentIndent := yamlIndent + 2
+
+	if colonIdx := strings.Index(content, ": "); colonIdx > 0 {
+		key := content[:colonIdx]
+		val := strings.TrimRight(content[colonIdx+2:], " \t")
+
+		if val == "" && isLastLine {
+			// "- key: " — action provides value.
+			c.state = statePendingKey
+			c.pendingKey = key
+			c.pendingKeyInd = itemContentIndent
+		} else if continuesInline && val != "" && startsIncompleteFlow(val) {
+			writeIndent(&c.out, cueInd)
+			fmt.Fprintf(&c.out, "%s: ", cueKey(key))
+			c.startFlowAccum(content[colonIdx+2:], cueInd, "\n")
+		} else if continuesInline && val != "" {
+			writeIndent(&c.out, cueInd)
+			fmt.Fprintf(&c.out, "%s: ", cueKey(key))
+			c.inlineParts = []string{escapeCUEString(val)}
+		} else {
+			writeIndent(&c.out, cueInd)
+			fmt.Fprintf(&c.out, "%s: %s\n", cueKey(key), yamlToCUE(val, cueInd))
+		}
+	} else if strings.HasSuffix(strings.TrimSpace(content), ":") {
+		key := strings.TrimSuffix(strings.TrimSpace(content), ":")
+		c.state = statePendingKey
+		c.pendingKey = key
+		c.pendingKeyInd = itemContentIndent
+	} else {
+		// Scalar or other content — emit directly.
+		writeIndent(&c.out, cueInd)
+		fmt.Fprintf(&c.out, "%s\n", yamlToCUE(strings.TrimSpace(content), 0))
 	}
 }
 
@@ -2186,6 +2234,27 @@ func (c *converter) processIf(n *parse.IfNode) error {
 	cueInd := c.currentCUEIndent()
 	inList := len(c.stack) > 0 && c.stack[len(c.stack)-1].isList
 
+	// When the if/else branches each contain list items inside a list
+	// context, and there are trailing fields at the item-content indent
+	// after the conditional, hoist a shared list item struct to wrap
+	// the entire conditional plus the trailing fields.
+	hoisted := false
+	if inList && isList && bodyIndent >= 0 {
+		itemContentIndent := bodyIndent + 2
+		elseOK := n.ElseList == nil || isListBody(n.ElseList.Nodes)
+		if elseOK && hasTrailingItemContent(c.remainingNodes, itemContentIndent) {
+			writeIndent(&c.out, cueInd)
+			c.out.WriteString("{\n")
+			c.stack = append(c.stack, frame{
+				yamlIndent: itemContentIndent,
+				cueIndent:  cueInd + 1,
+				isListItem: true,
+			})
+			cueInd = cueInd + 1
+			hoisted = true
+		}
+	}
+
 	// Emit the if guard.
 	writeIndent(&c.out, cueInd)
 	fmt.Fprintf(&c.out, "if %s {\n", condition)
@@ -2206,6 +2275,9 @@ func (c *converter) processIf(n *parse.IfNode) error {
 		isList:     inList && isList,
 	})
 
+	if hoisted {
+		c.hoistedListItem = true
+	}
 	if err := c.processBodyNodes(n.List.Nodes); err != nil {
 		return err
 	}
@@ -2245,6 +2317,9 @@ func (c *converter) processIf(n *parse.IfNode) error {
 			isList:     inList && elseIsList,
 		})
 
+		if hoisted {
+			c.hoistedListItem = true
+		}
 		if err := c.processBodyNodes(n.ElseList.Nodes); err != nil {
 			return err
 		}
@@ -2657,6 +2732,24 @@ func isListBody(nodes []parse.Node) bool {
 // (e.g. just a toYaml action), but subsequent siblings start with "- ".
 func isListInSiblings(nodes []parse.Node) bool {
 	return isListBody(nodes)
+}
+
+// hasTrailingItemContent reports whether the first non-empty text line in
+// nodes is at the given indent and is not a list item (i.e. does not start
+// with "- "). This detects shared fields that follow a conditional block
+// and belong to the same list element.
+func hasTrailingItemContent(nodes []parse.Node, indent int) bool {
+	text := textContent(nodes)
+	for _, line := range strings.Split(text, "\n") {
+		trimmed := strings.TrimSpace(line)
+		if trimmed == "" {
+			continue
+		}
+		lineIndent := len(line) - len(strings.TrimLeft(line, " "))
+		content := line[lineIndent:]
+		return lineIndent == indent && !strings.HasPrefix(content, "- ")
+	}
+	return false
 }
 
 // peekBodyIndent returns the YAML indent of the first non-empty line, or -1 if no text.
