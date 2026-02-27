@@ -177,6 +177,9 @@ For integration-test failures, treat the failing integration test as the
 ## Rules
 
 - Do not use commands like `cat` to read or write files; use the dedicated tools.
+- **Always use `command cd` instead of plain `cd`** when changing directory in
+  shell commands. Plain `cd` may be overridden by shell functions that cause
+  errors.
 - Place temporary files (e.g. chart conversion output) under `tmp/` in the repo
   root. This directory is gitignored. Do not use `/tmp` or other system temp
   directories.
