@@ -100,6 +100,42 @@ Follow the conventions of existing CLI tests:
 - Include all necessary archive files (`-- input.yaml --`, `-- want-stdout --`,
   etc.).
 
+## Bug-fix workflow
+
+Follow these steps when working on a bug, whether reported in a GitHub issue
+or discovered in integration tests:
+
+1. **Reproduce at the reported commit.** Check out the commit referenced in
+   the report (or the commit where the integration test fails) and confirm
+   the bug reproduces. This validates our understanding of the problem. If
+   it does not reproduce, clarify with the reporter before proceeding.
+2. **Reproduce at tip.** Check out the latest `main` and confirm the bug
+   still exists.
+   - If the bug no longer reproduces, identify which commit fixed it, add a
+     regression test if one does not already exist, and close the issue.
+3. **Reduce to a minimal CLI test.** Create the smallest possible
+   `testdata/cli/*.txtar` (or `testdata/*.txtar` / `testdata/noverify/*.txtar`
+   for Helm-level bugs) that demonstrates the failure. Strip away everything
+   not needed to trigger the bug — a 3-line template that fails is better
+   than a 50-line chart. Run the test and confirm it **fails**.
+4. **Commit the failing test.** Commit the reproduction test on its own
+   (`Updates #N`). This records the problem independently of the fix.
+5. **Fix the bug.** With the failing test in hand the scope is clear —
+   make the minimal code change that causes the test to pass.
+6. **Cross-check against the original report.** Go back to the original
+   reproducer (from the issue or integration test) and verify it is also
+   fixed. If the original report involved the `chart` subcommand, run the
+   full chart conversion, not just the reduced template test.
+   - If the cross-check reveals the reduction was not faithful, go back to
+     step 3: refine the reproduction test (amend the first commit), then
+     redo the fix.
+7. **Run the full test suite.** `go test ./...` and `go vet ./...` must
+   pass.
+8. **Commit the fix.** The fix goes in a second commit (`Fixes #N`).
+
+For integration-test failures, treat the failing integration test as the
+"report" — the same reduce-then-fix discipline applies.
+
 ## Rules
 
 - Do not use commands like `cat` to read or write files; use the dedicated tools.
