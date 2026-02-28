@@ -181,7 +181,8 @@ For integration-test failures, treat the failing integration test as the
 
 ## Rules
 
-- Do not use commands like `cat` to read or write files; use the dedicated tools.
+- Always use the native Write or Edit tools to create or modify files. Never use
+  `sed`, `cat`, `echo`, or other Bash shell commands for file editing or creation.
 - **Always use `command cd` instead of plain `cd`** when changing directory in
   shell commands. Plain `cd` may be overridden by shell functions that cause
   errors.

@@ -8,6 +8,7 @@
       "Bash(go install:*)",
       "Bash(go list:*)",
       "Bash(go run:*)",
+      "Bash(HELM2CUE_DEBUG=1 go run:*)",
       "Bash(go fmt:*)",
       "Bash(go doc:*)",
       "Bash(go fix:*)",
@@ -64,6 +65,7 @@
       "Bash(gh run list:*)",
       "Bash(gh workflow view:*)",
       "Bash(gh workflow list:*)",
+      "Bash(gh api:*)",
       "WebFetch(domain:raw.githubusercontent.com)",
       "WebFetch(domain:gist.github.com)",
       "WebFetch(domain:github.com)",
@@ -71,6 +73,7 @@
       "WebSearch"
     ],
     "deny": [
+      "Bash(cat:*)",
       "Bash(sed:*)",
       "Bash(git -C:*)",
       "Edit(//tmp/**/*)"
