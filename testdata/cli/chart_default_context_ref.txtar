@@ -20,6 +20,6 @@ converted 1/1 templates from test-app
 package test_app
 
 #values: {
-	nameOverride: *#chart.Name | bool | number | string | null
+	nameOverride?: bool | number | string | null
 	...
 }

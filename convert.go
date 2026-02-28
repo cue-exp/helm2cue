@@ -133,20 +133,13 @@ var identRe = regexp.MustCompile(`^[a-zA-Z_$][a-zA-Z0-9_$]*$`)
 
 var sharedCueCtx = cuecontext.New()
 
-// fieldDefault records a default value for a field path within a context object.
-type fieldDefault struct {
-	path     []string // e.g. ["name"] or ["config", "port"]
-	cueValue string   // CUE literal e.g. `"fallback"` or `8080`
-}
-
 // fieldNode represents a node in a tree of nested field references.
 type fieldNode struct {
 	name     string
 	children []*fieldNode
 	childMap map[string]*fieldNode
-	defVal   string // non-empty if this node has a default
-	required bool   // true if accessed as a value (not just a condition)
-	isRange  bool   // true if used as a range target (list/map/int)
+	required bool // true if accessed as a value (not just a condition)
+	isRange  bool // true if used as a range target (list/map/int)
 }
 
 // frame tracks a YAML block context level for direct CUE emission.
@@ -187,18 +180,17 @@ type rangeContext struct {
 type converter struct {
 	config             *Config
 	usedContextObjects map[string]bool
-	defaults           map[string][]fieldDefault // helmObj → defaults
-	fieldRefs          map[string][][]string     // helmObj → list of field paths referenced
-	requiredRefs       map[string][][]string     // helmObj → field paths accessed as values (not conditions)
-	rangeRefs          map[string][][]string     // helmObj → field paths used as range targets
-	suppressRequired   bool                      // true during condition processing
-	rangeVarStack      []rangeContext            // stack of dot-rebinding contexts for nested range/with
-	helperArgRefs      [][]string                // field paths accessed on #arg in helper bodies
-	helperArgFieldRefs map[string][][]string     // CUE helper name → field paths accessed on #arg
-	localVars          map[string]string         // $varName → CUE expression
-	topLevelGuards     []string                  // CUE conditions wrapping entire output
-	topLevelRange      string                    // e.g. "for _, _range0 in #values.items"
-	topLevelRangeBody  string                    // body inside the range
+	fieldRefs          map[string][][]string // helmObj → list of field paths referenced
+	requiredRefs       map[string][][]string // helmObj → field paths accessed as values (not conditions)
+	rangeRefs          map[string][][]string // helmObj → field paths used as range targets
+	suppressRequired   bool                  // true during condition processing
+	rangeVarStack      []rangeContext        // stack of dot-rebinding contexts for nested range/with
+	helperArgRefs      [][]string            // field paths accessed on #arg in helper bodies
+	helperArgFieldRefs map[string][][]string // CUE helper name → field paths accessed on #arg
+	localVars          map[string]string     // $varName → CUE expression
+	topLevelGuards     []string              // CUE conditions wrapping entire output
+	topLevelRange      string                // e.g. "for _, _range0 in #values.items"
+	topLevelRangeBody  string                // body inside the range
 	imports            map[string]bool
 	hasConditions      bool                 // true if any if blocks or top-level guards exist
 	usedHelpers        map[string]HelperDef // collected during conversion
@@ -300,7 +292,6 @@ type convertResult struct {
 	fieldRefs          map[string][][]string
 	requiredRefs       map[string][][]string
 	rangeRefs          map[string][][]string
-	defaults           map[string][]fieldDefault
 	topLevelGuards     []string
 	topLevelRange      string // e.g. "for _, _range0 in #values.items"
 	topLevelRangeBody  string // body inside the range (no for wrapper)
@@ -378,7 +369,6 @@ func convertStructured(cfg *Config, input []byte, templateName string, treeSet m
 	c := &converter{
 		config:             cfg,
 		usedContextObjects: make(map[string]bool),
-		defaults:           make(map[string][]fieldDefault),
 		fieldRefs:          make(map[string][][]string),
 		requiredRefs:       make(map[string][][]string),
 		rangeRefs:          make(map[string][][]string),
@@ -447,7 +437,6 @@ func convertStructured(cfg *Config, input []byte, templateName string, treeSet m
 		fieldRefs:          c.fieldRefs,
 		requiredRefs:       c.requiredRefs,
 		rangeRefs:          c.rangeRefs,
-		defaults:           c.defaults,
 		topLevelGuards:     c.topLevelGuards,
 		topLevelRange:      c.topLevelRange,
 		topLevelRangeBody:  c.topLevelRangeBody,
@@ -508,15 +497,14 @@ func assembleSingleFile(cfg *Config, r *convertResult) ([]byte, error) {
 
 		for _, cueDef := range decls {
 			helmObj := cueToHelm[cueDef]
-			defs := r.defaults[helmObj]
 			refs := r.fieldRefs[helmObj]
 			reqRefs := r.requiredRefs[helmObj]
 			rngRefs := r.rangeRefs[helmObj]
-			if len(defs) == 0 && len(refs) == 0 {
+			if len(refs) == 0 {
 				fmt.Fprintf(&final, "%s: _\n", cueDef)
 			} else {
 				fmt.Fprintf(&final, "%s: {\n", cueDef)
-				root := buildFieldTree(refs, defs, reqRefs, rngRefs)
+				root := buildFieldTree(refs, reqRefs, rngRefs)
 				emitFieldNodes(&final, root.children, 1)
 				writeIndent(&final, 1)
 				final.WriteString("...\n")
@@ -645,7 +633,6 @@ func mergeConvertResults(results []*convertResult) *convertResult {
 		fieldRefs:          make(map[string][][]string),
 		requiredRefs:       make(map[string][][]string),
 		rangeRefs:          make(map[string][][]string),
-		defaults:           make(map[string][]fieldDefault),
 	}
 
 	for i, r := range results {
@@ -669,9 +656,6 @@ func mergeConvertResults(results []*convertResult) *convertResult {
 		}
 		for k, v := range r.rangeRefs {
 			merged.rangeRefs[k] = append(merged.rangeRefs[k], v...)
-		}
-		for k, v := range r.defaults {
-			merged.defaults[k] = append(merged.defaults[k], v...)
 		}
 		if r.hasDynamicInclude {
 			merged.hasDynamicInclude = true
@@ -858,7 +842,6 @@ func (c *converter) convertHelperBody(nodes []parse.Node) (string, [][]string, e
 	sub := &converter{
 		config:             c.config,
 		usedContextObjects: c.usedContextObjects,
-		defaults:           c.defaults,
 		fieldRefs:          c.fieldRefs,
 		requiredRefs:       c.requiredRefs,
 		rangeRefs:          c.rangeRefs,
@@ -3812,24 +3795,6 @@ func (c *converter) conditionMultiCmdPipe(pipe *parse.PipeNode) (string, error) 
 		return "", err
 	}
 
-	// Track field info for default recording.
-	var helmObj string
-	var fieldPath []string
-	switch n := first.Args[0].(type) {
-	case *parse.FieldNode:
-		_, helmObj = c.fieldToCUEInContext(n.Ident)
-		if helmObj != "" && len(n.Ident) >= 2 {
-			fieldPath = n.Ident[1:]
-		}
-	case *parse.VariableNode:
-		if len(n.Ident) >= 2 && n.Ident[0] == "$" {
-			_, helmObj = fieldToCUE(c.config.ContextObjects, n.Ident[1:])
-			if helmObj != "" && len(n.Ident) >= 3 {
-				fieldPath = n.Ident[2:]
-			}
-		}
-	}
-
 	// Handle subsequent pipeline commands.
 	for _, cmd := range pipe.Cmds[1:] {
 		if len(cmd.Args) == 0 {
@@ -3855,12 +3820,7 @@ func (c *converter) conditionMultiCmdPipe(pipe *parse.PipeNode) (string, error) 
 				}
 				defaultVal = defaultExpr
 			}
-			if helmObj != "" && fieldPath != nil {
-				c.defaults[helmObj] = append(c.defaults[helmObj], fieldDefault{
-					path:     fieldPath,
-					cueValue: defaultVal,
-				})
-			}
+			expr = fmt.Sprintf("*%s | %s", expr, defaultVal)
 		default:
 			return "", fmt.Errorf("unsupported function in condition pipeline: %s", id.Ident)
 		}
@@ -3947,6 +3907,24 @@ func (c *converter) actionToCUE(n *parse.ActionNode) (expr string, helmObj strin
 
 	var fieldPath []string
 	var gatedFunc string // set when a core func is rejected by CoreFuncs
+
+	// Check if any subsequent command is "default" — if so, the field
+	// has a fallback and should not be marked required.
+	pipedDefault := false
+	for _, cmd := range pipe.Cmds[1:] {
+		if len(cmd.Args) > 0 {
+			if id, ok := cmd.Args[0].(*parse.IdentifierNode); ok && id.Ident == "default" && c.isCoreFunc(id.Ident) {
+				pipedDefault = true
+				break
+			}
+		}
+	}
+	if pipedDefault {
+		saved := c.suppressRequired
+		c.suppressRequired = true
+		defer func() { c.suppressRequired = saved }()
+	}
+
 	first := pipe.Cmds[0]
 	switch {
 	case len(first.Args) == 1:
@@ -4384,6 +4362,18 @@ func (c *converter) convertSubPipe(pipe *parse.PipeNode) (string, string, error)
 	first := pipe.Cmds[0]
 	var expr, helmObj string
 
+	// Check if any subsequent command is "default" — if so, the field
+	// has a fallback and should not be marked required.
+	pipedDefault := false
+	for _, cmd := range pipe.Cmds[1:] {
+		if len(cmd.Args) > 0 {
+			if id, ok := cmd.Args[0].(*parse.IdentifierNode); ok && id.Ident == "default" && c.isCoreFunc(id.Ident) {
+				pipedDefault = true
+				break
+			}
+		}
+	}
+
 	if len(first.Args) == 1 {
 		// Single-arg first command: field, variable, dot, or literal.
 		// Check for zero-arg core funcs like list or dict.
@@ -4392,10 +4382,21 @@ func (c *converter) convertSubPipe(pipe *parse.PipeNode) (string, string, error)
 				return cf.convert(c, nil)
 			}
 		}
-		var err error
-		expr, helmObj, err = c.nodeToExpr(first.Args[0])
-		if err != nil {
-			return "", "", fmt.Errorf("unsupported pipe node: %s", pipe)
+		if pipedDefault {
+			saved := c.suppressRequired
+			c.suppressRequired = true
+			var err error
+			expr, helmObj, err = c.nodeToExpr(first.Args[0])
+			c.suppressRequired = saved
+			if err != nil {
+				return "", "", fmt.Errorf("unsupported pipe node: %s", pipe)
+			}
+		} else {
+			var err error
+			expr, helmObj, err = c.nodeToExpr(first.Args[0])
+			if err != nil {
+				return "", "", fmt.Errorf("unsupported pipe node: %s", pipe)
+			}
 		}
 	} else if len(first.Args) >= 2 {
 		id, ok := first.Args[0].(*parse.IdentifierNode)
@@ -4404,7 +4405,7 @@ func (c *converter) convertSubPipe(pipe *parse.PipeNode) (string, string, error)
 		}
 		switch {
 		case id.Ident == "default" && c.isCoreFunc(id.Ident) && len(first.Args) == 3:
-			// In sub-pipe context, default produces *defaultVal | expr
+			// In sub-pipe context, default produces *expr | defaultVal
 			// inline rather than recording a schema-level default.
 			defaultVal, litErr := nodeToCUELiteral(first.Args[1])
 			if litErr != nil {
@@ -4413,12 +4414,15 @@ func (c *converter) convertSubPipe(pipe *parse.PipeNode) (string, string, error)
 					return "", "", fmt.Errorf("default value: %w", litErr)
 				}
 			}
+			saved := c.suppressRequired
+			c.suppressRequired = true
 			var err error
 			expr, helmObj, err = c.nodeToExpr(first.Args[2])
+			c.suppressRequired = saved
 			if err != nil {
 				return "", "", fmt.Errorf("default field: %w", err)
 			}
-			expr = fmt.Sprintf("*%s | %s", defaultVal, expr)
+			expr = fmt.Sprintf("*%s | %s", expr, defaultVal)
 		default:
 			if cf, ok := coreFuncs[id.Ident]; ok && c.isCoreFunc(id.Ident) {
 				args := make([]funcArg, len(first.Args)-1)
@@ -4488,7 +4492,7 @@ func (c *converter) convertSubPipe(pipe *parse.PipeNode) (string, string, error)
 					return "", "", fmt.Errorf("default value: %w", litErr)
 				}
 			}
-			expr = fmt.Sprintf("*%s | %s", defaultVal, expr)
+			expr = fmt.Sprintf("*%s | %s", expr, defaultVal)
 		} else if cf, ok := coreFuncs[id.Ident]; ok && c.isCoreFunc(id.Ident) {
 			piped := funcArg{expr: expr, obj: helmObj}
 			args := buildPipeArgs(cf, cmd.Args[1:], piped)
@@ -4705,7 +4709,7 @@ func (c *converter) addImport(pkg string) {
 // YAML scalars (accessed via interpolation, not range).
 const cueScalarType = "bool | number | string | null"
 
-func buildFieldTree(refs [][]string, defs []fieldDefault, requiredRefs [][]string, rangeRefs [][]string) *fieldNode {
+func buildFieldTree(refs [][]string, requiredRefs [][]string, rangeRefs [][]string) *fieldNode {
 	root := &fieldNode{childMap: make(map[string]*fieldNode)}
 	for _, ref := range refs {
 		node := root
@@ -4718,19 +4722,6 @@ func buildFieldTree(refs [][]string, defs []fieldDefault, requiredRefs [][]strin
 			}
 			node = child
 		}
-	}
-	for _, d := range defs {
-		node := root
-		for _, elem := range d.path {
-			child, ok := node.childMap[elem]
-			if !ok {
-				child = &fieldNode{name: elem, childMap: make(map[string]*fieldNode)}
-				node.childMap[elem] = child
-				node.children = append(node.children, child)
-			}
-			node = child
-		}
-		node.defVal = d.cueValue
 	}
 	for _, ref := range requiredRefs {
 		node := root
@@ -4783,12 +4774,6 @@ func emitFieldNodes(w *bytes.Buffer, nodes []*fieldNode, indent int) {
 			} else {
 				w.WriteString("}\n")
 			}
-		} else if n.defVal != "" {
-			leafType := cueScalarType
-			if n.isRange {
-				leafType = "_"
-			}
-			fmt.Fprintf(w, "%s: *%s | %s\n", cueKey(n.name), n.defVal, leafType)
 		} else {
 			marker := "?"
 			if n.required {
@@ -4810,7 +4795,7 @@ func buildArgSchema(refs [][]string) string {
 	if len(refs) == 0 {
 		return "_"
 	}
-	root := buildFieldTree(refs, nil, nil, nil)
+	root := buildFieldTree(refs, nil, nil)
 	var buf bytes.Buffer
 	buf.WriteString("{\n")
 	emitFieldNodes(&buf, root.children, 2)

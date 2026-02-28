@@ -16,7 +16,7 @@ metadata:
 -- output.cue --
 #values: {
 	config?: {
-		name: *"fallback" | bool | number | string | null
+		name?: bool | number | string | null
 		...
 	}
 	...
@@ -26,6 +26,6 @@ output: [
 	{
 		apiVersion: "v1"
 		kind:       "ConfigMap"
-		metadata: name: #values.config.name
+		metadata: name: *#values.config.name | "fallback"
 	},
 ]

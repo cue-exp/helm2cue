@@ -178,17 +178,14 @@ func convertDefault(c *converter, args []funcArg) (string, string, error) {
 	if err != nil {
 		return "", "", fmt.Errorf("default value: %w", err)
 	}
-	expr, helmObj, fieldPath, err := c.resolveField(args[1])
+	saved := c.suppressRequired
+	c.suppressRequired = true
+	expr, helmObj, _, err := c.resolveField(args[1])
+	c.suppressRequired = saved
 	if err != nil {
 		return "", "", fmt.Errorf("default field: %w", err)
 	}
-	if helmObj != "" && fieldPath != nil {
-		c.defaults[helmObj] = append(c.defaults[helmObj], fieldDefault{
-			path:     fieldPath,
-			cueValue: defaultVal,
-		})
-	}
-	return expr, helmObj, nil
+	return fmt.Sprintf("*%s | %s", expr, defaultVal), helmObj, nil
 }
 
 func convertPrintf(c *converter, args []funcArg) (string, string, error) {

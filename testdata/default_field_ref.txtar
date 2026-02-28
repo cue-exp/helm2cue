@@ -15,8 +15,8 @@ metadata:
   name: hello
 -- output.cue --
 #values: {
-	primary:   *#values.fallback | bool | number | string | null
-	fallback!: bool | number | string | null
+	primary?:  bool | number | string | null
+	fallback?: bool | number | string | null
 	...
 }
 
@@ -24,6 +24,6 @@ output: [
 	{
 		apiVersion: "v1"
 		kind:       "ConfigMap"
-		metadata: name: #values.primary
+		metadata: name: *#values.primary | #values.fallback
 	},
 ]

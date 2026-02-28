@@ -18,8 +18,8 @@ data:
   env: production
 -- output.cue --
 #values: {
-	name: *"fallback" | bool | number | string | null
-	env:  *"production" | bool | number | string | null
+	name?: bool | number | string | null
+	env?:  bool | number | string | null
 	...
 }
 
@@ -27,7 +27,7 @@ output: [
 	{
 		apiVersion: "v1"
 		kind:       "ConfigMap"
-		metadata: name: #values.name
-		data: env: #values.env
+		metadata: name: *#values.name | "fallback"
+		data: env: *#values.env | "production"
 	},
 ]

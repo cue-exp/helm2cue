@@ -13,12 +13,12 @@ name: {{ default .Chart.Name .Values.nameOverride }}
 	...
 }
 #values: {
-	nameOverride: *#chart.Name | bool | number | string | null
+	nameOverride?: bool | number | string | null
 	...
 }
 
 output: [
 	{
-		name: #values.nameOverride
+		name: *#values.nameOverride | #chart.Name
 	},
 ]

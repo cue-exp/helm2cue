@@ -218,7 +218,6 @@ func ConvertChart(chartDir, outDir string, opts ChartOptions) error {
 	mergedFieldRefs := make(map[string][][]string)
 	mergedRequiredRefs := make(map[string][][]string)
 	mergedRangeRefs := make(map[string][][]string)
-	mergedDefaults := make(map[string][]fieldDefault)
 	needsNonzero := false
 	mergedUsedHelpers := make(map[string]HelperDef)
 	hasDynamicInclude := false
@@ -239,9 +238,6 @@ func ConvertChart(chartDir, outDir string, opts ChartOptions) error {
 		}
 		for k, v := range r.rangeRefs {
 			mergedRangeRefs[k] = append(mergedRangeRefs[k], v...)
-		}
-		for k, v := range r.defaults {
-			mergedDefaults[k] = append(mergedDefaults[k], v...)
 		}
 		if r.needsNonzero {
 			needsNonzero = true
@@ -292,7 +288,7 @@ func ConvertChart(chartDir, outDir string, opts ChartOptions) error {
 	}
 
 	// Build the values schema and validate it.
-	schemaCUE := buildValuesSchemaCUE(mergedFieldRefs["Values"], mergedDefaults["Values"], mergedRequiredRefs["Values"], mergedRangeRefs["Values"])
+	schemaCUE := buildValuesSchemaCUE(mergedFieldRefs["Values"], mergedRequiredRefs["Values"], mergedRangeRefs["Values"])
 	var valWarnings []string
 	if err := validateSchema(schemaCUE, cfg.ContextObjects); err != nil {
 		valWarnings = append(valWarnings, fmt.Sprintf("values schema inconsistency: %v", err))
@@ -453,8 +449,13 @@ func writeHelpersCUE(outDir, pkgName string, r *convertResult, needsNonzero bool
 		buf.WriteString("\n")
 	}
 
-	for _, h := range usedHelpers {
-		buf.WriteString(h.Def)
+	var helperNames []string
+	for name := range usedHelpers {
+		helperNames = append(helperNames, name)
+	}
+	slices.Sort(helperNames)
+	for _, name := range helperNames {
+		buf.WriteString(usedHelpers[name].Def)
 		buf.WriteString("\n")
 	}
 
@@ -513,13 +514,13 @@ func writeHelpersCUE(outDir, pkgName string, r *convertResult, needsNonzero bool
 
 // buildValuesSchemaCUE generates the #values schema block (without a package
 // header) from the merged field references, defaults, and required refs.
-func buildValuesSchemaCUE(refs [][]string, defs []fieldDefault, requiredRefs [][]string, rangeRefs [][]string) []byte {
+func buildValuesSchemaCUE(refs [][]string, requiredRefs [][]string, rangeRefs [][]string) []byte {
 	var buf bytes.Buffer
-	if len(refs) == 0 && len(defs) == 0 {
+	if len(refs) == 0 {
 		buf.WriteString("#values: _\n")
 	} else {
 		buf.WriteString("#values: {\n")
-		root := buildFieldTree(refs, defs, requiredRefs, rangeRefs)
+		root := buildFieldTree(refs, requiredRefs, rangeRefs)
 		emitFieldNodes(&buf, root.children, 1)
 		writeIndent(&buf, 1)
 		buf.WriteString("...\n")
@@ -1077,7 +1078,6 @@ func mergeChartDocResults(results []*convertResult) *convertResult {
 		fieldRefs:          make(map[string][][]string),
 		requiredRefs:       make(map[string][][]string),
 		rangeRefs:          make(map[string][][]string),
-		defaults:           make(map[string][]fieldDefault),
 	}
 
 	for i, r := range results {
@@ -1101,9 +1101,6 @@ func mergeChartDocResults(results []*convertResult) *convertResult {
 		}
 		for k, v := range r.rangeRefs {
 			merged.rangeRefs[k] = append(merged.rangeRefs[k], v...)
-		}
-		for k, v := range r.defaults {
-			merged.defaults[k] = append(merged.defaults[k], v...)
 		}
 		if r.hasDynamicInclude {
 			merged.hasDynamicInclude = true
