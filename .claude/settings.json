@@ -34,6 +34,7 @@
       "Bash(git log:*)",
       "Bash(git show:*)",
       "Bash(git grep:*)",
+      "Bash(git reset:*)",
       "Bash(git diff:*)",
       "Bash(git branch:*)",
       "Bash(git ls-files:*)",
