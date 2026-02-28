@@ -73,8 +73,8 @@ warning: skipping prometheus/rules-1.14/prometheus-operator.yaml (doc 0): unsupp
 warning: skipping prometheus/rules-1.14/prometheus.yaml (doc 0): unsupported template action: {{dig "PrometheusBadConfig" "for" "10m" .Values.customRules}}
 warning: skipping prometheus/serviceperreplica.yaml (doc 0): range: unsupported pipe: $i, $e := until $count
 warning: skipping thanos-ruler/ingress.yaml (doc 0): range: unsupported node: $paths
-warning: values schema inconsistency: #values.nameOverride: reference "#chart" not found (and 19 more errors)
-warning: values.yaml does not satisfy inferred schema: #values.nameOverride: reference "#chart" not found (and 19 more errors)
+warning: values schema inconsistency: #values.serviceAccount.name: reference "_prometheus_windows_exporter_fullname" not found (and 14 more errors)
+warning: values.yaml does not satisfy inferred schema: #values.serviceAccount.name: reference "_prometheus_windows_exporter_fullname" not found (and 14 more errors)
 converted 97/215 templates from kube-prometheus-stack
 -- cue vet --
 exit status 1

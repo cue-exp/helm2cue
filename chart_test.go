@@ -260,7 +260,7 @@ func TestValidateValuesAgainstSchema(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := validateValuesAgainstSchema([]byte(tt.schema), []byte(tt.values))
+			err := validateValuesAgainstSchema([]byte(tt.schema), []byte(tt.values), nil)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("validateValuesAgainstSchema() error = %v, wantErr %v", err, tt.wantErr)
 			}
@@ -276,7 +276,7 @@ func TestValidateSchema(t *testing.T) {
 	...
 }
 `
-		if err := validateSchema([]byte(schema)); err != nil {
+		if err := validateSchema([]byte(schema), nil); err != nil {
 			t.Errorf("validateSchema() unexpected error: %v", err)
 		}
 	})
@@ -296,7 +296,7 @@ func TestValidateSchema(t *testing.T) {
 	...
 }
 `
-		err := validateSchema([]byte(schema))
+		err := validateSchema([]byte(schema), nil)
 		if err != nil {
 			t.Errorf("validateSchema() unexpected error: %v", err)
 		}
