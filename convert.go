@@ -1129,6 +1129,7 @@ func (c *converter) trackContextNode(node parse.Node) {
 				c.usedContextObjects[n.Ident[0]] = true
 				if len(n.Ident) >= 2 {
 					c.trackFieldRef(n.Ident[0], n.Ident[1:])
+					c.trackNonScalarRef(n.Ident[0], n.Ident[1:])
 				}
 			}
 		}

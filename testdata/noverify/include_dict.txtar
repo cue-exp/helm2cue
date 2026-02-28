@@ -10,8 +10,8 @@ spec:
   image: {{ include "common.images.image" (dict "imageRoot" .Values.image "global" .Values.global) }}
 -- output.cue --
 #values: {
-	image!:  bool | number | string | null
-	global!: bool | number | string | null
+	image!:  _
+	global!: _
 	...
 }
 _common_images_image: _
