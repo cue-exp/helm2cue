@@ -1,0 +1,51 @@
+Action-only list items.
+
+-- values.yaml --
+port: 80
+-- input.yaml --
+apiVersion: v1
+kind: Pod
+metadata:
+  name: test
+spec:
+  containers:
+  - name: test
+    args:
+      - first
+      - {{ .Values.port }}
+      - last
+-- helm_output.yaml --
+apiVersion: v1
+kind: Pod
+metadata:
+  name: test
+spec:
+  containers:
+  - name: test
+    args:
+      - first
+      - 80
+      - last
+-- output.cue --
+#values: {
+	port!: bool | number | string | null
+	...
+}
+
+output: [
+	{
+		apiVersion: "v1"
+		kind:       "Pod"
+		metadata: name: "test"
+		spec: containers: [
+			{
+				name: "test"
+				args: [
+					"first",
+					#values.port,
+					"last",
+				]
+			},
+		]
+	},
+]
