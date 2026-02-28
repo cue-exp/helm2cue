@@ -3435,6 +3435,28 @@ func (c *converter) pipeToFieldExpr(pipe *parse.PipeNode) (string, string, []str
 			}
 			return expr, helmObj, nil, nil
 		}
+		// Local variable (e.g. $paths := .Values.x).
+		if v.Ident[0] != "$" {
+			if localExpr, ok := c.localVars[v.Ident[0]]; ok {
+				expr := localExpr
+				if len(v.Ident) >= 2 {
+					expr += "." + strings.Join(v.Ident[1:], ".")
+				}
+				// Recover helmObj/fieldPath for range type inference.
+				parts := strings.Split(localExpr, ".")
+				for helmName, cueName := range c.config.ContextObjects {
+					if parts[0] == cueName {
+						fp := append([]string(nil), parts[1:]...)
+						fp = append(fp, v.Ident[1:]...)
+						if len(fp) > 0 {
+							return expr, helmName, fp, nil
+						}
+						return expr, helmName, nil, nil
+					}
+				}
+				return expr, "", nil, nil
+			}
+		}
 	}
 	if _, ok := pipe.Cmds[0].Args[0].(*parse.DotNode); ok {
 		if len(c.rangeVarStack) > 0 {
