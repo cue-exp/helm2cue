@@ -2116,6 +2116,7 @@ func (c *converter) emitActionExpr(expr string, comment string) {
 			cueInd := c.currentCUEIndent()
 			writeIndent(&c.out, cueInd)
 			c.out.WriteString(expr)
+			c.out.WriteByte(',')
 			if comment != "" {
 				fmt.Fprintf(&c.out, " %s", comment)
 			}
