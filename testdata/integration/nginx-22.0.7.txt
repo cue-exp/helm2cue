@@ -1,7 +1,7 @@
 -- ConvertChart --
 warning: skipping deployment.yaml (doc 0): missing ',' before newline in list literal (and 13 more errors)
 warning: skipping ingress-tls-secret.yaml (doc 2): unsupported template action: {{$ca := genCA "nginx-ca" 365}}
-warning: skipping ingress.yaml (doc 0): unsupported template action: {{(tpl .Values.ingress.hostname .) | quote}}
+warning: skipping ingress.yaml (doc 0): if condition: unsupported condition function: contains
 warning: skipping tls-secret.yaml (doc 0): unsupported template action: {{$ca := genCA "nginx-ca" 365}}
 warning: values schema inconsistency: #values.nameOverride: reference "#chart" not found (and 4 more errors)
 warning: values.yaml does not satisfy inferred schema: #values.nameOverride: reference "#chart" not found (and 4 more errors)
@@ -152,19 +152,45 @@ exit status 1
     ./values.cue:19:17
 #values.image: conflicting values {registry:"registry-1.docker.io",repository:"bitnami/nginx",tag:"latest",digest:"",pullPolicy:"IfNotPresent",pullSecrets:[],debug:false} and string (mismatched types struct and string):
     ./values.cue:19:26
-#values.ingress.annotations: 4 errors in empty disjunction:
-#values.ingress.annotations: conflicting values {} and bool (mismatched types struct and bool):
-    ./values.cue:107:22
-    values.yaml:827:16
-#values.ingress.annotations: conflicting values {} and null (mismatched types struct and null):
-    ./values.cue:107:47
-    values.yaml:827:16
-#values.ingress.annotations: conflicting values {} and number (mismatched types struct and number):
-    ./values.cue:107:29
-    values.yaml:827:16
-#values.ingress.annotations: conflicting values {} and string (mismatched types struct and string):
-    ./values.cue:107:38
-    values.yaml:827:16
+#values.ingress.extraRules: 4 errors in empty disjunction:
+#values.ingress.extraRules: conflicting values [] and bool (mismatched types list and bool):
+    ./values.cue:117:18
+    values.yaml:884:15
+#values.ingress.extraRules: conflicting values [] and null (mismatched types list and null):
+    ./values.cue:117:43
+    values.yaml:884:15
+#values.ingress.extraRules: conflicting values [] and number (mismatched types list and number):
+    ./values.cue:117:25
+    values.yaml:884:15
+#values.ingress.extraRules: conflicting values [] and string (mismatched types list and string):
+    ./values.cue:117:34
+    values.yaml:884:15
+#values.ingress.extraTls: 4 errors in empty disjunction:
+#values.ingress.extraTls: conflicting values [] and bool (mismatched types list and bool):
+    ./values.cue:121:18
+    values.yaml:865:13
+#values.ingress.extraTls: conflicting values [] and null (mismatched types list and null):
+    ./values.cue:121:43
+    values.yaml:865:13
+#values.ingress.extraTls: conflicting values [] and number (mismatched types list and number):
+    ./values.cue:121:25
+    values.yaml:865:13
+#values.ingress.extraTls: conflicting values [] and string (mismatched types list and string):
+    ./values.cue:121:34
+    values.yaml:865:13
+#values.ingress.secrets: 4 errors in empty disjunction:
+#values.ingress.secrets: conflicting values [] and bool (mismatched types list and bool):
+    ./values.cue:120:18
+    values.yaml:880:12
+#values.ingress.secrets: conflicting values [] and null (mismatched types list and null):
+    ./values.cue:120:43
+    values.yaml:880:12
+#values.ingress.secrets: conflicting values [] and number (mismatched types list and number):
+    ./values.cue:120:25
+    values.yaml:880:12
+#values.ingress.secrets: conflicting values [] and string (mismatched types list and string):
+    ./values.cue:120:34
+    values.yaml:880:12
 #values.metrics.image: 4 errors in empty disjunction:
 #values.metrics.image: conflicting values {registry:"registry-1.docker.io",repository:"bitnami/nginx-exporter",tag:"latest",digest:"",pullPolicy:"IfNotPresent",pullSecrets:[]} and bool (mismatched types struct and bool):
     ./values.cue:21:13
@@ -263,81 +289,81 @@ exit status 1
     values.yaml:1097:15
 #values.networkPolicy.extraEgress: 4 errors in empty disjunction:
 #values.networkPolicy.extraEgress: conflicting values [] and bool (mismatched types list and bool):
-    ./values.cue:115:29
+    ./values.cue:128:29
     values.yaml:787:16
 #values.networkPolicy.extraEgress: conflicting values [] and null (mismatched types list and null):
-    ./values.cue:115:54
+    ./values.cue:128:54
     values.yaml:787:16
 #values.networkPolicy.extraEgress: conflicting values [] and number (mismatched types list and number):
-    ./values.cue:115:36
+    ./values.cue:128:36
     values.yaml:787:16
 #values.networkPolicy.extraEgress: conflicting values [] and string (mismatched types list and string):
-    ./values.cue:115:45
+    ./values.cue:128:45
     values.yaml:787:16
 #values.networkPolicy.extraIngress: 4 errors in empty disjunction:
 #values.networkPolicy.extraIngress: conflicting values [] and bool (mismatched types list and bool):
-    ./values.cue:119:29
+    ./values.cue:132:29
     values.yaml:770:17
 #values.networkPolicy.extraIngress: conflicting values [] and null (mismatched types list and null):
-    ./values.cue:119:54
+    ./values.cue:132:54
     values.yaml:770:17
 #values.networkPolicy.extraIngress: conflicting values [] and number (mismatched types list and number):
-    ./values.cue:119:36
+    ./values.cue:132:36
     values.yaml:770:17
 #values.networkPolicy.extraIngress: conflicting values [] and string (mismatched types list and string):
-    ./values.cue:119:45
+    ./values.cue:132:45
     values.yaml:770:17
 #values.podLabels: 4 errors in empty disjunction:
 #values.podLabels: conflicting values {} and bool (mismatched types struct and bool):
-    ./values.cue:122:14
+    ./values.cue:135:14
     values.yaml:153:12
 #values.podLabels: conflicting values {} and null (mismatched types struct and null):
-    ./values.cue:122:39
+    ./values.cue:135:39
     values.yaml:153:12
 #values.podLabels: conflicting values {} and number (mismatched types struct and number):
-    ./values.cue:122:21
+    ./values.cue:135:21
     values.yaml:153:12
 #values.podLabels: conflicting values {} and string (mismatched types struct and string):
-    ./values.cue:122:30
+    ./values.cue:135:30
     values.yaml:153:12
 #values.service.annotations: 4 errors in empty disjunction:
 #values.service.annotations: conflicting values {} and bool (mismatched types struct and bool):
-    ./values.cue:137:30
+    ./values.cue:150:30
     values.yaml:733:16
 #values.service.annotations: conflicting values {} and null (mismatched types struct and null):
-    ./values.cue:137:55
+    ./values.cue:150:55
     values.yaml:733:16
 #values.service.annotations: conflicting values {} and number (mismatched types struct and number):
-    ./values.cue:137:37
+    ./values.cue:150:37
     values.yaml:733:16
 #values.service.annotations: conflicting values {} and string (mismatched types struct and string):
-    ./values.cue:137:46
+    ./values.cue:150:46
     values.yaml:733:16
 #values.service.extraPorts: 4 errors in empty disjunction:
 #values.service.extraPorts: conflicting values [] and bool (mismatched types list and bool):
-    ./values.cue:161:16
+    ./values.cue:174:16
     values.yaml:717:15
 #values.service.extraPorts: conflicting values [] and null (mismatched types list and null):
-    ./values.cue:161:41
+    ./values.cue:174:41
     values.yaml:717:15
 #values.service.extraPorts: conflicting values [] and number (mismatched types list and number):
-    ./values.cue:161:23
+    ./values.cue:174:23
     values.yaml:717:15
 #values.service.extraPorts: conflicting values [] and string (mismatched types list and string):
-    ./values.cue:161:32
+    ./values.cue:174:32
     values.yaml:717:15
 #values.service.sessionAffinityConfig: 4 errors in empty disjunction:
 #values.service.sessionAffinityConfig: conflicting values {} and bool (mismatched types struct and bool):
-    ./values.cue:141:30
+    ./values.cue:154:30
     values.yaml:728:26
 #values.service.sessionAffinityConfig: conflicting values {} and null (mismatched types struct and null):
-    ./values.cue:141:55
+    ./values.cue:154:55
     values.yaml:728:26
 #values.service.sessionAffinityConfig: conflicting values {} and number (mismatched types struct and number):
-    ./values.cue:141:37
+    ./values.cue:154:37
     values.yaml:728:26
 #values.service.sessionAffinityConfig: conflicting values {} and string (mismatched types struct and string):
-    ./values.cue:141:46
+    ./values.cue:154:46
     values.yaml:728:26
 #values.serviceAccount.annotations: 4 errors in empty disjunction:
 #values.serviceAccount.annotations: conflicting values {} and bool (mismatched types struct and bool):
@@ -525,19 +551,45 @@ exit status 1
     ./values.cue:19:17
 #values.image: conflicting values {registry:"registry-1.docker.io",repository:"bitnami/nginx",tag:"latest",digest:"",pullPolicy:"IfNotPresent",pullSecrets:[],debug:false} and string (mismatched types struct and string):
     ./values.cue:19:26
-#values.ingress.annotations: 4 errors in empty disjunction:
-#values.ingress.annotations: conflicting values {} and bool (mismatched types struct and bool):
-    ./values.cue:107:22
-    values.yaml:827:16
-#values.ingress.annotations: conflicting values {} and null (mismatched types struct and null):
-    ./values.cue:107:47
-    values.yaml:827:16
-#values.ingress.annotations: conflicting values {} and number (mismatched types struct and number):
-    ./values.cue:107:29
-    values.yaml:827:16
-#values.ingress.annotations: conflicting values {} and string (mismatched types struct and string):
-    ./values.cue:107:38
-    values.yaml:827:16
+#values.ingress.extraRules: 4 errors in empty disjunction:
+#values.ingress.extraRules: conflicting values [] and bool (mismatched types list and bool):
+    ./values.cue:117:18
+    values.yaml:884:15
+#values.ingress.extraRules: conflicting values [] and null (mismatched types list and null):
+    ./values.cue:117:43
+    values.yaml:884:15
+#values.ingress.extraRules: conflicting values [] and number (mismatched types list and number):
+    ./values.cue:117:25
+    values.yaml:884:15
+#values.ingress.extraRules: conflicting values [] and string (mismatched types list and string):
+    ./values.cue:117:34
+    values.yaml:884:15
+#values.ingress.extraTls: 4 errors in empty disjunction:
+#values.ingress.extraTls: conflicting values [] and bool (mismatched types list and bool):
+    ./values.cue:121:18
+    values.yaml:865:13
+#values.ingress.extraTls: conflicting values [] and null (mismatched types list and null):
+    ./values.cue:121:43
+    values.yaml:865:13
+#values.ingress.extraTls: conflicting values [] and number (mismatched types list and number):
+    ./values.cue:121:25
+    values.yaml:865:13
+#values.ingress.extraTls: conflicting values [] and string (mismatched types list and string):
+    ./values.cue:121:34
+    values.yaml:865:13
+#values.ingress.secrets: 4 errors in empty disjunction:
+#values.ingress.secrets: conflicting values [] and bool (mismatched types list and bool):
+    ./values.cue:120:18
+    values.yaml:880:12
+#values.ingress.secrets: conflicting values [] and null (mismatched types list and null):
+    ./values.cue:120:43
+    values.yaml:880:12
+#values.ingress.secrets: conflicting values [] and number (mismatched types list and number):
+    ./values.cue:120:25
+    values.yaml:880:12
+#values.ingress.secrets: conflicting values [] and string (mismatched types list and string):
+    ./values.cue:120:34
+    values.yaml:880:12
 #values.metrics.image: 4 errors in empty disjunction:
 #values.metrics.image: conflicting values {registry:"registry-1.docker.io",repository:"bitnami/nginx-exporter",tag:"latest",digest:"",pullPolicy:"IfNotPresent",pullSecrets:[]} and bool (mismatched types struct and bool):
     ./values.cue:21:13
@@ -636,81 +688,81 @@ exit status 1
     values.yaml:1097:15
 #values.networkPolicy.extraEgress: 4 errors in empty disjunction:
 #values.networkPolicy.extraEgress: conflicting values [] and bool (mismatched types list and bool):
-    ./values.cue:115:29
+    ./values.cue:128:29
     values.yaml:787:16
 #values.networkPolicy.extraEgress: conflicting values [] and null (mismatched types list and null):
-    ./values.cue:115:54
+    ./values.cue:128:54
     values.yaml:787:16
 #values.networkPolicy.extraEgress: conflicting values [] and number (mismatched types list and number):
-    ./values.cue:115:36
+    ./values.cue:128:36
     values.yaml:787:16
 #values.networkPolicy.extraEgress: conflicting values [] and string (mismatched types list and string):
-    ./values.cue:115:45
+    ./values.cue:128:45
     values.yaml:787:16
 #values.networkPolicy.extraIngress: 4 errors in empty disjunction:
 #values.networkPolicy.extraIngress: conflicting values [] and bool (mismatched types list and bool):
-    ./values.cue:119:29
+    ./values.cue:132:29
     values.yaml:770:17
 #values.networkPolicy.extraIngress: conflicting values [] and null (mismatched types list and null):
-    ./values.cue:119:54
+    ./values.cue:132:54
     values.yaml:770:17
 #values.networkPolicy.extraIngress: conflicting values [] and number (mismatched types list and number):
-    ./values.cue:119:36
+    ./values.cue:132:36
     values.yaml:770:17
 #values.networkPolicy.extraIngress: conflicting values [] and string (mismatched types list and string):
-    ./values.cue:119:45
+    ./values.cue:132:45
     values.yaml:770:17
 #values.podLabels: 4 errors in empty disjunction:
 #values.podLabels: conflicting values {} and bool (mismatched types struct and bool):
-    ./values.cue:122:14
+    ./values.cue:135:14
     values.yaml:153:12
 #values.podLabels: conflicting values {} and null (mismatched types struct and null):
-    ./values.cue:122:39
+    ./values.cue:135:39
     values.yaml:153:12
 #values.podLabels: conflicting values {} and number (mismatched types struct and number):
-    ./values.cue:122:21
+    ./values.cue:135:21
     values.yaml:153:12
 #values.podLabels: conflicting values {} and string (mismatched types struct and string):
-    ./values.cue:122:30
+    ./values.cue:135:30
     values.yaml:153:12
 #values.service.annotations: 4 errors in empty disjunction:
 #values.service.annotations: conflicting values {} and bool (mismatched types struct and bool):
-    ./values.cue:137:30
+    ./values.cue:150:30
     values.yaml:733:16
 #values.service.annotations: conflicting values {} and null (mismatched types struct and null):
-    ./values.cue:137:55
+    ./values.cue:150:55
     values.yaml:733:16
 #values.service.annotations: conflicting values {} and number (mismatched types struct and number):
-    ./values.cue:137:37
+    ./values.cue:150:37
     values.yaml:733:16
 #values.service.annotations: conflicting values {} and string (mismatched types struct and string):
-    ./values.cue:137:46
+    ./values.cue:150:46
     values.yaml:733:16
 #values.service.extraPorts: 4 errors in empty disjunction:
 #values.service.extraPorts: conflicting values [] and bool (mismatched types list and bool):
-    ./values.cue:161:16
+    ./values.cue:174:16
     values.yaml:717:15
 #values.service.extraPorts: conflicting values [] and null (mismatched types list and null):
-    ./values.cue:161:41
+    ./values.cue:174:41
     values.yaml:717:15
 #values.service.extraPorts: conflicting values [] and number (mismatched types list and number):
-    ./values.cue:161:23
+    ./values.cue:174:23
     values.yaml:717:15
 #values.service.extraPorts: conflicting values [] and string (mismatched types list and string):
-    ./values.cue:161:32
+    ./values.cue:174:32
     values.yaml:717:15
 #values.service.sessionAffinityConfig: 4 errors in empty disjunction:
 #values.service.sessionAffinityConfig: conflicting values {} and bool (mismatched types struct and bool):
-    ./values.cue:141:30
+    ./values.cue:154:30
     values.yaml:728:26
 #values.service.sessionAffinityConfig: conflicting values {} and null (mismatched types struct and null):
-    ./values.cue:141:55
+    ./values.cue:154:55
     values.yaml:728:26
 #values.service.sessionAffinityConfig: conflicting values {} and number (mismatched types struct and number):
-    ./values.cue:141:37
+    ./values.cue:154:37
     values.yaml:728:26
 #values.service.sessionAffinityConfig: conflicting values {} and string (mismatched types struct and string):
-    ./values.cue:141:46
+    ./values.cue:154:46
     values.yaml:728:26
 #values.serviceAccount.annotations: 4 errors in empty disjunction:
 #values.serviceAccount.annotations: conflicting values {} and bool (mismatched types struct and bool):

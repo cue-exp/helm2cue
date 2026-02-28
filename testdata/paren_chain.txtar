@@ -1,0 +1,18 @@
+Parenthesized field access chain with default.
+
+-- values.yaml --
+cpu: 100m
+-- input.yaml --
+cpu: {{ ((.Values).cpu) | default 0 }}
+-- helm_output.yaml --
+cpu: 100m
+-- output.cue --
+#values: {
+	...
+}
+
+output: [
+	{
+		cpu: #values.cpu
+	},
+]

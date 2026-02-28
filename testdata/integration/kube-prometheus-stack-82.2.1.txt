@@ -4,47 +4,47 @@ warning: skipping alertmanager/ingressperreplica.yaml (doc 0): range: unsupporte
 warning: skipping alertmanager/secret.yaml (doc 0): if condition: unsupported condition function: typeOf
 warning: skipping alertmanager/serviceperreplica.yaml (doc 0): range: unsupported pipe: $i, $e := until $count
 warning: skipping extra-objects.yaml (doc 0): if condition: unsupported condition function: kindIs
-warning: skipping grafana/configmaps-datasources.yaml (doc 0): unsupported template action: {{(tpl $.Values.grafana.sidecar.datasources.labelValue $) | quote}}
-warning: skipping grafana/dashboards-1.14/alertmanager-overview.yaml (doc 0): unsupported template action: {{((tpl $.Values.grafana.sidecar.dashboards.labelValue $) | default 1) | quote}}
-warning: skipping grafana/dashboards-1.14/apiserver.yaml (doc 0): unsupported template action: {{((tpl $.Values.grafana.sidecar.dashboards.labelValue $) | default 1) | quote}}
-warning: skipping grafana/dashboards-1.14/cluster-total.yaml (doc 0): unsupported template action: {{((tpl $.Values.grafana.sidecar.dashboards.labelValue $) | default 1) | quote}}
-warning: skipping grafana/dashboards-1.14/controller-manager.yaml (doc 0): unsupported template action: {{((tpl $.Values.grafana.sidecar.dashboards.labelValue $) | default 1) | quote}}
-warning: skipping grafana/dashboards-1.14/etcd.yaml (doc 0): unsupported template action: {{((tpl $.Values.grafana.sidecar.dashboards.labelValue $) | default 1) | quote}}
-warning: skipping grafana/dashboards-1.14/grafana-overview.yaml (doc 0): unsupported template action: {{((tpl $.Values.grafana.sidecar.dashboards.labelValue $) | default 1) | quote}}
-warning: skipping grafana/dashboards-1.14/k8s-coredns.yaml (doc 0): unsupported template action: {{((tpl $.Values.grafana.sidecar.dashboards.labelValue $) | default 1) | quote}}
-warning: skipping grafana/dashboards-1.14/k8s-resources-cluster.yaml (doc 0): unsupported template action: {{((tpl $.Values.grafana.sidecar.dashboards.labelValue $) | default 1) | quote}}
-warning: skipping grafana/dashboards-1.14/k8s-resources-multicluster.yaml (doc 0): unsupported template action: {{((tpl $.Values.grafana.sidecar.dashboards.labelValue $) | default 1) | quote}}
-warning: skipping grafana/dashboards-1.14/k8s-resources-namespace.yaml (doc 0): unsupported template action: {{((tpl $.Values.grafana.sidecar.dashboards.labelValue $) | default 1) | quote}}
-warning: skipping grafana/dashboards-1.14/k8s-resources-node.yaml (doc 0): unsupported template action: {{((tpl $.Values.grafana.sidecar.dashboards.labelValue $) | default 1) | quote}}
-warning: skipping grafana/dashboards-1.14/k8s-resources-pod.yaml (doc 0): unsupported template action: {{((tpl $.Values.grafana.sidecar.dashboards.labelValue $) | default 1) | quote}}
-warning: skipping grafana/dashboards-1.14/k8s-resources-windows-cluster.yaml (doc 0): unsupported template action: {{((tpl $.Values.grafana.sidecar.dashboards.labelValue $) | default 1) | quote}}
-warning: skipping grafana/dashboards-1.14/k8s-resources-windows-namespace.yaml (doc 0): unsupported template action: {{((tpl $.Values.grafana.sidecar.dashboards.labelValue $) | default 1) | quote}}
-warning: skipping grafana/dashboards-1.14/k8s-resources-windows-pod.yaml (doc 0): unsupported template action: {{((tpl $.Values.grafana.sidecar.dashboards.labelValue $) | default 1) | quote}}
-warning: skipping grafana/dashboards-1.14/k8s-resources-workload.yaml (doc 0): unsupported template action: {{((tpl $.Values.grafana.sidecar.dashboards.labelValue $) | default 1) | quote}}
-warning: skipping grafana/dashboards-1.14/k8s-resources-workloads-namespace.yaml (doc 0): unsupported template action: {{((tpl $.Values.grafana.sidecar.dashboards.labelValue $) | default 1) | quote}}
-warning: skipping grafana/dashboards-1.14/k8s-windows-cluster-rsrc-use.yaml (doc 0): unsupported template action: {{((tpl $.Values.grafana.sidecar.dashboards.labelValue $) | default 1) | quote}}
-warning: skipping grafana/dashboards-1.14/k8s-windows-node-rsrc-use.yaml (doc 0): unsupported template action: {{((tpl $.Values.grafana.sidecar.dashboards.labelValue $) | default 1) | quote}}
-warning: skipping grafana/dashboards-1.14/kubelet.yaml (doc 0): unsupported template action: {{((tpl $.Values.grafana.sidecar.dashboards.labelValue $) | default 1) | quote}}
-warning: skipping grafana/dashboards-1.14/namespace-by-pod.yaml (doc 0): unsupported template action: {{((tpl $.Values.grafana.sidecar.dashboards.labelValue $) | default 1) | quote}}
-warning: skipping grafana/dashboards-1.14/namespace-by-workload.yaml (doc 0): unsupported template action: {{((tpl $.Values.grafana.sidecar.dashboards.labelValue $) | default 1) | quote}}
-warning: skipping grafana/dashboards-1.14/node-cluster-rsrc-use.yaml (doc 0): unsupported template action: {{((tpl $.Values.grafana.sidecar.dashboards.labelValue $) | default 1) | quote}}
-warning: skipping grafana/dashboards-1.14/node-rsrc-use.yaml (doc 0): unsupported template action: {{((tpl $.Values.grafana.sidecar.dashboards.labelValue $) | default 1) | quote}}
-warning: skipping grafana/dashboards-1.14/nodes-aix.yaml (doc 0): unsupported template action: {{((tpl $.Values.grafana.sidecar.dashboards.labelValue $) | default 1) | quote}}
-warning: skipping grafana/dashboards-1.14/nodes-darwin.yaml (doc 0): unsupported template action: {{((tpl $.Values.grafana.sidecar.dashboards.labelValue $) | default 1) | quote}}
-warning: skipping grafana/dashboards-1.14/nodes.yaml (doc 0): unsupported template action: {{((tpl $.Values.grafana.sidecar.dashboards.labelValue $) | default 1) | quote}}
-warning: skipping grafana/dashboards-1.14/persistentvolumesusage.yaml (doc 0): unsupported template action: {{((tpl $.Values.grafana.sidecar.dashboards.labelValue $) | default 1) | quote}}
-warning: skipping grafana/dashboards-1.14/pod-total.yaml (doc 0): unsupported template action: {{((tpl $.Values.grafana.sidecar.dashboards.labelValue $) | default 1) | quote}}
-warning: skipping grafana/dashboards-1.14/prometheus-remote-write.yaml (doc 0): unsupported template action: {{((tpl $.Values.grafana.sidecar.dashboards.labelValue $) | default 1) | quote}}
-warning: skipping grafana/dashboards-1.14/prometheus.yaml (doc 0): unsupported template action: {{((tpl $.Values.grafana.sidecar.dashboards.labelValue $) | default 1) | quote}}
-warning: skipping grafana/dashboards-1.14/proxy.yaml (doc 0): unsupported template action: {{((tpl $.Values.grafana.sidecar.dashboards.labelValue $) | default 1) | quote}}
-warning: skipping grafana/dashboards-1.14/scheduler.yaml (doc 0): unsupported template action: {{((tpl $.Values.grafana.sidecar.dashboards.labelValue $) | default 1) | quote}}
-warning: skipping grafana/dashboards-1.14/workload-total.yaml (doc 0): unsupported template action: {{((tpl $.Values.grafana.sidecar.dashboards.labelValue $) | default 1) | quote}}
+warning: skipping grafana/configmaps-datasources.yaml (doc 0): range: unsupported pipe: until (int .Values.prometheus.prometheusSpec.replicas)
+warning: skipping grafana/dashboards-1.14/alertmanager-overview.yaml (doc 1): unsupported template action: {{fail "grafana.operator.matchLabels must be specified when grafana.operator.dashboardsConfigMapRefEnabled is true"}}
+warning: skipping grafana/dashboards-1.14/apiserver.yaml (doc 1): unsupported template action: {{fail "grafana.operator.matchLabels must be specified when grafana.operator.dashboardsConfigMapRefEnabled is true"}}
+warning: skipping grafana/dashboards-1.14/cluster-total.yaml (doc 1): unsupported template action: {{fail "grafana.operator.matchLabels must be specified when grafana.operator.dashboardsConfigMapRefEnabled is true"}}
+warning: skipping grafana/dashboards-1.14/controller-manager.yaml (doc 1): unsupported template action: {{fail "grafana.operator.matchLabels must be specified when grafana.operator.dashboardsConfigMapRefEnabled is true"}}
+warning: skipping grafana/dashboards-1.14/etcd.yaml (doc 1): unsupported template action: {{fail "grafana.operator.matchLabels must be specified when grafana.operator.dashboardsConfigMapRefEnabled is true"}}
+warning: skipping grafana/dashboards-1.14/grafana-overview.yaml (doc 1): unsupported template action: {{fail "grafana.operator.matchLabels must be specified when grafana.operator.dashboardsConfigMapRefEnabled is true"}}
+warning: skipping grafana/dashboards-1.14/k8s-coredns.yaml (doc 1): unsupported template action: {{fail "grafana.operator.matchLabels must be specified when grafana.operator.dashboardsConfigMapRefEnabled is true"}}
+warning: skipping grafana/dashboards-1.14/k8s-resources-cluster.yaml (doc 1): unsupported template action: {{fail "grafana.operator.matchLabels must be specified when grafana.operator.dashboardsConfigMapRefEnabled is true"}}
+warning: skipping grafana/dashboards-1.14/k8s-resources-multicluster.yaml (doc 1): unsupported template action: {{fail "grafana.operator.matchLabels must be specified when grafana.operator.dashboardsConfigMapRefEnabled is true"}}
+warning: skipping grafana/dashboards-1.14/k8s-resources-namespace.yaml (doc 1): unsupported template action: {{fail "grafana.operator.matchLabels must be specified when grafana.operator.dashboardsConfigMapRefEnabled is true"}}
+warning: skipping grafana/dashboards-1.14/k8s-resources-node.yaml (doc 1): unsupported template action: {{fail "grafana.operator.matchLabels must be specified when grafana.operator.dashboardsConfigMapRefEnabled is true"}}
+warning: skipping grafana/dashboards-1.14/k8s-resources-pod.yaml (doc 1): unsupported template action: {{fail "grafana.operator.matchLabels must be specified when grafana.operator.dashboardsConfigMapRefEnabled is true"}}
+warning: skipping grafana/dashboards-1.14/k8s-resources-windows-cluster.yaml (doc 1): unsupported template action: {{fail "grafana.operator.matchLabels must be specified when grafana.operator.dashboardsConfigMapRefEnabled is true"}}
+warning: skipping grafana/dashboards-1.14/k8s-resources-windows-namespace.yaml (doc 1): unsupported template action: {{fail "grafana.operator.matchLabels must be specified when grafana.operator.dashboardsConfigMapRefEnabled is true"}}
+warning: skipping grafana/dashboards-1.14/k8s-resources-windows-pod.yaml (doc 1): unsupported template action: {{fail "grafana.operator.matchLabels must be specified when grafana.operator.dashboardsConfigMapRefEnabled is true"}}
+warning: skipping grafana/dashboards-1.14/k8s-resources-workload.yaml (doc 1): unsupported template action: {{fail "grafana.operator.matchLabels must be specified when grafana.operator.dashboardsConfigMapRefEnabled is true"}}
+warning: skipping grafana/dashboards-1.14/k8s-resources-workloads-namespace.yaml (doc 1): unsupported template action: {{fail "grafana.operator.matchLabels must be specified when grafana.operator.dashboardsConfigMapRefEnabled is true"}}
+warning: skipping grafana/dashboards-1.14/k8s-windows-cluster-rsrc-use.yaml (doc 1): unsupported template action: {{fail "grafana.operator.matchLabels must be specified when grafana.operator.dashboardsConfigMapRefEnabled is true"}}
+warning: skipping grafana/dashboards-1.14/k8s-windows-node-rsrc-use.yaml (doc 1): unsupported template action: {{fail "grafana.operator.matchLabels must be specified when grafana.operator.dashboardsConfigMapRefEnabled is true"}}
+warning: skipping grafana/dashboards-1.14/kubelet.yaml (doc 1): unsupported template action: {{fail "grafana.operator.matchLabels must be specified when grafana.operator.dashboardsConfigMapRefEnabled is true"}}
+warning: skipping grafana/dashboards-1.14/namespace-by-pod.yaml (doc 1): unsupported template action: {{fail "grafana.operator.matchLabels must be specified when grafana.operator.dashboardsConfigMapRefEnabled is true"}}
+warning: skipping grafana/dashboards-1.14/namespace-by-workload.yaml (doc 1): unsupported template action: {{fail "grafana.operator.matchLabels must be specified when grafana.operator.dashboardsConfigMapRefEnabled is true"}}
+warning: skipping grafana/dashboards-1.14/node-cluster-rsrc-use.yaml (doc 1): unsupported template action: {{fail "grafana.operator.matchLabels must be specified when grafana.operator.dashboardsConfigMapRefEnabled is true"}}
+warning: skipping grafana/dashboards-1.14/node-rsrc-use.yaml (doc 1): unsupported template action: {{fail "grafana.operator.matchLabels must be specified when grafana.operator.dashboardsConfigMapRefEnabled is true"}}
+warning: skipping grafana/dashboards-1.14/nodes-aix.yaml (doc 1): unsupported template action: {{fail "grafana.operator.matchLabels must be specified when grafana.operator.dashboardsConfigMapRefEnabled is true"}}
+warning: skipping grafana/dashboards-1.14/nodes-darwin.yaml (doc 1): unsupported template action: {{fail "grafana.operator.matchLabels must be specified when grafana.operator.dashboardsConfigMapRefEnabled is true"}}
+warning: skipping grafana/dashboards-1.14/nodes.yaml (doc 1): unsupported template action: {{fail "grafana.operator.matchLabels must be specified when grafana.operator.dashboardsConfigMapRefEnabled is true"}}
+warning: skipping grafana/dashboards-1.14/persistentvolumesusage.yaml (doc 1): unsupported template action: {{fail "grafana.operator.matchLabels must be specified when grafana.operator.dashboardsConfigMapRefEnabled is true"}}
+warning: skipping grafana/dashboards-1.14/pod-total.yaml (doc 1): unsupported template action: {{fail "grafana.operator.matchLabels must be specified when grafana.operator.dashboardsConfigMapRefEnabled is true"}}
+warning: skipping grafana/dashboards-1.14/prometheus-remote-write.yaml (doc 1): unsupported template action: {{fail "grafana.operator.matchLabels must be specified when grafana.operator.dashboardsConfigMapRefEnabled is true"}}
+warning: skipping grafana/dashboards-1.14/prometheus.yaml (doc 1): unsupported template action: {{fail "grafana.operator.matchLabels must be specified when grafana.operator.dashboardsConfigMapRefEnabled is true"}}
+warning: skipping grafana/dashboards-1.14/proxy.yaml (doc 1): unsupported template action: {{fail "grafana.operator.matchLabels must be specified when grafana.operator.dashboardsConfigMapRefEnabled is true"}}
+warning: skipping grafana/dashboards-1.14/scheduler.yaml (doc 1): unsupported template action: {{fail "grafana.operator.matchLabels must be specified when grafana.operator.dashboardsConfigMapRefEnabled is true"}}
+warning: skipping grafana/dashboards-1.14/workload-total.yaml (doc 1): unsupported template action: {{fail "grafana.operator.matchLabels must be specified when grafana.operator.dashboardsConfigMapRefEnabled is true"}}
 warning: skipping prometheus-operator/admission-webhooks/deployment/deployment.yaml (doc 0): expected operand, found ']' (and 4 more errors)
 warning: skipping prometheus-operator/admission-webhooks/deployment/pdb.yaml (doc 0): toYaml argument: unsupported pipe node: omit .Values.prometheusOperator.admissionWebhooks.deployment.podDisruptionBudget "enabled"
 warning: skipping prometheus-operator/admission-webhooks/mutatingWebhookConfiguration.yaml (doc 0): with condition: unsupported condition function: omit
 warning: skipping prometheus-operator/admission-webhooks/validatingWebhookConfiguration.yaml (doc 0): with condition: unsupported condition function: omit
 warning: skipping prometheus-operator/certmanager.yaml (doc 3): unsupported pipeline function: splitList
-warning: skipping prometheus-operator/deployment.yaml (doc 0): unsupported template action: {{(((.Values.prometheusOperator.prometheusConfigReloader.resources).requests).cpu) | default 0}}
+warning: skipping prometheus-operator/deployment.yaml (doc 0): if condition: unsupported condition function: kindIs
 warning: skipping prometheus-operator/pdb.yaml (doc 0): toYaml argument: unsupported pipe node: omit .Values.prometheusOperator.podDisruptionBudget "enabled"
 warning: skipping prometheus-operator/verticalpodautoscaler.yaml (doc 0): top-level if condition: unsupported condition: .Capabilities.APIVersions.Has "autoscaling.k8s.io/v1"
 warning: skipping prometheus/additionalScrapeConfigs.yaml (doc 0): if condition: unsupported condition function: typeOf
@@ -75,7 +75,7 @@ warning: skipping prometheus/serviceperreplica.yaml (doc 0): range: unsupported 
 warning: skipping thanos-ruler/ingress.yaml (doc 0): range: unsupported node: $paths
 warning: values schema inconsistency: #values.nameOverride: reference "#chart" not found (and 19 more errors)
 warning: values.yaml does not satisfy inferred schema: #values.nameOverride: reference "#chart" not found (and 19 more errors)
-converted 97/181 templates from kube-prometheus-stack
+converted 97/215 templates from kube-prometheus-stack
 -- cue vet --
 exit status 1
 #values.alertmanager.additionalLabels: conflicting values {} and bool (mismatched types struct and bool):
@@ -187,760 +187,844 @@ exit status 1
     ./values.cue:273:44
     values.yaml:825:23
 #values.coreDns.serviceMonitor.additionalLabels: conflicting values {} and bool (mismatched types struct and bool):
-    ./values.cue:1051:28
+    ./values.cue:1117:28
     values.yaml:2052:23
 #values.coreDns.serviceMonitor.additionalLabels: conflicting values {} and null (mismatched types struct and null):
-    ./values.cue:1051:53
+    ./values.cue:1117:53
     values.yaml:2052:23
 #values.coreDns.serviceMonitor.additionalLabels: conflicting values {} and number (mismatched types struct and number):
-    ./values.cue:1051:35
+    ./values.cue:1117:35
     values.yaml:2052:23
 #values.coreDns.serviceMonitor.additionalLabels: conflicting values {} and string (mismatched types struct and string):
-    ./values.cue:1051:44
+    ./values.cue:1117:44
     values.yaml:2052:23
 #values.coreDns.serviceMonitor.targetLabels: conflicting values [] and bool (mismatched types list and bool):
-    ./values.cue:1053:28
+    ./values.cue:1119:28
     values.yaml:2057:19
 #values.coreDns.serviceMonitor.targetLabels: conflicting values [] and null (mismatched types list and null):
-    ./values.cue:1053:53
+    ./values.cue:1119:53
     values.yaml:2057:19
 #values.coreDns.serviceMonitor.targetLabels: conflicting values [] and number (mismatched types list and number):
-    ./values.cue:1053:35
+    ./values.cue:1119:35
     values.yaml:2057:19
 #values.coreDns.serviceMonitor.targetLabels: conflicting values [] and string (mismatched types list and string):
-    ./values.cue:1053:44
+    ./values.cue:1119:44
     values.yaml:2057:19
 #values.defaultRules.additionalRuleGroupLabels.k8sContainerCpuUsageSecondsTotal: conflicting values {} and bool (mismatched types struct and bool):
-    ./values.cue:1425:40
+    ./values.cue:1491:40
     values.yaml:234:39
 #values.defaultRules.additionalRuleGroupLabels.k8sContainerCpuUsageSecondsTotal: conflicting values {} and null (mismatched types struct and null):
-    ./values.cue:1425:65
+    ./values.cue:1491:65
     values.yaml:234:39
 #values.defaultRules.additionalRuleGroupLabels.k8sContainerCpuUsageSecondsTotal: conflicting values {} and number (mismatched types struct and number):
-    ./values.cue:1425:47
+    ./values.cue:1491:47
     values.yaml:234:39
 #values.defaultRules.additionalRuleGroupLabels.k8sContainerCpuUsageSecondsTotal: conflicting values {} and string (mismatched types struct and string):
-    ./values.cue:1425:56
+    ./values.cue:1491:56
     values.yaml:234:39
 #values.defaultRules.additionalRuleGroupLabels.k8sContainerMemoryCache: conflicting values {} and bool (mismatched types struct and bool):
-    ./values.cue:1426:40
+    ./values.cue:1492:40
     values.yaml:235:30
 #values.defaultRules.additionalRuleGroupLabels.k8sContainerMemoryCache: conflicting values {} and null (mismatched types struct and null):
-    ./values.cue:1426:65
+    ./values.cue:1492:65
     values.yaml:235:30
 #values.defaultRules.additionalRuleGroupLabels.k8sContainerMemoryCache: conflicting values {} and number (mismatched types struct and number):
-    ./values.cue:1426:47
+    ./values.cue:1492:47
     values.yaml:235:30
 #values.defaultRules.additionalRuleGroupLabels.k8sContainerMemoryCache: conflicting values {} and string (mismatched types struct and string):
-    ./values.cue:1426:56
+    ./values.cue:1492:56
     values.yaml:235:30
 #values.defaultRules.additionalRuleGroupLabels.k8sContainerMemoryRss: conflicting values {} and bool (mismatched types struct and bool):
-    ./values.cue:1429:40
+    ./values.cue:1495:40
     values.yaml:236:28
 #values.defaultRules.additionalRuleGroupLabels.k8sContainerMemoryRss: conflicting values {} and null (mismatched types struct and null):
-    ./values.cue:1429:65
+    ./values.cue:1495:65
     values.yaml:236:28
 #values.defaultRules.additionalRuleGroupLabels.k8sContainerMemoryRss: conflicting values {} and number (mismatched types struct and number):
-    ./values.cue:1429:47
+    ./values.cue:1495:47
     values.yaml:236:28
 #values.defaultRules.additionalRuleGroupLabels.k8sContainerMemoryRss: conflicting values {} and string (mismatched types struct and string):
-    ./values.cue:1429:56
+    ./values.cue:1495:56
     values.yaml:236:28
 #values.defaultRules.additionalRuleGroupLabels.k8sContainerMemorySwap: conflicting values {} and bool (mismatched types struct and bool):
-    ./values.cue:1430:40
+    ./values.cue:1496:40
     values.yaml:237:29
 #values.defaultRules.additionalRuleGroupLabels.k8sContainerMemorySwap: conflicting values {} and null (mismatched types struct and null):
-    ./values.cue:1430:65
+    ./values.cue:1496:65
     values.yaml:237:29
 #values.defaultRules.additionalRuleGroupLabels.k8sContainerMemorySwap: conflicting values {} and number (mismatched types struct and number):
-    ./values.cue:1430:47
+    ./values.cue:1496:47
     values.yaml:237:29
 #values.defaultRules.additionalRuleGroupLabels.k8sContainerMemorySwap: conflicting values {} and string (mismatched types struct and string):
-    ./values.cue:1430:56
+    ./values.cue:1496:56
     values.yaml:237:29
 #values.defaultRules.additionalRuleGroupLabels.k8sContainerResource: conflicting values {} and bool (mismatched types struct and bool):
-    ./values.cue:1432:40
+    ./values.cue:1498:40
     values.yaml:238:27
 #values.defaultRules.additionalRuleGroupLabels.k8sContainerResource: conflicting values {} and null (mismatched types struct and null):
-    ./values.cue:1432:65
+    ./values.cue:1498:65
     values.yaml:238:27
 #values.defaultRules.additionalRuleGroupLabels.k8sContainerResource: conflicting values {} and number (mismatched types struct and number):
-    ./values.cue:1432:47
+    ./values.cue:1498:47
     values.yaml:238:27
 #values.defaultRules.additionalRuleGroupLabels.k8sContainerResource: conflicting values {} and string (mismatched types struct and string):
-    ./values.cue:1432:56
+    ./values.cue:1498:56
     values.yaml:238:27
 #values.defaultRules.additionalRuleGroupLabels.k8sPodOwner: conflicting values {} and bool (mismatched types struct and bool):
-    ./values.cue:1433:40
+    ./values.cue:1499:40
     values.yaml:239:18
 #values.defaultRules.additionalRuleGroupLabels.k8sPodOwner: conflicting values {} and null (mismatched types struct and null):
-    ./values.cue:1433:65
+    ./values.cue:1499:65
     values.yaml:239:18
 #values.defaultRules.additionalRuleGroupLabels.k8sPodOwner: conflicting values {} and number (mismatched types struct and number):
-    ./values.cue:1433:47
+    ./values.cue:1499:47
     values.yaml:239:18
 #values.defaultRules.additionalRuleGroupLabels.k8sPodOwner: conflicting values {} and string (mismatched types struct and string):
-    ./values.cue:1433:56
+    ./values.cue:1499:56
     values.yaml:239:18
 #values.defaultRules.additionalRuleGroupLabels.kubeApiserverAvailability: conflicting values {} and bool (mismatched types struct and bool):
-    ./values.cue:1434:40
+    ./values.cue:1500:40
     values.yaml:240:32
 #values.defaultRules.additionalRuleGroupLabels.kubeApiserverAvailability: conflicting values {} and null (mismatched types struct and null):
-    ./values.cue:1434:65
+    ./values.cue:1500:65
     values.yaml:240:32
 #values.defaultRules.additionalRuleGroupLabels.kubeApiserverAvailability: conflicting values {} and number (mismatched types struct and number):
-    ./values.cue:1434:47
+    ./values.cue:1500:47
     values.yaml:240:32
 #values.defaultRules.additionalRuleGroupLabels.kubeApiserverAvailability: conflicting values {} and string (mismatched types struct and string):
-    ./values.cue:1434:56
+    ./values.cue:1500:56
     values.yaml:240:32
 #values.defaultRules.additionalRuleGroupLabels.kubeApiserverBurnrate: conflicting values {} and bool (mismatched types struct and bool):
-    ./values.cue:1435:40
+    ./values.cue:1501:40
     values.yaml:241:28
 #values.defaultRules.additionalRuleGroupLabels.kubeApiserverBurnrate: conflicting values {} and null (mismatched types struct and null):
-    ./values.cue:1435:65
+    ./values.cue:1501:65
     values.yaml:241:28
 #values.defaultRules.additionalRuleGroupLabels.kubeApiserverBurnrate: conflicting values {} and number (mismatched types struct and number):
-    ./values.cue:1435:47
+    ./values.cue:1501:47
     values.yaml:241:28
 #values.defaultRules.additionalRuleGroupLabels.kubeApiserverBurnrate: conflicting values {} and string (mismatched types struct and string):
-    ./values.cue:1435:56
+    ./values.cue:1501:56
     values.yaml:241:28
 #values.defaultRules.additionalRuleGroupLabels.kubeApiserverHistogram: conflicting values {} and bool (mismatched types struct and bool):
-    ./values.cue:1436:40
+    ./values.cue:1502:40
     values.yaml:242:29
 #values.defaultRules.additionalRuleGroupLabels.kubeApiserverHistogram: conflicting values {} and null (mismatched types struct and null):
-    ./values.cue:1436:65
+    ./values.cue:1502:65
     values.yaml:242:29
 #values.defaultRules.additionalRuleGroupLabels.kubeApiserverHistogram: conflicting values {} and number (mismatched types struct and number):
-    ./values.cue:1436:47
+    ./values.cue:1502:47
     values.yaml:242:29
 #values.defaultRules.additionalRuleGroupLabels.kubeApiserverHistogram: conflicting values {} and string (mismatched types struct and string):
-    ./values.cue:1436:56
+    ./values.cue:1502:56
     values.yaml:242:29
 #values.defaultRules.additionalRuleGroupLabels.kubePrometheusGeneral: conflicting values {} and bool (mismatched types struct and bool):
-    ./values.cue:1437:40
+    ./values.cue:1503:40
     values.yaml:247:28
 #values.defaultRules.additionalRuleGroupLabels.kubePrometheusGeneral: conflicting values {} and null (mismatched types struct and null):
-    ./values.cue:1437:65
+    ./values.cue:1503:65
     values.yaml:247:28
 #values.defaultRules.additionalRuleGroupLabels.kubePrometheusGeneral: conflicting values {} and number (mismatched types struct and number):
-    ./values.cue:1437:47
+    ./values.cue:1503:47
     values.yaml:247:28
 #values.defaultRules.additionalRuleGroupLabels.kubePrometheusGeneral: conflicting values {} and string (mismatched types struct and string):
-    ./values.cue:1437:56
+    ./values.cue:1503:56
     values.yaml:247:28
 #values.defaultRules.additionalRuleGroupLabels.kubePrometheusNodeRecording: conflicting values {} and bool (mismatched types struct and bool):
-    ./values.cue:1438:40
+    ./values.cue:1504:40
     values.yaml:248:34
 #values.defaultRules.additionalRuleGroupLabels.kubePrometheusNodeRecording: conflicting values {} and null (mismatched types struct and null):
-    ./values.cue:1438:65
+    ./values.cue:1504:65
     values.yaml:248:34
 #values.defaultRules.additionalRuleGroupLabels.kubePrometheusNodeRecording: conflicting values {} and number (mismatched types struct and number):
-    ./values.cue:1438:47
+    ./values.cue:1504:47
     values.yaml:248:34
 #values.defaultRules.additionalRuleGroupLabels.kubePrometheusNodeRecording: conflicting values {} and string (mismatched types struct and string):
-    ./values.cue:1438:56
+    ./values.cue:1504:56
     values.yaml:248:34
 #values.defaultRules.additionalRuleGroupLabels.kubeSchedulerRecording: conflicting values {} and bool (mismatched types struct and bool):
-    ./values.cue:1439:40
+    ./values.cue:1505:40
     values.yaml:254:29
 #values.defaultRules.additionalRuleGroupLabels.kubeSchedulerRecording: conflicting values {} and null (mismatched types struct and null):
-    ./values.cue:1439:65
+    ./values.cue:1505:65
     values.yaml:254:29
 #values.defaultRules.additionalRuleGroupLabels.kubeSchedulerRecording: conflicting values {} and number (mismatched types struct and number):
-    ./values.cue:1439:47
+    ./values.cue:1505:47
     values.yaml:254:29
 #values.defaultRules.additionalRuleGroupLabels.kubeSchedulerRecording: conflicting values {} and string (mismatched types struct and string):
-    ./values.cue:1439:56
+    ./values.cue:1505:56
     values.yaml:254:29
 #values.defaultRules.additionalRuleGroupLabels.kubelet: conflicting values {} and bool (mismatched types struct and bool):
-    ./values.cue:1440:40
+    ./values.cue:1506:40
     values.yaml:245:14
 #values.defaultRules.additionalRuleGroupLabels.kubelet: conflicting values {} and null (mismatched types struct and null):
-    ./values.cue:1440:65
+    ./values.cue:1506:65
     values.yaml:245:14
 #values.defaultRules.additionalRuleGroupLabels.kubelet: conflicting values {} and number (mismatched types struct and number):
-    ./values.cue:1440:47
+    ./values.cue:1506:47
     values.yaml:245:14
 #values.defaultRules.additionalRuleGroupLabels.kubelet: conflicting values {} and string (mismatched types struct and string):
-    ./values.cue:1440:56
+    ./values.cue:1506:56
     values.yaml:245:14
 #values.defaultRules.additionalRuleGroupLabels.node: conflicting values {} and bool (mismatched types struct and bool):
-    ./values.cue:1442:40
+    ./values.cue:1508:40
     values.yaml:257:11
 #values.defaultRules.additionalRuleGroupLabels.node: conflicting values {} and null (mismatched types struct and null):
-    ./values.cue:1442:65
+    ./values.cue:1508:65
     values.yaml:257:11
 #values.defaultRules.additionalRuleGroupLabels.node: conflicting values {} and number (mismatched types struct and number):
-    ./values.cue:1442:47
+    ./values.cue:1508:47
     values.yaml:257:11
 #values.defaultRules.additionalRuleGroupLabels.node: conflicting values {} and string (mismatched types struct and string):
-    ./values.cue:1442:56
+    ./values.cue:1508:56
     values.yaml:257:11
 #values.defaultRules.additionalRuleGroupLabels.nodeExporterRecording: conflicting values {} and bool (mismatched types struct and bool):
-    ./values.cue:1441:40
+    ./values.cue:1507:40
     values.yaml:259:28
 #values.defaultRules.additionalRuleGroupLabels.nodeExporterRecording: conflicting values {} and null (mismatched types struct and null):
-    ./values.cue:1441:65
+    ./values.cue:1507:65
     values.yaml:259:28
 #values.defaultRules.additionalRuleGroupLabels.nodeExporterRecording: conflicting values {} and number (mismatched types struct and number):
-    ./values.cue:1441:47
+    ./values.cue:1507:47
     values.yaml:259:28
 #values.defaultRules.additionalRuleGroupLabels.nodeExporterRecording: conflicting values {} and string (mismatched types struct and string):
-    ./values.cue:1441:56
+    ./values.cue:1507:56
     values.yaml:259:28
 #values.defaultRules.additionalRuleLabels: conflicting values {} and bool (mismatched types struct and bool):
-    ./values.cue:1421:33
+    ./values.cue:1487:33
     values.yaml:223:25
 #values.defaultRules.additionalRuleLabels: conflicting values {} and null (mismatched types struct and null):
-    ./values.cue:1421:58
+    ./values.cue:1487:58
     values.yaml:223:25
 #values.defaultRules.additionalRuleLabels: conflicting values {} and number (mismatched types struct and number):
-    ./values.cue:1421:40
+    ./values.cue:1487:40
     values.yaml:223:25
 #values.defaultRules.additionalRuleLabels: conflicting values {} and string (mismatched types struct and string):
-    ./values.cue:1421:49
+    ./values.cue:1487:49
     values.yaml:223:25
+#values.grafana.operator.annotations: conflicting values {} and bool (mismatched types struct and bool):
+    ./values.cue:311:36
+    values.yaml:1272:18
+#values.grafana.operator.annotations: conflicting values {} and null (mismatched types struct and null):
+    ./values.cue:311:61
+    values.yaml:1272:18
+#values.grafana.operator.annotations: conflicting values {} and number (mismatched types struct and number):
+    ./values.cue:311:43
+    values.yaml:1272:18
+#values.grafana.operator.annotations: conflicting values {} and string (mismatched types struct and string):
+    ./values.cue:311:52
+    values.yaml:1272:18
 #values.kubeApiServer.serviceMonitor.additionalLabels: conflicting values {} and bool (mismatched types struct and bool):
-    ./values.cue:1077:28
+    ./values.cue:1143:28
     values.yaml:1614:23
 #values.kubeApiServer.serviceMonitor.additionalLabels: conflicting values {} and null (mismatched types struct and null):
-    ./values.cue:1077:53
+    ./values.cue:1143:53
     values.yaml:1614:23
 #values.kubeApiServer.serviceMonitor.additionalLabels: conflicting values {} and number (mismatched types struct and number):
-    ./values.cue:1077:35
+    ./values.cue:1143:35
     values.yaml:1614:23
 #values.kubeApiServer.serviceMonitor.additionalLabels: conflicting values {} and string (mismatched types struct and string):
-    ./values.cue:1077:44
+    ./values.cue:1143:44
     values.yaml:1614:23
 #values.kubeApiServer.serviceMonitor.targetLabels: conflicting values [] and bool (mismatched types list and bool):
-    ./values.cue:1088:28
+    ./values.cue:1154:28
     values.yaml:1619:19
 #values.kubeApiServer.serviceMonitor.targetLabels: conflicting values [] and null (mismatched types list and null):
-    ./values.cue:1088:53
+    ./values.cue:1154:53
     values.yaml:1619:19
 #values.kubeApiServer.serviceMonitor.targetLabels: conflicting values [] and number (mismatched types list and number):
-    ./values.cue:1088:35
+    ./values.cue:1154:35
     values.yaml:1619:19
 #values.kubeApiServer.serviceMonitor.targetLabels: conflicting values [] and string (mismatched types list and string):
-    ./values.cue:1088:44
+    ./values.cue:1154:44
     values.yaml:1619:19
 #values.kubeControllerManager.serviceMonitor.additionalLabels: conflicting values {} and bool (mismatched types struct and bool):
-    ./values.cue:1105:28
+    ./values.cue:1171:28
     values.yaml:1970:23
 #values.kubeControllerManager.serviceMonitor.additionalLabels: conflicting values {} and null (mismatched types struct and null):
-    ./values.cue:1105:53
+    ./values.cue:1171:53
     values.yaml:1970:23
 #values.kubeControllerManager.serviceMonitor.additionalLabels: conflicting values {} and number (mismatched types struct and number):
-    ./values.cue:1105:35
+    ./values.cue:1171:35
     values.yaml:1970:23
 #values.kubeControllerManager.serviceMonitor.additionalLabels: conflicting values {} and string (mismatched types struct and string):
-    ./values.cue:1105:44
+    ./values.cue:1171:44
     values.yaml:1970:23
 #values.kubeControllerManager.serviceMonitor.targetLabels: conflicting values [] and bool (mismatched types list and bool):
-    ./values.cue:1107:28
+    ./values.cue:1173:28
     values.yaml:1975:19
 #values.kubeControllerManager.serviceMonitor.targetLabels: conflicting values [] and null (mismatched types list and null):
-    ./values.cue:1107:53
+    ./values.cue:1173:53
     values.yaml:1975:19
 #values.kubeControllerManager.serviceMonitor.targetLabels: conflicting values [] and number (mismatched types list and number):
-    ./values.cue:1107:35
+    ./values.cue:1173:35
     values.yaml:1975:19
 #values.kubeControllerManager.serviceMonitor.targetLabels: conflicting values [] and string (mismatched types list and string):
-    ./values.cue:1107:44
+    ./values.cue:1173:44
     values.yaml:1975:19
 #values.kubeDns.serviceMonitor.additionalLabels: conflicting values {} and bool (mismatched types struct and bool):
-    ./values.cue:1161:31
+    ./values.cue:1227:31
     values.yaml:2155:23
 #values.kubeDns.serviceMonitor.additionalLabels: conflicting values {} and null (mismatched types struct and null):
-    ./values.cue:1161:56
+    ./values.cue:1227:56
     values.yaml:2155:23
 #values.kubeDns.serviceMonitor.additionalLabels: conflicting values {} and number (mismatched types struct and number):
-    ./values.cue:1161:38
+    ./values.cue:1227:38
     values.yaml:2155:23
 #values.kubeDns.serviceMonitor.additionalLabels: conflicting values {} and string (mismatched types struct and string):
-    ./values.cue:1161:47
+    ./values.cue:1227:47
     values.yaml:2155:23
 #values.kubeDns.serviceMonitor.targetLabels: conflicting values [] and bool (mismatched types list and bool):
-    ./values.cue:1163:31
+    ./values.cue:1229:31
     values.yaml:2160:19
 #values.kubeDns.serviceMonitor.targetLabels: conflicting values [] and null (mismatched types list and null):
-    ./values.cue:1163:56
+    ./values.cue:1229:56
     values.yaml:2160:19
 #values.kubeDns.serviceMonitor.targetLabels: conflicting values [] and number (mismatched types list and number):
-    ./values.cue:1163:38
+    ./values.cue:1229:38
     values.yaml:2160:19
 #values.kubeDns.serviceMonitor.targetLabels: conflicting values [] and string (mismatched types list and string):
-    ./values.cue:1163:47
+    ./values.cue:1229:47
     values.yaml:2160:19
 #values.kubeEtcd.serviceMonitor.additionalLabels: conflicting values {} and bool (mismatched types struct and bool):
-    ./values.cue:1187:28
+    ./values.cue:1253:28
     values.yaml:2269:23
 #values.kubeEtcd.serviceMonitor.additionalLabels: conflicting values {} and null (mismatched types struct and null):
-    ./values.cue:1187:53
+    ./values.cue:1253:53
     values.yaml:2269:23
 #values.kubeEtcd.serviceMonitor.additionalLabels: conflicting values {} and number (mismatched types struct and number):
-    ./values.cue:1187:35
+    ./values.cue:1253:35
     values.yaml:2269:23
 #values.kubeEtcd.serviceMonitor.additionalLabels: conflicting values {} and string (mismatched types struct and string):
-    ./values.cue:1187:44
+    ./values.cue:1253:44
     values.yaml:2269:23
 #values.kubeEtcd.serviceMonitor.targetLabels: conflicting values [] and bool (mismatched types list and bool):
-    ./values.cue:1189:28
+    ./values.cue:1255:28
     values.yaml:2274:19
 #values.kubeEtcd.serviceMonitor.targetLabels: conflicting values [] and null (mismatched types list and null):
-    ./values.cue:1189:53
+    ./values.cue:1255:53
     values.yaml:2274:19
 #values.kubeEtcd.serviceMonitor.targetLabels: conflicting values [] and number (mismatched types list and number):
-    ./values.cue:1189:35
+    ./values.cue:1255:35
     values.yaml:2274:19
 #values.kubeEtcd.serviceMonitor.targetLabels: conflicting values [] and string (mismatched types list and string):
-    ./values.cue:1189:44
+    ./values.cue:1255:44
     values.yaml:2274:19
 #values.kubeProxy.serviceMonitor.additionalLabels: conflicting values {} and bool (mismatched types struct and bool):
-    ./values.cue:1230:28
+    ./values.cue:1296:28
     values.yaml:2480:23
 #values.kubeProxy.serviceMonitor.additionalLabels: conflicting values {} and null (mismatched types struct and null):
-    ./values.cue:1230:53
+    ./values.cue:1296:53
     values.yaml:2480:23
 #values.kubeProxy.serviceMonitor.additionalLabels: conflicting values {} and number (mismatched types struct and number):
-    ./values.cue:1230:35
+    ./values.cue:1296:35
     values.yaml:2480:23
 #values.kubeProxy.serviceMonitor.additionalLabels: conflicting values {} and string (mismatched types struct and string):
-    ./values.cue:1230:44
+    ./values.cue:1296:44
     values.yaml:2480:23
 #values.kubeProxy.serviceMonitor.targetLabels: conflicting values [] and bool (mismatched types list and bool):
-    ./values.cue:1232:28
+    ./values.cue:1298:28
     values.yaml:2485:19
 #values.kubeProxy.serviceMonitor.targetLabels: conflicting values [] and null (mismatched types list and null):
-    ./values.cue:1232:53
+    ./values.cue:1298:53
     values.yaml:2485:19
 #values.kubeProxy.serviceMonitor.targetLabels: conflicting values [] and number (mismatched types list and number):
-    ./values.cue:1232:35
+    ./values.cue:1298:35
     values.yaml:2485:19
 #values.kubeProxy.serviceMonitor.targetLabels: conflicting values [] and string (mismatched types list and string):
-    ./values.cue:1232:44
+    ./values.cue:1298:44
     values.yaml:2485:19
 #values.kubeScheduler.serviceMonitor.additionalLabels: conflicting values {} and bool (mismatched types struct and bool):
-    ./values.cue:1268:28
+    ./values.cue:1334:28
     values.yaml:2384:23
 #values.kubeScheduler.serviceMonitor.additionalLabels: conflicting values {} and null (mismatched types struct and null):
-    ./values.cue:1268:53
+    ./values.cue:1334:53
     values.yaml:2384:23
 #values.kubeScheduler.serviceMonitor.additionalLabels: conflicting values {} and number (mismatched types struct and number):
-    ./values.cue:1268:35
+    ./values.cue:1334:35
     values.yaml:2384:23
 #values.kubeScheduler.serviceMonitor.additionalLabels: conflicting values {} and string (mismatched types struct and string):
-    ./values.cue:1268:44
+    ./values.cue:1334:44
     values.yaml:2384:23
 #values.kubeScheduler.serviceMonitor.targetLabels: conflicting values [] and bool (mismatched types list and bool):
-    ./values.cue:1270:28
+    ./values.cue:1336:28
     values.yaml:2389:19
 #values.kubeScheduler.serviceMonitor.targetLabels: conflicting values [] and null (mismatched types list and null):
-    ./values.cue:1270:53
+    ./values.cue:1336:53
     values.yaml:2389:19
 #values.kubeScheduler.serviceMonitor.targetLabels: conflicting values [] and number (mismatched types list and number):
-    ./values.cue:1270:35
+    ./values.cue:1336:35
     values.yaml:2389:19
 #values.kubeScheduler.serviceMonitor.targetLabels: conflicting values [] and string (mismatched types list and string):
-    ./values.cue:1270:44
+    ./values.cue:1336:44
     values.yaml:2389:19
 #values.kubelet.serviceMonitor.additionalLabels: conflicting values {} and bool (mismatched types struct and bool):
-    ./values.cue:357:32
+    ./values.cue:381:32
     values.yaml:1859:23
 #values.kubelet.serviceMonitor.additionalLabels: conflicting values {} and null (mismatched types struct and null):
-    ./values.cue:357:57
+    ./values.cue:381:57
     values.yaml:1859:23
 #values.kubelet.serviceMonitor.additionalLabels: conflicting values {} and number (mismatched types struct and number):
-    ./values.cue:357:39
+    ./values.cue:381:39
     values.yaml:1859:23
 #values.kubelet.serviceMonitor.additionalLabels: conflicting values {} and string (mismatched types struct and string):
-    ./values.cue:357:48
+    ./values.cue:381:48
     values.yaml:1859:23
 #values.kubelet.serviceMonitor.attachMetadata: conflicting values {node:false} and bool (mismatched types struct and bool):
-    ./values.cue:363:32
+    ./values.cue:387:32
 #values.kubelet.serviceMonitor.attachMetadata: conflicting values {node:false} and null (mismatched types struct and null):
-    ./values.cue:363:57
+    ./values.cue:387:57
 #values.kubelet.serviceMonitor.attachMetadata: conflicting values {node:false} and number (mismatched types struct and number):
-    ./values.cue:363:39
+    ./values.cue:387:39
 #values.kubelet.serviceMonitor.attachMetadata: conflicting values {node:false} and string (mismatched types struct and string):
-    ./values.cue:363:48
+    ./values.cue:387:48
 #values.kubelet.serviceMonitor.targetLabels: conflicting values [] and bool (mismatched types list and bool):
-    ./values.cue:364:32
+    ./values.cue:388:32
     values.yaml:1864:19
 #values.kubelet.serviceMonitor.targetLabels: conflicting values [] and null (mismatched types list and null):
-    ./values.cue:364:57
+    ./values.cue:388:57
     values.yaml:1864:19
 #values.kubelet.serviceMonitor.targetLabels: conflicting values [] and number (mismatched types list and number):
-    ./values.cue:364:39
+    ./values.cue:388:39
     values.yaml:1864:19
 #values.kubelet.serviceMonitor.targetLabels: conflicting values [] and string (mismatched types list and string):
-    ./values.cue:364:48
+    ./values.cue:388:48
     values.yaml:1864:19
 #values.prometheus.additionalLabels: conflicting values {} and bool (mismatched types struct and bool):
-    ./values.cue:743:22
+    ./values.cue:809:22
     values.yaml:3426:21
 #values.prometheus.additionalLabels: conflicting values {} and null (mismatched types struct and null):
-    ./values.cue:743:47
+    ./values.cue:809:47
     values.yaml:3426:21
 #values.prometheus.additionalLabels: conflicting values {} and number (mismatched types struct and number):
-    ./values.cue:743:29
+    ./values.cue:809:29
     values.yaml:3426:21
 #values.prometheus.additionalLabels: conflicting values {} and string (mismatched types struct and string):
-    ./values.cue:743:38
+    ./values.cue:809:38
     values.yaml:3426:21
 #values.prometheus.annotations: conflicting values {} and bool (mismatched types struct and bool):
-    ./values.cue:744:22
+    ./values.cue:810:22
     values.yaml:3422:16
 #values.prometheus.annotations: conflicting values {} and null (mismatched types struct and null):
-    ./values.cue:744:47
+    ./values.cue:810:47
     values.yaml:3422:16
 #values.prometheus.annotations: conflicting values {} and number (mismatched types struct and number):
-    ./values.cue:744:29
+    ./values.cue:810:29
     values.yaml:3422:16
 #values.prometheus.annotations: conflicting values {} and string (mismatched types struct and string):
-    ./values.cue:744:38
+    ./values.cue:810:38
     values.yaml:3422:16
 #values.prometheus.ingress.paths: conflicting values [] and bool (mismatched types list and bool):
-    ./values.cue:662:62
+    ./values.cue:760:62
     values.yaml:3751:12
 #values.prometheus.ingress.paths: conflicting values [] and null (mismatched types list and null):
-    ./values.cue:662:87
+    ./values.cue:760:87
     values.yaml:3751:12
 #values.prometheus.ingress.paths: conflicting values [] and number (mismatched types list and number):
-    ./values.cue:662:69
+    ./values.cue:760:69
     values.yaml:3751:12
 #values.prometheus.ingress.paths: conflicting values [] and string (mismatched types list and string):
-    ./values.cue:662:78
+    ./values.cue:760:78
     values.yaml:3751:12
 #values.prometheus.prometheusSpec.additionalScrapeConfigs: conflicting values [] and bool (mismatched types list and bool):
-    ./values.cue:620:45
+    ./values.cue:687:45
     values.yaml:4408:30
 #values.prometheus.prometheusSpec.additionalScrapeConfigs: conflicting values [] and null (mismatched types list and null):
-    ./values.cue:620:70
+    ./values.cue:687:70
     values.yaml:4408:30
 #values.prometheus.prometheusSpec.additionalScrapeConfigs: conflicting values [] and number (mismatched types list and number):
-    ./values.cue:620:52
+    ./values.cue:687:52
     values.yaml:4408:30
 #values.prometheus.prometheusSpec.additionalScrapeConfigs: conflicting values [] and string (mismatched types list and string):
-    ./values.cue:620:61
+    ./values.cue:687:61
     values.yaml:4408:30
 #values.prometheus.serviceAccount.annotations: conflicting values {} and bool (mismatched types struct and bool):
-    ./values.cue:610:35
+    ./values.cue:675:35
     values.yaml:3459:18
 #values.prometheus.serviceAccount.annotations: conflicting values {} and null (mismatched types struct and null):
-    ./values.cue:610:60
+    ./values.cue:675:60
     values.yaml:3459:18
 #values.prometheus.serviceAccount.annotations: conflicting values {} and number (mismatched types struct and number):
-    ./values.cue:610:42
+    ./values.cue:675:42
     values.yaml:3459:18
 #values.prometheus.serviceAccount.annotations: conflicting values {} and string (mismatched types struct and string):
-    ./values.cue:610:51
+    ./values.cue:675:51
     values.yaml:3459:18
 #values.prometheus.serviceMonitor.additionalLabels: conflicting values {} and bool (mismatched types struct and bool):
-    ./values.cue:748:28
+    ./values.cue:814:28
     values.yaml:3860:23
 #values.prometheus.serviceMonitor.additionalLabels: conflicting values {} and null (mismatched types struct and null):
-    ./values.cue:748:53
+    ./values.cue:814:53
     values.yaml:3860:23
 #values.prometheus.serviceMonitor.additionalLabels: conflicting values {} and number (mismatched types struct and number):
-    ./values.cue:748:35
+    ./values.cue:814:35
     values.yaml:3860:23
 #values.prometheus.serviceMonitor.additionalLabels: conflicting values {} and string (mismatched types struct and string):
-    ./values.cue:748:44
+    ./values.cue:814:44
     values.yaml:3860:23
 #values.prometheus.thanosIngress.paths: conflicting values [] and bool (mismatched types list and bool):
-    ./values.cue:706:62
+    ./values.cue:772:62
     values.yaml:3704:12
 #values.prometheus.thanosIngress.paths: conflicting values [] and null (mismatched types list and null):
-    ./values.cue:706:87
+    ./values.cue:772:87
     values.yaml:3704:12
 #values.prometheus.thanosIngress.paths: conflicting values [] and number (mismatched types list and number):
-    ./values.cue:706:69
+    ./values.cue:772:69
     values.yaml:3704:12
 #values.prometheus.thanosIngress.paths: conflicting values [] and string (mismatched types list and string):
-    ./values.cue:706:78
+    ./values.cue:772:78
     values.yaml:3704:12
 #values.prometheus.thanosServiceMonitor.additionalLabels: conflicting values {} and bool (mismatched types struct and bool):
-    ./values.cue:818:28
+    ./values.cue:884:28
     values.yaml:3514:23
 #values.prometheus.thanosServiceMonitor.additionalLabels: conflicting values {} and null (mismatched types struct and null):
-    ./values.cue:818:53
+    ./values.cue:884:53
     values.yaml:3514:23
 #values.prometheus.thanosServiceMonitor.additionalLabels: conflicting values {} and number (mismatched types struct and number):
-    ./values.cue:818:35
+    ./values.cue:884:35
     values.yaml:3514:23
 #values.prometheus.thanosServiceMonitor.additionalLabels: conflicting values {} and string (mismatched types struct and string):
-    ./values.cue:818:44
+    ./values.cue:884:44
     values.yaml:3514:23
 #values.prometheusOperator.admissionWebhooks.annotations: conflicting values {} and bool (mismatched types struct and bool):
-    ./values.cue:470:18
+    ./values.cue:494:18
     values.yaml:2695:18
 #values.prometheusOperator.admissionWebhooks.annotations: conflicting values {} and null (mismatched types struct and null):
-    ./values.cue:470:43
+    ./values.cue:494:43
     values.yaml:2695:18
 #values.prometheusOperator.admissionWebhooks.annotations: conflicting values {} and number (mismatched types struct and number):
-    ./values.cue:470:25
+    ./values.cue:494:25
     values.yaml:2695:18
 #values.prometheusOperator.admissionWebhooks.annotations: conflicting values {} and string (mismatched types struct and string):
-    ./values.cue:470:34
+    ./values.cue:494:34
     values.yaml:2695:18
 #values.prometheusOperator.admissionWebhooks.createSecretJob.securityContext: conflicting values {allowPrivilegeEscalation:false,readOnlyRootFilesystem:true,capabilities:{drop:["ALL"]}} and bool (mismatched types struct and bool):
-    ./values.cue:472:23
+    ./values.cue:496:23
 #values.prometheusOperator.admissionWebhooks.createSecretJob.securityContext: conflicting values {allowPrivilegeEscalation:false,readOnlyRootFilesystem:true,capabilities:{drop:["ALL"]}} and null (mismatched types struct and null):
-    ./values.cue:472:48
+    ./values.cue:496:48
 #values.prometheusOperator.admissionWebhooks.createSecretJob.securityContext: conflicting values {allowPrivilegeEscalation:false,readOnlyRootFilesystem:true,capabilities:{drop:["ALL"]}} and number (mismatched types struct and number):
-    ./values.cue:472:30
+    ./values.cue:496:30
 #values.prometheusOperator.admissionWebhooks.createSecretJob.securityContext: conflicting values {allowPrivilegeEscalation:false,readOnlyRootFilesystem:true,capabilities:{drop:["ALL"]}} and string (mismatched types struct and string):
-    ./values.cue:472:39
+    ./values.cue:496:39
 #values.prometheusOperator.admissionWebhooks.deployment.serviceAccount.annotations: conflicting values {} and bool (mismatched types struct and bool):
-    ./values.cue:400:37
+    ./values.cue:424:37
     values.yaml:2746:22
 #values.prometheusOperator.admissionWebhooks.deployment.serviceAccount.annotations: conflicting values {} and null (mismatched types struct and null):
-    ./values.cue:400:62
+    ./values.cue:424:62
     values.yaml:2746:22
 #values.prometheusOperator.admissionWebhooks.deployment.serviceAccount.annotations: conflicting values {} and number (mismatched types struct and number):
-    ./values.cue:400:44
+    ./values.cue:424:44
     values.yaml:2746:22
 #values.prometheusOperator.admissionWebhooks.deployment.serviceAccount.annotations: conflicting values {} and string (mismatched types struct and string):
-    ./values.cue:400:53
+    ./values.cue:424:53
     values.yaml:2746:22
 #values.prometheusOperator.admissionWebhooks.mutatingWebhookConfiguration.annotations: conflicting values {} and bool (mismatched types struct and bool):
-    ./values.cue:481:19
+    ./values.cue:505:19
     values.yaml:2704:20
 #values.prometheusOperator.admissionWebhooks.mutatingWebhookConfiguration.annotations: conflicting values {} and null (mismatched types struct and null):
-    ./values.cue:481:44
+    ./values.cue:505:44
     values.yaml:2704:20
 #values.prometheusOperator.admissionWebhooks.mutatingWebhookConfiguration.annotations: conflicting values {} and number (mismatched types struct and number):
-    ./values.cue:481:26
+    ./values.cue:505:26
     values.yaml:2704:20
 #values.prometheusOperator.admissionWebhooks.mutatingWebhookConfiguration.annotations: conflicting values {} and string (mismatched types struct and string):
-    ./values.cue:481:35
+    ./values.cue:505:35
     values.yaml:2704:20
 #values.prometheusOperator.admissionWebhooks.namespaceSelector: conflicting values {} and bool (mismatched types struct and bool):
-    ./values.cue:486:24
+    ./values.cue:510:24
     values.yaml:2699:24
 #values.prometheusOperator.admissionWebhooks.namespaceSelector: conflicting values {} and null (mismatched types struct and null):
-    ./values.cue:486:49
+    ./values.cue:510:49
     values.yaml:2699:24
 #values.prometheusOperator.admissionWebhooks.namespaceSelector: conflicting values {} and number (mismatched types struct and number):
-    ./values.cue:486:31
+    ./values.cue:510:31
     values.yaml:2699:24
 #values.prometheusOperator.admissionWebhooks.namespaceSelector: conflicting values {} and string (mismatched types struct and string):
-    ./values.cue:486:40
+    ./values.cue:510:40
     values.yaml:2699:24
 #values.prometheusOperator.admissionWebhooks.patch.affinity: conflicting values {} and bool (mismatched types struct and bool):
-    ./values.cue:459:23
+    ./values.cue:483:23
     values.yaml:2950:17
 #values.prometheusOperator.admissionWebhooks.patch.affinity: conflicting values {} and null (mismatched types struct and null):
-    ./values.cue:459:48
+    ./values.cue:483:48
     values.yaml:2950:17
 #values.prometheusOperator.admissionWebhooks.patch.affinity: conflicting values {} and number (mismatched types struct and number):
-    ./values.cue:459:30
+    ./values.cue:483:30
     values.yaml:2950:17
 #values.prometheusOperator.admissionWebhooks.patch.affinity: conflicting values {} and string (mismatched types struct and string):
-    ./values.cue:459:39
+    ./values.cue:483:39
     values.yaml:2950:17
 #values.prometheusOperator.admissionWebhooks.patch.annotations: conflicting values {} and bool (mismatched types struct and bool):
-    ./values.cue:445:31
+    ./values.cue:469:31
     values.yaml:2945:20
 #values.prometheusOperator.admissionWebhooks.patch.annotations: conflicting values {} and null (mismatched types struct and null):
-    ./values.cue:445:56
+    ./values.cue:469:56
     values.yaml:2945:20
 #values.prometheusOperator.admissionWebhooks.patch.annotations: conflicting values {} and number (mismatched types struct and number):
-    ./values.cue:445:38
+    ./values.cue:469:38
     values.yaml:2945:20
 #values.prometheusOperator.admissionWebhooks.patch.annotations: conflicting values {} and string (mismatched types struct and string):
-    ./values.cue:445:47
+    ./values.cue:469:47
     values.yaml:2945:20
 #values.prometheusOperator.admissionWebhooks.patch.nodeSelector: conflicting values {} and bool (mismatched types struct and bool):
-    ./values.cue:458:23
+    ./values.cue:482:23
     values.yaml:2949:21
 #values.prometheusOperator.admissionWebhooks.patch.nodeSelector: conflicting values {} and null (mismatched types struct and null):
-    ./values.cue:458:48
+    ./values.cue:482:48
     values.yaml:2949:21
 #values.prometheusOperator.admissionWebhooks.patch.nodeSelector: conflicting values {} and number (mismatched types struct and number):
-    ./values.cue:458:30
+    ./values.cue:482:30
     values.yaml:2949:21
 #values.prometheusOperator.admissionWebhooks.patch.nodeSelector: conflicting values {} and string (mismatched types struct and string):
-    ./values.cue:458:39
+    ./values.cue:482:39
     values.yaml:2949:21
 #values.prometheusOperator.admissionWebhooks.patch.podAnnotations: conflicting values {} and bool (mismatched types struct and bool):
-    ./values.cue:447:31
+    ./values.cue:471:31
     values.yaml:2948:23
 #values.prometheusOperator.admissionWebhooks.patch.podAnnotations: conflicting values {} and null (mismatched types struct and null):
-    ./values.cue:447:56
+    ./values.cue:471:56
     values.yaml:2948:23
 #values.prometheusOperator.admissionWebhooks.patch.podAnnotations: conflicting values {} and number (mismatched types struct and number):
-    ./values.cue:447:38
+    ./values.cue:471:38
     values.yaml:2948:23
 #values.prometheusOperator.admissionWebhooks.patch.podAnnotations: conflicting values {} and string (mismatched types struct and string):
-    ./values.cue:447:47
+    ./values.cue:471:47
     values.yaml:2948:23
 #values.prometheusOperator.admissionWebhooks.patch.serviceAccount.annotations: conflicting values {} and bool (mismatched types struct and bool):
-    ./values.cue:464:37
+    ./values.cue:488:37
     values.yaml:2968:22
 #values.prometheusOperator.admissionWebhooks.patch.serviceAccount.annotations: conflicting values {} and null (mismatched types struct and null):
-    ./values.cue:464:62
+    ./values.cue:488:62
     values.yaml:2968:22
 #values.prometheusOperator.admissionWebhooks.patch.serviceAccount.annotations: conflicting values {} and number (mismatched types struct and number):
-    ./values.cue:464:44
+    ./values.cue:488:44
     values.yaml:2968:22
 #values.prometheusOperator.admissionWebhooks.patch.serviceAccount.annotations: conflicting values {} and string (mismatched types struct and string):
-    ./values.cue:464:53
+    ./values.cue:488:53
     values.yaml:2968:22
 #values.prometheusOperator.admissionWebhooks.patch.tolerations: conflicting values [] and bool (mismatched types list and bool):
-    ./values.cue:460:23
+    ./values.cue:484:23
     values.yaml:2951:20
 #values.prometheusOperator.admissionWebhooks.patch.tolerations: conflicting values [] and null (mismatched types list and null):
-    ./values.cue:460:48
+    ./values.cue:484:48
     values.yaml:2951:20
 #values.prometheusOperator.admissionWebhooks.patch.tolerations: conflicting values [] and number (mismatched types list and number):
-    ./values.cue:460:30
+    ./values.cue:484:30
     values.yaml:2951:20
 #values.prometheusOperator.admissionWebhooks.patch.tolerations: conflicting values [] and string (mismatched types list and string):
-    ./values.cue:460:39
+    ./values.cue:484:39
     values.yaml:2951:20
 #values.prometheusOperator.admissionWebhooks.patchWebhookJob.securityContext: conflicting values {allowPrivilegeEscalation:false,readOnlyRootFilesystem:true,capabilities:{drop:["ALL"]}} and bool (mismatched types struct and bool):
-    ./values.cue:477:23
+    ./values.cue:501:23
 #values.prometheusOperator.admissionWebhooks.patchWebhookJob.securityContext: conflicting values {allowPrivilegeEscalation:false,readOnlyRootFilesystem:true,capabilities:{drop:["ALL"]}} and null (mismatched types struct and null):
-    ./values.cue:477:48
+    ./values.cue:501:48
 #values.prometheusOperator.admissionWebhooks.patchWebhookJob.securityContext: conflicting values {allowPrivilegeEscalation:false,readOnlyRootFilesystem:true,capabilities:{drop:["ALL"]}} and number (mismatched types struct and number):
-    ./values.cue:477:30
+    ./values.cue:501:30
 #values.prometheusOperator.admissionWebhooks.patchWebhookJob.securityContext: conflicting values {allowPrivilegeEscalation:false,readOnlyRootFilesystem:true,capabilities:{drop:["ALL"]}} and string (mismatched types struct and string):
-    ./values.cue:477:39
+    ./values.cue:501:39
 #values.prometheusOperator.admissionWebhooks.validatingWebhookConfiguration.annotations: conflicting values {} and bool (mismatched types struct and bool):
-    ./values.cue:488:19
+    ./values.cue:512:19
     values.yaml:2708:20
 #values.prometheusOperator.admissionWebhooks.validatingWebhookConfiguration.annotations: conflicting values {} and null (mismatched types struct and null):
-    ./values.cue:488:44
+    ./values.cue:512:44
     values.yaml:2708:20
 #values.prometheusOperator.admissionWebhooks.validatingWebhookConfiguration.annotations: conflicting values {} and number (mismatched types struct and number):
-    ./values.cue:488:26
+    ./values.cue:512:26
     values.yaml:2708:20
 #values.prometheusOperator.admissionWebhooks.validatingWebhookConfiguration.annotations: conflicting values {} and string (mismatched types struct and string):
-    ./values.cue:488:35
+    ./values.cue:512:35
     values.yaml:2708:20
 #values.prometheusOperator.denyNamespaces: conflicting values [] and bool (mismatched types list and bool):
-    ./values.cue:512:20
+    ./values.cue:536:20
     values.yaml:3019:19
 #values.prometheusOperator.denyNamespaces: conflicting values [] and null (mismatched types list and null):
-    ./values.cue:512:45
+    ./values.cue:536:45
     values.yaml:3019:19
 #values.prometheusOperator.denyNamespaces: conflicting values [] and number (mismatched types list and number):
-    ./values.cue:512:27
+    ./values.cue:536:27
     values.yaml:3019:19
 #values.prometheusOperator.denyNamespaces: conflicting values [] and string (mismatched types list and string):
-    ./values.cue:512:36
+    ./values.cue:536:36
     values.yaml:3019:19
+#values.prometheusOperator.dnsConfig: conflicting values {} and bool (mismatched types struct and bool):
+    ./values.cue:631:18
+    values.yaml:3263:14
+#values.prometheusOperator.dnsConfig: conflicting values {} and null (mismatched types struct and null):
+    ./values.cue:631:43
+    values.yaml:3263:14
+#values.prometheusOperator.dnsConfig: conflicting values {} and number (mismatched types struct and number):
+    ./values.cue:631:25
+    values.yaml:3263:14
+#values.prometheusOperator.dnsConfig: conflicting values {} and string (mismatched types struct and string):
+    ./values.cue:631:34
+    values.yaml:3263:14
+#values.prometheusOperator.extraArgs: conflicting values [] and bool (mismatched types list and bool):
+    ./values.cue:606:42
+    values.yaml:3158:14
+#values.prometheusOperator.extraArgs: conflicting values [] and null (mismatched types list and null):
+    ./values.cue:606:67
+    values.yaml:3158:14
+#values.prometheusOperator.extraArgs: conflicting values [] and number (mismatched types list and number):
+    ./values.cue:606:49
+    values.yaml:3158:14
+#values.prometheusOperator.extraArgs: conflicting values [] and string (mismatched types list and string):
+    ./values.cue:606:58
+    values.yaml:3158:14
+#values.prometheusOperator.extraVolumeMounts: conflicting values [] and bool (mismatched types list and bool):
+    ./values.cue:611:42
+    values.yaml:3407:22
+#values.prometheusOperator.extraVolumeMounts: conflicting values [] and null (mismatched types list and null):
+    ./values.cue:611:67
+    values.yaml:3407:22
+#values.prometheusOperator.extraVolumeMounts: conflicting values [] and number (mismatched types list and number):
+    ./values.cue:611:49
+    values.yaml:3407:22
+#values.prometheusOperator.extraVolumeMounts: conflicting values [] and string (mismatched types list and string):
+    ./values.cue:611:58
+    values.yaml:3407:22
+#values.prometheusOperator.extraVolumes: conflicting values [] and bool (mismatched types list and bool):
+    ./values.cue:630:18
+    values.yaml:3403:17
+#values.prometheusOperator.extraVolumes: conflicting values [] and null (mismatched types list and null):
+    ./values.cue:630:43
+    values.yaml:3403:17
+#values.prometheusOperator.extraVolumes: conflicting values [] and number (mismatched types list and number):
+    ./values.cue:630:25
+    values.yaml:3403:17
+#values.prometheusOperator.extraVolumes: conflicting values [] and string (mismatched types list and string):
+    ./values.cue:630:34
+    values.yaml:3403:17
+#values.prometheusOperator.lifecycle: conflicting values {} and bool (mismatched types struct and bool):
+    ./values.cue:607:42
+    values.yaml:3063:14
+#values.prometheusOperator.lifecycle: conflicting values {} and null (mismatched types struct and null):
+    ./values.cue:607:67
+    values.yaml:3063:14
+#values.prometheusOperator.lifecycle: conflicting values {} and number (mismatched types struct and number):
+    ./values.cue:607:49
+    values.yaml:3063:14
+#values.prometheusOperator.lifecycle: conflicting values {} and string (mismatched types struct and string):
+    ./values.cue:607:58
+    values.yaml:3063:14
+#values.prometheusOperator.prometheusConfigReloader.resources: conflicting values {} and bool (mismatched types struct and bool):
+    ./values.cue:563:18
+    values.yaml:3366:16
+#values.prometheusOperator.prometheusConfigReloader.resources: conflicting values {} and null (mismatched types struct and null):
+    ./values.cue:563:43
+    values.yaml:3366:16
+#values.prometheusOperator.prometheusConfigReloader.resources: conflicting values {} and number (mismatched types struct and number):
+    ./values.cue:563:25
+    values.yaml:3366:16
+#values.prometheusOperator.prometheusConfigReloader.resources: conflicting values {} and string (mismatched types struct and string):
+    ./values.cue:563:34
+    values.yaml:3366:16
 #values.prometheusOperator.serviceAccount.annotations: conflicting values {} and bool (mismatched types struct and bool):
-    ./values.cue:496:35
+    ./values.cue:520:35
     values.yaml:3058:18
 #values.prometheusOperator.serviceAccount.annotations: conflicting values {} and null (mismatched types struct and null):
-    ./values.cue:496:60
+    ./values.cue:520:60
     values.yaml:3058:18
 #values.prometheusOperator.serviceAccount.annotations: conflicting values {} and number (mismatched types struct and number):
-    ./values.cue:496:42
+    ./values.cue:520:42
     values.yaml:3058:18
 #values.prometheusOperator.serviceAccount.annotations: conflicting values {} and string (mismatched types struct and string):
-    ./values.cue:496:51
+    ./values.cue:520:51
     values.yaml:3058:18
 #values.prometheusOperator.serviceMonitor.additionalLabels: conflicting values {} and bool (mismatched types struct and bool):
-    ./values.cue:592:28
+    ./values.cue:657:28
     values.yaml:3169:23
 #values.prometheusOperator.serviceMonitor.additionalLabels: conflicting values {} and null (mismatched types struct and null):
-    ./values.cue:592:53
+    ./values.cue:657:53
     values.yaml:3169:23
 #values.prometheusOperator.serviceMonitor.additionalLabels: conflicting values {} and number (mismatched types struct and number):
-    ./values.cue:592:35
+    ./values.cue:657:35
     values.yaml:3169:23
 #values.prometheusOperator.serviceMonitor.additionalLabels: conflicting values {} and string (mismatched types struct and string):
-    ./values.cue:592:44
+    ./values.cue:657:44
     values.yaml:3169:23
 #values.prometheusOperator.strategy: conflicting values {} and bool (mismatched types struct and bool):
-    ./values.cue:526:26
+    ./values.cue:551:26
     values.yaml:2649:13
 #values.prometheusOperator.strategy: conflicting values {} and null (mismatched types struct and null):
-    ./values.cue:526:51
+    ./values.cue:551:51
     values.yaml:2649:13
 #values.prometheusOperator.strategy: conflicting values {} and number (mismatched types struct and number):
-    ./values.cue:526:33
+    ./values.cue:551:33
     values.yaml:2649:13
 #values.prometheusOperator.strategy: conflicting values {} and string (mismatched types struct and string):
-    ./values.cue:526:42
+    ./values.cue:551:42
     values.yaml:2649:13
 #values.thanosRuler.ingress.paths: conflicting values [] and bool (mismatched types list and bool):
-    ./values.cue:865:64
+    ./values.cue:931:64
     values.yaml:4968:12
 #values.thanosRuler.ingress.paths: conflicting values [] and null (mismatched types list and null):
-    ./values.cue:865:89
+    ./values.cue:931:89
     values.yaml:4968:12
 #values.thanosRuler.ingress.paths: conflicting values [] and number (mismatched types list and number):
-    ./values.cue:865:71
+    ./values.cue:931:71
     values.yaml:4968:12
 #values.thanosRuler.ingress.paths: conflicting values [] and string (mismatched types list and string):
-    ./values.cue:865:80
+    ./values.cue:931:80
     values.yaml:4968:12
 #values.thanosRuler.serviceMonitor.additionalLabels: conflicting values {} and bool (mismatched types struct and bool):
-    ./values.cue:980:28
+    ./values.cue:1046:28
     values.yaml:5078:23
 #values.thanosRuler.serviceMonitor.additionalLabels: conflicting values {} and null (mismatched types struct and null):
-    ./values.cue:980:53
+    ./values.cue:1046:53
     values.yaml:5078:23
 #values.thanosRuler.serviceMonitor.additionalLabels: conflicting values {} and number (mismatched types struct and number):
-    ./values.cue:980:35
+    ./values.cue:1046:35
     values.yaml:5078:23
 #values.thanosRuler.serviceMonitor.additionalLabels: conflicting values {} and string (mismatched types struct and string):
-    ./values.cue:980:44
+    ./values.cue:1046:44
     values.yaml:5078:23
 #values.thanosRuler.thanosRulerSpec.additionalConfig: conflicting values {} and bool (mismatched types struct and bool):
-    ./values.cue:965:33
+    ./values.cue:1031:33
     values.yaml:5427:23
 #values.thanosRuler.thanosRulerSpec.additionalConfig: conflicting values {} and null (mismatched types struct and null):
-    ./values.cue:965:58
+    ./values.cue:1031:58
     values.yaml:5427:23
 #values.thanosRuler.thanosRulerSpec.additionalConfig: conflicting values {} and number (mismatched types struct and number):
-    ./values.cue:965:40
+    ./values.cue:1031:40
     values.yaml:5427:23
 #values.thanosRuler.thanosRulerSpec.additionalConfig: conflicting values {} and string (mismatched types struct and string):
-    ./values.cue:965:49
+    ./values.cue:1031:49
     values.yaml:5427:23
 #values.thanosRuler.thanosRulerSpec.alertmanagersConfig.secret: conflicting values {} and bool (mismatched types struct and bool):
-    ./values.cue:926:14
+    ./values.cue:992:14
     values.yaml:5232:15
 #values.thanosRuler.thanosRulerSpec.alertmanagersConfig.secret: conflicting values {} and null (mismatched types struct and null):
-    ./values.cue:926:39
+    ./values.cue:992:39
     values.yaml:5232:15
 #values.thanosRuler.thanosRulerSpec.alertmanagersConfig.secret: conflicting values {} and number (mismatched types struct and number):
-    ./values.cue:926:21
+    ./values.cue:992:21
     values.yaml:5232:15
 #values.thanosRuler.thanosRulerSpec.alertmanagersConfig.secret: conflicting values {} and string (mismatched types struct and string):
-    ./values.cue:926:30
+    ./values.cue:992:30
     values.yaml:5232:15
 #values.thanosRuler.thanosRulerSpec.objectStorageConfig.secret: conflicting values {} and bool (mismatched types struct and bool):
-    ./values.cue:948:14
+    ./values.cue:1014:14
     values.yaml:5269:15
 #values.thanosRuler.thanosRulerSpec.objectStorageConfig.secret: conflicting values {} and null (mismatched types struct and null):
-    ./values.cue:948:39
+    ./values.cue:1014:39
     values.yaml:5269:15
 #values.thanosRuler.thanosRulerSpec.objectStorageConfig.secret: conflicting values {} and number (mismatched types struct and number):
-    ./values.cue:948:21
+    ./values.cue:1014:21
     values.yaml:5269:15
 #values.thanosRuler.thanosRulerSpec.objectStorageConfig.secret: conflicting values {} and string (mismatched types struct and string):
-    ./values.cue:948:30
+    ./values.cue:1014:30
     values.yaml:5269:15
 #values.thanosRuler.thanosRulerSpec.queryConfig.secret: conflicting values {} and bool (mismatched types struct and bool):
-    ./values.cue:936:14
+    ./values.cue:1002:14
     values.yaml:5295:15
 #values.thanosRuler.thanosRulerSpec.queryConfig.secret: conflicting values {} and null (mismatched types struct and null):
-    ./values.cue:936:39
+    ./values.cue:1002:39
     values.yaml:5295:15
 #values.thanosRuler.thanosRulerSpec.queryConfig.secret: conflicting values {} and number (mismatched types struct and number):
-    ./values.cue:936:21
+    ./values.cue:1002:21
     values.yaml:5295:15
 #values.thanosRuler.thanosRulerSpec.queryConfig.secret: conflicting values {} and string (mismatched types struct and string):
-    ./values.cue:936:30
+    ./values.cue:1002:30
     values.yaml:5295:15
 alertmanager_alertmanager.0.metadata.labels.app: invalid interpolation: cannot use {"app.kubernetes.io/managed-by":*"Helm" | string,"app.kubernetes.io/instance":_,"app.kubernetes.io/version":"\"82.2.1\"","app.kubernetes.io/part-of":"",chart:_,release:_|_(_kube_prometheus_stack_labels.release: invalid interpolation: non-concrete value _ (type _)),heritage:"Helm"} (type struct) as type (bool|string|bytes|number):
     ./alertmanager_alertmanager.cue:20:11
@@ -993,6 +1077,8 @@ alertmanager_alertmanager.0.spec.externalUrl: invalid interpolation: cannot use 
 #values.defaultRules.additionalRuleGroupLabels.nodeExporterRecording: 4 errors in empty disjunction::
     ./alertmanager_alertmanager.cue:96:57
 #values.defaultRules.additionalRuleLabels: 4 errors in empty disjunction::
+    ./alertmanager_alertmanager.cue:96:57
+#values.grafana.operator.annotations: 4 errors in empty disjunction::
     ./alertmanager_alertmanager.cue:96:57
 #values.kubeApiServer.serviceMonitor.additionalLabels: 4 errors in empty disjunction::
     ./alertmanager_alertmanager.cue:96:57
@@ -1068,6 +1154,18 @@ alertmanager_alertmanager.0.spec.externalUrl: invalid interpolation: cannot use 
     ./alertmanager_alertmanager.cue:96:57
 #values.prometheusOperator.denyNamespaces: 4 errors in empty disjunction::
     ./alertmanager_alertmanager.cue:96:57
+#values.prometheusOperator.dnsConfig: 4 errors in empty disjunction::
+    ./alertmanager_alertmanager.cue:96:57
+#values.prometheusOperator.extraArgs: 4 errors in empty disjunction::
+    ./alertmanager_alertmanager.cue:96:57
+#values.prometheusOperator.extraVolumeMounts: 4 errors in empty disjunction::
+    ./alertmanager_alertmanager.cue:96:57
+#values.prometheusOperator.extraVolumes: 4 errors in empty disjunction::
+    ./alertmanager_alertmanager.cue:96:57
+#values.prometheusOperator.lifecycle: 4 errors in empty disjunction::
+    ./alertmanager_alertmanager.cue:96:57
+#values.prometheusOperator.prometheusConfigReloader.resources: 4 errors in empty disjunction::
+    ./alertmanager_alertmanager.cue:96:57
 #values.prometheusOperator.serviceAccount.annotations: 4 errors in empty disjunction::
     ./alertmanager_alertmanager.cue:96:57
 #values.prometheusOperator.serviceMonitor.additionalLabels: 4 errors in empty disjunction::
@@ -1122,11 +1220,11 @@ results: error in call to list.FlattenN: invalid interpolation: cannot use {"app
 #values.alertmanager.ingress.paths: incompatible list lengths (0 and 1):
     ./values.cue:182:12
 #values.prometheus.ingress.paths: incompatible list lengths (0 and 1):
-    ./values.cue:662:12
+    ./values.cue:760:12
 #values.prometheus.thanosIngress.paths: incompatible list lengths (0 and 1):
-    ./values.cue:706:12
+    ./values.cue:772:12
 #values.thanosRuler.ingress.paths: incompatible list lengths (0 and 1):
-    ./values.cue:865:12
+    ./values.cue:931:12
 -- cue export --
 exit status 1
 #values.alertmanager.additionalLabels: conflicting values {} and bool (mismatched types struct and bool):
@@ -1238,760 +1336,844 @@ exit status 1
     ./values.cue:273:44
     values.yaml:825:23
 #values.coreDns.serviceMonitor.additionalLabels: conflicting values {} and bool (mismatched types struct and bool):
-    ./values.cue:1051:28
+    ./values.cue:1117:28
     values.yaml:2052:23
 #values.coreDns.serviceMonitor.additionalLabels: conflicting values {} and null (mismatched types struct and null):
-    ./values.cue:1051:53
+    ./values.cue:1117:53
     values.yaml:2052:23
 #values.coreDns.serviceMonitor.additionalLabels: conflicting values {} and number (mismatched types struct and number):
-    ./values.cue:1051:35
+    ./values.cue:1117:35
     values.yaml:2052:23
 #values.coreDns.serviceMonitor.additionalLabels: conflicting values {} and string (mismatched types struct and string):
-    ./values.cue:1051:44
+    ./values.cue:1117:44
     values.yaml:2052:23
 #values.coreDns.serviceMonitor.targetLabels: conflicting values [] and bool (mismatched types list and bool):
-    ./values.cue:1053:28
+    ./values.cue:1119:28
     values.yaml:2057:19
 #values.coreDns.serviceMonitor.targetLabels: conflicting values [] and null (mismatched types list and null):
-    ./values.cue:1053:53
+    ./values.cue:1119:53
     values.yaml:2057:19
 #values.coreDns.serviceMonitor.targetLabels: conflicting values [] and number (mismatched types list and number):
-    ./values.cue:1053:35
+    ./values.cue:1119:35
     values.yaml:2057:19
 #values.coreDns.serviceMonitor.targetLabels: conflicting values [] and string (mismatched types list and string):
-    ./values.cue:1053:44
+    ./values.cue:1119:44
     values.yaml:2057:19
 #values.defaultRules.additionalRuleGroupLabels.k8sContainerCpuUsageSecondsTotal: conflicting values {} and bool (mismatched types struct and bool):
-    ./values.cue:1425:40
+    ./values.cue:1491:40
     values.yaml:234:39
 #values.defaultRules.additionalRuleGroupLabels.k8sContainerCpuUsageSecondsTotal: conflicting values {} and null (mismatched types struct and null):
-    ./values.cue:1425:65
+    ./values.cue:1491:65
     values.yaml:234:39
 #values.defaultRules.additionalRuleGroupLabels.k8sContainerCpuUsageSecondsTotal: conflicting values {} and number (mismatched types struct and number):
-    ./values.cue:1425:47
+    ./values.cue:1491:47
     values.yaml:234:39
 #values.defaultRules.additionalRuleGroupLabels.k8sContainerCpuUsageSecondsTotal: conflicting values {} and string (mismatched types struct and string):
-    ./values.cue:1425:56
+    ./values.cue:1491:56
     values.yaml:234:39
 #values.defaultRules.additionalRuleGroupLabels.k8sContainerMemoryCache: conflicting values {} and bool (mismatched types struct and bool):
-    ./values.cue:1426:40
+    ./values.cue:1492:40
     values.yaml:235:30
 #values.defaultRules.additionalRuleGroupLabels.k8sContainerMemoryCache: conflicting values {} and null (mismatched types struct and null):
-    ./values.cue:1426:65
+    ./values.cue:1492:65
     values.yaml:235:30
 #values.defaultRules.additionalRuleGroupLabels.k8sContainerMemoryCache: conflicting values {} and number (mismatched types struct and number):
-    ./values.cue:1426:47
+    ./values.cue:1492:47
     values.yaml:235:30
 #values.defaultRules.additionalRuleGroupLabels.k8sContainerMemoryCache: conflicting values {} and string (mismatched types struct and string):
-    ./values.cue:1426:56
+    ./values.cue:1492:56
     values.yaml:235:30
 #values.defaultRules.additionalRuleGroupLabels.k8sContainerMemoryRss: conflicting values {} and bool (mismatched types struct and bool):
-    ./values.cue:1429:40
+    ./values.cue:1495:40
     values.yaml:236:28
 #values.defaultRules.additionalRuleGroupLabels.k8sContainerMemoryRss: conflicting values {} and null (mismatched types struct and null):
-    ./values.cue:1429:65
+    ./values.cue:1495:65
     values.yaml:236:28
 #values.defaultRules.additionalRuleGroupLabels.k8sContainerMemoryRss: conflicting values {} and number (mismatched types struct and number):
-    ./values.cue:1429:47
+    ./values.cue:1495:47
     values.yaml:236:28
 #values.defaultRules.additionalRuleGroupLabels.k8sContainerMemoryRss: conflicting values {} and string (mismatched types struct and string):
-    ./values.cue:1429:56
+    ./values.cue:1495:56
     values.yaml:236:28
 #values.defaultRules.additionalRuleGroupLabels.k8sContainerMemorySwap: conflicting values {} and bool (mismatched types struct and bool):
-    ./values.cue:1430:40
+    ./values.cue:1496:40
     values.yaml:237:29
 #values.defaultRules.additionalRuleGroupLabels.k8sContainerMemorySwap: conflicting values {} and null (mismatched types struct and null):
-    ./values.cue:1430:65
+    ./values.cue:1496:65
     values.yaml:237:29
 #values.defaultRules.additionalRuleGroupLabels.k8sContainerMemorySwap: conflicting values {} and number (mismatched types struct and number):
-    ./values.cue:1430:47
+    ./values.cue:1496:47
     values.yaml:237:29
 #values.defaultRules.additionalRuleGroupLabels.k8sContainerMemorySwap: conflicting values {} and string (mismatched types struct and string):
-    ./values.cue:1430:56
+    ./values.cue:1496:56
     values.yaml:237:29
 #values.defaultRules.additionalRuleGroupLabels.k8sContainerResource: conflicting values {} and bool (mismatched types struct and bool):
-    ./values.cue:1432:40
+    ./values.cue:1498:40
     values.yaml:238:27
 #values.defaultRules.additionalRuleGroupLabels.k8sContainerResource: conflicting values {} and null (mismatched types struct and null):
-    ./values.cue:1432:65
+    ./values.cue:1498:65
     values.yaml:238:27
 #values.defaultRules.additionalRuleGroupLabels.k8sContainerResource: conflicting values {} and number (mismatched types struct and number):
-    ./values.cue:1432:47
+    ./values.cue:1498:47
     values.yaml:238:27
 #values.defaultRules.additionalRuleGroupLabels.k8sContainerResource: conflicting values {} and string (mismatched types struct and string):
-    ./values.cue:1432:56
+    ./values.cue:1498:56
     values.yaml:238:27
 #values.defaultRules.additionalRuleGroupLabels.k8sPodOwner: conflicting values {} and bool (mismatched types struct and bool):
-    ./values.cue:1433:40
+    ./values.cue:1499:40
     values.yaml:239:18
 #values.defaultRules.additionalRuleGroupLabels.k8sPodOwner: conflicting values {} and null (mismatched types struct and null):
-    ./values.cue:1433:65
+    ./values.cue:1499:65
     values.yaml:239:18
 #values.defaultRules.additionalRuleGroupLabels.k8sPodOwner: conflicting values {} and number (mismatched types struct and number):
-    ./values.cue:1433:47
+    ./values.cue:1499:47
     values.yaml:239:18
 #values.defaultRules.additionalRuleGroupLabels.k8sPodOwner: conflicting values {} and string (mismatched types struct and string):
-    ./values.cue:1433:56
+    ./values.cue:1499:56
     values.yaml:239:18
 #values.defaultRules.additionalRuleGroupLabels.kubeApiserverAvailability: conflicting values {} and bool (mismatched types struct and bool):
-    ./values.cue:1434:40
+    ./values.cue:1500:40
     values.yaml:240:32
 #values.defaultRules.additionalRuleGroupLabels.kubeApiserverAvailability: conflicting values {} and null (mismatched types struct and null):
-    ./values.cue:1434:65
+    ./values.cue:1500:65
     values.yaml:240:32
 #values.defaultRules.additionalRuleGroupLabels.kubeApiserverAvailability: conflicting values {} and number (mismatched types struct and number):
-    ./values.cue:1434:47
+    ./values.cue:1500:47
     values.yaml:240:32
 #values.defaultRules.additionalRuleGroupLabels.kubeApiserverAvailability: conflicting values {} and string (mismatched types struct and string):
-    ./values.cue:1434:56
+    ./values.cue:1500:56
     values.yaml:240:32
 #values.defaultRules.additionalRuleGroupLabels.kubeApiserverBurnrate: conflicting values {} and bool (mismatched types struct and bool):
-    ./values.cue:1435:40
+    ./values.cue:1501:40
     values.yaml:241:28
 #values.defaultRules.additionalRuleGroupLabels.kubeApiserverBurnrate: conflicting values {} and null (mismatched types struct and null):
-    ./values.cue:1435:65
+    ./values.cue:1501:65
     values.yaml:241:28
 #values.defaultRules.additionalRuleGroupLabels.kubeApiserverBurnrate: conflicting values {} and number (mismatched types struct and number):
-    ./values.cue:1435:47
+    ./values.cue:1501:47
     values.yaml:241:28
 #values.defaultRules.additionalRuleGroupLabels.kubeApiserverBurnrate: conflicting values {} and string (mismatched types struct and string):
-    ./values.cue:1435:56
+    ./values.cue:1501:56
     values.yaml:241:28
 #values.defaultRules.additionalRuleGroupLabels.kubeApiserverHistogram: conflicting values {} and bool (mismatched types struct and bool):
-    ./values.cue:1436:40
+    ./values.cue:1502:40
     values.yaml:242:29
 #values.defaultRules.additionalRuleGroupLabels.kubeApiserverHistogram: conflicting values {} and null (mismatched types struct and null):
-    ./values.cue:1436:65
+    ./values.cue:1502:65
     values.yaml:242:29
 #values.defaultRules.additionalRuleGroupLabels.kubeApiserverHistogram: conflicting values {} and number (mismatched types struct and number):
-    ./values.cue:1436:47
+    ./values.cue:1502:47
     values.yaml:242:29
 #values.defaultRules.additionalRuleGroupLabels.kubeApiserverHistogram: conflicting values {} and string (mismatched types struct and string):
-    ./values.cue:1436:56
+    ./values.cue:1502:56
     values.yaml:242:29
 #values.defaultRules.additionalRuleGroupLabels.kubePrometheusGeneral: conflicting values {} and bool (mismatched types struct and bool):
-    ./values.cue:1437:40
+    ./values.cue:1503:40
     values.yaml:247:28
 #values.defaultRules.additionalRuleGroupLabels.kubePrometheusGeneral: conflicting values {} and null (mismatched types struct and null):
-    ./values.cue:1437:65
+    ./values.cue:1503:65
     values.yaml:247:28
 #values.defaultRules.additionalRuleGroupLabels.kubePrometheusGeneral: conflicting values {} and number (mismatched types struct and number):
-    ./values.cue:1437:47
+    ./values.cue:1503:47
     values.yaml:247:28
 #values.defaultRules.additionalRuleGroupLabels.kubePrometheusGeneral: conflicting values {} and string (mismatched types struct and string):
-    ./values.cue:1437:56
+    ./values.cue:1503:56
     values.yaml:247:28
 #values.defaultRules.additionalRuleGroupLabels.kubePrometheusNodeRecording: conflicting values {} and bool (mismatched types struct and bool):
-    ./values.cue:1438:40
+    ./values.cue:1504:40
     values.yaml:248:34
 #values.defaultRules.additionalRuleGroupLabels.kubePrometheusNodeRecording: conflicting values {} and null (mismatched types struct and null):
-    ./values.cue:1438:65
+    ./values.cue:1504:65
     values.yaml:248:34
 #values.defaultRules.additionalRuleGroupLabels.kubePrometheusNodeRecording: conflicting values {} and number (mismatched types struct and number):
-    ./values.cue:1438:47
+    ./values.cue:1504:47
     values.yaml:248:34
 #values.defaultRules.additionalRuleGroupLabels.kubePrometheusNodeRecording: conflicting values {} and string (mismatched types struct and string):
-    ./values.cue:1438:56
+    ./values.cue:1504:56
     values.yaml:248:34
 #values.defaultRules.additionalRuleGroupLabels.kubeSchedulerRecording: conflicting values {} and bool (mismatched types struct and bool):
-    ./values.cue:1439:40
+    ./values.cue:1505:40
     values.yaml:254:29
 #values.defaultRules.additionalRuleGroupLabels.kubeSchedulerRecording: conflicting values {} and null (mismatched types struct and null):
-    ./values.cue:1439:65
+    ./values.cue:1505:65
     values.yaml:254:29
 #values.defaultRules.additionalRuleGroupLabels.kubeSchedulerRecording: conflicting values {} and number (mismatched types struct and number):
-    ./values.cue:1439:47
+    ./values.cue:1505:47
     values.yaml:254:29
 #values.defaultRules.additionalRuleGroupLabels.kubeSchedulerRecording: conflicting values {} and string (mismatched types struct and string):
-    ./values.cue:1439:56
+    ./values.cue:1505:56
     values.yaml:254:29
 #values.defaultRules.additionalRuleGroupLabels.kubelet: conflicting values {} and bool (mismatched types struct and bool):
-    ./values.cue:1440:40
+    ./values.cue:1506:40
     values.yaml:245:14
 #values.defaultRules.additionalRuleGroupLabels.kubelet: conflicting values {} and null (mismatched types struct and null):
-    ./values.cue:1440:65
+    ./values.cue:1506:65
     values.yaml:245:14
 #values.defaultRules.additionalRuleGroupLabels.kubelet: conflicting values {} and number (mismatched types struct and number):
-    ./values.cue:1440:47
+    ./values.cue:1506:47
     values.yaml:245:14
 #values.defaultRules.additionalRuleGroupLabels.kubelet: conflicting values {} and string (mismatched types struct and string):
-    ./values.cue:1440:56
+    ./values.cue:1506:56
     values.yaml:245:14
 #values.defaultRules.additionalRuleGroupLabels.node: conflicting values {} and bool (mismatched types struct and bool):
-    ./values.cue:1442:40
+    ./values.cue:1508:40
     values.yaml:257:11
 #values.defaultRules.additionalRuleGroupLabels.node: conflicting values {} and null (mismatched types struct and null):
-    ./values.cue:1442:65
+    ./values.cue:1508:65
     values.yaml:257:11
 #values.defaultRules.additionalRuleGroupLabels.node: conflicting values {} and number (mismatched types struct and number):
-    ./values.cue:1442:47
+    ./values.cue:1508:47
     values.yaml:257:11
 #values.defaultRules.additionalRuleGroupLabels.node: conflicting values {} and string (mismatched types struct and string):
-    ./values.cue:1442:56
+    ./values.cue:1508:56
     values.yaml:257:11
 #values.defaultRules.additionalRuleGroupLabels.nodeExporterRecording: conflicting values {} and bool (mismatched types struct and bool):
-    ./values.cue:1441:40
+    ./values.cue:1507:40
     values.yaml:259:28
 #values.defaultRules.additionalRuleGroupLabels.nodeExporterRecording: conflicting values {} and null (mismatched types struct and null):
-    ./values.cue:1441:65
+    ./values.cue:1507:65
     values.yaml:259:28
 #values.defaultRules.additionalRuleGroupLabels.nodeExporterRecording: conflicting values {} and number (mismatched types struct and number):
-    ./values.cue:1441:47
+    ./values.cue:1507:47
     values.yaml:259:28
 #values.defaultRules.additionalRuleGroupLabels.nodeExporterRecording: conflicting values {} and string (mismatched types struct and string):
-    ./values.cue:1441:56
+    ./values.cue:1507:56
     values.yaml:259:28
 #values.defaultRules.additionalRuleLabels: conflicting values {} and bool (mismatched types struct and bool):
-    ./values.cue:1421:33
+    ./values.cue:1487:33
     values.yaml:223:25
 #values.defaultRules.additionalRuleLabels: conflicting values {} and null (mismatched types struct and null):
-    ./values.cue:1421:58
+    ./values.cue:1487:58
     values.yaml:223:25
 #values.defaultRules.additionalRuleLabels: conflicting values {} and number (mismatched types struct and number):
-    ./values.cue:1421:40
+    ./values.cue:1487:40
     values.yaml:223:25
 #values.defaultRules.additionalRuleLabels: conflicting values {} and string (mismatched types struct and string):
-    ./values.cue:1421:49
+    ./values.cue:1487:49
     values.yaml:223:25
+#values.grafana.operator.annotations: conflicting values {} and bool (mismatched types struct and bool):
+    ./values.cue:311:36
+    values.yaml:1272:18
+#values.grafana.operator.annotations: conflicting values {} and null (mismatched types struct and null):
+    ./values.cue:311:61
+    values.yaml:1272:18
+#values.grafana.operator.annotations: conflicting values {} and number (mismatched types struct and number):
+    ./values.cue:311:43
+    values.yaml:1272:18
+#values.grafana.operator.annotations: conflicting values {} and string (mismatched types struct and string):
+    ./values.cue:311:52
+    values.yaml:1272:18
 #values.kubeApiServer.serviceMonitor.additionalLabels: conflicting values {} and bool (mismatched types struct and bool):
-    ./values.cue:1077:28
+    ./values.cue:1143:28
     values.yaml:1614:23
 #values.kubeApiServer.serviceMonitor.additionalLabels: conflicting values {} and null (mismatched types struct and null):
-    ./values.cue:1077:53
+    ./values.cue:1143:53
     values.yaml:1614:23
 #values.kubeApiServer.serviceMonitor.additionalLabels: conflicting values {} and number (mismatched types struct and number):
-    ./values.cue:1077:35
+    ./values.cue:1143:35
     values.yaml:1614:23
 #values.kubeApiServer.serviceMonitor.additionalLabels: conflicting values {} and string (mismatched types struct and string):
-    ./values.cue:1077:44
+    ./values.cue:1143:44
     values.yaml:1614:23
 #values.kubeApiServer.serviceMonitor.targetLabels: conflicting values [] and bool (mismatched types list and bool):
-    ./values.cue:1088:28
+    ./values.cue:1154:28
     values.yaml:1619:19
 #values.kubeApiServer.serviceMonitor.targetLabels: conflicting values [] and null (mismatched types list and null):
-    ./values.cue:1088:53
+    ./values.cue:1154:53
     values.yaml:1619:19
 #values.kubeApiServer.serviceMonitor.targetLabels: conflicting values [] and number (mismatched types list and number):
-    ./values.cue:1088:35
+    ./values.cue:1154:35
     values.yaml:1619:19
 #values.kubeApiServer.serviceMonitor.targetLabels: conflicting values [] and string (mismatched types list and string):
-    ./values.cue:1088:44
+    ./values.cue:1154:44
     values.yaml:1619:19
 #values.kubeControllerManager.serviceMonitor.additionalLabels: conflicting values {} and bool (mismatched types struct and bool):
-    ./values.cue:1105:28
+    ./values.cue:1171:28
     values.yaml:1970:23
 #values.kubeControllerManager.serviceMonitor.additionalLabels: conflicting values {} and null (mismatched types struct and null):
-    ./values.cue:1105:53
+    ./values.cue:1171:53
     values.yaml:1970:23
 #values.kubeControllerManager.serviceMonitor.additionalLabels: conflicting values {} and number (mismatched types struct and number):
-    ./values.cue:1105:35
+    ./values.cue:1171:35
     values.yaml:1970:23
 #values.kubeControllerManager.serviceMonitor.additionalLabels: conflicting values {} and string (mismatched types struct and string):
-    ./values.cue:1105:44
+    ./values.cue:1171:44
     values.yaml:1970:23
 #values.kubeControllerManager.serviceMonitor.targetLabels: conflicting values [] and bool (mismatched types list and bool):
-    ./values.cue:1107:28
+    ./values.cue:1173:28
     values.yaml:1975:19
 #values.kubeControllerManager.serviceMonitor.targetLabels: conflicting values [] and null (mismatched types list and null):
-    ./values.cue:1107:53
+    ./values.cue:1173:53
     values.yaml:1975:19
 #values.kubeControllerManager.serviceMonitor.targetLabels: conflicting values [] and number (mismatched types list and number):
-    ./values.cue:1107:35
+    ./values.cue:1173:35
     values.yaml:1975:19
 #values.kubeControllerManager.serviceMonitor.targetLabels: conflicting values [] and string (mismatched types list and string):
-    ./values.cue:1107:44
+    ./values.cue:1173:44
     values.yaml:1975:19
 #values.kubeDns.serviceMonitor.additionalLabels: conflicting values {} and bool (mismatched types struct and bool):
-    ./values.cue:1161:31
+    ./values.cue:1227:31
     values.yaml:2155:23
 #values.kubeDns.serviceMonitor.additionalLabels: conflicting values {} and null (mismatched types struct and null):
-    ./values.cue:1161:56
+    ./values.cue:1227:56
     values.yaml:2155:23
 #values.kubeDns.serviceMonitor.additionalLabels: conflicting values {} and number (mismatched types struct and number):
-    ./values.cue:1161:38
+    ./values.cue:1227:38
     values.yaml:2155:23
 #values.kubeDns.serviceMonitor.additionalLabels: conflicting values {} and string (mismatched types struct and string):
-    ./values.cue:1161:47
+    ./values.cue:1227:47
     values.yaml:2155:23
 #values.kubeDns.serviceMonitor.targetLabels: conflicting values [] and bool (mismatched types list and bool):
-    ./values.cue:1163:31
+    ./values.cue:1229:31
     values.yaml:2160:19
 #values.kubeDns.serviceMonitor.targetLabels: conflicting values [] and null (mismatched types list and null):
-    ./values.cue:1163:56
+    ./values.cue:1229:56
     values.yaml:2160:19
 #values.kubeDns.serviceMonitor.targetLabels: conflicting values [] and number (mismatched types list and number):
-    ./values.cue:1163:38
+    ./values.cue:1229:38
     values.yaml:2160:19
 #values.kubeDns.serviceMonitor.targetLabels: conflicting values [] and string (mismatched types list and string):
-    ./values.cue:1163:47
+    ./values.cue:1229:47
     values.yaml:2160:19
 #values.kubeEtcd.serviceMonitor.additionalLabels: conflicting values {} and bool (mismatched types struct and bool):
-    ./values.cue:1187:28
+    ./values.cue:1253:28
     values.yaml:2269:23
 #values.kubeEtcd.serviceMonitor.additionalLabels: conflicting values {} and null (mismatched types struct and null):
-    ./values.cue:1187:53
+    ./values.cue:1253:53
     values.yaml:2269:23
 #values.kubeEtcd.serviceMonitor.additionalLabels: conflicting values {} and number (mismatched types struct and number):
-    ./values.cue:1187:35
+    ./values.cue:1253:35
     values.yaml:2269:23
 #values.kubeEtcd.serviceMonitor.additionalLabels: conflicting values {} and string (mismatched types struct and string):
-    ./values.cue:1187:44
+    ./values.cue:1253:44
     values.yaml:2269:23
 #values.kubeEtcd.serviceMonitor.targetLabels: conflicting values [] and bool (mismatched types list and bool):
-    ./values.cue:1189:28
+    ./values.cue:1255:28
     values.yaml:2274:19
 #values.kubeEtcd.serviceMonitor.targetLabels: conflicting values [] and null (mismatched types list and null):
-    ./values.cue:1189:53
+    ./values.cue:1255:53
     values.yaml:2274:19
 #values.kubeEtcd.serviceMonitor.targetLabels: conflicting values [] and number (mismatched types list and number):
-    ./values.cue:1189:35
+    ./values.cue:1255:35
     values.yaml:2274:19
 #values.kubeEtcd.serviceMonitor.targetLabels: conflicting values [] and string (mismatched types list and string):
-    ./values.cue:1189:44
+    ./values.cue:1255:44
     values.yaml:2274:19
 #values.kubeProxy.serviceMonitor.additionalLabels: conflicting values {} and bool (mismatched types struct and bool):
-    ./values.cue:1230:28
+    ./values.cue:1296:28
     values.yaml:2480:23
 #values.kubeProxy.serviceMonitor.additionalLabels: conflicting values {} and null (mismatched types struct and null):
-    ./values.cue:1230:53
+    ./values.cue:1296:53
     values.yaml:2480:23
 #values.kubeProxy.serviceMonitor.additionalLabels: conflicting values {} and number (mismatched types struct and number):
-    ./values.cue:1230:35
+    ./values.cue:1296:35
     values.yaml:2480:23
 #values.kubeProxy.serviceMonitor.additionalLabels: conflicting values {} and string (mismatched types struct and string):
-    ./values.cue:1230:44
+    ./values.cue:1296:44
     values.yaml:2480:23
 #values.kubeProxy.serviceMonitor.targetLabels: conflicting values [] and bool (mismatched types list and bool):
-    ./values.cue:1232:28
+    ./values.cue:1298:28
     values.yaml:2485:19
 #values.kubeProxy.serviceMonitor.targetLabels: conflicting values [] and null (mismatched types list and null):
-    ./values.cue:1232:53
+    ./values.cue:1298:53
     values.yaml:2485:19
 #values.kubeProxy.serviceMonitor.targetLabels: conflicting values [] and number (mismatched types list and number):
-    ./values.cue:1232:35
+    ./values.cue:1298:35
     values.yaml:2485:19
 #values.kubeProxy.serviceMonitor.targetLabels: conflicting values [] and string (mismatched types list and string):
-    ./values.cue:1232:44
+    ./values.cue:1298:44
     values.yaml:2485:19
 #values.kubeScheduler.serviceMonitor.additionalLabels: conflicting values {} and bool (mismatched types struct and bool):
-    ./values.cue:1268:28
+    ./values.cue:1334:28
     values.yaml:2384:23
 #values.kubeScheduler.serviceMonitor.additionalLabels: conflicting values {} and null (mismatched types struct and null):
-    ./values.cue:1268:53
+    ./values.cue:1334:53
     values.yaml:2384:23
 #values.kubeScheduler.serviceMonitor.additionalLabels: conflicting values {} and number (mismatched types struct and number):
-    ./values.cue:1268:35
+    ./values.cue:1334:35
     values.yaml:2384:23
 #values.kubeScheduler.serviceMonitor.additionalLabels: conflicting values {} and string (mismatched types struct and string):
-    ./values.cue:1268:44
+    ./values.cue:1334:44
     values.yaml:2384:23
 #values.kubeScheduler.serviceMonitor.targetLabels: conflicting values [] and bool (mismatched types list and bool):
-    ./values.cue:1270:28
+    ./values.cue:1336:28
     values.yaml:2389:19
 #values.kubeScheduler.serviceMonitor.targetLabels: conflicting values [] and null (mismatched types list and null):
-    ./values.cue:1270:53
+    ./values.cue:1336:53
     values.yaml:2389:19
 #values.kubeScheduler.serviceMonitor.targetLabels: conflicting values [] and number (mismatched types list and number):
-    ./values.cue:1270:35
+    ./values.cue:1336:35
     values.yaml:2389:19
 #values.kubeScheduler.serviceMonitor.targetLabels: conflicting values [] and string (mismatched types list and string):
-    ./values.cue:1270:44
+    ./values.cue:1336:44
     values.yaml:2389:19
 #values.kubelet.serviceMonitor.additionalLabels: conflicting values {} and bool (mismatched types struct and bool):
-    ./values.cue:357:32
+    ./values.cue:381:32
     values.yaml:1859:23
 #values.kubelet.serviceMonitor.additionalLabels: conflicting values {} and null (mismatched types struct and null):
-    ./values.cue:357:57
+    ./values.cue:381:57
     values.yaml:1859:23
 #values.kubelet.serviceMonitor.additionalLabels: conflicting values {} and number (mismatched types struct and number):
-    ./values.cue:357:39
+    ./values.cue:381:39
     values.yaml:1859:23
 #values.kubelet.serviceMonitor.additionalLabels: conflicting values {} and string (mismatched types struct and string):
-    ./values.cue:357:48
+    ./values.cue:381:48
     values.yaml:1859:23
 #values.kubelet.serviceMonitor.attachMetadata: conflicting values {node:false} and bool (mismatched types struct and bool):
-    ./values.cue:363:32
+    ./values.cue:387:32
 #values.kubelet.serviceMonitor.attachMetadata: conflicting values {node:false} and null (mismatched types struct and null):
-    ./values.cue:363:57
+    ./values.cue:387:57
 #values.kubelet.serviceMonitor.attachMetadata: conflicting values {node:false} and number (mismatched types struct and number):
-    ./values.cue:363:39
+    ./values.cue:387:39
 #values.kubelet.serviceMonitor.attachMetadata: conflicting values {node:false} and string (mismatched types struct and string):
-    ./values.cue:363:48
+    ./values.cue:387:48
 #values.kubelet.serviceMonitor.targetLabels: conflicting values [] and bool (mismatched types list and bool):
-    ./values.cue:364:32
+    ./values.cue:388:32
     values.yaml:1864:19
 #values.kubelet.serviceMonitor.targetLabels: conflicting values [] and null (mismatched types list and null):
-    ./values.cue:364:57
+    ./values.cue:388:57
     values.yaml:1864:19
 #values.kubelet.serviceMonitor.targetLabels: conflicting values [] and number (mismatched types list and number):
-    ./values.cue:364:39
+    ./values.cue:388:39
     values.yaml:1864:19
 #values.kubelet.serviceMonitor.targetLabels: conflicting values [] and string (mismatched types list and string):
-    ./values.cue:364:48
+    ./values.cue:388:48
     values.yaml:1864:19
 #values.prometheus.additionalLabels: conflicting values {} and bool (mismatched types struct and bool):
-    ./values.cue:743:22
+    ./values.cue:809:22
     values.yaml:3426:21
 #values.prometheus.additionalLabels: conflicting values {} and null (mismatched types struct and null):
-    ./values.cue:743:47
+    ./values.cue:809:47
     values.yaml:3426:21
 #values.prometheus.additionalLabels: conflicting values {} and number (mismatched types struct and number):
-    ./values.cue:743:29
+    ./values.cue:809:29
     values.yaml:3426:21
 #values.prometheus.additionalLabels: conflicting values {} and string (mismatched types struct and string):
-    ./values.cue:743:38
+    ./values.cue:809:38
     values.yaml:3426:21
 #values.prometheus.annotations: conflicting values {} and bool (mismatched types struct and bool):
-    ./values.cue:744:22
+    ./values.cue:810:22
     values.yaml:3422:16
 #values.prometheus.annotations: conflicting values {} and null (mismatched types struct and null):
-    ./values.cue:744:47
+    ./values.cue:810:47
     values.yaml:3422:16
 #values.prometheus.annotations: conflicting values {} and number (mismatched types struct and number):
-    ./values.cue:744:29
+    ./values.cue:810:29
     values.yaml:3422:16
 #values.prometheus.annotations: conflicting values {} and string (mismatched types struct and string):
-    ./values.cue:744:38
+    ./values.cue:810:38
     values.yaml:3422:16
 #values.prometheus.ingress.paths: conflicting values [] and bool (mismatched types list and bool):
-    ./values.cue:662:62
+    ./values.cue:760:62
     values.yaml:3751:12
 #values.prometheus.ingress.paths: conflicting values [] and null (mismatched types list and null):
-    ./values.cue:662:87
+    ./values.cue:760:87
     values.yaml:3751:12
 #values.prometheus.ingress.paths: conflicting values [] and number (mismatched types list and number):
-    ./values.cue:662:69
+    ./values.cue:760:69
     values.yaml:3751:12
 #values.prometheus.ingress.paths: conflicting values [] and string (mismatched types list and string):
-    ./values.cue:662:78
+    ./values.cue:760:78
     values.yaml:3751:12
 #values.prometheus.prometheusSpec.additionalScrapeConfigs: conflicting values [] and bool (mismatched types list and bool):
-    ./values.cue:620:45
+    ./values.cue:687:45
     values.yaml:4408:30
 #values.prometheus.prometheusSpec.additionalScrapeConfigs: conflicting values [] and null (mismatched types list and null):
-    ./values.cue:620:70
+    ./values.cue:687:70
     values.yaml:4408:30
 #values.prometheus.prometheusSpec.additionalScrapeConfigs: conflicting values [] and number (mismatched types list and number):
-    ./values.cue:620:52
+    ./values.cue:687:52
     values.yaml:4408:30
 #values.prometheus.prometheusSpec.additionalScrapeConfigs: conflicting values [] and string (mismatched types list and string):
-    ./values.cue:620:61
+    ./values.cue:687:61
     values.yaml:4408:30
 #values.prometheus.serviceAccount.annotations: conflicting values {} and bool (mismatched types struct and bool):
-    ./values.cue:610:35
+    ./values.cue:675:35
     values.yaml:3459:18
 #values.prometheus.serviceAccount.annotations: conflicting values {} and null (mismatched types struct and null):
-    ./values.cue:610:60
+    ./values.cue:675:60
     values.yaml:3459:18
 #values.prometheus.serviceAccount.annotations: conflicting values {} and number (mismatched types struct and number):
-    ./values.cue:610:42
+    ./values.cue:675:42
     values.yaml:3459:18
 #values.prometheus.serviceAccount.annotations: conflicting values {} and string (mismatched types struct and string):
-    ./values.cue:610:51
+    ./values.cue:675:51
     values.yaml:3459:18
 #values.prometheus.serviceMonitor.additionalLabels: conflicting values {} and bool (mismatched types struct and bool):
-    ./values.cue:748:28
+    ./values.cue:814:28
     values.yaml:3860:23
 #values.prometheus.serviceMonitor.additionalLabels: conflicting values {} and null (mismatched types struct and null):
-    ./values.cue:748:53
+    ./values.cue:814:53
     values.yaml:3860:23
 #values.prometheus.serviceMonitor.additionalLabels: conflicting values {} and number (mismatched types struct and number):
-    ./values.cue:748:35
+    ./values.cue:814:35
     values.yaml:3860:23
 #values.prometheus.serviceMonitor.additionalLabels: conflicting values {} and string (mismatched types struct and string):
-    ./values.cue:748:44
+    ./values.cue:814:44
     values.yaml:3860:23
 #values.prometheus.thanosIngress.paths: conflicting values [] and bool (mismatched types list and bool):
-    ./values.cue:706:62
+    ./values.cue:772:62
     values.yaml:3704:12
 #values.prometheus.thanosIngress.paths: conflicting values [] and null (mismatched types list and null):
-    ./values.cue:706:87
+    ./values.cue:772:87
     values.yaml:3704:12
 #values.prometheus.thanosIngress.paths: conflicting values [] and number (mismatched types list and number):
-    ./values.cue:706:69
+    ./values.cue:772:69
     values.yaml:3704:12
 #values.prometheus.thanosIngress.paths: conflicting values [] and string (mismatched types list and string):
-    ./values.cue:706:78
+    ./values.cue:772:78
     values.yaml:3704:12
 #values.prometheus.thanosServiceMonitor.additionalLabels: conflicting values {} and bool (mismatched types struct and bool):
-    ./values.cue:818:28
+    ./values.cue:884:28
     values.yaml:3514:23
 #values.prometheus.thanosServiceMonitor.additionalLabels: conflicting values {} and null (mismatched types struct and null):
-    ./values.cue:818:53
+    ./values.cue:884:53
     values.yaml:3514:23
 #values.prometheus.thanosServiceMonitor.additionalLabels: conflicting values {} and number (mismatched types struct and number):
-    ./values.cue:818:35
+    ./values.cue:884:35
     values.yaml:3514:23
 #values.prometheus.thanosServiceMonitor.additionalLabels: conflicting values {} and string (mismatched types struct and string):
-    ./values.cue:818:44
+    ./values.cue:884:44
     values.yaml:3514:23
 #values.prometheusOperator.admissionWebhooks.annotations: conflicting values {} and bool (mismatched types struct and bool):
-    ./values.cue:470:18
+    ./values.cue:494:18
     values.yaml:2695:18
 #values.prometheusOperator.admissionWebhooks.annotations: conflicting values {} and null (mismatched types struct and null):
-    ./values.cue:470:43
+    ./values.cue:494:43
     values.yaml:2695:18
 #values.prometheusOperator.admissionWebhooks.annotations: conflicting values {} and number (mismatched types struct and number):
-    ./values.cue:470:25
+    ./values.cue:494:25
     values.yaml:2695:18
 #values.prometheusOperator.admissionWebhooks.annotations: conflicting values {} and string (mismatched types struct and string):
-    ./values.cue:470:34
+    ./values.cue:494:34
     values.yaml:2695:18
 #values.prometheusOperator.admissionWebhooks.createSecretJob.securityContext: conflicting values {allowPrivilegeEscalation:false,readOnlyRootFilesystem:true,capabilities:{drop:["ALL"]}} and bool (mismatched types struct and bool):
-    ./values.cue:472:23
+    ./values.cue:496:23
 #values.prometheusOperator.admissionWebhooks.createSecretJob.securityContext: conflicting values {allowPrivilegeEscalation:false,readOnlyRootFilesystem:true,capabilities:{drop:["ALL"]}} and null (mismatched types struct and null):
-    ./values.cue:472:48
+    ./values.cue:496:48
 #values.prometheusOperator.admissionWebhooks.createSecretJob.securityContext: conflicting values {allowPrivilegeEscalation:false,readOnlyRootFilesystem:true,capabilities:{drop:["ALL"]}} and number (mismatched types struct and number):
-    ./values.cue:472:30
+    ./values.cue:496:30
 #values.prometheusOperator.admissionWebhooks.createSecretJob.securityContext: conflicting values {allowPrivilegeEscalation:false,readOnlyRootFilesystem:true,capabilities:{drop:["ALL"]}} and string (mismatched types struct and string):
-    ./values.cue:472:39
+    ./values.cue:496:39
 #values.prometheusOperator.admissionWebhooks.deployment.serviceAccount.annotations: conflicting values {} and bool (mismatched types struct and bool):
-    ./values.cue:400:37
+    ./values.cue:424:37
     values.yaml:2746:22
 #values.prometheusOperator.admissionWebhooks.deployment.serviceAccount.annotations: conflicting values {} and null (mismatched types struct and null):
-    ./values.cue:400:62
+    ./values.cue:424:62
     values.yaml:2746:22
 #values.prometheusOperator.admissionWebhooks.deployment.serviceAccount.annotations: conflicting values {} and number (mismatched types struct and number):
-    ./values.cue:400:44
+    ./values.cue:424:44
     values.yaml:2746:22
 #values.prometheusOperator.admissionWebhooks.deployment.serviceAccount.annotations: conflicting values {} and string (mismatched types struct and string):
-    ./values.cue:400:53
+    ./values.cue:424:53
     values.yaml:2746:22
 #values.prometheusOperator.admissionWebhooks.mutatingWebhookConfiguration.annotations: conflicting values {} and bool (mismatched types struct and bool):
-    ./values.cue:481:19
+    ./values.cue:505:19
     values.yaml:2704:20
 #values.prometheusOperator.admissionWebhooks.mutatingWebhookConfiguration.annotations: conflicting values {} and null (mismatched types struct and null):
-    ./values.cue:481:44
+    ./values.cue:505:44
     values.yaml:2704:20
 #values.prometheusOperator.admissionWebhooks.mutatingWebhookConfiguration.annotations: conflicting values {} and number (mismatched types struct and number):
-    ./values.cue:481:26
+    ./values.cue:505:26
     values.yaml:2704:20
 #values.prometheusOperator.admissionWebhooks.mutatingWebhookConfiguration.annotations: conflicting values {} and string (mismatched types struct and string):
-    ./values.cue:481:35
+    ./values.cue:505:35
     values.yaml:2704:20
 #values.prometheusOperator.admissionWebhooks.namespaceSelector: conflicting values {} and bool (mismatched types struct and bool):
-    ./values.cue:486:24
+    ./values.cue:510:24
     values.yaml:2699:24
 #values.prometheusOperator.admissionWebhooks.namespaceSelector: conflicting values {} and null (mismatched types struct and null):
-    ./values.cue:486:49
+    ./values.cue:510:49
     values.yaml:2699:24
 #values.prometheusOperator.admissionWebhooks.namespaceSelector: conflicting values {} and number (mismatched types struct and number):
-    ./values.cue:486:31
+    ./values.cue:510:31
     values.yaml:2699:24
 #values.prometheusOperator.admissionWebhooks.namespaceSelector: conflicting values {} and string (mismatched types struct and string):
-    ./values.cue:486:40
+    ./values.cue:510:40
     values.yaml:2699:24
 #values.prometheusOperator.admissionWebhooks.patch.affinity: conflicting values {} and bool (mismatched types struct and bool):
-    ./values.cue:459:23
+    ./values.cue:483:23
     values.yaml:2950:17
 #values.prometheusOperator.admissionWebhooks.patch.affinity: conflicting values {} and null (mismatched types struct and null):
-    ./values.cue:459:48
+    ./values.cue:483:48
     values.yaml:2950:17
 #values.prometheusOperator.admissionWebhooks.patch.affinity: conflicting values {} and number (mismatched types struct and number):
-    ./values.cue:459:30
+    ./values.cue:483:30
     values.yaml:2950:17
 #values.prometheusOperator.admissionWebhooks.patch.affinity: conflicting values {} and string (mismatched types struct and string):
-    ./values.cue:459:39
+    ./values.cue:483:39
     values.yaml:2950:17
 #values.prometheusOperator.admissionWebhooks.patch.annotations: conflicting values {} and bool (mismatched types struct and bool):
-    ./values.cue:445:31
+    ./values.cue:469:31
     values.yaml:2945:20
 #values.prometheusOperator.admissionWebhooks.patch.annotations: conflicting values {} and null (mismatched types struct and null):
-    ./values.cue:445:56
+    ./values.cue:469:56
     values.yaml:2945:20
 #values.prometheusOperator.admissionWebhooks.patch.annotations: conflicting values {} and number (mismatched types struct and number):
-    ./values.cue:445:38
+    ./values.cue:469:38
     values.yaml:2945:20
 #values.prometheusOperator.admissionWebhooks.patch.annotations: conflicting values {} and string (mismatched types struct and string):
-    ./values.cue:445:47
+    ./values.cue:469:47
     values.yaml:2945:20
 #values.prometheusOperator.admissionWebhooks.patch.nodeSelector: conflicting values {} and bool (mismatched types struct and bool):
-    ./values.cue:458:23
+    ./values.cue:482:23
     values.yaml:2949:21
 #values.prometheusOperator.admissionWebhooks.patch.nodeSelector: conflicting values {} and null (mismatched types struct and null):
-    ./values.cue:458:48
+    ./values.cue:482:48
     values.yaml:2949:21
 #values.prometheusOperator.admissionWebhooks.patch.nodeSelector: conflicting values {} and number (mismatched types struct and number):
-    ./values.cue:458:30
+    ./values.cue:482:30
     values.yaml:2949:21
 #values.prometheusOperator.admissionWebhooks.patch.nodeSelector: conflicting values {} and string (mismatched types struct and string):
-    ./values.cue:458:39
+    ./values.cue:482:39
     values.yaml:2949:21
 #values.prometheusOperator.admissionWebhooks.patch.podAnnotations: conflicting values {} and bool (mismatched types struct and bool):
-    ./values.cue:447:31
+    ./values.cue:471:31
     values.yaml:2948:23
 #values.prometheusOperator.admissionWebhooks.patch.podAnnotations: conflicting values {} and null (mismatched types struct and null):
-    ./values.cue:447:56
+    ./values.cue:471:56
     values.yaml:2948:23
 #values.prometheusOperator.admissionWebhooks.patch.podAnnotations: conflicting values {} and number (mismatched types struct and number):
-    ./values.cue:447:38
+    ./values.cue:471:38
     values.yaml:2948:23
 #values.prometheusOperator.admissionWebhooks.patch.podAnnotations: conflicting values {} and string (mismatched types struct and string):
-    ./values.cue:447:47
+    ./values.cue:471:47
     values.yaml:2948:23
 #values.prometheusOperator.admissionWebhooks.patch.serviceAccount.annotations: conflicting values {} and bool (mismatched types struct and bool):
-    ./values.cue:464:37
+    ./values.cue:488:37
     values.yaml:2968:22
 #values.prometheusOperator.admissionWebhooks.patch.serviceAccount.annotations: conflicting values {} and null (mismatched types struct and null):
-    ./values.cue:464:62
+    ./values.cue:488:62
     values.yaml:2968:22
 #values.prometheusOperator.admissionWebhooks.patch.serviceAccount.annotations: conflicting values {} and number (mismatched types struct and number):
-    ./values.cue:464:44
+    ./values.cue:488:44
     values.yaml:2968:22
 #values.prometheusOperator.admissionWebhooks.patch.serviceAccount.annotations: conflicting values {} and string (mismatched types struct and string):
-    ./values.cue:464:53
+    ./values.cue:488:53
     values.yaml:2968:22
 #values.prometheusOperator.admissionWebhooks.patch.tolerations: conflicting values [] and bool (mismatched types list and bool):
-    ./values.cue:460:23
+    ./values.cue:484:23
     values.yaml:2951:20
 #values.prometheusOperator.admissionWebhooks.patch.tolerations: conflicting values [] and null (mismatched types list and null):
-    ./values.cue:460:48
+    ./values.cue:484:48
     values.yaml:2951:20
 #values.prometheusOperator.admissionWebhooks.patch.tolerations: conflicting values [] and number (mismatched types list and number):
-    ./values.cue:460:30
+    ./values.cue:484:30
     values.yaml:2951:20
 #values.prometheusOperator.admissionWebhooks.patch.tolerations: conflicting values [] and string (mismatched types list and string):
-    ./values.cue:460:39
+    ./values.cue:484:39
     values.yaml:2951:20
 #values.prometheusOperator.admissionWebhooks.patchWebhookJob.securityContext: conflicting values {allowPrivilegeEscalation:false,readOnlyRootFilesystem:true,capabilities:{drop:["ALL"]}} and bool (mismatched types struct and bool):
-    ./values.cue:477:23
+    ./values.cue:501:23
 #values.prometheusOperator.admissionWebhooks.patchWebhookJob.securityContext: conflicting values {allowPrivilegeEscalation:false,readOnlyRootFilesystem:true,capabilities:{drop:["ALL"]}} and null (mismatched types struct and null):
-    ./values.cue:477:48
+    ./values.cue:501:48
 #values.prometheusOperator.admissionWebhooks.patchWebhookJob.securityContext: conflicting values {allowPrivilegeEscalation:false,readOnlyRootFilesystem:true,capabilities:{drop:["ALL"]}} and number (mismatched types struct and number):
-    ./values.cue:477:30
+    ./values.cue:501:30
 #values.prometheusOperator.admissionWebhooks.patchWebhookJob.securityContext: conflicting values {allowPrivilegeEscalation:false,readOnlyRootFilesystem:true,capabilities:{drop:["ALL"]}} and string (mismatched types struct and string):
-    ./values.cue:477:39
+    ./values.cue:501:39
 #values.prometheusOperator.admissionWebhooks.validatingWebhookConfiguration.annotations: conflicting values {} and bool (mismatched types struct and bool):
-    ./values.cue:488:19
+    ./values.cue:512:19
     values.yaml:2708:20
 #values.prometheusOperator.admissionWebhooks.validatingWebhookConfiguration.annotations: conflicting values {} and null (mismatched types struct and null):
-    ./values.cue:488:44
+    ./values.cue:512:44
     values.yaml:2708:20
 #values.prometheusOperator.admissionWebhooks.validatingWebhookConfiguration.annotations: conflicting values {} and number (mismatched types struct and number):
-    ./values.cue:488:26
+    ./values.cue:512:26
     values.yaml:2708:20
 #values.prometheusOperator.admissionWebhooks.validatingWebhookConfiguration.annotations: conflicting values {} and string (mismatched types struct and string):
-    ./values.cue:488:35
+    ./values.cue:512:35
     values.yaml:2708:20
 #values.prometheusOperator.denyNamespaces: conflicting values [] and bool (mismatched types list and bool):
-    ./values.cue:512:20
+    ./values.cue:536:20
     values.yaml:3019:19
 #values.prometheusOperator.denyNamespaces: conflicting values [] and null (mismatched types list and null):
-    ./values.cue:512:45
+    ./values.cue:536:45
     values.yaml:3019:19
 #values.prometheusOperator.denyNamespaces: conflicting values [] and number (mismatched types list and number):
-    ./values.cue:512:27
+    ./values.cue:536:27
     values.yaml:3019:19
 #values.prometheusOperator.denyNamespaces: conflicting values [] and string (mismatched types list and string):
-    ./values.cue:512:36
+    ./values.cue:536:36
     values.yaml:3019:19
+#values.prometheusOperator.dnsConfig: conflicting values {} and bool (mismatched types struct and bool):
+    ./values.cue:631:18
+    values.yaml:3263:14
+#values.prometheusOperator.dnsConfig: conflicting values {} and null (mismatched types struct and null):
+    ./values.cue:631:43
+    values.yaml:3263:14
+#values.prometheusOperator.dnsConfig: conflicting values {} and number (mismatched types struct and number):
+    ./values.cue:631:25
+    values.yaml:3263:14
+#values.prometheusOperator.dnsConfig: conflicting values {} and string (mismatched types struct and string):
+    ./values.cue:631:34
+    values.yaml:3263:14
+#values.prometheusOperator.extraArgs: conflicting values [] and bool (mismatched types list and bool):
+    ./values.cue:606:42
+    values.yaml:3158:14
+#values.prometheusOperator.extraArgs: conflicting values [] and null (mismatched types list and null):
+    ./values.cue:606:67
+    values.yaml:3158:14
+#values.prometheusOperator.extraArgs: conflicting values [] and number (mismatched types list and number):
+    ./values.cue:606:49
+    values.yaml:3158:14
+#values.prometheusOperator.extraArgs: conflicting values [] and string (mismatched types list and string):
+    ./values.cue:606:58
+    values.yaml:3158:14
+#values.prometheusOperator.extraVolumeMounts: conflicting values [] and bool (mismatched types list and bool):
+    ./values.cue:611:42
+    values.yaml:3407:22
+#values.prometheusOperator.extraVolumeMounts: conflicting values [] and null (mismatched types list and null):
+    ./values.cue:611:67
+    values.yaml:3407:22
+#values.prometheusOperator.extraVolumeMounts: conflicting values [] and number (mismatched types list and number):
+    ./values.cue:611:49
+    values.yaml:3407:22
+#values.prometheusOperator.extraVolumeMounts: conflicting values [] and string (mismatched types list and string):
+    ./values.cue:611:58
+    values.yaml:3407:22
+#values.prometheusOperator.extraVolumes: conflicting values [] and bool (mismatched types list and bool):
+    ./values.cue:630:18
+    values.yaml:3403:17
+#values.prometheusOperator.extraVolumes: conflicting values [] and null (mismatched types list and null):
+    ./values.cue:630:43
+    values.yaml:3403:17
+#values.prometheusOperator.extraVolumes: conflicting values [] and number (mismatched types list and number):
+    ./values.cue:630:25
+    values.yaml:3403:17
+#values.prometheusOperator.extraVolumes: conflicting values [] and string (mismatched types list and string):
+    ./values.cue:630:34
+    values.yaml:3403:17
+#values.prometheusOperator.lifecycle: conflicting values {} and bool (mismatched types struct and bool):
+    ./values.cue:607:42
+    values.yaml:3063:14
+#values.prometheusOperator.lifecycle: conflicting values {} and null (mismatched types struct and null):
+    ./values.cue:607:67
+    values.yaml:3063:14
+#values.prometheusOperator.lifecycle: conflicting values {} and number (mismatched types struct and number):
+    ./values.cue:607:49
+    values.yaml:3063:14
+#values.prometheusOperator.lifecycle: conflicting values {} and string (mismatched types struct and string):
+    ./values.cue:607:58
+    values.yaml:3063:14
+#values.prometheusOperator.prometheusConfigReloader.resources: conflicting values {} and bool (mismatched types struct and bool):
+    ./values.cue:563:18
+    values.yaml:3366:16
+#values.prometheusOperator.prometheusConfigReloader.resources: conflicting values {} and null (mismatched types struct and null):
+    ./values.cue:563:43
+    values.yaml:3366:16
+#values.prometheusOperator.prometheusConfigReloader.resources: conflicting values {} and number (mismatched types struct and number):
+    ./values.cue:563:25
+    values.yaml:3366:16
+#values.prometheusOperator.prometheusConfigReloader.resources: conflicting values {} and string (mismatched types struct and string):
+    ./values.cue:563:34
+    values.yaml:3366:16
 #values.prometheusOperator.serviceAccount.annotations: conflicting values {} and bool (mismatched types struct and bool):
-    ./values.cue:496:35
+    ./values.cue:520:35
     values.yaml:3058:18
 #values.prometheusOperator.serviceAccount.annotations: conflicting values {} and null (mismatched types struct and null):
-    ./values.cue:496:60
+    ./values.cue:520:60
     values.yaml:3058:18
 #values.prometheusOperator.serviceAccount.annotations: conflicting values {} and number (mismatched types struct and number):
-    ./values.cue:496:42
+    ./values.cue:520:42
     values.yaml:3058:18
 #values.prometheusOperator.serviceAccount.annotations: conflicting values {} and string (mismatched types struct and string):
-    ./values.cue:496:51
+    ./values.cue:520:51
     values.yaml:3058:18
 #values.prometheusOperator.serviceMonitor.additionalLabels: conflicting values {} and bool (mismatched types struct and bool):
-    ./values.cue:592:28
+    ./values.cue:657:28
     values.yaml:3169:23
 #values.prometheusOperator.serviceMonitor.additionalLabels: conflicting values {} and null (mismatched types struct and null):
-    ./values.cue:592:53
+    ./values.cue:657:53
     values.yaml:3169:23
 #values.prometheusOperator.serviceMonitor.additionalLabels: conflicting values {} and number (mismatched types struct and number):
-    ./values.cue:592:35
+    ./values.cue:657:35
     values.yaml:3169:23
 #values.prometheusOperator.serviceMonitor.additionalLabels: conflicting values {} and string (mismatched types struct and string):
-    ./values.cue:592:44
+    ./values.cue:657:44
     values.yaml:3169:23
 #values.prometheusOperator.strategy: conflicting values {} and bool (mismatched types struct and bool):
-    ./values.cue:526:26
+    ./values.cue:551:26
     values.yaml:2649:13
 #values.prometheusOperator.strategy: conflicting values {} and null (mismatched types struct and null):
-    ./values.cue:526:51
+    ./values.cue:551:51
     values.yaml:2649:13
 #values.prometheusOperator.strategy: conflicting values {} and number (mismatched types struct and number):
-    ./values.cue:526:33
+    ./values.cue:551:33
     values.yaml:2649:13
 #values.prometheusOperator.strategy: conflicting values {} and string (mismatched types struct and string):
-    ./values.cue:526:42
+    ./values.cue:551:42
     values.yaml:2649:13
 #values.thanosRuler.ingress.paths: conflicting values [] and bool (mismatched types list and bool):
-    ./values.cue:865:64
+    ./values.cue:931:64
     values.yaml:4968:12
 #values.thanosRuler.ingress.paths: conflicting values [] and null (mismatched types list and null):
-    ./values.cue:865:89
+    ./values.cue:931:89
     values.yaml:4968:12
 #values.thanosRuler.ingress.paths: conflicting values [] and number (mismatched types list and number):
-    ./values.cue:865:71
+    ./values.cue:931:71
     values.yaml:4968:12
 #values.thanosRuler.ingress.paths: conflicting values [] and string (mismatched types list and string):
-    ./values.cue:865:80
+    ./values.cue:931:80
     values.yaml:4968:12
 #values.thanosRuler.serviceMonitor.additionalLabels: conflicting values {} and bool (mismatched types struct and bool):
-    ./values.cue:980:28
+    ./values.cue:1046:28
     values.yaml:5078:23
 #values.thanosRuler.serviceMonitor.additionalLabels: conflicting values {} and null (mismatched types struct and null):
-    ./values.cue:980:53
+    ./values.cue:1046:53
     values.yaml:5078:23
 #values.thanosRuler.serviceMonitor.additionalLabels: conflicting values {} and number (mismatched types struct and number):
-    ./values.cue:980:35
+    ./values.cue:1046:35
     values.yaml:5078:23
 #values.thanosRuler.serviceMonitor.additionalLabels: conflicting values {} and string (mismatched types struct and string):
-    ./values.cue:980:44
+    ./values.cue:1046:44
     values.yaml:5078:23
 #values.thanosRuler.thanosRulerSpec.additionalConfig: conflicting values {} and bool (mismatched types struct and bool):
-    ./values.cue:965:33
+    ./values.cue:1031:33
     values.yaml:5427:23
 #values.thanosRuler.thanosRulerSpec.additionalConfig: conflicting values {} and null (mismatched types struct and null):
-    ./values.cue:965:58
+    ./values.cue:1031:58
     values.yaml:5427:23
 #values.thanosRuler.thanosRulerSpec.additionalConfig: conflicting values {} and number (mismatched types struct and number):
-    ./values.cue:965:40
+    ./values.cue:1031:40
     values.yaml:5427:23
 #values.thanosRuler.thanosRulerSpec.additionalConfig: conflicting values {} and string (mismatched types struct and string):
-    ./values.cue:965:49
+    ./values.cue:1031:49
     values.yaml:5427:23
 #values.thanosRuler.thanosRulerSpec.alertmanagersConfig.secret: conflicting values {} and bool (mismatched types struct and bool):
-    ./values.cue:926:14
+    ./values.cue:992:14
     values.yaml:5232:15
 #values.thanosRuler.thanosRulerSpec.alertmanagersConfig.secret: conflicting values {} and null (mismatched types struct and null):
-    ./values.cue:926:39
+    ./values.cue:992:39
     values.yaml:5232:15
 #values.thanosRuler.thanosRulerSpec.alertmanagersConfig.secret: conflicting values {} and number (mismatched types struct and number):
-    ./values.cue:926:21
+    ./values.cue:992:21
     values.yaml:5232:15
 #values.thanosRuler.thanosRulerSpec.alertmanagersConfig.secret: conflicting values {} and string (mismatched types struct and string):
-    ./values.cue:926:30
+    ./values.cue:992:30
     values.yaml:5232:15
 #values.thanosRuler.thanosRulerSpec.objectStorageConfig.secret: conflicting values {} and bool (mismatched types struct and bool):
-    ./values.cue:948:14
+    ./values.cue:1014:14
     values.yaml:5269:15
 #values.thanosRuler.thanosRulerSpec.objectStorageConfig.secret: conflicting values {} and null (mismatched types struct and null):
-    ./values.cue:948:39
+    ./values.cue:1014:39
     values.yaml:5269:15
 #values.thanosRuler.thanosRulerSpec.objectStorageConfig.secret: conflicting values {} and number (mismatched types struct and number):
-    ./values.cue:948:21
+    ./values.cue:1014:21
     values.yaml:5269:15
 #values.thanosRuler.thanosRulerSpec.objectStorageConfig.secret: conflicting values {} and string (mismatched types struct and string):
-    ./values.cue:948:30
+    ./values.cue:1014:30
     values.yaml:5269:15
 #values.thanosRuler.thanosRulerSpec.queryConfig.secret: conflicting values {} and bool (mismatched types struct and bool):
-    ./values.cue:936:14
+    ./values.cue:1002:14
     values.yaml:5295:15
 #values.thanosRuler.thanosRulerSpec.queryConfig.secret: conflicting values {} and null (mismatched types struct and null):
-    ./values.cue:936:39
+    ./values.cue:1002:39
     values.yaml:5295:15
 #values.thanosRuler.thanosRulerSpec.queryConfig.secret: conflicting values {} and number (mismatched types struct and number):
-    ./values.cue:936:21
+    ./values.cue:1002:21
     values.yaml:5295:15
 #values.thanosRuler.thanosRulerSpec.queryConfig.secret: conflicting values {} and string (mismatched types struct and string):
-    ./values.cue:936:30
+    ./values.cue:1002:30
     values.yaml:5295:15
 alertmanager_alertmanager.0.metadata.labels.app: invalid interpolation: cannot use {"app.kubernetes.io/managed-by":*"Helm" | string,"app.kubernetes.io/instance":"test","app.kubernetes.io/version":"\"82.2.1\"","app.kubernetes.io/part-of":"",chart:_,release:"test",heritage:"Helm"} (type struct) as type (bool|string|bytes|number):
     ./alertmanager_alertmanager.cue:20:11
@@ -2044,6 +2226,8 @@ alertmanager_alertmanager.0.spec.externalUrl: invalid interpolation: cannot use 
 #values.defaultRules.additionalRuleGroupLabels.nodeExporterRecording: 4 errors in empty disjunction::
     ./alertmanager_alertmanager.cue:96:57
 #values.defaultRules.additionalRuleLabels: 4 errors in empty disjunction::
+    ./alertmanager_alertmanager.cue:96:57
+#values.grafana.operator.annotations: 4 errors in empty disjunction::
     ./alertmanager_alertmanager.cue:96:57
 #values.kubeApiServer.serviceMonitor.additionalLabels: 4 errors in empty disjunction::
     ./alertmanager_alertmanager.cue:96:57
@@ -2119,6 +2303,18 @@ alertmanager_alertmanager.0.spec.externalUrl: invalid interpolation: cannot use 
     ./alertmanager_alertmanager.cue:96:57
 #values.prometheusOperator.denyNamespaces: 4 errors in empty disjunction::
     ./alertmanager_alertmanager.cue:96:57
+#values.prometheusOperator.dnsConfig: 4 errors in empty disjunction::
+    ./alertmanager_alertmanager.cue:96:57
+#values.prometheusOperator.extraArgs: 4 errors in empty disjunction::
+    ./alertmanager_alertmanager.cue:96:57
+#values.prometheusOperator.extraVolumeMounts: 4 errors in empty disjunction::
+    ./alertmanager_alertmanager.cue:96:57
+#values.prometheusOperator.extraVolumes: 4 errors in empty disjunction::
+    ./alertmanager_alertmanager.cue:96:57
+#values.prometheusOperator.lifecycle: 4 errors in empty disjunction::
+    ./alertmanager_alertmanager.cue:96:57
+#values.prometheusOperator.prometheusConfigReloader.resources: 4 errors in empty disjunction::
+    ./alertmanager_alertmanager.cue:96:57
 #values.prometheusOperator.serviceAccount.annotations: 4 errors in empty disjunction::
     ./alertmanager_alertmanager.cue:96:57
 #values.prometheusOperator.serviceMonitor.additionalLabels: 4 errors in empty disjunction::
@@ -2173,8 +2369,8 @@ results: error in call to list.FlattenN: invalid interpolation: cannot use {"app
 #values.alertmanager.ingress.paths: incompatible list lengths (0 and 1):
     ./values.cue:182:12
 #values.prometheus.ingress.paths: incompatible list lengths (0 and 1):
-    ./values.cue:662:12
+    ./values.cue:760:12
 #values.prometheus.thanosIngress.paths: incompatible list lengths (0 and 1):
-    ./values.cue:706:12
+    ./values.cue:772:12
 #values.thanosRuler.ingress.paths: incompatible list lengths (0 and 1):
-    ./values.cue:865:12
+    ./values.cue:931:12
