@@ -895,30 +895,51 @@ func (c *converter) convertHelperBody(nodes []parse.Node) (string, [][]string, e
 
 	body := strings.TrimSpace(sub.out.String())
 
+	// If the sub-converter produced a body that mixes CUE field assignments
+	// with bare quoted strings (e.g. from a validation message helper whose
+	// body looks like "component: errorKey\n    message text"), collapse it
+	// to a single quoted string. This must happen before topLevelGuards
+	// wrapping so the string gets wrapped in the if comprehension.
+	if bodyHasMixedFieldsAndStrings(body) {
+		rawText := strings.TrimSpace(deepTextContent(nodes))
+		if rawText != "" {
+			body = strconv.Quote(strings.Join(strings.Fields(rawText), " "))
+		}
+	}
+
 	// processNodes may extract top-level if guards (via detectTopLevelIf)
 	// instead of emitting them as if blocks. In helper bodies these guards
 	// must wrap the body explicitly so the conditional is preserved.
 	if len(sub.topLevelGuards) > 0 {
 		c.hasConditions = true
-		var wrapped bytes.Buffer
-		indent := 0
-		for _, guard := range sub.topLevelGuards {
-			writeIndent(&wrapped, indent)
-			fmt.Fprintf(&wrapped, "if %s {\n", guard)
-			indent++
-		}
-		for _, line := range strings.Split(body, "\n") {
-			if line != "" {
+
+		// When the body is a string expression, use a list conditional
+		// so the helper evaluates to "" when the condition is false,
+		// matching Helm's include behavior.
+		if strings.HasPrefix(body, `"`) && strings.HasSuffix(body, `"`) {
+			guard := strings.Join(sub.topLevelGuards, " && ")
+			body = fmt.Sprintf("[if %s {\n\t%s\n}, \"\"][0]", guard, body)
+		} else {
+			var wrapped bytes.Buffer
+			indent := 0
+			for _, guard := range sub.topLevelGuards {
 				writeIndent(&wrapped, indent)
+				fmt.Fprintf(&wrapped, "if %s {\n", guard)
+				indent++
 			}
-			wrapped.WriteString(line)
-			wrapped.WriteByte('\n')
+			for _, line := range strings.Split(body, "\n") {
+				if line != "" {
+					writeIndent(&wrapped, indent)
+				}
+				wrapped.WriteString(line)
+				wrapped.WriteByte('\n')
+			}
+			for i := len(sub.topLevelGuards) - 1; i >= 0; i-- {
+				writeIndent(&wrapped, i)
+				wrapped.WriteString("}\n")
+			}
+			body = strings.TrimSpace(wrapped.String())
 		}
-		for i := len(sub.topLevelGuards) - 1; i >= 0; i-- {
-			writeIndent(&wrapped, i)
-			wrapped.WriteString("}\n")
-		}
-		body = strings.TrimSpace(wrapped.String())
 	}
 
 	if body == "" {
@@ -3857,6 +3878,65 @@ func textContent(nodes []parse.Node) string {
 		}
 	}
 	return buf.String()
+}
+
+// deepTextContent extracts all raw text from nodes, recursively
+// descending into IfNode/RangeNode/WithNode bodies. Unlike textContent
+// which only gets top-level TextNodes, this collects text from nested
+// control structures (needed for validation message helpers where the
+// message text is inside an if block).
+func deepTextContent(nodes []parse.Node) string {
+	var buf bytes.Buffer
+	var walk func([]parse.Node)
+	walk = func(nodes []parse.Node) {
+		for _, node := range nodes {
+			switch n := node.(type) {
+			case *parse.TextNode:
+				buf.Write(n.Text)
+			case *parse.IfNode:
+				walk(n.List.Nodes)
+				if n.ElseList != nil {
+					walk(n.ElseList.Nodes)
+				}
+			case *parse.RangeNode:
+				walk(n.List.Nodes)
+				if n.ElseList != nil {
+					walk(n.ElseList.Nodes)
+				}
+			case *parse.WithNode:
+				walk(n.List.Nodes)
+				if n.ElseList != nil {
+					walk(n.ElseList.Nodes)
+				}
+			}
+		}
+	}
+	walk(nodes)
+	return buf.String()
+}
+
+// bodyHasMixedFieldsAndStrings reports whether a CUE body contains both
+// field assignments (lines with ": ") and bare quoted strings (lines that
+// are just "..."). This detects invalid output from helpers whose body
+// looks like YAML (e.g. "component: errorKey\n    message text").
+func bodyHasMixedFieldsAndStrings(body string) bool {
+	hasField := false
+	hasString := false
+	for _, line := range strings.Split(body, "\n") {
+		trimmed := strings.TrimSpace(line)
+		if trimmed == "" || trimmed == "{" || trimmed == "}" {
+			continue
+		}
+		if strings.HasPrefix(trimmed, "if ") || strings.HasPrefix(trimmed, "for ") {
+			continue
+		}
+		if strings.Contains(trimmed, ": ") || strings.HasSuffix(trimmed, ": {") {
+			hasField = true
+		} else if strings.HasPrefix(trimmed, "\"") && strings.HasSuffix(trimmed, "\"") {
+			hasString = true
+		}
+	}
+	return hasField && hasString
 }
 
 func (c *converter) actionToCUE(n *parse.ActionNode) (expr string, helmObj string, err error) {

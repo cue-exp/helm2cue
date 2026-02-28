@@ -235,6 +235,7 @@ package simple_app
 	Name:       "simple-app"
 	Version:    "0.1.0"
 	AppVersion: "1.0.0"
+	annotations?: [string]: string
 }
 #release: {
 	Name:      _

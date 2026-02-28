@@ -1,0 +1,74 @@
+Validation message helper whose body looks like YAML ("component: errorKey"
+followed by indented text). The converter collapses the body to a single
+string and uses a list conditional so it evaluates to "" when the condition
+is false, matching Helm's include behavior.
+
+-- _helpers.tpl --
+{{- define "test.validateValues.cloneRepo" -}}
+{{- if and .Values.cloneRepo.enabled (not .Values.cloneRepo.repository) -}}
+test: cloneRepo
+    When enabling cloning a repo, both
+    the repository and branch must be provided.
+{{- end -}}
+{{- end -}}
+
+-- input.yaml --
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test
+data:
+  validation: {{ include "test.validateValues.cloneRepo" . | quote }}
+
+-- values.yaml --
+cloneRepo:
+  enabled: false
+  repository: ""
+  branch: ""
+
+-- helm_output.yaml --
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test
+data:
+  validation: ""
+-- output.cue --
+import "struct"
+
+#values: {
+	cloneRepo?: {
+		enabled?:    bool | number | string | null
+		repository?: bool | number | string | null
+		...
+	}
+	...
+}
+_test_validateValues_cloneRepo: {
+	[if (_nonzero & {#arg: #values.cloneRepo.enabled, _}) && !(_nonzero & {#arg: #values.cloneRepo.repository, _}) {
+		"test: cloneRepo When enabling cloning a repo, both the repository and branch must be provided."
+	}, ""][0]
+}
+
+output: [
+	{
+		apiVersion: "v1"
+		kind:       "ConfigMap"
+		metadata: name: "test"
+		data: validation: "\(_test_validateValues_cloneRepo)"
+	},
+]
+_nonzero: {
+	#arg?: _
+	[if #arg != _|_ {
+		[
+			if (#arg & int) != _|_ {#arg != 0},
+			if (#arg & string) != _|_ {#arg != ""},
+			if (#arg & float) != _|_ {#arg != 0.0},
+			if (#arg & bool) != _|_ {#arg},
+			if (#arg & [...]) != _|_ {len(#arg) > 0},
+			if (#arg & {...}) != _|_ {(#arg & struct.MaxFields(0)) == _|_},
+			false,
+		][0]
+	}, false][0]
+}
