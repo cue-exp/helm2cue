@@ -1,0 +1,22 @@
+# Inline if/else inside YAML string value produces invalid CUE.
+# https://github.com/cue-exp/helm2cue/issues/40
+! exec helm2cue chart chartdir outdir
+stderr 'no templates converted successfully'
+
+-- chartdir/Chart.yaml --
+apiVersion: v2
+name: test-app
+version: 0.1.0
+-- chartdir/values.yaml --
+tls: true
+certManager: true
+-- chartdir/templates/test.yaml --
+apiVersion: v1
+kind: Pod
+spec:
+  containers:
+  - name: test
+    args:
+    {{- if .Values.tls }}
+    - "--cert={{ if .Values.certManager }}tls.crt{{ else }}cert{{ end }}"
+    {{- end }}
