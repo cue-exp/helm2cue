@@ -1,11 +1,10 @@
 # Template that uses volumes as a list (range) is skipped due to an
 # unsupported function; only the conditional check survives. The
-# inferred schema types the field as scalar, conflicting with the
-# [] value in values.yaml.
+# inferred schema uses values.yaml to determine that volumes is a
+# list and types it as _ rather than scalar.
 # https://github.com/cue-exp/helm2cue/issues/41
 exec helm2cue chart chartdir outdir
 stderr 'skipping deployment.yaml'
-stderr 'values.yaml does not satisfy inferred schema'
 stderr 'converted 1/2 templates'
 cmp outdir/values.cue expected/values.cue
 
@@ -40,6 +39,6 @@ data:
 package test_app
 
 #values: {
-	volumes?: bool | number | string | null
+	volumes?: _
 	...
 }

@@ -270,6 +270,27 @@ func ConvertChart(chartDir, outDir string, opts ChartOptions) error {
 		return err
 	}
 
+	// Read values.yaml early for non-scalar inference and later validation/copying.
+	valuesPath := filepath.Join(chartDir, "values.yaml")
+	valuesData, valuesErr := os.ReadFile(valuesPath)
+
+	// Infer non-scalar types from values.yaml: fields with list values
+	// should not be typed as scalars even when templates only use them
+	// in truthiness checks. Only add paths that match existing field
+	// references — otherwise buildFieldTree may mark a parent node as
+	// isRange when a child path doesn't exist in the tree.
+	if valuesErr == nil {
+		fieldRefSet := make(map[string]bool)
+		for _, ref := range mergedFieldRefs["Values"] {
+			fieldRefSet[strings.Join(ref, ".")] = true
+		}
+		for _, p := range inferNonScalarFromValues(valuesData) {
+			if fieldRefSet[strings.Join(p, ".")] {
+				mergedRangeRefs["Values"] = append(mergedRangeRefs["Values"], p)
+			}
+		}
+	}
+
 	// Build the values schema and validate it.
 	schemaCUE := buildValuesSchemaCUE(mergedFieldRefs["Values"], mergedDefaults["Values"], mergedRequiredRefs["Values"], mergedRangeRefs["Values"])
 	var valWarnings []string
@@ -277,9 +298,6 @@ func ConvertChart(chartDir, outDir string, opts ChartOptions) error {
 		valWarnings = append(valWarnings, fmt.Sprintf("values schema inconsistency: %v", err))
 	}
 
-	// Read values.yaml early for both validation and later copying.
-	valuesPath := filepath.Join(chartDir, "values.yaml")
-	valuesData, valuesErr := os.ReadFile(valuesPath)
 	if valuesErr == nil {
 		if err := validateValuesAgainstSchema(schemaCUE, valuesData, cfg.ContextObjects); err != nil {
 			valWarnings = append(valWarnings, fmt.Sprintf("values.yaml does not satisfy inferred schema: %v", err))
@@ -642,6 +660,7 @@ func writeContextCUE(outDir, pkgName string, meta chartMetadata, usedContextObje
 			fmt.Fprintf(&buf, "\tName: %s\n", strconv.Quote(meta.Name))
 			fmt.Fprintf(&buf, "\tVersion: %s\n", strconv.Quote(meta.Version))
 			fmt.Fprintf(&buf, "\tAppVersion: %s\n", strconv.Quote(meta.AppVersion))
+			buf.WriteString("\tannotations?: [string]: string\n")
 			fmt.Fprintf(&buf, "}\n")
 		case "Capabilities":
 			buf.WriteString("#capabilities: {\n")
@@ -663,6 +682,32 @@ func writeContextCUE(outDir, pkgName string, meta chartMetadata, usedContextObje
 	}
 
 	return writeCUEFile(filepath.Join(outDir, "context.cue"), buf.Bytes())
+}
+
+// inferNonScalarFromValues parses values.yaml and returns paths to
+// fields whose values are lists. These paths are added to rangeRefs
+// so that the schema types them as unconstrained (_) rather than
+// scalar, avoiding conflicts when values.yaml has [].
+func inferNonScalarFromValues(valuesData []byte) [][]string {
+	var values map[string]interface{}
+	if err := yaml.Unmarshal(valuesData, &values); err != nil {
+		return nil
+	}
+	var paths [][]string
+	var walk func(m map[string]interface{}, prefix []string)
+	walk = func(m map[string]interface{}, prefix []string) {
+		for k, v := range m {
+			path := append(append([]string{}, prefix...), k)
+			switch val := v.(type) {
+			case []interface{}:
+				paths = append(paths, path)
+			case map[string]interface{}:
+				walk(val, path)
+			}
+		}
+	}
+	walk(values, nil)
+	return paths
 }
 
 // writeTemplateCUE writes a per-template .cue file. The body is already
