@@ -20,5 +20,5 @@ converted 1/1 templates from test-app
 package test_app
 
 test: [{
-	cpu: #values.cpu
+	cpu: *#values.cpu | 0
 }]

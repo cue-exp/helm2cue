@@ -10,12 +10,12 @@ tag: latest
 tag: {{ .Values.image.tag | default (printf "v%s" .Chart.AppVersion) }}
 -- output.cue --
 #chart: {
-	AppVersion!: bool | number | string | null
+	AppVersion?: bool | number | string | null
 	...
 }
 #values: {
 	image?: {
-		tag: *"v\(#chart.AppVersion)" | bool | number | string | null
+		tag?: bool | number | string | null
 		...
 	}
 	...
@@ -23,6 +23,6 @@ tag: {{ .Values.image.tag | default (printf "v%s" .Chart.AppVersion) }}
 
 output: [
 	{
-		tag: #values.image.tag
+		tag: *#values.image.tag | "v\(#chart.AppVersion)"
 	},
 ]

@@ -10,7 +10,7 @@ configmap: [{
 		labels: _simple_app_labels
 	}
 	data: {
-		environment: "\(#values.env)"
+		environment: "\(*#values.env | "development")"
 		if (_nonzero & {#arg: #values.debug, _}) {
 			logLevel: "debug"
 		}

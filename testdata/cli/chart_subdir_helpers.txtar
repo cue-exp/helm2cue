@@ -89,7 +89,7 @@ deployment: [{
 		labels: _subdir_helpers_operator_labels
 	}
 	spec: {
-		replicas: #values.replicaCount
+		replicas: *#values.replicaCount | 1
 		selector: {
 			matchLabels: {
 				app: _subdir_helpers_name

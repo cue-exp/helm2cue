@@ -25,8 +25,8 @@ data:
   labels: {}
 -- output.cue --
 #values: {
-	items: *[] | _
-	labels: *{} | _
+	items?:  _
+	labels?: _
 	...
 }
 
@@ -36,9 +36,9 @@ output: [
 		kind:       "ConfigMap"
 		metadata: name: "test"
 		data: {
-			items:  #values.items
-			bare:   #values.items
-			labels: #values.labels
+			items: *#values.items | []
+			bare: *#values.items | []
+			labels: *#values.labels | {}
 		}
 	},
 ]

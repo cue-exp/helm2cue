@@ -10,7 +10,7 @@ deployment: [{
 		labels: _simple_app_labels
 	}
 	spec: {
-		replicas: #values.replicaCount
+		replicas: *#values.replicaCount | 1
 		selector: {
 			matchLabels: _simple_app_selectorLabels
 		}
@@ -24,7 +24,7 @@ deployment: [{
 					{
 						name:            _simple_app_name
 						image:           "\(#values.image.repository):\(#values.image.tag)"
-						imagePullPolicy: #values.image.pullPolicy
+						imagePullPolicy: *#values.image.pullPolicy | "IfNotPresent"
 						ports: [
 							for _, _range0 in #values.ports {
 								name:          _range0.name

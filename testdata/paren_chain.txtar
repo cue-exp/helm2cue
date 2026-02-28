@@ -13,6 +13,6 @@ cpu: 100m
 
 output: [
 	{
-		cpu: #values.cpu
+		cpu: *#values.cpu | 0
 	},
 ]

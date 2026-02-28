@@ -73,8 +73,7 @@ warning: skipping prometheus/rules-1.14/prometheus-operator.yaml (doc 0): unsupp
 warning: skipping prometheus/rules-1.14/prometheus.yaml (doc 0): unsupported template action: {{dig "PrometheusBadConfig" "for" "10m" .Values.customRules}}
 warning: skipping prometheus/serviceperreplica.yaml (doc 0): range: unsupported pipe: $i, $e := until $count
 warning: skipping thanos-ruler/ingress.yaml (doc 0): range: unsupported node: $paths
-warning: values schema inconsistency: #values.serviceAccount.name: reference "_prometheus_windows_exporter_fullname" not found (and 14 more errors)
-warning: values.yaml does not satisfy inferred schema: #values.serviceAccount.name: reference "_prometheus_windows_exporter_fullname" not found (and 14 more errors)
+warning: values.yaml does not satisfy inferred schema: #values.alertmanager.additionalLabels: 4 errors in empty disjunction: (and 294 more errors)
 converted 97/215 templates from kube-prometheus-stack
 -- cue vet --
 exit status 1
@@ -898,6 +897,8 @@ alertmanager_alertmanager.0.spec.externalUrl: invalid interpolation: cannot use 
     ./helpers.cue:20:6
 #values.alertmanager.annotations: 4 errors in empty disjunction::
     ./helpers.cue:20:6
+#version: 6 errors in empty disjunction::
+    ./helpers.cue:68:48
 #values.defaultRules.additionalRuleLabels: invalid interpolation: 4 errors in empty disjunction::
     ./helpers.cue:166:17
     ./alertmanager_alertmanager.cue:96:57
@@ -919,6 +920,94 @@ alertmanager_alertmanager.0.spec.externalUrl: invalid interpolation: cannot use 
 _kube_prometheus_stack_crd_upgradeJob_name: invalid interpolation: cannot use {} (type struct) as type (bool|string|bytes|number):
     ./helpers.cue:298:45
     ./helpers.cue:304:34
+#version: undefined field: GitVersion:
+    ./prometheus_rules_1_14_k8s_rules_container_cpu_limits.cue:11:124
+#version: undefined field: GitVersion:
+    ./prometheus_rules_1_14_k8s_rules_container_cpu_limits.cue:11:261
+#version: undefined field: GitVersion:
+    ./prometheus_rules_1_14_k8s_rules_container_cpu_requests.cue:11:124
+#version: undefined field: GitVersion:
+    ./prometheus_rules_1_14_k8s_rules_container_cpu_requests.cue:11:261
+#version: undefined field: GitVersion:
+    ./prometheus_rules_1_14_k8s_rules_container_cpu_usage_seconds_total.cue:11:124
+#version: undefined field: GitVersion:
+    ./prometheus_rules_1_14_k8s_rules_container_cpu_usage_seconds_total.cue:11:261
+#version: undefined field: GitVersion:
+    ./prometheus_rules_1_14_k8s_rules_container_memory_cache.cue:11:124
+#version: undefined field: GitVersion:
+    ./prometheus_rules_1_14_k8s_rules_container_memory_cache.cue:11:261
+#version: undefined field: GitVersion:
+    ./prometheus_rules_1_14_k8s_rules_container_memory_limits.cue:11:124
+#version: undefined field: GitVersion:
+    ./prometheus_rules_1_14_k8s_rules_container_memory_limits.cue:11:261
+#version: undefined field: GitVersion:
+    ./prometheus_rules_1_14_k8s_rules_container_memory_requests.cue:11:124
+#version: undefined field: GitVersion:
+    ./prometheus_rules_1_14_k8s_rules_container_memory_requests.cue:11:261
+#version: undefined field: GitVersion:
+    ./prometheus_rules_1_14_k8s_rules_container_memory_rss.cue:11:124
+#version: undefined field: GitVersion:
+    ./prometheus_rules_1_14_k8s_rules_container_memory_rss.cue:11:261
+#version: undefined field: GitVersion:
+    ./prometheus_rules_1_14_k8s_rules_container_memory_swap.cue:11:124
+#version: undefined field: GitVersion:
+    ./prometheus_rules_1_14_k8s_rules_container_memory_swap.cue:11:261
+#version: undefined field: GitVersion:
+    ./prometheus_rules_1_14_k8s_rules_container_memory_working_set_bytes.cue:11:124
+#version: undefined field: GitVersion:
+    ./prometheus_rules_1_14_k8s_rules_container_memory_working_set_bytes.cue:11:261
+#version: undefined field: GitVersion:
+    ./prometheus_rules_1_14_k8s_rules_container_resource.cue:11:124
+#version: undefined field: GitVersion:
+    ./prometheus_rules_1_14_k8s_rules_container_resource.cue:11:261
+#version: undefined field: GitVersion:
+    ./prometheus_rules_1_14_k8s_rules_pod_owner.cue:11:124
+#version: undefined field: GitVersion:
+    ./prometheus_rules_1_14_k8s_rules_pod_owner.cue:11:261
+#version: undefined field: GitVersion:
+    ./prometheus_rules_1_14_kube_apiserver_availability_rules.cue:11:124
+#version: undefined field: GitVersion:
+    ./prometheus_rules_1_14_kube_apiserver_availability_rules.cue:11:261
+#version: undefined field: GitVersion:
+    ./prometheus_rules_1_14_kube_apiserver_burnrate_rules.cue:11:124
+#version: undefined field: GitVersion:
+    ./prometheus_rules_1_14_kube_apiserver_burnrate_rules.cue:11:261
+#version: undefined field: GitVersion:
+    ./prometheus_rules_1_14_kube_apiserver_histogram_rules.cue:11:124
+#version: undefined field: GitVersion:
+    ./prometheus_rules_1_14_kube_apiserver_histogram_rules.cue:11:261
+#version: undefined field: GitVersion:
+    ./prometheus_rules_1_14_kube_prometheus_general_rules.cue:11:124
+#version: undefined field: GitVersion:
+    ./prometheus_rules_1_14_kube_prometheus_general_rules.cue:11:261
+#version: undefined field: GitVersion:
+    ./prometheus_rules_1_14_kube_prometheus_node_recording_rules.cue:11:124
+#version: undefined field: GitVersion:
+    ./prometheus_rules_1_14_kube_prometheus_node_recording_rules.cue:11:261
+#version: undefined field: GitVersion:
+    ./prometheus_rules_1_14_kube_scheduler_rules.cue:11:124
+#version: undefined field: GitVersion:
+    ./prometheus_rules_1_14_kube_scheduler_rules.cue:11:261
+#version: undefined field: GitVersion:
+    ./prometheus_rules_1_14_kubelet_rules.cue:11:124
+#version: undefined field: GitVersion:
+    ./prometheus_rules_1_14_kubelet_rules.cue:11:261
+#version: undefined field: GitVersion:
+    ./prometheus_rules_1_14_node_exporter_rules.cue:11:124
+#version: undefined field: GitVersion:
+    ./prometheus_rules_1_14_node_exporter_rules.cue:11:261
+#version: undefined field: GitVersion:
+    ./prometheus_rules_1_14_node_rules.cue:11:124
+#version: undefined field: GitVersion:
+    ./prometheus_rules_1_14_node_rules.cue:11:261
+#version: undefined field: GitVersion:
+    ./prometheus_rules_1_14_windows_node_rules.cue:11:124
+#version: undefined field: GitVersion:
+    ./prometheus_rules_1_14_windows_node_rules.cue:11:261
+#version: undefined field: GitVersion:
+    ./prometheus_rules_1_14_windows_pod_rules.cue:11:124
+#version: undefined field: GitVersion:
+    ./prometheus_rules_1_14_windows_pod_rules.cue:11:261
 results: error in call to list.FlattenN: invalid interpolation: cannot use {"app.kubernetes.io/managed-by":*"Helm" | string,"app.kubernetes.io/instance":_,"app.kubernetes.io/version":"\"82.2.1\"","app.kubernetes.io/part-of":"",chart:_,release:_|_(_kube_prometheus_stack_labels.release: invalid interpolation: non-concrete value _ (type _)),heritage:"Helm"} (type struct) as type (bool|string|bytes|number):
     ./results.cue:7:10
     ./alertmanager_alertmanager.cue:20:11
@@ -1745,6 +1834,8 @@ alertmanager_alertmanager.0.spec.externalUrl: invalid interpolation: cannot use 
     ./helpers.cue:20:6
 #values.alertmanager.annotations: 4 errors in empty disjunction::
     ./helpers.cue:20:6
+#version: 6 errors in empty disjunction::
+    ./helpers.cue:68:48
 #values.defaultRules.additionalRuleLabels: invalid interpolation: 4 errors in empty disjunction::
     ./helpers.cue:166:17
     ./alertmanager_alertmanager.cue:96:57
@@ -1766,6 +1857,94 @@ alertmanager_alertmanager.0.spec.externalUrl: invalid interpolation: cannot use 
 _kube_prometheus_stack_crd_upgradeJob_name: invalid interpolation: cannot use {} (type struct) as type (bool|string|bytes|number):
     ./helpers.cue:298:45
     ./helpers.cue:304:34
+#version: undefined field: GitVersion:
+    ./prometheus_rules_1_14_k8s_rules_container_cpu_limits.cue:11:124
+#version: undefined field: GitVersion:
+    ./prometheus_rules_1_14_k8s_rules_container_cpu_limits.cue:11:261
+#version: undefined field: GitVersion:
+    ./prometheus_rules_1_14_k8s_rules_container_cpu_requests.cue:11:124
+#version: undefined field: GitVersion:
+    ./prometheus_rules_1_14_k8s_rules_container_cpu_requests.cue:11:261
+#version: undefined field: GitVersion:
+    ./prometheus_rules_1_14_k8s_rules_container_cpu_usage_seconds_total.cue:11:124
+#version: undefined field: GitVersion:
+    ./prometheus_rules_1_14_k8s_rules_container_cpu_usage_seconds_total.cue:11:261
+#version: undefined field: GitVersion:
+    ./prometheus_rules_1_14_k8s_rules_container_memory_cache.cue:11:124
+#version: undefined field: GitVersion:
+    ./prometheus_rules_1_14_k8s_rules_container_memory_cache.cue:11:261
+#version: undefined field: GitVersion:
+    ./prometheus_rules_1_14_k8s_rules_container_memory_limits.cue:11:124
+#version: undefined field: GitVersion:
+    ./prometheus_rules_1_14_k8s_rules_container_memory_limits.cue:11:261
+#version: undefined field: GitVersion:
+    ./prometheus_rules_1_14_k8s_rules_container_memory_requests.cue:11:124
+#version: undefined field: GitVersion:
+    ./prometheus_rules_1_14_k8s_rules_container_memory_requests.cue:11:261
+#version: undefined field: GitVersion:
+    ./prometheus_rules_1_14_k8s_rules_container_memory_rss.cue:11:124
+#version: undefined field: GitVersion:
+    ./prometheus_rules_1_14_k8s_rules_container_memory_rss.cue:11:261
+#version: undefined field: GitVersion:
+    ./prometheus_rules_1_14_k8s_rules_container_memory_swap.cue:11:124
+#version: undefined field: GitVersion:
+    ./prometheus_rules_1_14_k8s_rules_container_memory_swap.cue:11:261
+#version: undefined field: GitVersion:
+    ./prometheus_rules_1_14_k8s_rules_container_memory_working_set_bytes.cue:11:124
+#version: undefined field: GitVersion:
+    ./prometheus_rules_1_14_k8s_rules_container_memory_working_set_bytes.cue:11:261
+#version: undefined field: GitVersion:
+    ./prometheus_rules_1_14_k8s_rules_container_resource.cue:11:124
+#version: undefined field: GitVersion:
+    ./prometheus_rules_1_14_k8s_rules_container_resource.cue:11:261
+#version: undefined field: GitVersion:
+    ./prometheus_rules_1_14_k8s_rules_pod_owner.cue:11:124
+#version: undefined field: GitVersion:
+    ./prometheus_rules_1_14_k8s_rules_pod_owner.cue:11:261
+#version: undefined field: GitVersion:
+    ./prometheus_rules_1_14_kube_apiserver_availability_rules.cue:11:124
+#version: undefined field: GitVersion:
+    ./prometheus_rules_1_14_kube_apiserver_availability_rules.cue:11:261
+#version: undefined field: GitVersion:
+    ./prometheus_rules_1_14_kube_apiserver_burnrate_rules.cue:11:124
+#version: undefined field: GitVersion:
+    ./prometheus_rules_1_14_kube_apiserver_burnrate_rules.cue:11:261
+#version: undefined field: GitVersion:
+    ./prometheus_rules_1_14_kube_apiserver_histogram_rules.cue:11:124
+#version: undefined field: GitVersion:
+    ./prometheus_rules_1_14_kube_apiserver_histogram_rules.cue:11:261
+#version: undefined field: GitVersion:
+    ./prometheus_rules_1_14_kube_prometheus_general_rules.cue:11:124
+#version: undefined field: GitVersion:
+    ./prometheus_rules_1_14_kube_prometheus_general_rules.cue:11:261
+#version: undefined field: GitVersion:
+    ./prometheus_rules_1_14_kube_prometheus_node_recording_rules.cue:11:124
+#version: undefined field: GitVersion:
+    ./prometheus_rules_1_14_kube_prometheus_node_recording_rules.cue:11:261
+#version: undefined field: GitVersion:
+    ./prometheus_rules_1_14_kube_scheduler_rules.cue:11:124
+#version: undefined field: GitVersion:
+    ./prometheus_rules_1_14_kube_scheduler_rules.cue:11:261
+#version: undefined field: GitVersion:
+    ./prometheus_rules_1_14_kubelet_rules.cue:11:124
+#version: undefined field: GitVersion:
+    ./prometheus_rules_1_14_kubelet_rules.cue:11:261
+#version: undefined field: GitVersion:
+    ./prometheus_rules_1_14_node_exporter_rules.cue:11:124
+#version: undefined field: GitVersion:
+    ./prometheus_rules_1_14_node_exporter_rules.cue:11:261
+#version: undefined field: GitVersion:
+    ./prometheus_rules_1_14_node_rules.cue:11:124
+#version: undefined field: GitVersion:
+    ./prometheus_rules_1_14_node_rules.cue:11:261
+#version: undefined field: GitVersion:
+    ./prometheus_rules_1_14_windows_node_rules.cue:11:124
+#version: undefined field: GitVersion:
+    ./prometheus_rules_1_14_windows_node_rules.cue:11:261
+#version: undefined field: GitVersion:
+    ./prometheus_rules_1_14_windows_pod_rules.cue:11:124
+#version: undefined field: GitVersion:
+    ./prometheus_rules_1_14_windows_pod_rules.cue:11:261
 results: error in call to list.FlattenN: invalid interpolation: cannot use {"app.kubernetes.io/managed-by":*"Helm" | string,"app.kubernetes.io/instance":"test","app.kubernetes.io/version":"\"82.2.1\"","app.kubernetes.io/part-of":"",chart:_,release:"test",heritage:"Helm"} (type struct) as type (bool|string|bytes|number):
     ./results.cue:7:10
     ./alertmanager_alertmanager.cue:20:11

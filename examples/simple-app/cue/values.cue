@@ -3,9 +3,9 @@
 package simple_app
 
 #values: {
-	env:          *"development" | bool | number | string | null
-	debug?:       bool | number | string | null
-	replicaCount: *1 | bool | number | string | null
+	env?:          bool | number | string | null
+	debug?:        bool | number | string | null
+	replicaCount?: bool | number | string | null
 	serviceAccount!: {
 		name!: bool | number | string | null
 		...
@@ -13,7 +13,7 @@ package simple_app
 	image?: {
 		repository!: bool | number | string | null
 		tag!:        bool | number | string | null
-		pullPolicy:  *"IfNotPresent" | bool | number | string | null
+		pullPolicy?: bool | number | string | null
 		...
 	}
 	ports!: [...{
@@ -22,8 +22,8 @@ package simple_app
 		...
 	}]
 	service?: {
-		type: *"ClusterIP" | bool | number | string | null
-		port: *80 | bool | number | string | null
+		type?: bool | number | string | null
+		port?: bool | number | string | null
 		...
 	}
 	...

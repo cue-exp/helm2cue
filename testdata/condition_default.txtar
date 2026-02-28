@@ -23,8 +23,8 @@ data:
 import "struct"
 
 #values: {
-	name!:    bool | number | string | null
-	disabled: *false | bool | number | string | null
+	name!:     bool | number | string | null
+	disabled?: bool | number | string | null
 	...
 }
 
@@ -33,7 +33,7 @@ output: [
 		apiVersion: "v1"
 		kind:       "ConfigMap"
 		metadata: name: #values.name
-		if !(_nonzero & {#arg: #values.disabled, _}) {
+		if !(_nonzero & {#arg: *#values.disabled | false, _}) {
 			data: status: "active"
 		}
 	},

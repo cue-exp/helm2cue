@@ -3,22 +3,16 @@ warning: skipping deployment.yaml (doc 0): missing ',' before newline in list li
 warning: skipping ingress-tls-secret.yaml (doc 2): unsupported template action: {{$ca := genCA "nginx-ca" 365}}
 warning: skipping ingress.yaml (doc 0): if condition: unsupported condition function: contains
 warning: skipping tls-secret.yaml (doc 0): unsupported template action: {{$ca := genCA "nginx-ca" 365}}
-warning: values schema inconsistency: #values.metrics.prometheusRule.namespace: reference "_common_names_namespace" not found (and 2 more errors)
-warning: values.yaml does not satisfy inferred schema: #values.metrics.prometheusRule.namespace: reference "_common_names_namespace" not found (and 2 more errors)
 converted 12/21 templates from nginx
 -- cue vet --
 exit status 1
-#version: undefined field: kubeVersion:
-    ./helpers.cue:216:71
-_common_capabilities_kubeVersion: undefined field: kubeVersion:
-    ./helpers.cue:216:71
+_vMajor: error in call to strconv.Atoi: strconv.Atoi: parsing "": invalid syntax:
+    ./helpers.cue:68:11
 _common_fips_enabled: undefined field: Annotations:
     ./helpers.cue:299:22
 -- cue export --
 exit status 1
-#version: undefined field: kubeVersion:
-    ./helpers.cue:216:71
-_common_capabilities_kubeVersion: undefined field: kubeVersion:
-    ./helpers.cue:216:71
+_vMajor: error in call to strconv.Atoi: strconv.Atoi: parsing "": invalid syntax:
+    ./helpers.cue:68:11
 _common_fips_enabled: undefined field: Annotations:
     ./helpers.cue:299:22

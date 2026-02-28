@@ -21,7 +21,7 @@ data:
 		...
 	}
 	metrics?: {
-		port!: bool | number | string | null
+		port?: bool | number | string | null
 		...
 	}
 	...
@@ -32,6 +32,6 @@ output: [
 		apiVersion: "v1"
 		kind:       "ConfigMap"
 		metadata: name: "test"
-		data: port: "\(int & *#values.containerPorts.http | #values.metrics.port)"
+		data: port: "\(int & *#values.metrics.port | #values.containerPorts.http)"
 	},
 ]
