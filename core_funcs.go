@@ -57,6 +57,7 @@ func init() {
 		"printf":         {nargs: -1, convert: convertPrintf},
 		"print":          {nargs: -1, convert: convertPrint},
 		"required":       {nargs: 2, convert: convertRequired},
+		"fail":           {nargs: 1, convert: convertFail},
 		"include":        {nargs: -1, convert: convertInclude},
 		"ternary":        {nargs: 3, convert: convertTernary},
 		"list":           {nargs: -1, convert: convertList},
@@ -231,6 +232,17 @@ func convertRequired(c *converter, args []funcArg) (string, string, error) {
 	_ = fieldPath // tracked inside resolveField
 	c.comments[expr] = fmt.Sprintf("// required: %s", msg)
 	return expr, helmObj, nil
+}
+
+func convertFail(c *converter, args []funcArg) (string, string, error) {
+	if len(args) != 1 {
+		return "", "", fmt.Errorf("fail requires 1 argument, got %d", len(args))
+	}
+	msg, err := c.resolveLiteral(args[0])
+	if err != nil {
+		return "", "", fmt.Errorf("fail message: %w", err)
+	}
+	return fmt.Sprintf("error(%s)", msg), "", nil
 }
 
 func convertInclude(c *converter, args []funcArg) (string, string, error) {
