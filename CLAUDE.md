@@ -157,8 +157,10 @@ or discovered in integration tests:
    diff clearly shows how expectations changed.
    - **CLI tests**: change `! exec` to `exec`, update `stderr`
      assertions, and add golden output comparisons (`cmp`).
-   - **Helm tests**: remove `-- broken --` and add `-- output.cue --`,
-     or update the expected output.
+   - **Helm tests**: remove `-- broken --` and replace with an empty
+     `-- output.cue --` section, then run `go test -run <test> -update`
+     to auto-populate the correct output. (The `-update` flag only works
+     after `-- broken --` is removed, since broken tests exit early.)
 7. **Cross-check against the original report.** Go back to the original
    reproducer (from the issue or integration test) and verify it is also
    fixed. If the original report involved the `chart` subcommand, run the
@@ -174,7 +176,9 @@ or discovered in integration tests:
    test** (`testdata/*.txtar`) that validates round-trip semantic
    equivalence against `helm template`. The CLI test links to the
    issue and confirms chart-level conversion; the Helm test provides
-   direct converter coverage with round-trip validation.
+   direct converter coverage with round-trip validation. If the
+   reproduction test (from step 3) is already a verified Helm test
+   in `testdata/`, no additional Helm test is needed.
 
 For integration-test failures, treat the failing integration test as the
 "report" — the same reduce-then-fix discipline applies.
@@ -183,9 +187,10 @@ For integration-test failures, treat the failing integration test as the
 
 - Always use the native Write or Edit tools to create or modify files. Never use
   `sed`, `cat`, `echo`, or other Bash shell commands for file editing or creation.
-- **Always use `command cd` instead of plain `cd`** when changing directory in
+- **Use `command cd` instead of plain `cd`** when changing directory in
   shell commands. Plain `cd` may be overridden by shell functions that cause
-  errors.
+  errors. For all other commands (e.g. `go`, `git`, `helm`), use the plain
+  command name — do **not** prefix with `command`.
 - Place temporary files (e.g. chart conversion output) under `tmp/` in the repo
   root. This directory is gitignored. Do not use `/tmp` or other system temp
   directories.
