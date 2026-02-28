@@ -1,0 +1,22 @@
+# fail function should convert to CUE error().
+# https://github.com/cue-exp/helm2cue/issues/45
+! exec helm2cue chart chartdir outdir
+stderr 'no templates converted successfully'
+
+-- chartdir/Chart.yaml --
+apiVersion: v2
+name: test-app
+version: 0.1.0
+-- chartdir/values.yaml --
+required: ""
+name: test
+-- chartdir/templates/test.yaml --
+{{- if not .Values.required }}
+{{- fail "required must be set" }}
+{{- end }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test
+data:
+  key: {{ .Values.name }}
