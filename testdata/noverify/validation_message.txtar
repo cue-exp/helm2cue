@@ -1,0 +1,70 @@
+Validation message helper whose body looks like YAML ("component: errorKey"
+followed by indented text). The converter collapses the body to a single
+string to avoid mixing fields with bare quoted strings.
+
+Round-trip comparison is not possible: when the condition is false the helper
+evaluates to {} (empty struct), not "" (empty string), so the string
+interpolation in the template body fails. See #44.
+
+-- _helpers.tpl --
+{{- define "test.validateValues.cloneRepo" -}}
+{{- if and .Values.cloneRepo.enabled (not .Values.cloneRepo.repository) -}}
+test: cloneRepo
+    When enabling cloning a repo, both
+    the repository and branch must be provided.
+{{- end -}}
+{{- end -}}
+
+-- input.yaml --
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test
+data:
+  validation: {{ include "test.validateValues.cloneRepo" . | quote }}
+
+-- values.yaml --
+cloneRepo:
+  enabled: false
+  repository: ""
+  branch: ""
+
+-- output.cue --
+import "struct"
+
+#values: {
+	cloneRepo?: {
+		enabled?:    bool | number | string | null
+		repository?: bool | number | string | null
+		...
+	}
+	...
+}
+_test_validateValues_cloneRepo: {
+	if (_nonzero & {#arg: #values.cloneRepo.enabled, _}) && !(_nonzero & {#arg: #values.cloneRepo.repository, _}) {
+		"test: cloneRepo When enabling cloning a repo, both the repository and branch must be provided."
+	}
+}
+
+output: [
+	{
+		apiVersion: "v1"
+		kind:       "ConfigMap"
+		metadata: name: "test"
+		data: validation: "\(_test_validateValues_cloneRepo)"
+	},
+]
+_nonzero: {
+	#arg?: _
+	[if #arg != _|_ {
+		[
+			if (#arg & int) != _|_ {#arg != 0},
+			if (#arg & string) != _|_ {#arg != ""},
+			if (#arg & float) != _|_ {#arg != 0.0},
+			if (#arg & bool) != _|_ {#arg},
+			if (#arg & [...]) != _|_ {len(#arg) > 0},
+			if (#arg & {...}) != _|_ {(#arg & struct.MaxFields(0)) == _|_},
+			false,
+		][0]
+	}, false][0]
+}
