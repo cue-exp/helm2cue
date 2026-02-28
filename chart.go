@@ -273,7 +273,7 @@ func ConvertChart(chartDir, outDir string, opts ChartOptions) error {
 	// Build the values schema and validate it.
 	schemaCUE := buildValuesSchemaCUE(mergedFieldRefs["Values"], mergedDefaults["Values"], mergedRequiredRefs["Values"], mergedRangeRefs["Values"])
 	var valWarnings []string
-	if err := validateSchema(schemaCUE); err != nil {
+	if err := validateSchema(schemaCUE, cfg.ContextObjects); err != nil {
 		valWarnings = append(valWarnings, fmt.Sprintf("values schema inconsistency: %v", err))
 	}
 
@@ -281,7 +281,7 @@ func ConvertChart(chartDir, outDir string, opts ChartOptions) error {
 	valuesPath := filepath.Join(chartDir, "values.yaml")
 	valuesData, valuesErr := os.ReadFile(valuesPath)
 	if valuesErr == nil {
-		if err := validateValuesAgainstSchema(schemaCUE, valuesData); err != nil {
+		if err := validateValuesAgainstSchema(schemaCUE, valuesData, cfg.ContextObjects); err != nil {
 			valWarnings = append(valWarnings, fmt.Sprintf("values.yaml does not satisfy inferred schema: %v", err))
 		}
 	}
@@ -519,11 +519,32 @@ func writeValuesCUE(outDir, pkgName string, schemaCUE []byte) error {
 	return writeCUEFile(filepath.Join(outDir, "values.cue"), buf.Bytes())
 }
 
+// prependContextStubs prepends stub definitions for context objects
+// (e.g. #chart: _) so that default values referencing them can be
+// resolved during validation. The #values definition is skipped
+// since it is already present in the schema.
+func prependContextStubs(schemaCUE []byte, contextObjects map[string]string) []byte {
+	if len(contextObjects) == 0 {
+		return schemaCUE
+	}
+	var buf bytes.Buffer
+	for _, cueDef := range contextObjects {
+		if cueDef == "#values" {
+			continue
+		}
+		fmt.Fprintf(&buf, "%s: _\n", cueDef)
+	}
+	buf.Write(schemaCUE)
+	return buf.Bytes()
+}
+
 // validateSchema compiles the schema CUE and checks it for internal
-// consistency using CUE's own unification.
-func validateSchema(schemaCUE []byte) error {
+// consistency using CUE's own unification. Context object stubs are
+// prepended so that default values referencing other context objects
+// (e.g. *#chart.Name) can be resolved.
+func validateSchema(schemaCUE []byte, contextObjects map[string]string) error {
 	ctx := cuecontext.New()
-	v := ctx.CompileBytes(schemaCUE)
+	v := ctx.CompileBytes(prependContextStubs(schemaCUE, contextObjects))
 	if err := v.Err(); err != nil {
 		return err
 	}
@@ -534,9 +555,9 @@ func validateSchema(schemaCUE []byte) error {
 // constraints in schemaCUE. It uses CUE unification: the YAML is parsed
 // into a CUE value, unified with the #values definition from the schema,
 // and the result is validated.
-func validateValuesAgainstSchema(schemaCUE, valuesYAML []byte) error {
+func validateValuesAgainstSchema(schemaCUE, valuesYAML []byte, contextObjects map[string]string) error {
 	ctx := cuecontext.New()
-	schema := ctx.CompileBytes(schemaCUE)
+	schema := ctx.CompileBytes(prependContextStubs(schemaCUE, contextObjects))
 	if err := schema.Err(); err != nil {
 		return err
 	}

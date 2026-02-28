@@ -3,8 +3,8 @@ warning: skipping deployment.yaml (doc 0): missing ',' before newline in list li
 warning: skipping ingress-tls-secret.yaml (doc 2): unsupported template action: {{$ca := genCA "nginx-ca" 365}}
 warning: skipping ingress.yaml (doc 0): if condition: unsupported condition function: contains
 warning: skipping tls-secret.yaml (doc 0): unsupported template action: {{$ca := genCA "nginx-ca" 365}}
-warning: values schema inconsistency: #values.nameOverride: reference "#chart" not found (and 4 more errors)
-warning: values.yaml does not satisfy inferred schema: #values.nameOverride: reference "#chart" not found (and 4 more errors)
+warning: values schema inconsistency: #values.metrics.prometheusRule.namespace: reference "_common_names_namespace" not found (and 2 more errors)
+warning: values.yaml does not satisfy inferred schema: #values.metrics.prometheusRule.namespace: reference "_common_names_namespace" not found (and 2 more errors)
 converted 12/21 templates from nginx
 -- cue vet --
 exit status 1

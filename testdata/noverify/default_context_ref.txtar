@@ -1,0 +1,24 @@
+Default value referencing non-values context object.
+Round-trip Helm comparison not possible because the CUE output
+references #chart which requires concrete values from Chart.yaml
+(only available in chart-level conversion).
+
+-- values.yaml --
+nameOverride: ""
+-- input.yaml --
+name: {{ default .Chart.Name .Values.nameOverride }}
+-- output.cue --
+#chart: {
+	Name!: bool | number | string | null
+	...
+}
+#values: {
+	nameOverride: *#chart.Name | bool | number | string | null
+	...
+}
+
+output: [
+	{
+		name: #values.nameOverride
+	},
+]
