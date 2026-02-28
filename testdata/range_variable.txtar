@@ -1,0 +1,28 @@
+Range over a local variable assigned from .Values.
+
+-- values.yaml --
+items:
+  - alpha
+  - beta
+-- input.yaml --
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test
+data:
+  {{- $items := .Values.items }}
+  items:
+    {{- range $items }}
+    - {{ . }}
+    {{- end }}
+-- helm_output.yaml --
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test
+data:
+  items:
+    - alpha
+    - beta
+-- broken --
+unsupported node: $items
