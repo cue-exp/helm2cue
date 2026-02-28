@@ -226,7 +226,9 @@ type converter struct {
 	// interpolation (e.g. "- --{{ $key }}={{ $value }}" → "--\(_key0)=\(_val0)").
 	inlineParts      []string // non-nil when inline mode is active
 	inlineSuffix     string   // appended after closing quote (e.g. "," for list items)
+	inlineStartPos   int      // c.out.Len() when inline mode started (for buffer truncation)
 	nextNodeIsInline bool     // true when next sibling is an action/text node (not a control structure)
+	skipCount        int      // nodes to skip in body/top-level processing loops (consumed by processInlineIf)
 
 	// Flow collection accumulation: when a YAML flow mapping/sequence
 	// spans multiple AST nodes (template actions inside), accumulate
@@ -1429,6 +1431,7 @@ func (c *converter) emitTextNode(text []byte) {
 	if c.deferredKV != nil && s[0] != '\n' {
 		d := c.deferredKV
 		c.deferredKV = nil
+		c.inlineStartPos = c.out.Len()
 		writeIndent(&c.out, d.cueInd)
 		key := cueKey(d.key)
 		if d.rawKey {
@@ -1492,7 +1495,11 @@ func (c *converter) emitTextNode(text []byte) {
 	// Whether the last line continues into the next AST node:
 	// text does not end with a newline AND the next sibling is an
 	// action/text node (not a control structure like {{- end }}).
-	textContinuesInline := len(s) > 0 && s[len(s)-1] != '\n' && c.nextNodeIsInline
+	// Also consider inline-safe IfNodes (if/else with text-only branches).
+	textEndsNoNewline := len(s) > 0 && s[len(s)-1] != '\n'
+	nextIsInlineOrIf := c.nextNodeIsInline ||
+		(textEndsNoNewline && len(c.remainingNodes) > 0 && isInlineNodeOrIf(c.remainingNodes[0]))
+	textContinuesInline := textEndsNoNewline && nextIsInlineOrIf
 
 	lines := strings.Split(s, "\n")
 
@@ -1651,6 +1658,7 @@ func (c *converter) emitTextNode(text []byte) {
 				c.startFlowAccum(content[colonIdx+2:], cueInd, "\n")
 			} else if continuesInline && val != "" {
 				// Value continues into next AST node — start inline accumulation.
+				c.inlineStartPos = c.out.Len()
 				writeIndent(&c.out, cueInd)
 				fmt.Fprintf(&c.out, "%s: ", cueKey(key))
 				c.inlineParts = []string{escapeCUEString(val)}
@@ -1665,6 +1673,7 @@ func (c *converter) emitTextNode(text []byte) {
 			c.pendingKeyInd = yamlIndent
 		} else if continuesInline {
 			// Bare value continues into next AST node — start inline accumulation.
+			c.inlineStartPos = c.out.Len()
 			writeIndent(&c.out, cueInd)
 			c.inlineParts = []string{escapeCUEString(trimmed)}
 		} else {
@@ -1799,6 +1808,7 @@ func (c *converter) processListItem(trimmed string, yamlIndent, cueInd int, isLa
 		c.blockScalarStrip = strings.HasSuffix(tc, "-")
 	} else if continuesInline {
 		// Scalar list item continues into next AST node — start inline.
+		c.inlineStartPos = c.out.Len()
 		writeIndent(&c.out, cueInd)
 		c.inlineParts = []string{escapeCUEString(strings.TrimSpace(content))}
 		c.inlineSuffix = ","
@@ -1851,6 +1861,7 @@ func (c *converter) processRangeListItem(content string, yamlIndent, cueInd int,
 		c.pendingKeyInd = yamlIndent
 	} else if continuesInline {
 		// Scalar value continues into next AST node — start inline.
+		c.inlineStartPos = c.out.Len()
 		writeIndent(&c.out, cueInd)
 		c.inlineParts = []string{escapeCUEString(strings.TrimSpace(content))}
 	} else {
@@ -1966,6 +1977,10 @@ func (c *converter) processNodes(nodes []parse.Node) error {
 		return nil
 	}
 	for i, node := range nodes {
+		if c.skipCount > 0 {
+			c.skipCount--
+			continue
+		}
 		c.remainingNodes = nodes[i+1:]
 		c.nextNodeIsInline = i+1 < len(nodes) && isInlineNode(nodes[i+1])
 		if err := c.processNode(node); err != nil {
@@ -2017,6 +2032,59 @@ func isInlineNode(node parse.Node) bool {
 	return false
 }
 
+// isInlineNodeOrIf is like isInlineNode but also considers inline-safe
+// IfNodes. Used only when checking whether the next sibling can continue
+// an already-active inline accumulation.
+func isInlineNodeOrIf(node parse.Node) bool {
+	if isInlineNode(node) {
+		return true
+	}
+	if n, ok := node.(*parse.IfNode); ok {
+		return isInlineSafeIf(n)
+	}
+	return false
+}
+
+// isInlineBody reports whether nodes form an inline-safe body: all nodes
+// are TextNode, ActionNode, or TemplateNode; no TextNode contains a
+// newline; and at least one TextNode is non-empty. The non-empty TextNode
+// requirement distinguishes genuinely inline content (e.g. "tls.crt")
+// from block-level constructs where trim markers ({{- ... -}}) have
+// removed all whitespace TextNodes, leaving only action/template calls
+// that may expand to multi-line output.
+func isInlineBody(nodes []parse.Node) bool {
+	hasText := false
+	for _, n := range nodes {
+		switch t := n.(type) {
+		case *parse.TextNode:
+			if bytes.ContainsAny(t.Text, "\n") {
+				return false
+			}
+			if len(t.Text) > 0 {
+				hasText = true
+			}
+		case *parse.ActionNode, *parse.TemplateNode:
+			// OK — actions and template calls are allowed but don't
+			// satisfy the non-empty text requirement on their own.
+		default:
+			return false
+		}
+	}
+	return hasText
+}
+
+// isInlineSafeIf reports whether an IfNode can be handled inline: both
+// the if-body and else-body (if present) contain only inline-safe nodes.
+func isInlineSafeIf(n *parse.IfNode) bool {
+	if n.List == nil || !isInlineBody(n.List.Nodes) {
+		return false
+	}
+	if n.ElseList != nil && !isInlineBody(n.ElseList.Nodes) {
+		return false
+	}
+	return true
+}
+
 func (c *converter) processNode(node parse.Node) error {
 	switch n := node.(type) {
 	case *parse.TextNode:
@@ -2044,6 +2112,9 @@ func (c *converter) processNode(node parse.Node) error {
 		comment := c.comments[expr]
 		c.emitActionExpr(expr, comment)
 	case *parse.IfNode:
+		if c.inlineParts != nil && isInlineSafeIf(n) {
+			return c.processInlineIf(n)
+		}
 		return c.processIf(n)
 	case *parse.RangeNode:
 		return c.processRange(n)
@@ -2411,6 +2482,168 @@ func (c *converter) processIfScopeExitNodes(
 		if err := c.emitConditionalBlockNodes(cueInd, negCondition, outBI, false, elseOutNodes); err != nil {
 			return err
 		}
+	}
+
+	return nil
+}
+
+// collectInlineSuffix scans remaining sibling nodes to collect text/action
+// parts that follow an inline IfNode on the same YAML line (up to the first
+// newline or non-inline node). Returns the collected parts and how many
+// sibling nodes were consumed.
+func (c *converter) collectInlineSuffix() ([]string, int, error) {
+	var parts []string
+	consumed := 0
+	for _, sib := range c.remainingNodes {
+		switch t := sib.(type) {
+		case *parse.TextNode:
+			s := string(t.Text)
+			idx := strings.IndexByte(s, '\n')
+			if idx < 0 {
+				parts = append(parts, escapeCUEString(s))
+				consumed++
+				continue
+			}
+			if idx > 0 {
+				parts = append(parts, escapeCUEString(s[:idx]))
+			}
+			consumed++
+			return parts, consumed, nil
+		case *parse.ActionNode:
+			expr, helmObj, err := c.actionToCUE(t)
+			if err != nil {
+				return nil, 0, err
+			}
+			if helmObj != "" {
+				c.usedContextObjects[helmObj] = true
+			}
+			parts = append(parts, inlineExpr(expr))
+			consumed++
+		case *parse.TemplateNode:
+			cueName, helmObj, err := c.handleInclude(t.Name, t.Pipe)
+			if err != nil {
+				return nil, 0, err
+			}
+			if helmObj != "" {
+				c.usedContextObjects[helmObj] = true
+			}
+			parts = append(parts, inlineExpr(cueName))
+			consumed++
+		default:
+			return parts, consumed, nil
+		}
+	}
+	return parts, consumed, nil
+}
+
+// branchToInlineParts converts an IfNode branch's body nodes into inline
+// string parts suitable for embedding in a CUE string interpolation.
+func (c *converter) branchToInlineParts(nodes []parse.Node) ([]string, error) {
+	var parts []string
+	for _, node := range nodes {
+		switch t := node.(type) {
+		case *parse.TextNode:
+			parts = append(parts, escapeCUEString(string(t.Text)))
+		case *parse.ActionNode:
+			expr, helmObj, err := c.actionToCUE(t)
+			if err != nil {
+				return nil, err
+			}
+			if helmObj != "" {
+				c.usedContextObjects[helmObj] = true
+			}
+			parts = append(parts, inlineExpr(expr))
+		case *parse.TemplateNode:
+			cueName, helmObj, err := c.handleInclude(t.Name, t.Pipe)
+			if err != nil {
+				return nil, err
+			}
+			if helmObj != "" {
+				c.usedContextObjects[helmObj] = true
+			}
+			parts = append(parts, inlineExpr(cueName))
+		}
+	}
+	return parts, nil
+}
+
+// processInlineIf handles an IfNode encountered while inline mode is active.
+// It expands each branch into a separate complete string with the full
+// prefix and suffix, emitting conditional CUE guards.
+func (c *converter) processInlineIf(n *parse.IfNode) error {
+	c.hasConditions = true
+
+	// Save current inline state.
+	prefix := c.inlineParts
+	suffix := c.inlineSuffix
+	c.inlineParts = nil
+	c.inlineSuffix = ""
+
+	// Flush any pending action into prefix.
+	if c.pendingActionExpr != "" {
+		prefix = append(prefix, inlineExpr(c.pendingActionExpr))
+		c.pendingActionExpr = ""
+		c.pendingActionComment = ""
+	}
+
+	// Extract the line prefix that was already written to the output buffer
+	// (indentation + "key: " or similar) since inlineStartPos.
+	linePrefix := c.out.String()[c.inlineStartPos:]
+	c.out.Truncate(c.inlineStartPos)
+
+	// Collect suffix from remaining sibling nodes on the same line.
+	suffixParts, consumed, err := c.collectInlineSuffix()
+	if err != nil {
+		return err
+	}
+	c.skipCount = consumed
+
+	// Get the condition.
+	condition, negCondition, err := c.pipeToCUECondition(n.Pipe)
+	if err != nil {
+		return fmt.Errorf("inline if condition: %w", err)
+	}
+
+	// Convert branch bodies to inline parts.
+	ifParts, err := c.branchToInlineParts(n.List.Nodes)
+	if err != nil {
+		return err
+	}
+
+	cueInd := c.currentCUEIndent()
+
+	// Emit if branch.
+	writeIndent(&c.out, cueInd)
+	fmt.Fprintf(&c.out, "if %s {\n", condition)
+	writeIndent(&c.out, cueInd+1)
+	c.out.WriteString(linePrefix)
+	allParts := make([]string, 0, len(prefix)+len(ifParts)+len(suffixParts))
+	allParts = append(allParts, prefix...)
+	allParts = append(allParts, ifParts...)
+	allParts = append(allParts, suffixParts...)
+	c.out.WriteString(`"` + strings.Join(allParts, "") + `"` + suffix)
+	c.out.WriteByte('\n')
+	writeIndent(&c.out, cueInd)
+	c.out.WriteString("}\n")
+
+	// Emit else branch.
+	if n.ElseList != nil && len(n.ElseList.Nodes) > 0 {
+		elseParts, err := c.branchToInlineParts(n.ElseList.Nodes)
+		if err != nil {
+			return err
+		}
+		writeIndent(&c.out, cueInd)
+		fmt.Fprintf(&c.out, "if %s {\n", negCondition)
+		writeIndent(&c.out, cueInd+1)
+		c.out.WriteString(linePrefix)
+		allParts = allParts[:0]
+		allParts = append(allParts, prefix...)
+		allParts = append(allParts, elseParts...)
+		allParts = append(allParts, suffixParts...)
+		c.out.WriteString(`"` + strings.Join(allParts, "") + `"` + suffix)
+		c.out.WriteByte('\n')
+		writeIndent(&c.out, cueInd)
+		c.out.WriteString("}\n")
 	}
 
 	return nil
@@ -2818,6 +3051,10 @@ func (c *converter) withPipeContext(pipe *parse.PipeNode) (helmObj string, baseP
 
 func (c *converter) processBodyNodes(nodes []parse.Node) error {
 	for i, node := range nodes {
+		if c.skipCount > 0 {
+			c.skipCount--
+			continue
+		}
 		c.remainingNodes = nodes[i+1:]
 		c.nextNodeIsInline = i+1 < len(nodes) && isInlineNode(nodes[i+1])
 		if err := c.processNode(node); err != nil {

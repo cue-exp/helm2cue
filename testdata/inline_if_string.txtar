@@ -1,0 +1,67 @@
+Inline if/else inside a YAML string value in a list item.
+
+-- values.yaml --
+tls: true
+certManager: true
+-- input.yaml --
+apiVersion: v1
+kind: Pod
+spec:
+  containers:
+  - name: test
+    args:
+    {{- if .Values.tls }}
+    - --cert={{ if .Values.certManager }}tls.crt{{ else }}cert{{ end }}
+    {{- end }}
+-- helm_output.yaml --
+apiVersion: v1
+kind: Pod
+spec:
+  containers:
+  - name: test
+    args:
+    - --cert=tls.crt
+-- output.cue --
+import "struct"
+
+#values: {
+	tls?:         bool | number | string | null
+	certManager?: bool | number | string | null
+	...
+}
+
+output: [
+	{
+		apiVersion: "v1"
+		kind:       "Pod"
+		spec: containers: [
+			{
+				name: "test"
+				args: [
+					if (_nonzero & {#arg: #values.tls, _}) {
+						if (_nonzero & {#arg: #values.certManager, _}) {
+							"--cert=tls.crt"
+						}
+						if !(_nonzero & {#arg: #values.certManager, _}) {
+							"--cert=cert"
+						}
+					},
+				]
+			},
+		]
+	},
+]
+_nonzero: {
+	#arg?: _
+	[if #arg != _|_ {
+		[
+			if (#arg & int) != _|_ {#arg != 0},
+			if (#arg & string) != _|_ {#arg != ""},
+			if (#arg & float) != _|_ {#arg != 0.0},
+			if (#arg & bool) != _|_ {#arg},
+			if (#arg & [...]) != _|_ {len(#arg) > 0},
+			if (#arg & {...}) != _|_ {(#arg & struct.MaxFields(0)) == _|_},
+			false,
+		][0]
+	}, false][0]
+}
