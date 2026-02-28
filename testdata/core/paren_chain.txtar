@@ -1,0 +1,8 @@
+Parenthesized field access chain.
+Core tests do not have values.yaml; this test only exercises the
+parse-tree handling, not round-trip validation.
+
+-- input.yaml --
+cpu: {{ ((.Values).cpu) }}
+-- error --
+unsupported template action
