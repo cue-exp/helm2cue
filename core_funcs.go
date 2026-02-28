@@ -183,10 +183,25 @@ func convertDefault(c *converter, args []funcArg) (string, string, error) {
 		return "", "", fmt.Errorf("default field: %w", err)
 	}
 	if helmObj != "" && fieldPath != nil {
-		c.defaults[helmObj] = append(c.defaults[helmObj], fieldDefault{
-			path:     fieldPath,
-			cueValue: defaultVal,
-		})
+		// Only record the default when it can be resolved in
+		// the schema scope. Default values that reference other
+		// context objects (e.g. #chart.Name from .Chart.Name)
+		// are not available in #values and would produce
+		// undefined-reference errors.
+		recordDefault := true
+		if a := args[0]; a.node != nil {
+			if f, ok := a.node.(*parse.FieldNode); ok && len(f.Ident) > 0 {
+				if cueObj, ok := c.config.ContextObjects[f.Ident[0]]; ok && cueObj != c.config.ContextObjects[helmObj] {
+					recordDefault = false
+				}
+			}
+		}
+		if recordDefault {
+			c.defaults[helmObj] = append(c.defaults[helmObj], fieldDefault{
+				path:     fieldPath,
+				cueValue: defaultVal,
+			})
+		}
 	}
 	return expr, helmObj, nil
 }
