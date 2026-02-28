@@ -1,0 +1,15 @@
+# Parenthesized field access chain with pipeline function.
+# https://github.com/cue-exp/helm2cue/issues/34
+! exec helm2cue chart chartdir outdir
+cmp stderr stderr.golden
+
+-- chartdir/Chart.yaml --
+apiVersion: v2
+name: test-app
+version: 0.1.0
+-- chartdir/values.yaml --
+cpu: 100m
+-- chartdir/templates/test.yaml --
+cpu: {{ ((.Values).cpu) | default 0 }}
+-- stderr.golden --
+helm2cue: no templates converted successfully
