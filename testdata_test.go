@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
+	"os/exec"
 	"sort"
 	"sync"
 	"testing"
@@ -26,6 +27,29 @@ import (
 	"github.com/rogpeppe/go-internal/testscript"
 	"golang.org/x/tools/txtar"
 )
+
+// runCue provides a "cue" command for testscript CLI tests.
+// It reads the GOTEST_CUE_PATH env var (set by Setup) to find
+// the cue binary resolved from "go tool -n cue".
+func runCue() int {
+	cuePath := os.Getenv("GOTEST_CUE_PATH")
+	if cuePath == "" {
+		fmt.Fprintln(os.Stderr, "GOTEST_CUE_PATH not set")
+		return 1
+	}
+	cmd := exec.Command(cuePath, os.Args[1:]...)
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	if err := cmd.Run(); err != nil {
+		if exitErr, ok := err.(*exec.ExitError); ok {
+			return exitErr.ExitCode()
+		}
+		fmt.Fprintln(os.Stderr, err)
+		return 1
+	}
+	return 0
+}
 
 var testdataFS = newTrackingFS(os.DirFS("testdata"))
 
@@ -133,5 +157,6 @@ func (w *testMainWrapper) Run() int {
 func TestMain(m *testing.M) {
 	testscript.Main(&testMainWrapper{m}, map[string]func(){
 		"helm2cue": func() { os.Exit(main1()) },
+		"cue":      func() { os.Exit(runCue()) },
 	})
 }

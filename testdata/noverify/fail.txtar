@@ -1,0 +1,39 @@
+fail function: emit error() for validation failures.
+No semantic comparison: Helm aborts on fail, producing no rendered output.
+
+-- input.yaml --
+{{- if not .Values.required }}
+{{- fail "required must be set" }}
+{{- end }}
+data: {{ .Values.name }}
+-- output.cue --
+import "struct"
+
+#values: {
+	required?: bool | number | string | null
+	name!:     bool | number | string | null
+	...
+}
+
+output: [
+	{
+		if !(_nonzero & {#arg: #values.required, _}) {
+			error("required must be set")
+		}
+		data: #values.name
+	},
+]
+_nonzero: {
+	#arg?: _
+	[if #arg != _|_ {
+		[
+			if (#arg & int) != _|_ {#arg != 0},
+			if (#arg & string) != _|_ {#arg != ""},
+			if (#arg & float) != _|_ {#arg != 0.0},
+			if (#arg & bool) != _|_ {#arg},
+			if (#arg & [...]) != _|_ {len(#arg) > 0},
+			if (#arg & {...}) != _|_ {(#arg & struct.MaxFields(0)) == _|_},
+			false,
+		][0]
+	}, false][0]
+}
