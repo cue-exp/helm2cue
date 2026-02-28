@@ -4,5 +4,9 @@ parse-tree handling, not round-trip validation.
 
 -- input.yaml --
 cpu: {{ ((.Values).cpu) }}
--- error --
-unsupported template action
+-- output.cue --
+output: [
+	{
+		cpu: Values.cpu
+	},
+]

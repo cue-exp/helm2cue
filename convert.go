@@ -3686,6 +3686,11 @@ func (c *converter) actionToCUE(n *parse.ActionNode) (expr string, helmObj strin
 					}
 				}
 			}
+		} else if p, ok := first.Args[0].(*parse.PipeNode); ok {
+			expr, helmObj, err = c.convertSubPipe(p)
+			if err != nil {
+				return "", "", err
+			}
 		} else if s, ok := first.Args[0].(*parse.StringNode); ok {
 			expr = strconv.Quote(s.Text)
 		} else if num, ok := first.Args[0].(*parse.NumberNode); ok {
