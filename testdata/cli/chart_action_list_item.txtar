@@ -1,0 +1,25 @@
+# Action-only list items missing trailing comma in generated CUE.
+# https://github.com/cue-exp/helm2cue/issues/30
+! exec helm2cue chart chartdir outdir
+cmp stderr stderr.golden
+
+-- chartdir/Chart.yaml --
+apiVersion: v2
+name: test-app
+version: 0.1.0
+-- chartdir/values.yaml --
+port: 80
+-- chartdir/templates/deployment.yaml --
+apiVersion: v1
+kind: Pod
+metadata:
+  name: test
+spec:
+  containers:
+  - name: test
+    args:
+      - first
+      - {{ .Values.port }}
+      - last
+-- stderr.golden --
+helm2cue: no templates converted successfully
