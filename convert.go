@@ -4311,7 +4311,11 @@ func nodeToCUELiteral(node parse.Node) (string, error) {
 	var val any
 	switch n := node.(type) {
 	case *parse.StringNode:
-		val = n.Text
+		// Use strconv.Quote to ensure single-line escaped strings.
+		// The CUE encoder may choose multi-line string literals for
+		// strings containing newlines, which breaks when embedded
+		// in string interpolations.
+		return strconv.Quote(n.Text), nil
 	case *parse.NumberNode:
 		if n.IsInt {
 			val = n.Int64

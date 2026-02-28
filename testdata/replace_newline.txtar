@@ -1,0 +1,25 @@
+String literal with escape sequence in replace function argument.
+
+-- values.yaml --
+host: example.com
+-- input.yaml --
+args:
+  - --host={{ .Values.host | replace "\n" "," }}
+-- helm_output.yaml --
+args:
+  - --host=example.com
+-- output.cue --
+import "strings"
+
+#values: {
+	host!: bool | number | string | null
+	...
+}
+
+output: [
+	{
+		args: [
+			"--host=\(strings.Replace(#values.host, "\n", ",", -1))",
+		]
+	},
+]
