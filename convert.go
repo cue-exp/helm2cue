@@ -3793,6 +3793,37 @@ func (c *converter) conditionPipeToExpr(pipe *parse.PipeNode) (string, error) {
 				return "", err
 			}
 			return fmt.Sprintf("(_nonzero & {#arg: %s, _})", expr), nil
+		case "kindIs":
+			if !c.isCoreFunc(id.Ident) {
+				return "", fmt.Errorf("unsupported condition function: %s (not a text/template builtin)", id.Ident)
+			}
+			if len(args) != 2 {
+				return "", fmt.Errorf("kindIs requires 2 arguments, got %d", len(args))
+			}
+			kindNode, ok := args[0].(*parse.StringNode)
+			if !ok {
+				return "", fmt.Errorf("kindIs kind must be a string literal")
+			}
+			valExpr, err := c.conditionNodeToRawExpr(args[1])
+			if err != nil {
+				return "", fmt.Errorf("kindIs value argument: %w", err)
+			}
+			kindMap := map[string]string{
+				"bool":   "bool",
+				"string": "string",
+				"int":    "int",
+				"float":  "float",
+				"map":    "{...}",
+				"slice":  "[...]",
+			}
+			if kindNode.Text == "invalid" {
+				return fmt.Sprintf("%s == _|_", valExpr), nil
+			}
+			cueType, ok := kindMap[kindNode.Text]
+			if !ok {
+				return "", fmt.Errorf("unsupported kindIs kind: %q", kindNode.Text)
+			}
+			return fmt.Sprintf("(%s & %s) != _|_", valExpr, cueType), nil
 		default:
 			return "", fmt.Errorf("unsupported condition function: %s", id.Ident)
 		}
