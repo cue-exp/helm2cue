@@ -20,9 +20,15 @@ import "struct"
 }
 
 output: [
-	if #values.mode == "a" {
-		{
+	{
+		if #values.mode == "a" {
 			key: "valA"
+		}
+		if !(#values.mode == "a") if #values.mode == "b" {
+			key: "valB"
+		}
+		if !(#values.mode == "a") if !(#values.mode == "b") {
+			key: "valC"
 		}
 	},
 ]

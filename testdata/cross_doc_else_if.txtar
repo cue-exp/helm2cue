@@ -76,6 +76,26 @@ output: [
 			data: key: "a2"
 		}
 	},
+	if !(#values.mode == "a") {
+		if #values.mode == "b" {
+			{
+				apiVersion: "v1"
+				kind:       "ConfigMap"
+				metadata: name: "\(#values.name)-b1"
+				data: key: "b1"
+			}
+		}
+	},
+	if !(#values.mode == "a") {
+		if #values.mode == "b" {
+			{
+				apiVersion: "v1"
+				kind:       "ConfigMap"
+				metadata: name: "\(#values.name)-b2"
+				data: key: "b2"
+			}
+		}
+	},
 ]
 _nonzero: {
 	#arg?: _
