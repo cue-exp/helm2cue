@@ -1,0 +1,14 @@
+kindIs condition: check Go reflect.Kind of a value.
+No semantic comparison: CUE type unification differs from Go runtime kind checks.
+
+-- values.yaml --
+config:
+  key: value
+-- input.yaml --
+{{- if kindIs "bool" .Values.config }}
+boolVal: true
+{{- else if kindIs "map" .Values.config }}
+mapVal: true
+{{- end }}
+-- error --
+unsupported condition function: kindIs
