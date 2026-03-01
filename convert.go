@@ -1921,12 +1921,15 @@ func yamlToCUE(s string, indent int) string {
 func (c *converter) processNodes(nodes []parse.Node) error {
 	ifNode, rangeNode := detectTopLevelBranch(nodes)
 	if ifNode != nil {
-		condition, _, err := c.pipeToCUECondition(ifNode.Pipe)
+		handled, err := c.processTopLevelIf(ifNode)
 		if err != nil {
-			return fmt.Errorf("top-level if condition: %w", err)
+			return err
 		}
-		c.topLevelGuards = append(c.topLevelGuards, condition)
-		return c.processNodes(ifNode.List.Nodes)
+		if handled {
+			return nil
+		}
+		// Fall through to normal node processing — processIf
+		// will handle the else-if chain.
 	}
 	if rangeNode != nil {
 		overExpr, helmObj, fieldPath, err := c.pipeToFieldExpr(rangeNode.Pipe)
@@ -1995,6 +1998,95 @@ func (c *converter) processNodes(nodes []parse.Node) error {
 	return nil
 }
 
+// processTopLevelIf handles a top-level if or if/else-if chain.
+//
+// For a simple if (no else), it adds the condition as a topLevelGuard
+// and recurses into the body — this is the existing optimization that
+// allows cross-document conditionals to produce optional list elements.
+//
+// For if/else-if chains in cross-document fragments (where only one
+// branch has content), it finds the branch with content and applies
+// its guards. This avoids empty {} documents from inactive branches.
+//
+// When multiple branches have content (single-document templates),
+// it falls through to normal node processing so processIf can emit
+// flat CUE comprehensions.
+func (c *converter) processTopLevelIf(ifNode *parse.IfNode) (bool, error) {
+	condition, negCondition, err := c.pipeToCUECondition(ifNode.Pipe)
+	if err != nil {
+		return false, fmt.Errorf("top-level if condition: %w", err)
+	}
+
+	// Simple if without else — use the guard optimization directly.
+	if ifNode.ElseList == nil {
+		c.topLevelGuards = append(c.topLevelGuards, condition)
+		return true, c.processNodes(ifNode.List.Nodes)
+	}
+
+	// Walk the else-if chain to collect branches with their guards.
+	type branch struct {
+		guards []string
+		nodes  []parse.Node
+	}
+	var branches []branch
+	negChain := []string{negCondition}
+	branches = append(branches, branch{
+		guards: []string{condition},
+		nodes:  ifNode.List.Nodes,
+	})
+
+	elseList := ifNode.ElseList
+	for elseList != nil && len(elseList.Nodes) > 0 {
+		if len(elseList.Nodes) == 1 {
+			if innerIf, ok := elseList.Nodes[0].(*parse.IfNode); ok {
+				innerCond, innerNeg, err := c.pipeToCUECondition(innerIf.Pipe)
+				if err != nil {
+					return false, fmt.Errorf("top-level else-if condition: %w", err)
+				}
+				guards := make([]string, len(negChain)+1)
+				copy(guards, negChain)
+				guards[len(negChain)] = innerCond
+				branches = append(branches, branch{
+					guards: guards,
+					nodes:  innerIf.List.Nodes,
+				})
+				negChain = append(negChain, innerNeg)
+				elseList = innerIf.ElseList
+				continue
+			}
+		}
+		// Plain else.
+		guards := make([]string, len(negChain))
+		copy(guards, negChain)
+		branches = append(branches, branch{
+			guards: guards,
+			nodes:  elseList.Nodes,
+		})
+		break
+	}
+
+	// Count how many branches have non-whitespace content.
+	// In cross-document fragments, typically only one branch has
+	// content per fragment.
+	var nonEmpty []int
+	for i, br := range branches {
+		if hasNonWhitespaceNodes(br.nodes) {
+			nonEmpty = append(nonEmpty, i)
+		}
+	}
+
+	if len(nonEmpty) == 1 {
+		// Exactly one branch has content — use top-level guards.
+		br := branches[nonEmpty[0]]
+		c.topLevelGuards = append(c.topLevelGuards, br.guards...)
+		return true, c.processNodes(br.nodes)
+	}
+
+	// Multiple branches have content — fall through to normal
+	// node processing. processIf will emit flat comprehensions.
+	return false, nil
+}
+
 // detectTopLevelBranch checks whether nodes consist of a single top-level
 // if or range block (with only whitespace/comments around it). Returns the
 // if node or range node (at most one is non-nil).
@@ -2023,6 +2115,23 @@ func detectTopLevelBranch(nodes []parse.Node) (*parse.IfNode, *parse.RangeNode) 
 		}
 	}
 	return ifNode, rangeNode
+}
+
+// hasNonWhitespaceNodes reports whether nodes contain any non-whitespace
+// text content. Used to determine which branch of a top-level if/else-if
+// chain has actual template content (vs empty cross-document fragments).
+func hasNonWhitespaceNodes(nodes []parse.Node) bool {
+	for _, node := range nodes {
+		switch n := node.(type) {
+		case *parse.TextNode:
+			if strings.TrimSpace(string(n.Text)) != "" {
+				return true
+			}
+		case *parse.ActionNode, *parse.IfNode, *parse.RangeNode, *parse.WithNode, *parse.TemplateNode:
+			return true
+		}
+	}
+	return false
 }
 
 // isInlineNode reports whether a node can continue an inline text+action
@@ -2784,13 +2893,71 @@ func (c *converter) processIf(n *parse.IfNode) error {
 	writeIndent(&c.out, cueInd)
 	c.out.WriteString("}\n")
 
-	// Handle else branch.
-	if n.ElseList != nil && len(n.ElseList.Nodes) > 0 {
-		writeIndent(&c.out, cueInd)
-		fmt.Fprintf(&c.out, "if %s {\n", negCondition)
+	// Walk else/else-if chain, flattening into CUE multi-clause
+	// comprehensions: if !condA if condB { ... }.
+	negChain := []string{negCondition}
+	elseList := n.ElseList
+	for elseList != nil && len(elseList.Nodes) > 0 {
+		// Detect else-if sugar: ElseList is a single IfNode.
+		if len(elseList.Nodes) == 1 {
+			if innerIf, ok := elseList.Nodes[0].(*parse.IfNode); ok {
+				innerCond, innerNeg, err := c.pipeToCUECondition(innerIf.Pipe)
+				if err != nil {
+					return fmt.Errorf("else-if condition: %w", err)
+				}
 
-		elseIsList := isListBody(n.ElseList.Nodes)
-		elseBodyIndent := peekBodyIndent(n.ElseList.Nodes)
+				guard := strings.Join(append(negChain, innerCond), " if ")
+				writeIndent(&c.out, cueInd)
+				fmt.Fprintf(&c.out, "if %s {\n", guard)
+
+				elseIfIsList := isListBody(innerIf.List.Nodes)
+				elseIfBodyIndent := peekBodyIndent(innerIf.List.Nodes)
+				elseIfCtxIndent := elseIfBodyIndent - 1
+				if elseIfCtxIndent < -1 {
+					elseIfCtxIndent = -1
+				}
+
+				c.stack = append(c.stack, frame{
+					yamlIndent: elseIfCtxIndent,
+					cueIndent:  cueInd + 1,
+					isList:     inList && elseIfIsList && !preOpenedListItem,
+				})
+
+				if preOpenedListItem {
+					c.stripListDash = true
+				}
+				if err := c.processBodyNodes(innerIf.List.Nodes); err != nil {
+					return err
+				}
+				c.stripListDash = false
+				c.finalizeInline()
+				c.finalizeFlow()
+				c.flushPendingAction()
+				c.flushDeferred()
+
+				for len(c.stack) > savedStackLen+1 {
+					c.closeOneFrame()
+				}
+				if len(c.stack) > savedStackLen {
+					c.stack = c.stack[:savedStackLen]
+				}
+				c.state = savedState
+
+				writeIndent(&c.out, cueInd)
+				c.out.WriteString("}\n")
+
+				negChain = append(negChain, innerNeg)
+				elseList = innerIf.ElseList
+				continue
+			}
+		}
+		// Plain else: emit with all accumulated negations.
+		guard := strings.Join(negChain, " if ")
+		writeIndent(&c.out, cueInd)
+		fmt.Fprintf(&c.out, "if %s {\n", guard)
+
+		elseIsList := isListBody(elseList.Nodes)
+		elseBodyIndent := peekBodyIndent(elseList.Nodes)
 		elseCtxIndent := elseBodyIndent - 1
 		if elseCtxIndent < -1 {
 			elseCtxIndent = -1
@@ -2805,7 +2972,7 @@ func (c *converter) processIf(n *parse.IfNode) error {
 		if preOpenedListItem {
 			c.stripListDash = true
 		}
-		if err := c.processBodyNodes(n.ElseList.Nodes); err != nil {
+		if err := c.processBodyNodes(elseList.Nodes); err != nil {
 			return err
 		}
 		c.stripListDash = false
@@ -2823,6 +2990,7 @@ func (c *converter) processIf(n *parse.IfNode) error {
 
 		writeIndent(&c.out, cueInd)
 		c.out.WriteString("}\n")
+		break
 	}
 
 	return nil
