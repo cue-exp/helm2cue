@@ -1,0 +1,42 @@
+else-if branches: {{else if}} chain should produce flat CUE conditions.
+No round-trip: tests converter structure, not semantic equivalence.
+
+-- values.yaml --
+mode: a
+-- input.yaml --
+{{- if eq .Values.mode "a" }}
+key: valA
+{{- else if eq .Values.mode "b" }}
+key: valB
+{{- else }}
+key: valC
+{{- end }}
+-- output.cue --
+import "struct"
+
+#values: {
+	mode?: bool | number | string | null
+	...
+}
+
+output: [
+	if #values.mode == "a" {
+		{
+			key: "valA"
+		}
+	},
+]
+_nonzero: {
+	#arg?: _
+	[if #arg != _|_ {
+		[
+			if (#arg & int) != _|_ {#arg != 0},
+			if (#arg & string) != _|_ {#arg != ""},
+			if (#arg & float) != _|_ {#arg != 0.0},
+			if (#arg & bool) != _|_ {#arg},
+			if (#arg & [...]) != _|_ {len(#arg) > 0},
+			if (#arg & {...}) != _|_ {(#arg & struct.MaxFields(0)) == _|_},
+			false,
+		][0]
+	}, false][0]
+}
