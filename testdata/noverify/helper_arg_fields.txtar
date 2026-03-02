@@ -14,8 +14,8 @@ metadata:
 -- output.cue --
 _myapp_labels: {
 	#arg: {
-		name?:    bool | number | string | null
-		version?: bool | number | string | null
+		name!:    bool | number | string | null
+		version!: bool | number | string | null
 		...
 	}
 	app:     #arg.name
