@@ -129,6 +129,24 @@ _nonzero: {
 }
 `
 
+// typeofDef is the CUE definition for Go type name checks matching Helm's
+// typeOf (Sprig's fmt.Sprintf("%T", v)) for YAML-parsed values.
+const typeofDef = `_typeof: {
+	#arg?: _
+	[if #arg != _|_ {
+		[
+			if (#arg & bool) != _|_ {"bool"},
+			if (#arg & int) != _|_ {"int"},
+			if (#arg & float) != _|_ {"float64"},
+			if (#arg & string) != _|_ {"string"},
+			if (#arg & [...]) != _|_ {"[]interface {}"},
+			if (#arg & {...}) != _|_ {"map[string]interface {}"},
+			"<invalid>",
+		][0]
+	}, "<invalid>"][0]
+}
+`
+
 var identRe = regexp.MustCompile(`^[a-zA-Z_$][a-zA-Z0-9_$]*$`)
 
 var sharedCueCtx = cuecontext.New()
@@ -3992,6 +4010,19 @@ func (c *converter) conditionPipeToExpr(pipe *parse.PipeNode) (string, error) {
 				return "", fmt.Errorf("unsupported kindIs kind: %q", kindNode.Text)
 			}
 			return fmt.Sprintf("(%s & %s) != _|_", valExpr, cueType), nil
+		case "typeOf":
+			if !c.isCoreFunc(id.Ident) {
+				return "", fmt.Errorf("unsupported condition function: %s (not a text/template builtin)", id.Ident)
+			}
+			if len(args) != 1 {
+				return "", fmt.Errorf("typeOf requires 1 argument, got %d", len(args))
+			}
+			valExpr, err := c.conditionNodeToRawExpr(args[0])
+			if err != nil {
+				return "", fmt.Errorf("typeOf argument: %w", err)
+			}
+			c.usedHelpers["_typeof"] = HelperDef{Name: "_typeof", Def: typeofDef}
+			return fmt.Sprintf("(_typeof & {#arg: %s, _})", valExpr), nil
 		default:
 			return "", fmt.Errorf("unsupported condition function: %s", id.Ident)
 		}

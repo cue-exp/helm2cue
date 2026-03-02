@@ -9,5 +9,50 @@ stringVal: true
 {{- else }}
 otherVal: true
 {{- end }}
--- error --
-unsupported condition function: typeOf
+-- output.cue --
+import "struct"
+
+#values: {
+	config?: bool | number | string | null
+	...
+}
+
+output: [
+	{
+		if (_typeof & {#arg: #values.config, _}) == "string" {
+			stringVal: true
+		}
+		if !((_typeof & {#arg: #values.config, _}) == "string") {
+			otherVal: true
+		}
+	},
+]
+_nonzero: {
+	#arg?: _
+	[if #arg != _|_ {
+		[
+			if (#arg & int) != _|_ {#arg != 0},
+			if (#arg & string) != _|_ {#arg != ""},
+			if (#arg & float) != _|_ {#arg != 0.0},
+			if (#arg & bool) != _|_ {#arg},
+			if (#arg & [...]) != _|_ {len(#arg) > 0},
+			if (#arg & {...}) != _|_ {(#arg & struct.MaxFields(0)) == _|_},
+			false,
+		][0]
+	}, false][0]
+}
+
+_typeof: {
+	#arg?: _
+	[if #arg != _|_ {
+		[
+			if (#arg & bool) != _|_ {"bool"},
+			if (#arg & int) != _|_ {"int"},
+			if (#arg & float) != _|_ {"float64"},
+			if (#arg & string) != _|_ {"string"},
+			if (#arg & [...]) != _|_ {"[]interface {}"},
+			if (#arg & {...}) != _|_ {"map[string]interface {}"},
+			"<invalid>",
+		][0]
+	}, "<invalid>"][0]
+}
