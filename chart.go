@@ -703,6 +703,7 @@ func writeContextCUE(outDir, pkgName string, meta chartMetadata, usedContextObje
 			buf.WriteString("\t\tVersion: *\"v1.28.0\" | string\n")
 			buf.WriteString("\t\tMajor: *\"1\" | string\n")
 			buf.WriteString("\t\tMinor: *\"28\" | string\n")
+			buf.WriteString("\t\tGitVersion: *\"v1.28.0\" | string\n")
 			buf.WriteString("\t}\n")
 			buf.WriteString("\tAPIVersions: [...string]\n")
 			buf.WriteString("}\n")

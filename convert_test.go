@@ -43,7 +43,7 @@ var contextDefRe = regexp.MustCompile(`(?m)^(#\w+):\s`)
 var helmContextFixtures = map[string]string{
 	"#release":      "#release: {\n\tName: \"test\"\n\tNamespace: \"default\"\n\tService: \"Helm\"\n\tIsUpgrade: false\n\tIsInstall: true\n\tRevision: 1\n}\n",
 	"#chart":        "#chart: {\n\tName: \"test\"\n\tVersion: \"0.1.0\"\n\tAppVersion: \"0.1.0\"\n}\n",
-	"#capabilities": "#capabilities: {\n\tKubeVersion: {\n\t\tVersion: \"v1.25.0\"\n\t\tMajor: \"1\"\n\t\tMinor: \"25\"\n\t}\n\tAPIVersions: [\"v1\"]\n}\n",
+	"#capabilities": "#capabilities: {\n\tKubeVersion: {\n\t\tVersion: \"v1.25.0\"\n\t\tMajor: \"1\"\n\t\tMinor: \"25\"\n\t\tGitVersion: \"v1.25.0\"\n\t}\n\tAPIVersions: [\"v1\"]\n}\n",
 	"#template":     "#template: {\n\tName: \"test\"\n\tBasePath: \"test/templates\"\n}\n",
 	"#files":        "#files: {}\n",
 }
