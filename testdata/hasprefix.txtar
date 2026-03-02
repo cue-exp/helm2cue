@@ -1,0 +1,57 @@
+hasPrefix condition: check if a string has a given prefix.
+
+-- values.yaml --
+hostname: "app.example.com"
+-- helm_output.yaml --
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test
+data:
+  matched: "yes"
+-- input.yaml --
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test
+data:
+  {{- if hasPrefix "app." .Values.hostname }}
+  matched: "yes"
+  {{- end }}
+-- output.cue --
+import (
+	"strings"
+	"struct"
+)
+
+#values: {
+	hostname!: bool | number | string | null
+	...
+}
+
+output: [
+	{
+		apiVersion: "v1"
+		kind:       "ConfigMap"
+		metadata: name: "test"
+		data: {
+			if strings.HasPrefix(#values.hostname, "app.") {
+				matched: "yes"
+			}
+		}
+	},
+]
+_nonzero: {
+	#arg?: _
+	[if #arg != _|_ {
+		[
+			if (#arg & int) != _|_ {#arg != 0},
+			if (#arg & string) != _|_ {#arg != ""},
+			if (#arg & float) != _|_ {#arg != 0.0},
+			if (#arg & bool) != _|_ {#arg},
+			if (#arg & [...]) != _|_ {len(#arg) > 0},
+			if (#arg & {...}) != _|_ {(#arg & struct.MaxFields(0)) == _|_},
+			false,
+		][0]
+	}, false][0]
+}
