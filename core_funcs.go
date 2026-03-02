@@ -257,13 +257,14 @@ func convertInclude(c *converter, args []funcArg) (string, string, error) {
 
 	var argExpr, ctxHelmObj string
 	var ctxBasePath []string
+	var dictMap map[string]contextSource
 	if len(args) >= 2 {
 		ctxArg := args[1]
 		if ctxArg.node == nil {
 			return "", "", fmt.Errorf("include: context must be an AST node")
 		}
 		var ctxErr error
-		argExpr, ctxHelmObj, ctxBasePath, ctxErr = c.convertIncludeContext(ctxArg.node)
+		argExpr, ctxHelmObj, ctxBasePath, dictMap, ctxErr = c.convertIncludeContext(ctxArg.node)
 		if ctxErr != nil {
 			return "", "", ctxErr
 		}
@@ -289,6 +290,8 @@ func convertInclude(c *converter, args []funcArg) (string, string, error) {
 	expr := cueName
 	if ctxHelmObj != "" {
 		c.propagateHelperArgRefs(cueName, ctxHelmObj, ctxBasePath)
+	} else if dictMap != nil {
+		c.propagateDictHelperArgRefs(cueName, dictMap)
 	}
 	if argExpr != "" {
 		expr = expr + " & {#arg: " + argExpr + ", _}"
