@@ -1,5 +1,4 @@
 typeOf condition: check Go type name of a value.
-No semantic comparison: CUE type unification differs from Go runtime type names.
 
 -- values.yaml --
 config: some-string
@@ -9,6 +8,8 @@ stringVal: true
 {{- else }}
 otherVal: true
 {{- end }}
+-- helm_output.yaml --
+stringVal: true
 -- output.cue --
 import "struct"
 
