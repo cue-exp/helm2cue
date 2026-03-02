@@ -3654,10 +3654,7 @@ func (c *converter) pipeToFieldExpr(pipe *parse.PipeNode) (string, string, []str
 }
 
 func (c *converter) pipeToCUECondition(pipe *parse.PipeNode) (string, string, error) {
-	saved := c.suppressRequired
-	c.suppressRequired = true
 	pos, err := c.conditionPipeToExpr(pipe)
-	c.suppressRequired = saved
 	if err != nil {
 		return "", "", err
 	}
@@ -3666,6 +3663,14 @@ func (c *converter) pipeToCUECondition(pipe *parse.PipeNode) (string, string, er
 }
 
 func (c *converter) conditionNodeToExpr(node parse.Node) (string, error) {
+	// Truthiness checks (_nonzero) work correctly with absent fields,
+	// so suppress required for field refs in this function. Other
+	// condition paths (eq, typeOf, kindIs, etc.) use conditionNodeToRawExpr
+	// and need fields to be required.
+	saved := c.suppressRequired
+	c.suppressRequired = true
+	defer func() { c.suppressRequired = saved }()
+
 	switch n := node.(type) {
 	case *parse.FieldNode:
 		expr, helmObj := c.fieldToCUEInContext(n.Ident)
@@ -4038,11 +4043,15 @@ func (c *converter) conditionPipeToExpr(pipe *parse.PipeNode) (string, error) {
 // e.g. .Values.x | default false.
 func (c *converter) conditionMultiCmdPipe(pipe *parse.PipeNode) (string, error) {
 	// Process first command to get base expression (no _nonzero wrapping).
+	// The base field is optional here because | default provides a fallback.
 	first := pipe.Cmds[0]
 	if len(first.Args) != 1 {
 		return "", fmt.Errorf("unsupported multi-command condition: %s", pipe)
 	}
+	saved := c.suppressRequired
+	c.suppressRequired = true
 	expr, err := c.conditionNodeToRawExpr(first.Args[0])
+	c.suppressRequired = saved
 	if err != nil {
 		return "", err
 	}
