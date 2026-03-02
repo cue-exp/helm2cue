@@ -713,15 +713,15 @@ exit status 1
     ./values.cue:1250:30
     values.yaml:5295:15
 _kube_prometheus_stack_prometheus_pod_anti_affinity_matchExpressions.key: conflicting values "app.kubernetes.io/instance" and "app.kubernetes.io/name":
-    ./helpers.cue:462:71
-    ./helpers.cue:467:2
-    ./helpers.cue:468:3
-    ./helpers.cue:468:9
-    ./helpers.cue:469:3
-    ./helpers.cue:469:9
+    ./helpers.cue:486:71
+    ./helpers.cue:491:2
+    ./helpers.cue:492:3
+    ./helpers.cue:492:9
+    ./helpers.cue:493:3
+    ./helpers.cue:493:9
 alertmanager_alertmanager.0.metadata.labels.app: invalid interpolation: cannot use {"app.kubernetes.io/managed-by":*"Helm" | string,"app.kubernetes.io/instance":_,"app.kubernetes.io/version":"\"82.2.1\"","app.kubernetes.io/part-of":"",chart:_,release:_|_(_kube_prometheus_stack_labels.release: invalid interpolation: non-concrete value _ (type _)),heritage:"Helm"} (type struct) as type (bool|string|bytes|number):
     ./alertmanager_alertmanager.cue:20:11
-    ./helpers.cue:389:32
+    ./helpers.cue:413:32
 #values.alertmanager.alertmanagerSpec.persistentVolumeClaimRetentionPolicy: 4 errors in empty disjunction::
     ./alertmanager_alertmanager.cue:90:57
 #values.alertmanager.serviceMonitor.additionalLabels: 4 errors in empty disjunction::
@@ -1113,36 +1113,36 @@ alertmanager_alertmanager.0.spec.alertmanagerConfigNamespaceSelector: error in c
 #version: 6 errors in empty disjunction::
     ./helpers.cue:67:48
 #values.defaultRules.additionalRuleLabels: invalid interpolation: 4 errors in empty disjunction::
-    ./helpers.cue:172:17
+    ./helpers.cue:184:17
     ./alertmanager_alertmanager.cue:90:57
 #values.defaultRules.additionalRuleLabels: invalid interpolation: 4 errors in empty disjunction::
-    ./helpers.cue:181:16
+    ./helpers.cue:193:16
     ./alertmanager_alertmanager.cue:90:57
 #values.defaultRules.additionalRuleLabels: invalid interpolation: 4 errors in empty disjunction::
-    ./helpers.cue:222:2
+    ./helpers.cue:234:2
     ./alertmanager_alertmanager.cue:90:57
 #values.defaultRules.additionalRuleLabels: invalid interpolation: 4 errors in empty disjunction::
-    ./helpers.cue:230:2
+    ./helpers.cue:242:2
     ./alertmanager_alertmanager.cue:90:57
 #values.defaultRules.additionalRuleLabels: invalid interpolation: 4 errors in empty disjunction::
-    ./helpers.cue:238:2
+    ./helpers.cue:250:2
     ./alertmanager_alertmanager.cue:90:57
 #values.defaultRules.additionalRuleLabels: invalid interpolation: 4 errors in empty disjunction::
-    ./helpers.cue:246:2
+    ./helpers.cue:258:2
     ./alertmanager_alertmanager.cue:90:57
 _kube_prometheus_stack_grafana_operator_folder: grafana.operator: only one of folder, folderUID, or folderRef must be set:
-    ./helpers.cue:355:3
+    ./helpers.cue:379:3
 #values.defaultRules.additionalRuleLabels: invalid interpolation: 4 errors in empty disjunction::
-    ./helpers.cue:523:3
+    ./helpers.cue:559:3
     ./alertmanager_alertmanager.cue:90:57
 #values.defaultRules.additionalRuleLabels: invalid interpolation: 4 errors in empty disjunction::
-    ./helpers.cue:584:3
+    ./helpers.cue:620:3
     ./alertmanager_alertmanager.cue:90:57
 #values.defaultRules.additionalRuleLabels: invalid interpolation: 4 errors in empty disjunction::
-    ./helpers.cue:658:3
+    ./helpers.cue:706:3
     ./alertmanager_alertmanager.cue:90:57
 #values.defaultRules.additionalRuleLabels: invalid interpolation: 4 errors in empty disjunction::
-    ./helpers.cue:759:3
+    ./helpers.cue:819:3
     ./alertmanager_alertmanager.cue:90:57
 #version: undefined field: GitVersion:
     ./prometheus_rules_1_14_k8s_rules_container_cpu_limits.cue:11:124
@@ -1235,7 +1235,7 @@ _kube_prometheus_stack_grafana_operator_folder: grafana.operator: only one of fo
 results: error in call to list.FlattenN: invalid interpolation: cannot use {"app.kubernetes.io/managed-by":*"Helm" | string,"app.kubernetes.io/instance":_,"app.kubernetes.io/version":"\"82.2.1\"","app.kubernetes.io/part-of":"",chart:_,release:_|_(_kube_prometheus_stack_labels.release: invalid interpolation: non-concrete value _ (type _)),heritage:"Helm"} (type struct) as type (bool|string|bytes|number):
     ./results.cue:7:10
     ./alertmanager_alertmanager.cue:20:11
-    ./helpers.cue:389:32
+    ./helpers.cue:413:32
 -- cue export --
 exit status 1
 #values.alertmanager.additionalLabels: conflicting values {} and bool (mismatched types struct and bool):
@@ -1914,15 +1914,24 @@ exit status 1
     ./values.cue:1250:30
     values.yaml:5295:15
 _kube_prometheus_stack_prometheus_pod_anti_affinity_matchExpressions.key: conflicting values "app.kubernetes.io/instance" and "app.kubernetes.io/name":
-    ./helpers.cue:462:71
-    ./helpers.cue:467:2
-    ./helpers.cue:468:3
-    ./helpers.cue:468:9
-    ./helpers.cue:469:3
-    ./helpers.cue:469:9
+    ./helpers.cue:486:71
+    ./helpers.cue:491:2
+    ./helpers.cue:492:3
+    ./helpers.cue:492:9
+    ./helpers.cue:493:3
+    ./helpers.cue:493:9
+_kube_prometheus_stack_prometheus_pod_anti_affinity_matchExpressions.values.0: conflicting values "test-prometheus" and "prometheus":
+    ./helpers.cue:482:2
+    ./helpers.cue:483:3
+    ./helpers.cue:486:71
+    ./helpers.cue:491:2
+    ./helpers.cue:492:3
+    ./helpers.cue:492:60
+    ./helpers.cue:493:3
+    ./helpers.cue:493:64
 alertmanager_alertmanager.0.metadata.labels.app: invalid interpolation: cannot use {"app.kubernetes.io/managed-by":*"Helm" | string,"app.kubernetes.io/instance":"test","app.kubernetes.io/version":"\"82.2.1\"","app.kubernetes.io/part-of":"",chart:_,release:"test",heritage:"Helm"} (type struct) as type (bool|string|bytes|number):
     ./alertmanager_alertmanager.cue:20:11
-    ./helpers.cue:389:32
+    ./helpers.cue:413:32
 #values.alertmanager.alertmanagerSpec.persistentVolumeClaimRetentionPolicy: 4 errors in empty disjunction::
     ./alertmanager_alertmanager.cue:90:57
 #values.alertmanager.serviceMonitor.additionalLabels: 4 errors in empty disjunction::
@@ -2314,36 +2323,36 @@ alertmanager_alertmanager.0.spec.alertmanagerConfigNamespaceSelector: error in c
 #version: 6 errors in empty disjunction::
     ./helpers.cue:67:48
 #values.defaultRules.additionalRuleLabels: invalid interpolation: 4 errors in empty disjunction::
-    ./helpers.cue:172:17
+    ./helpers.cue:184:17
     ./alertmanager_alertmanager.cue:90:57
 #values.defaultRules.additionalRuleLabels: invalid interpolation: 4 errors in empty disjunction::
-    ./helpers.cue:181:16
+    ./helpers.cue:193:16
     ./alertmanager_alertmanager.cue:90:57
 #values.defaultRules.additionalRuleLabels: invalid interpolation: 4 errors in empty disjunction::
-    ./helpers.cue:222:2
+    ./helpers.cue:234:2
     ./alertmanager_alertmanager.cue:90:57
 #values.defaultRules.additionalRuleLabels: invalid interpolation: 4 errors in empty disjunction::
-    ./helpers.cue:230:2
+    ./helpers.cue:242:2
     ./alertmanager_alertmanager.cue:90:57
 #values.defaultRules.additionalRuleLabels: invalid interpolation: 4 errors in empty disjunction::
-    ./helpers.cue:238:2
+    ./helpers.cue:250:2
     ./alertmanager_alertmanager.cue:90:57
 #values.defaultRules.additionalRuleLabels: invalid interpolation: 4 errors in empty disjunction::
-    ./helpers.cue:246:2
+    ./helpers.cue:258:2
     ./alertmanager_alertmanager.cue:90:57
 _kube_prometheus_stack_grafana_operator_folder: grafana.operator: only one of folder, folderUID, or folderRef must be set:
-    ./helpers.cue:355:3
+    ./helpers.cue:379:3
 #values.defaultRules.additionalRuleLabels: invalid interpolation: 4 errors in empty disjunction::
-    ./helpers.cue:523:3
+    ./helpers.cue:559:3
     ./alertmanager_alertmanager.cue:90:57
 #values.defaultRules.additionalRuleLabels: invalid interpolation: 4 errors in empty disjunction::
-    ./helpers.cue:584:3
+    ./helpers.cue:620:3
     ./alertmanager_alertmanager.cue:90:57
 #values.defaultRules.additionalRuleLabels: invalid interpolation: 4 errors in empty disjunction::
-    ./helpers.cue:658:3
+    ./helpers.cue:706:3
     ./alertmanager_alertmanager.cue:90:57
 #values.defaultRules.additionalRuleLabels: invalid interpolation: 4 errors in empty disjunction::
-    ./helpers.cue:759:3
+    ./helpers.cue:819:3
     ./alertmanager_alertmanager.cue:90:57
 #version: undefined field: GitVersion:
     ./prometheus_rules_1_14_k8s_rules_container_cpu_limits.cue:11:124
@@ -2436,4 +2445,4 @@ _kube_prometheus_stack_grafana_operator_folder: grafana.operator: only one of fo
 results: error in call to list.FlattenN: invalid interpolation: cannot use {"app.kubernetes.io/managed-by":*"Helm" | string,"app.kubernetes.io/instance":"test","app.kubernetes.io/version":"\"82.2.1\"","app.kubernetes.io/part-of":"",chart:_,release:"test",heritage:"Helm"} (type struct) as type (bool|string|bytes|number):
     ./results.cue:7:10
     ./alertmanager_alertmanager.cue:20:11
-    ./helpers.cue:389:32
+    ./helpers.cue:413:32
