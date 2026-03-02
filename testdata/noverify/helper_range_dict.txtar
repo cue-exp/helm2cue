@@ -1,7 +1,7 @@
 Helper ranges over #arg.items (passed via dict), propagating list element
 field types back to the include call site. Helm comparison not possible
-because #arg schema marks fields as optional, which cue export cannot
-resolve without concrete values. Promote to testdata/ when #56 is fixed.
+because include with dict does not yet generate an #arg binding at the
+call site (e.g. & {#arg: {items: #values.volumes}, _}). See #58.
 
 -- values.yaml --
 volumes:
@@ -35,11 +35,11 @@ import "struct"
 }
 _renderVolumes: {
 	#arg: {
-		items?: {
-			name?:      bool | number | string | null
-			mountPath?: bool | number | string | null
+		items?: [...{
+			name!:      bool | number | string | null
+			mountPath!: bool | number | string | null
 			...
-		}
+		}]
 		...
 	}
 	if (_nonzero & {#arg: #arg.items, _}) for _, _range1 in #arg.items {

@@ -239,6 +239,7 @@ type converter struct {
 	suppressRequired            bool                  // true during condition processing
 	rangeVarStack               []rangeContext        // stack of dot-rebinding contexts for nested range/with
 	helperArgRefs               [][]string            // field paths accessed on #arg in helper bodies
+	helperArgRequiredRefs       [][]string            // required (value-accessed) field paths on #arg
 	helperArgRangeRefs          [][]string            // range refs on #arg in helper bodies
 	helperArgNonScalarRefs      [][]string            // nonScalar refs on #arg in helper bodies
 	helperArgFieldRefs          map[string][][]string // CUE helper name → field paths accessed on #arg
@@ -945,6 +946,7 @@ func (c *converter) convertHelperBody(nodes []parse.Node) (string, *helperArgInf
 	if useArg {
 		sub.rangeVarStack = []rangeContext{{cueExpr: "#arg"}}
 		sub.helperArgRefs = [][]string{}
+		sub.helperArgRequiredRefs = [][]string{}
 		sub.helperArgRangeRefs = [][]string{}
 		sub.helperArgNonScalarRefs = [][]string{}
 	}
@@ -1054,7 +1056,8 @@ func (c *converter) convertHelperBody(nodes []parse.Node) (string, *helperArgInf
 	bodyForArgCheck := strings.ReplaceAll(body, "{#arg:", "{_:")
 	if useArg && strings.Contains(bodyForArgCheck, "#arg") {
 		argRefs := sub.helperArgRefs
-		schema := buildArgSchema(argRefs)
+		schema := buildArgSchema(argRefs, sub.helperArgRequiredRefs,
+			sub.helperArgRangeRefs, sub.helperArgNonScalarRefs)
 		info := &helperArgInfo{
 			fieldRefs:     argRefs,
 			rangeRefs:     sub.helperArgRangeRefs,
@@ -5246,7 +5249,11 @@ func (c *converter) fieldToCUEInContext(ident []string) (string, string) {
 	if len(c.rangeVarStack) > 0 {
 		top := c.rangeVarStack[len(c.rangeVarStack)-1]
 		if top.cueExpr == "#arg" && c.helperArgRefs != nil {
-			c.helperArgRefs = append(c.helperArgRefs, append([]string(nil), ident...))
+			ref := append([]string(nil), ident...)
+			c.helperArgRefs = append(c.helperArgRefs, ref)
+			if !c.suppressRequired {
+				c.helperArgRequiredRefs = append(c.helperArgRequiredRefs, ref)
+			}
 		}
 		// Track range element accesses back to #arg.
 		if top.argBasePath != nil && c.helperArgRefs != nil {
@@ -5254,6 +5261,9 @@ func (c *converter) fieldToCUEInContext(ident []string) (string, string) {
 			copy(fullArgPath, top.argBasePath)
 			copy(fullArgPath[len(top.argBasePath):], ident)
 			c.helperArgRefs = append(c.helperArgRefs, fullArgPath)
+			if !c.suppressRequired {
+				c.helperArgRequiredRefs = append(c.helperArgRequiredRefs, fullArgPath)
+			}
 		}
 		if top.helmObj != "" {
 			fullPath := make([]string, len(top.basePath)+len(ident))
@@ -5371,11 +5381,11 @@ func emitFieldNodes(w *bytes.Buffer, nodes []*fieldNode, indent int) {
 // buildArgSchema builds a CUE schema expression for #arg based on
 // collected field references. Returns "_" when no field refs exist
 // (bare {{ . }} only), otherwise a CUE struct with optional fields.
-func buildArgSchema(refs [][]string) string {
+func buildArgSchema(refs, requiredRefs, rangeRefs, nonScalarRefs [][]string) string {
 	if len(refs) == 0 {
 		return "_"
 	}
-	root := buildFieldTree(refs, nil, nil, nil)
+	root := buildFieldTree(refs, requiredRefs, rangeRefs, nonScalarRefs)
 	var buf bytes.Buffer
 	buf.WriteString("{\n")
 	emitFieldNodes(&buf, root.children, 2)

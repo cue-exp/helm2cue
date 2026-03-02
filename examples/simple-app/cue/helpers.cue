@@ -59,7 +59,7 @@ _simple_app_selectorLabels: {
 }
 _simple_app_serviceAccountName: {
 	#arg: {
-		name?: bool | number | string | null
+		name!: bool | number | string | null
 		...
 	}
 	#arg.name
