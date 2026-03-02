@@ -13,8 +13,10 @@ items:
   - name: baz
     value: qux
 -- output.cue --
+import "struct"
+
 #input: {
-	items!: [...{
+	items?: [...{
 		name!:  bool | number | string | null
 		value!: bool | number | string | null
 		...
@@ -25,10 +27,24 @@ items:
 output: [
 	{
 		items: [
-			for _, _range0 in #input.items {
+			if (_nonzero & {#arg: #input.items, _}) for _, _range0 in #input.items {
 				name:  _range0.name
 				value: _range0.value
 			},
 		]
 	},
 ]
+_nonzero: {
+	#arg?: _
+	[if #arg != _|_ {
+		[
+			if (#arg & int) != _|_ {#arg != 0},
+			if (#arg & string) != _|_ {#arg != ""},
+			if (#arg & float) != _|_ {#arg != 0.0},
+			if (#arg & bool) != _|_ {#arg},
+			if (#arg & [...]) != _|_ {len(#arg) > 0},
+			if (#arg & {...}) != _|_ {(#arg & struct.MaxFields(0)) == _|_},
+			false,
+		][0]
+	}, false][0]
+}

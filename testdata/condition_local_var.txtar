@@ -28,7 +28,7 @@ data:
 import "struct"
 
 #values: {
-	routes!: _
+	routes?: _
 	...
 }
 
@@ -38,7 +38,7 @@ output: [
 		kind:       "ConfigMap"
 		metadata: name: "test"
 		data: {
-			for _, _range0 in #values.routes {
+			if (_nonzero & {#arg: #values.routes, _}) for _, _range0 in #values.routes {
 				if (_nonzero & {#arg: _range0.enabled, _}) {
 					(_range0.name): "active"
 				}

@@ -51,10 +51,13 @@ metadata:
 data:
   key: two
 -- output.cue --
-import "list"
+import (
+	"list"
+	"struct"
+)
 
 #values: {
-	items!: [...{
+	items?: [...{
 		name!: bool | number | string | null
 		...
 	}]
@@ -62,7 +65,7 @@ import "list"
 }
 
 output: list.FlattenN([
-	for _, _range0 in #values.items {[
+	if (_nonzero & {#arg: #values.items, _}) for _, _range0 in #values.items {[
 		{
 			apiVersion: "v1"
 			kind:       "ConfigMap"
@@ -77,3 +80,17 @@ output: list.FlattenN([
 		},
 	]},
 ], -1)
+_nonzero: {
+	#arg?: _
+	[if #arg != _|_ {
+		[
+			if (#arg & int) != _|_ {#arg != 0},
+			if (#arg & string) != _|_ {#arg != ""},
+			if (#arg & float) != _|_ {#arg != 0.0},
+			if (#arg & bool) != _|_ {#arg},
+			if (#arg & [...]) != _|_ {len(#arg) > 0},
+			if (#arg & {...}) != _|_ {(#arg & struct.MaxFields(0)) == _|_},
+			false,
+		][0]
+	}, false][0]
+}
