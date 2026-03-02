@@ -32,13 +32,10 @@ warning: skipping prometheus/rules-1.14/node-network.yaml (doc 0): unsupported t
 warning: skipping prometheus/rules-1.14/prometheus-operator.yaml (doc 0): unsupported template action: {{dig "PrometheusOperatorListErrors" "for" "15m" .Values.customRules}}
 warning: skipping prometheus/rules-1.14/prometheus.yaml (doc 0): unsupported template action: {{dig "PrometheusBadConfig" "for" "10m" .Values.customRules}}
 warning: skipping prometheus/serviceperreplica.yaml (doc 0): range: unsupported pipe: $i, $e := until $count
-warning: values.yaml does not satisfy inferred schema: #values.prometheus.prometheusSpec.additionalAlertManagerConfigsSecret: conflicting values [...{name!:(bool|number|string|null),key!:(bool|number|string|null),optional!:(bool|number|string|null),...}] and {} (mismatched types list and struct)
+warning: values.yaml does not satisfy inferred schema: #values.automountServiceAccountToken: field is required but not present (and 64 more errors)
 converted 138/216 templates from kube-prometheus-stack
 -- cue vet --
 exit status 1
-#values.prometheus.prometheusSpec.additionalAlertManagerConfigsSecret: conflicting values {} and [...{name!:(bool|number|string|null),key!:(bool|number|string|null),optional!:(bool|number|string|null),...}] (mismatched types struct and list):
-    ./values.cue:934:42
-    values.yaml:4483:42
 _kube_prometheus_stack_prometheus_pod_anti_affinity_matchExpressions.key: conflicting values "app.kubernetes.io/instance" and "app.kubernetes.io/name":
     ./helpers.cue:486:71
     ./helpers.cue:491:2
@@ -46,426 +43,88 @@ _kube_prometheus_stack_prometheus_pod_anti_affinity_matchExpressions.key: confli
     ./helpers.cue:492:9
     ./helpers.cue:493:3
     ./helpers.cue:493:9
+prometheus_clusterrole.0.rules.apiGroups.0: conflicting values "discovery.k8s.io" and "":
+    ./prometheus_clusterrole.cue:6:110
+    ./prometheus_clusterrole.cue:7:3
+    ./prometheus_clusterrole.cue:21:5
+    ./prometheus_clusterrole.cue:22:18
+    ./prometheus_clusterrole.cue:32:5
+    ./prometheus_clusterrole.cue:33:18
+prometheus_clusterrole.0.rules.apiGroups.0: conflicting values "networking.k8s.io" and "":
+    ./prometheus_clusterrole.cue:6:110
+    ./prometheus_clusterrole.cue:7:3
+    ./prometheus_clusterrole.cue:21:5
+    ./prometheus_clusterrole.cue:22:18
+    ./prometheus_clusterrole.cue:39:5
+    ./prometheus_clusterrole.cue:41:7
+prometheus_clusterrole.0.rules.resources.0: conflicting values "endpointslices" and "nodes":
+    ./prometheus_clusterrole.cue:6:110
+    ./prometheus_clusterrole.cue:7:3
+    ./prometheus_clusterrole.cue:21:5
+    ./prometheus_clusterrole.cue:24:7
+    ./prometheus_clusterrole.cue:32:5
+    ./prometheus_clusterrole.cue:35:7
+prometheus_clusterrole.0.rules.resources.0: conflicting values "ingresses" and "nodes":
+    ./prometheus_clusterrole.cue:6:110
+    ./prometheus_clusterrole.cue:7:3
+    ./prometheus_clusterrole.cue:21:5
+    ./prometheus_clusterrole.cue:24:7
+    ./prometheus_clusterrole.cue:39:5
+    ./prometheus_clusterrole.cue:44:7
+prometheus_operator_servicemonitor.0.spec.endpoints.0.tlsConfig.ca.secret.key: conflicting values {optional:false} and "ca" (mismatched types struct and string):
+    ./prometheus_operator_servicemonitor.cue:11:145
+    ./prometheus_operator_servicemonitor.cue:12:3
+    ./prometheus_operator_servicemonitor.cue:27:7
+    ./prometheus_operator_servicemonitor.cue:35:16
+    ./prometheus_operator_servicemonitor.cue:39:12
+    ./prometheus_operator_servicemonitor.cue:40:13
 alertmanager_alertmanager.0.metadata.labels.app: invalid interpolation: cannot use {"app.kubernetes.io/managed-by":*"Helm" | string,"app.kubernetes.io/instance":_,"app.kubernetes.io/version":"\"82.2.1\"","app.kubernetes.io/part-of":"",chart:_,release:_|_(_kube_prometheus_stack_labels.release: invalid interpolation: non-concrete value _ (type _)),heritage:"Helm"} (type struct) as type (bool|string|bytes|number):
     ./alertmanager_alertmanager.cue:20:11
     ./helpers.cue:413:32
-alertmanager_alertmanager.0.spec.alertmanagerConfigNamespaceSelector: error in call to text/template.Execute: conflicting values {} and [...{name!:(bool|number|string|null),key!:(bool|number|string|null),optional!:(bool|number|string|null),...}] (mismatched types struct and list):
-    ./alertmanager_alertmanager.cue:90:57
-    ./values.cue:934:42
-    values.yaml:4483:42
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_alertmanager_overview.cue:16:241
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_alertmanager_overview.cue:16:378
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_alertmanager_overview.cue:38:323
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_alertmanager_overview.cue:38:460
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_apiserver.cue:16:241
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_apiserver.cue:16:378
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_apiserver.cue:79:323
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_apiserver.cue:79:460
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_cluster_total.cue:16:241
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_cluster_total.cue:16:378
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_cluster_total.cue:73:323
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_cluster_total.cue:73:460
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_controller_manager.cue:16:241
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_controller_manager.cue:16:378
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_controller_manager.cue:97:323
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_controller_manager.cue:97:460
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_etcd.cue:16:241
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_etcd.cue:16:378
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_etcd.cue:71:323
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_etcd.cue:71:460
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_grafana_overview.cue:16:241
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_grafana_overview.cue:16:378
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_grafana_overview.cue:54:323
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_grafana_overview.cue:54:460
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_k8s_coredns.cue:16:241
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_k8s_coredns.cue:16:378
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_k8s_coredns.cue:73:323
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_k8s_coredns.cue:73:460
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_k8s_resources_cluster.cue:16:241
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_k8s_resources_cluster.cue:16:378
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_k8s_resources_cluster.cue:143:323
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_k8s_resources_cluster.cue:143:460
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_k8s_resources_multicluster.cue:16:241
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_k8s_resources_multicluster.cue:16:378
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_k8s_resources_multicluster.cue:64:323
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_k8s_resources_multicluster.cue:64:460
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_k8s_resources_namespace.cue:16:241
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_k8s_resources_namespace.cue:16:378
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_k8s_resources_namespace.cue:129:323
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_k8s_resources_namespace.cue:129:460
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_k8s_resources_node.cue:16:241
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_k8s_resources_node.cue:16:378
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_k8s_resources_node.cue:53:323
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_k8s_resources_node.cue:53:460
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_k8s_resources_pod.cue:16:241
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_k8s_resources_pod.cue:16:378
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_k8s_resources_pod.cue:135:323
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_k8s_resources_pod.cue:135:460
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_k8s_resources_windows_cluster.cue:16:241
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_k8s_resources_windows_cluster.cue:16:378
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_k8s_resources_windows_cluster.cue:63:323
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_k8s_resources_windows_cluster.cue:63:460
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_k8s_resources_windows_namespace.cue:16:241
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_k8s_resources_windows_namespace.cue:16:378
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_k8s_resources_windows_namespace.cue:51:323
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_k8s_resources_windows_namespace.cue:51:460
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_k8s_resources_windows_pod.cue:16:241
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_k8s_resources_windows_pod.cue:16:378
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_k8s_resources_windows_pod.cue:53:323
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_k8s_resources_windows_pod.cue:53:460
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_k8s_resources_workload.cue:16:241
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_k8s_resources_workload.cue:16:378
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_k8s_resources_workload.cue:95:323
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_k8s_resources_workload.cue:95:460
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_k8s_resources_workloads_namespace.cue:16:241
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_k8s_resources_workloads_namespace.cue:16:378
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_k8s_resources_workloads_namespace.cue:103:323
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_k8s_resources_workloads_namespace.cue:103:460
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_k8s_windows_cluster_rsrc_use.cue:16:241
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_k8s_windows_cluster_rsrc_use.cue:16:378
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_k8s_windows_cluster_rsrc_use.cue:61:323
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_k8s_windows_cluster_rsrc_use.cue:61:460
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_k8s_windows_node_rsrc_use.cue:16:241
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_k8s_windows_node_rsrc_use.cue:16:378
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_k8s_windows_node_rsrc_use.cue:67:323
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_k8s_windows_node_rsrc_use.cue:67:460
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_kubelet.cue:16:241
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_kubelet.cue:16:378
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_kubelet.cue:157:323
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_kubelet.cue:157:460
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_namespace_by_pod.cue:16:241
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_namespace_by_pod.cue:16:378
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_namespace_by_pod.cue:65:323
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_namespace_by_pod.cue:65:460
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_namespace_by_workload.cue:16:241
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_namespace_by_workload.cue:16:378
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_namespace_by_workload.cue:69:323
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_namespace_by_workload.cue:69:460
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_node_cluster_rsrc_use.cue:16:241
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_node_cluster_rsrc_use.cue:16:378
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_node_cluster_rsrc_use.cue:45:323
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_node_cluster_rsrc_use.cue:45:460
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_node_rsrc_use.cue:16:241
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_node_rsrc_use.cue:16:378
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_node_rsrc_use.cue:45:323
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_node_rsrc_use.cue:45:460
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_nodes.cue:16:241
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_nodes.cue:16:378
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_nodes.cue:45:323
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_nodes.cue:45:460
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_nodes_aix.cue:16:241
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_nodes_aix.cue:16:378
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_nodes_aix.cue:45:323
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_nodes_aix.cue:45:460
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_nodes_darwin.cue:16:241
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_nodes_darwin.cue:16:378
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_nodes_darwin.cue:45:323
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_nodes_darwin.cue:45:460
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_persistentvolumesusage.cue:16:241
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_persistentvolumesusage.cue:16:378
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_persistentvolumesusage.cue:83:323
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_persistentvolumesusage.cue:83:460
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_pod_total.cue:16:241
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_pod_total.cue:16:378
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_pod_total.cue:65:323
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_pod_total.cue:65:460
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_prometheus.cue:16:241
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_prometheus.cue:16:378
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_prometheus.cue:45:323
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_prometheus.cue:45:460
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_prometheus_remote_write.cue:16:241
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_prometheus_remote_write.cue:16:378
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_prometheus_remote_write.cue:45:323
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_prometheus_remote_write.cue:45:460
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_proxy.cue:16:241
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_proxy.cue:16:378
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_proxy.cue:103:323
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_proxy.cue:103:460
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_scheduler.cue:16:241
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_scheduler.cue:16:378
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_scheduler.cue:105:323
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_scheduler.cue:105:460
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_workload_total.cue:16:241
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_workload_total.cue:16:378
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_workload_total.cue:87:323
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_workload_total.cue:87:460
-#version: 2 errors in empty disjunction::
-    ./helpers.cue:67:48
-#values.prometheus.prometheusSpec.additionalAlertManagerConfigsSecret: invalid interpolation: conflicting values {} and [...{name!:(bool|number|string|null),key!:(bool|number|string|null),optional!:(bool|number|string|null),...}] (mismatched types struct and list):
-    ./helpers.cue:184:17
-    ./values.cue:934:42
-    values.yaml:4483:42
-#values.prometheus.prometheusSpec.additionalAlertManagerConfigsSecret: invalid interpolation: conflicting values {} and [...{name!:(bool|number|string|null),key!:(bool|number|string|null),optional!:(bool|number|string|null),...}] (mismatched types struct and list):
-    ./helpers.cue:193:16
-    ./values.cue:934:42
-    values.yaml:4483:42
-#values.prometheus.prometheusSpec.additionalAlertManagerConfigsSecret: invalid interpolation: conflicting values {} and [...{name!:(bool|number|string|null),key!:(bool|number|string|null),optional!:(bool|number|string|null),...}] (mismatched types struct and list):
-    ./helpers.cue:234:2
-    ./values.cue:934:42
-    values.yaml:4483:42
-#values.prometheus.prometheusSpec.additionalAlertManagerConfigsSecret: invalid interpolation: conflicting values {} and [...{name!:(bool|number|string|null),key!:(bool|number|string|null),optional!:(bool|number|string|null),...}] (mismatched types struct and list):
-    ./helpers.cue:242:2
-    ./values.cue:934:42
-    values.yaml:4483:42
-#values.prometheus.prometheusSpec.additionalAlertManagerConfigsSecret: invalid interpolation: conflicting values {} and [...{name!:(bool|number|string|null),key!:(bool|number|string|null),optional!:(bool|number|string|null),...}] (mismatched types struct and list):
-    ./helpers.cue:250:2
-    ./values.cue:934:42
-    values.yaml:4483:42
-#values.prometheus.prometheusSpec.additionalAlertManagerConfigsSecret: invalid interpolation: conflicting values {} and [...{name!:(bool|number|string|null),key!:(bool|number|string|null),optional!:(bool|number|string|null),...}] (mismatched types struct and list):
-    ./helpers.cue:258:2
-    ./values.cue:934:42
-    values.yaml:4483:42
-_kube_prometheus_stack_grafana_operator_folder: grafana.operator: only one of folder, folderUID, or folderRef must be set:
-    ./helpers.cue:379:3
-#values.prometheus.prometheusSpec.additionalAlertManagerConfigsSecret: invalid interpolation: conflicting values {} and [...{name!:(bool|number|string|null),key!:(bool|number|string|null),optional!:(bool|number|string|null),...}] (mismatched types struct and list):
-    ./helpers.cue:559:3
-    ./values.cue:934:42
-    values.yaml:4483:42
-#values.prometheus.prometheusSpec.additionalAlertManagerConfigsSecret: invalid interpolation: conflicting values {} and [...{name!:(bool|number|string|null),key!:(bool|number|string|null),optional!:(bool|number|string|null),...}] (mismatched types struct and list):
-    ./helpers.cue:620:3
-    ./values.cue:934:42
-    values.yaml:4483:42
-#values.prometheus.prometheusSpec.additionalAlertManagerConfigsSecret: invalid interpolation: conflicting values {} and [...{name!:(bool|number|string|null),key!:(bool|number|string|null),optional!:(bool|number|string|null),...}] (mismatched types struct and list):
-    ./helpers.cue:706:3
-    ./values.cue:934:42
-    values.yaml:4483:42
-#values.prometheus.prometheusSpec.additionalAlertManagerConfigsSecret: invalid interpolation: conflicting values {} and [...{name!:(bool|number|string|null),key!:(bool|number|string|null),optional!:(bool|number|string|null),...}] (mismatched types struct and list):
-    ./helpers.cue:819:3
-    ./values.cue:934:42
-    values.yaml:4483:42
-#version: undefined field: GitVersion:
-    ./prometheus_rules_1_14_k8s_rules_container_cpu_limits.cue:11:124
-#version: undefined field: GitVersion:
-    ./prometheus_rules_1_14_k8s_rules_container_cpu_limits.cue:11:261
-#version: undefined field: GitVersion:
-    ./prometheus_rules_1_14_k8s_rules_container_cpu_requests.cue:11:124
-#version: undefined field: GitVersion:
-    ./prometheus_rules_1_14_k8s_rules_container_cpu_requests.cue:11:261
-#version: undefined field: GitVersion:
-    ./prometheus_rules_1_14_k8s_rules_container_cpu_usage_seconds_total.cue:11:124
-#version: undefined field: GitVersion:
-    ./prometheus_rules_1_14_k8s_rules_container_cpu_usage_seconds_total.cue:11:261
-#version: undefined field: GitVersion:
-    ./prometheus_rules_1_14_k8s_rules_container_memory_cache.cue:11:124
-#version: undefined field: GitVersion:
-    ./prometheus_rules_1_14_k8s_rules_container_memory_cache.cue:11:261
-#version: undefined field: GitVersion:
-    ./prometheus_rules_1_14_k8s_rules_container_memory_limits.cue:11:124
-#version: undefined field: GitVersion:
-    ./prometheus_rules_1_14_k8s_rules_container_memory_limits.cue:11:261
-#version: undefined field: GitVersion:
-    ./prometheus_rules_1_14_k8s_rules_container_memory_requests.cue:11:124
-#version: undefined field: GitVersion:
-    ./prometheus_rules_1_14_k8s_rules_container_memory_requests.cue:11:261
-#version: undefined field: GitVersion:
-    ./prometheus_rules_1_14_k8s_rules_container_memory_rss.cue:11:124
-#version: undefined field: GitVersion:
-    ./prometheus_rules_1_14_k8s_rules_container_memory_rss.cue:11:261
-#version: undefined field: GitVersion:
-    ./prometheus_rules_1_14_k8s_rules_container_memory_swap.cue:11:124
-#version: undefined field: GitVersion:
-    ./prometheus_rules_1_14_k8s_rules_container_memory_swap.cue:11:261
-#version: undefined field: GitVersion:
-    ./prometheus_rules_1_14_k8s_rules_container_memory_working_set_bytes.cue:11:124
-#version: undefined field: GitVersion:
-    ./prometheus_rules_1_14_k8s_rules_container_memory_working_set_bytes.cue:11:261
-#version: undefined field: GitVersion:
-    ./prometheus_rules_1_14_k8s_rules_container_resource.cue:11:124
-#version: undefined field: GitVersion:
-    ./prometheus_rules_1_14_k8s_rules_container_resource.cue:11:261
-#version: undefined field: GitVersion:
-    ./prometheus_rules_1_14_k8s_rules_pod_owner.cue:11:124
-#version: undefined field: GitVersion:
-    ./prometheus_rules_1_14_k8s_rules_pod_owner.cue:11:261
-#version: undefined field: GitVersion:
-    ./prometheus_rules_1_14_kube_apiserver_availability_rules.cue:11:124
-#version: undefined field: GitVersion:
-    ./prometheus_rules_1_14_kube_apiserver_availability_rules.cue:11:261
-#version: undefined field: GitVersion:
-    ./prometheus_rules_1_14_kube_apiserver_burnrate_rules.cue:11:124
-#version: undefined field: GitVersion:
-    ./prometheus_rules_1_14_kube_apiserver_burnrate_rules.cue:11:261
-#version: undefined field: GitVersion:
-    ./prometheus_rules_1_14_kube_apiserver_histogram_rules.cue:11:124
-#version: undefined field: GitVersion:
-    ./prometheus_rules_1_14_kube_apiserver_histogram_rules.cue:11:261
-#version: undefined field: GitVersion:
-    ./prometheus_rules_1_14_kube_prometheus_general_rules.cue:11:124
-#version: undefined field: GitVersion:
-    ./prometheus_rules_1_14_kube_prometheus_general_rules.cue:11:261
-#version: undefined field: GitVersion:
-    ./prometheus_rules_1_14_kube_prometheus_node_recording_rules.cue:11:124
-#version: undefined field: GitVersion:
-    ./prometheus_rules_1_14_kube_prometheus_node_recording_rules.cue:11:261
-#version: undefined field: GitVersion:
-    ./prometheus_rules_1_14_kube_scheduler_rules.cue:11:124
-#version: undefined field: GitVersion:
-    ./prometheus_rules_1_14_kube_scheduler_rules.cue:11:261
-#version: undefined field: GitVersion:
-    ./prometheus_rules_1_14_kubelet_rules.cue:11:124
-#version: undefined field: GitVersion:
-    ./prometheus_rules_1_14_kubelet_rules.cue:11:261
-#version: undefined field: GitVersion:
-    ./prometheus_rules_1_14_node_exporter_rules.cue:11:124
-#version: undefined field: GitVersion:
-    ./prometheus_rules_1_14_node_exporter_rules.cue:11:261
-#version: undefined field: GitVersion:
-    ./prometheus_rules_1_14_node_rules.cue:11:124
-#version: undefined field: GitVersion:
-    ./prometheus_rules_1_14_node_rules.cue:11:261
-#version: undefined field: GitVersion:
-    ./prometheus_rules_1_14_windows_node_rules.cue:11:124
-#version: undefined field: GitVersion:
-    ./prometheus_rules_1_14_windows_node_rules.cue:11:261
-#version: undefined field: GitVersion:
-    ./prometheus_rules_1_14_windows_pod_rules.cue:11:124
-#version: undefined field: GitVersion:
-    ./prometheus_rules_1_14_windows_pod_rules.cue:11:261
+alertmanager_secret.0.data."alertmanager.yaml": invalid interpolation: cannot use {global:{resolve_timeout:"5m"},inhibit_rules:[{source_matchers:["severity = critical"],target_matchers:["severity =~ warning|info"],equal:["namespace","alertname"]},{source_matchers:["severity = warning"],target_matchers:["severity = info"],equal:["namespace","alertname"]},{source_matchers:["alertname = InfoInhibitor"],target_matchers:["severity = info"],equal:["namespace"]},{target_matchers:["alertname = InfoInhibitor"]}],route:{group_by:["namespace"],group_wait:"30s",group_interval:"5m",repeat_interval:"12h",receiver:"null",routes:[{receiver:"null",matchers:["alertname = \"Watchdog\""]}]},receivers:[{name:"null"}],templates:["/etc/alertmanager/config/*.tmpl"]} (type struct) as (string|bytes) in argument 2 to "encoding/base64".Encode:
+    ./alertmanager_secret.cue:40:27
+    ./values.cue:485:19
+_vMajor: error in call to strconv.Atoi: strconv.Atoi: parsing "": invalid syntax:
+    ./helpers.cue:69:11
+prometheus_clusterrole.0.rules.resources: incompatible list lengths (1 and 5):
+    ./prometheus_clusterrole.cue:34:17
+prometheus_clusterrole.0.rules.resources: incompatible list lengths (1 and 5):
+    ./prometheus_clusterrole.cue:43:17
+prometheus_clusterrole.0.rules.verbs: incompatible list lengths (1 and 3):
+    ./prometheus_clusterrole.cue:50:13
+prometheus_operator_admission_webhooks_job_patch_clusterrole.0.metadata.labels.app: invalid interpolation: cannot use {"app.kubernetes.io/name":"-prometheus-operator","app.kubernetes.io/component":"prometheus-operator-webhook","app.kubernetes.io/managed-by":*"Helm" | string,"app.kubernetes.io/instance":_,"app.kubernetes.io/version":"\"82.2.1\"","app.kubernetes.io/part-of":"",chart:_,release:_|_(_kube_prometheus_stack_prometheus_operator_webhook_labels.release: invalid interpolation: non-concrete value _ (type _)),heritage:"Helm"} (type struct) as type (bool|string|bytes|number):
+    ./prometheus_operator_admission_webhooks_job_patch_clusterrole.cue:17:11
+    ./helpers.cue:467:60
+prometheus_operator_admission_webhooks_job_patch_clusterrolebinding.0.metadata.labels.app: invalid interpolation: cannot use {"app.kubernetes.io/name":"-prometheus-operator","app.kubernetes.io/component":"prometheus-operator-webhook","app.kubernetes.io/managed-by":*"Helm" | string,"app.kubernetes.io/instance":_,"app.kubernetes.io/version":"\"82.2.1\"","app.kubernetes.io/part-of":"",chart:_,release:_|_(_kube_prometheus_stack_prometheus_operator_webhook_labels.release: invalid interpolation: non-concrete value _ (type _)),heritage:"Helm"} (type struct) as type (bool|string|bytes|number):
+    ./prometheus_operator_admission_webhooks_job_patch_clusterrolebinding.cue:17:11
+    ./helpers.cue:467:60
+prometheus_operator_admission_webhooks_job_patch_job_createSecret.0.metadata.labels.app: invalid interpolation: cannot use {"app.kubernetes.io/name":"-prometheus-operator","app.kubernetes.io/component":"prometheus-operator-webhook","app.kubernetes.io/managed-by":*"Helm" | string,"app.kubernetes.io/instance":_,"app.kubernetes.io/version":"\"82.2.1\"","app.kubernetes.io/part-of":"",chart:_,release:_|_(_kube_prometheus_stack_prometheus_operator_webhook_labels.release: invalid interpolation: non-concrete value _ (type _)),heritage:"Helm"} (type struct) as type (bool|string|bytes|number):
+    ./prometheus_operator_admission_webhooks_job_patch_job_createSecret.cue:23:11
+    ./helpers.cue:467:60
+prometheus_operator_admission_webhooks_job_patch_job_createSecret.0.spec.template.metadata.labels.app: invalid interpolation: cannot use {"app.kubernetes.io/name":"-prometheus-operator","app.kubernetes.io/component":"prometheus-operator-webhook","app.kubernetes.io/managed-by":*"Helm" | string,"app.kubernetes.io/instance":_,"app.kubernetes.io/version":"\"82.2.1\"","app.kubernetes.io/part-of":"",chart:_,release:_|_(_kube_prometheus_stack_prometheus_operator_webhook_labels.release: invalid interpolation: non-concrete value _ (type _)),heritage:"Helm"} (type struct) as type (bool|string|bytes|number):
+    ./prometheus_operator_admission_webhooks_job_patch_job_createSecret.cue:35:13
+    ./helpers.cue:467:60
+prometheus_operator_admission_webhooks_job_patch_job_patchWebhook.0.metadata.labels.app: invalid interpolation: cannot use {"app.kubernetes.io/name":"-prometheus-operator","app.kubernetes.io/component":"prometheus-operator-webhook","app.kubernetes.io/managed-by":*"Helm" | string,"app.kubernetes.io/instance":_,"app.kubernetes.io/version":"\"82.2.1\"","app.kubernetes.io/part-of":"",chart:_,release:_|_(_kube_prometheus_stack_prometheus_operator_webhook_labels.release: invalid interpolation: non-concrete value _ (type _)),heritage:"Helm"} (type struct) as type (bool|string|bytes|number):
+    ./prometheus_operator_admission_webhooks_job_patch_job_patchWebhook.cue:25:11
+    ./helpers.cue:467:60
+prometheus_operator_admission_webhooks_job_patch_job_patchWebhook.0.spec.template.metadata.labels.app: invalid interpolation: cannot use {"app.kubernetes.io/name":"-prometheus-operator","app.kubernetes.io/component":"prometheus-operator-webhook","app.kubernetes.io/managed-by":*"Helm" | string,"app.kubernetes.io/instance":_,"app.kubernetes.io/version":"\"82.2.1\"","app.kubernetes.io/part-of":"",chart:_,release:_|_(_kube_prometheus_stack_prometheus_operator_webhook_labels.release: invalid interpolation: non-concrete value _ (type _)),heritage:"Helm"} (type struct) as type (bool|string|bytes|number):
+    ./prometheus_operator_admission_webhooks_job_patch_job_patchWebhook.cue:37:13
+    ./helpers.cue:467:60
+prometheus_operator_admission_webhooks_job_patch_role.0.metadata.labels.app: invalid interpolation: cannot use {"app.kubernetes.io/name":"-prometheus-operator","app.kubernetes.io/component":"prometheus-operator-webhook","app.kubernetes.io/managed-by":*"Helm" | string,"app.kubernetes.io/instance":_,"app.kubernetes.io/version":"\"82.2.1\"","app.kubernetes.io/part-of":"",chart:_,release:_|_(_kube_prometheus_stack_prometheus_operator_webhook_labels.release: invalid interpolation: non-concrete value _ (type _)),heritage:"Helm"} (type struct) as type (bool|string|bytes|number):
+    ./prometheus_operator_admission_webhooks_job_patch_role.cue:18:11
+    ./helpers.cue:467:60
+prometheus_operator_admission_webhooks_job_patch_rolebinding.0.metadata.labels.app: invalid interpolation: cannot use {"app.kubernetes.io/name":"-prometheus-operator","app.kubernetes.io/component":"prometheus-operator-webhook","app.kubernetes.io/managed-by":*"Helm" | string,"app.kubernetes.io/instance":_,"app.kubernetes.io/version":"\"82.2.1\"","app.kubernetes.io/part-of":"",chart:_,release:_|_(_kube_prometheus_stack_prometheus_operator_webhook_labels.release: invalid interpolation: non-concrete value _ (type _)),heritage:"Helm"} (type struct) as type (bool|string|bytes|number):
+    ./prometheus_operator_admission_webhooks_job_patch_rolebinding.cue:18:11
+    ./helpers.cue:467:60
+prometheus_operator_admission_webhooks_job_patch_serviceaccount.0.metadata.labels.app: invalid interpolation: cannot use {"app.kubernetes.io/name":"-prometheus-operator","app.kubernetes.io/component":"prometheus-operator-webhook","app.kubernetes.io/managed-by":*"Helm" | string,"app.kubernetes.io/instance":_,"app.kubernetes.io/version":"\"82.2.1\"","app.kubernetes.io/part-of":"",chart:_,release:_|_(_kube_prometheus_stack_prometheus_operator_webhook_labels.release: invalid interpolation: non-concrete value _ (type _)),heritage:"Helm"} (type struct) as type (bool|string|bytes|number):
+    ./prometheus_operator_admission_webhooks_job_patch_serviceaccount.cue:20:11
+    ./helpers.cue:467:60
 results: error in call to list.FlattenN: invalid interpolation: cannot use {"app.kubernetes.io/managed-by":*"Helm" | string,"app.kubernetes.io/instance":_,"app.kubernetes.io/version":"\"82.2.1\"","app.kubernetes.io/part-of":"",chart:_,release:_|_(_kube_prometheus_stack_labels.release: invalid interpolation: non-concrete value _ (type _)),heritage:"Helm"} (type struct) as type (bool|string|bytes|number):
     ./results.cue:7:10
     ./alertmanager_alertmanager.cue:20:11
     ./helpers.cue:413:32
 -- cue export --
 exit status 1
-#values.prometheus.prometheusSpec.additionalAlertManagerConfigsSecret: conflicting values {} and [...{name!:(bool|number|string|null),key!:(bool|number|string|null),optional!:(bool|number|string|null),...}] (mismatched types struct and list):
-    ./values.cue:934:42
-    values.yaml:4483:42
 _kube_prometheus_stack_prometheus_pod_anti_affinity_matchExpressions.key: conflicting values "app.kubernetes.io/instance" and "app.kubernetes.io/name":
     ./helpers.cue:486:71
     ./helpers.cue:491:2
@@ -482,417 +141,82 @@ _kube_prometheus_stack_prometheus_pod_anti_affinity_matchExpressions.values.0: c
     ./helpers.cue:492:60
     ./helpers.cue:493:3
     ./helpers.cue:493:64
+prometheus_clusterrole.0.rules.apiGroups.0: conflicting values "discovery.k8s.io" and "":
+    ./prometheus_clusterrole.cue:6:110
+    ./prometheus_clusterrole.cue:7:3
+    ./prometheus_clusterrole.cue:21:5
+    ./prometheus_clusterrole.cue:22:18
+    ./prometheus_clusterrole.cue:32:5
+    ./prometheus_clusterrole.cue:33:18
+prometheus_clusterrole.0.rules.apiGroups.0: conflicting values "networking.k8s.io" and "":
+    ./prometheus_clusterrole.cue:6:110
+    ./prometheus_clusterrole.cue:7:3
+    ./prometheus_clusterrole.cue:21:5
+    ./prometheus_clusterrole.cue:22:18
+    ./prometheus_clusterrole.cue:39:5
+    ./prometheus_clusterrole.cue:41:7
+prometheus_clusterrole.0.rules.resources.0: conflicting values "endpointslices" and "nodes":
+    ./prometheus_clusterrole.cue:6:110
+    ./prometheus_clusterrole.cue:7:3
+    ./prometheus_clusterrole.cue:21:5
+    ./prometheus_clusterrole.cue:24:7
+    ./prometheus_clusterrole.cue:32:5
+    ./prometheus_clusterrole.cue:35:7
+prometheus_clusterrole.0.rules.resources.0: conflicting values "ingresses" and "nodes":
+    ./prometheus_clusterrole.cue:6:110
+    ./prometheus_clusterrole.cue:7:3
+    ./prometheus_clusterrole.cue:21:5
+    ./prometheus_clusterrole.cue:24:7
+    ./prometheus_clusterrole.cue:39:5
+    ./prometheus_clusterrole.cue:44:7
+prometheus_operator_servicemonitor.0.spec.endpoints.0.tlsConfig.ca.secret.key: conflicting values {optional:false} and "ca" (mismatched types struct and string):
+    ./prometheus_operator_servicemonitor.cue:11:145
+    ./prometheus_operator_servicemonitor.cue:12:3
+    ./prometheus_operator_servicemonitor.cue:27:7
+    ./prometheus_operator_servicemonitor.cue:35:16
+    ./prometheus_operator_servicemonitor.cue:39:12
+    ./prometheus_operator_servicemonitor.cue:40:13
 alertmanager_alertmanager.0.metadata.labels.app: invalid interpolation: cannot use {"app.kubernetes.io/managed-by":*"Helm" | string,"app.kubernetes.io/instance":"test","app.kubernetes.io/version":"\"82.2.1\"","app.kubernetes.io/part-of":"",chart:_,release:"test",heritage:"Helm"} (type struct) as type (bool|string|bytes|number):
     ./alertmanager_alertmanager.cue:20:11
     ./helpers.cue:413:32
-alertmanager_alertmanager.0.spec.alertmanagerConfigNamespaceSelector: error in call to text/template.Execute: conflicting values {} and [...{name!:(bool|number|string|null),key!:(bool|number|string|null),optional!:(bool|number|string|null),...}] (mismatched types struct and list):
-    ./alertmanager_alertmanager.cue:90:57
-    ./values.cue:934:42
-    values.yaml:4483:42
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_alertmanager_overview.cue:16:241
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_alertmanager_overview.cue:16:378
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_alertmanager_overview.cue:38:323
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_alertmanager_overview.cue:38:460
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_apiserver.cue:16:241
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_apiserver.cue:16:378
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_apiserver.cue:79:323
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_apiserver.cue:79:460
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_cluster_total.cue:16:241
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_cluster_total.cue:16:378
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_cluster_total.cue:73:323
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_cluster_total.cue:73:460
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_controller_manager.cue:16:241
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_controller_manager.cue:16:378
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_controller_manager.cue:97:323
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_controller_manager.cue:97:460
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_etcd.cue:16:241
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_etcd.cue:16:378
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_etcd.cue:71:323
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_etcd.cue:71:460
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_grafana_overview.cue:16:241
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_grafana_overview.cue:16:378
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_grafana_overview.cue:54:323
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_grafana_overview.cue:54:460
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_k8s_coredns.cue:16:241
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_k8s_coredns.cue:16:378
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_k8s_coredns.cue:73:323
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_k8s_coredns.cue:73:460
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_k8s_resources_cluster.cue:16:241
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_k8s_resources_cluster.cue:16:378
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_k8s_resources_cluster.cue:143:323
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_k8s_resources_cluster.cue:143:460
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_k8s_resources_multicluster.cue:16:241
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_k8s_resources_multicluster.cue:16:378
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_k8s_resources_multicluster.cue:64:323
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_k8s_resources_multicluster.cue:64:460
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_k8s_resources_namespace.cue:16:241
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_k8s_resources_namespace.cue:16:378
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_k8s_resources_namespace.cue:129:323
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_k8s_resources_namespace.cue:129:460
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_k8s_resources_node.cue:16:241
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_k8s_resources_node.cue:16:378
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_k8s_resources_node.cue:53:323
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_k8s_resources_node.cue:53:460
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_k8s_resources_pod.cue:16:241
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_k8s_resources_pod.cue:16:378
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_k8s_resources_pod.cue:135:323
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_k8s_resources_pod.cue:135:460
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_k8s_resources_windows_cluster.cue:16:241
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_k8s_resources_windows_cluster.cue:16:378
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_k8s_resources_windows_cluster.cue:63:323
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_k8s_resources_windows_cluster.cue:63:460
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_k8s_resources_windows_namespace.cue:16:241
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_k8s_resources_windows_namespace.cue:16:378
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_k8s_resources_windows_namespace.cue:51:323
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_k8s_resources_windows_namespace.cue:51:460
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_k8s_resources_windows_pod.cue:16:241
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_k8s_resources_windows_pod.cue:16:378
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_k8s_resources_windows_pod.cue:53:323
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_k8s_resources_windows_pod.cue:53:460
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_k8s_resources_workload.cue:16:241
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_k8s_resources_workload.cue:16:378
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_k8s_resources_workload.cue:95:323
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_k8s_resources_workload.cue:95:460
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_k8s_resources_workloads_namespace.cue:16:241
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_k8s_resources_workloads_namespace.cue:16:378
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_k8s_resources_workloads_namespace.cue:103:323
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_k8s_resources_workloads_namespace.cue:103:460
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_k8s_windows_cluster_rsrc_use.cue:16:241
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_k8s_windows_cluster_rsrc_use.cue:16:378
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_k8s_windows_cluster_rsrc_use.cue:61:323
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_k8s_windows_cluster_rsrc_use.cue:61:460
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_k8s_windows_node_rsrc_use.cue:16:241
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_k8s_windows_node_rsrc_use.cue:16:378
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_k8s_windows_node_rsrc_use.cue:67:323
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_k8s_windows_node_rsrc_use.cue:67:460
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_kubelet.cue:16:241
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_kubelet.cue:16:378
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_kubelet.cue:157:323
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_kubelet.cue:157:460
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_namespace_by_pod.cue:16:241
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_namespace_by_pod.cue:16:378
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_namespace_by_pod.cue:65:323
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_namespace_by_pod.cue:65:460
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_namespace_by_workload.cue:16:241
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_namespace_by_workload.cue:16:378
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_namespace_by_workload.cue:69:323
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_namespace_by_workload.cue:69:460
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_node_cluster_rsrc_use.cue:16:241
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_node_cluster_rsrc_use.cue:16:378
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_node_cluster_rsrc_use.cue:45:323
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_node_cluster_rsrc_use.cue:45:460
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_node_rsrc_use.cue:16:241
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_node_rsrc_use.cue:16:378
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_node_rsrc_use.cue:45:323
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_node_rsrc_use.cue:45:460
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_nodes.cue:16:241
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_nodes.cue:16:378
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_nodes.cue:45:323
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_nodes.cue:45:460
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_nodes_aix.cue:16:241
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_nodes_aix.cue:16:378
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_nodes_aix.cue:45:323
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_nodes_aix.cue:45:460
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_nodes_darwin.cue:16:241
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_nodes_darwin.cue:16:378
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_nodes_darwin.cue:45:323
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_nodes_darwin.cue:45:460
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_persistentvolumesusage.cue:16:241
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_persistentvolumesusage.cue:16:378
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_persistentvolumesusage.cue:83:323
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_persistentvolumesusage.cue:83:460
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_pod_total.cue:16:241
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_pod_total.cue:16:378
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_pod_total.cue:65:323
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_pod_total.cue:65:460
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_prometheus.cue:16:241
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_prometheus.cue:16:378
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_prometheus.cue:45:323
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_prometheus.cue:45:460
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_prometheus_remote_write.cue:16:241
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_prometheus_remote_write.cue:16:378
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_prometheus_remote_write.cue:45:323
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_prometheus_remote_write.cue:45:460
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_proxy.cue:16:241
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_proxy.cue:16:378
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_proxy.cue:103:323
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_proxy.cue:103:460
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_scheduler.cue:16:241
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_scheduler.cue:16:378
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_scheduler.cue:105:323
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_scheduler.cue:105:460
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_workload_total.cue:16:241
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_workload_total.cue:16:378
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_workload_total.cue:87:323
-#version: undefined field: GitVersion:
-    ./grafana_dashboards_1_14_workload_total.cue:87:460
-#version: 2 errors in empty disjunction::
-    ./helpers.cue:67:48
-#values.prometheus.prometheusSpec.additionalAlertManagerConfigsSecret: invalid interpolation: conflicting values {} and [...{name!:(bool|number|string|null),key!:(bool|number|string|null),optional!:(bool|number|string|null),...}] (mismatched types struct and list):
-    ./helpers.cue:184:17
-    ./values.cue:934:42
-    values.yaml:4483:42
-#values.prometheus.prometheusSpec.additionalAlertManagerConfigsSecret: invalid interpolation: conflicting values {} and [...{name!:(bool|number|string|null),key!:(bool|number|string|null),optional!:(bool|number|string|null),...}] (mismatched types struct and list):
-    ./helpers.cue:193:16
-    ./values.cue:934:42
-    values.yaml:4483:42
-#values.prometheus.prometheusSpec.additionalAlertManagerConfigsSecret: invalid interpolation: conflicting values {} and [...{name!:(bool|number|string|null),key!:(bool|number|string|null),optional!:(bool|number|string|null),...}] (mismatched types struct and list):
-    ./helpers.cue:234:2
-    ./values.cue:934:42
-    values.yaml:4483:42
-#values.prometheus.prometheusSpec.additionalAlertManagerConfigsSecret: invalid interpolation: conflicting values {} and [...{name!:(bool|number|string|null),key!:(bool|number|string|null),optional!:(bool|number|string|null),...}] (mismatched types struct and list):
-    ./helpers.cue:242:2
-    ./values.cue:934:42
-    values.yaml:4483:42
-#values.prometheus.prometheusSpec.additionalAlertManagerConfigsSecret: invalid interpolation: conflicting values {} and [...{name!:(bool|number|string|null),key!:(bool|number|string|null),optional!:(bool|number|string|null),...}] (mismatched types struct and list):
-    ./helpers.cue:250:2
-    ./values.cue:934:42
-    values.yaml:4483:42
-#values.prometheus.prometheusSpec.additionalAlertManagerConfigsSecret: invalid interpolation: conflicting values {} and [...{name!:(bool|number|string|null),key!:(bool|number|string|null),optional!:(bool|number|string|null),...}] (mismatched types struct and list):
-    ./helpers.cue:258:2
-    ./values.cue:934:42
-    values.yaml:4483:42
-_kube_prometheus_stack_grafana_operator_folder: grafana.operator: only one of folder, folderUID, or folderRef must be set:
-    ./helpers.cue:379:3
-#values.prometheus.prometheusSpec.additionalAlertManagerConfigsSecret: invalid interpolation: conflicting values {} and [...{name!:(bool|number|string|null),key!:(bool|number|string|null),optional!:(bool|number|string|null),...}] (mismatched types struct and list):
-    ./helpers.cue:559:3
-    ./values.cue:934:42
-    values.yaml:4483:42
-#values.prometheus.prometheusSpec.additionalAlertManagerConfigsSecret: invalid interpolation: conflicting values {} and [...{name!:(bool|number|string|null),key!:(bool|number|string|null),optional!:(bool|number|string|null),...}] (mismatched types struct and list):
-    ./helpers.cue:620:3
-    ./values.cue:934:42
-    values.yaml:4483:42
-#values.prometheus.prometheusSpec.additionalAlertManagerConfigsSecret: invalid interpolation: conflicting values {} and [...{name!:(bool|number|string|null),key!:(bool|number|string|null),optional!:(bool|number|string|null),...}] (mismatched types struct and list):
-    ./helpers.cue:706:3
-    ./values.cue:934:42
-    values.yaml:4483:42
-#values.prometheus.prometheusSpec.additionalAlertManagerConfigsSecret: invalid interpolation: conflicting values {} and [...{name!:(bool|number|string|null),key!:(bool|number|string|null),optional!:(bool|number|string|null),...}] (mismatched types struct and list):
-    ./helpers.cue:819:3
-    ./values.cue:934:42
-    values.yaml:4483:42
-#version: undefined field: GitVersion:
-    ./prometheus_rules_1_14_k8s_rules_container_cpu_limits.cue:11:124
-#version: undefined field: GitVersion:
-    ./prometheus_rules_1_14_k8s_rules_container_cpu_limits.cue:11:261
-#version: undefined field: GitVersion:
-    ./prometheus_rules_1_14_k8s_rules_container_cpu_requests.cue:11:124
-#version: undefined field: GitVersion:
-    ./prometheus_rules_1_14_k8s_rules_container_cpu_requests.cue:11:261
-#version: undefined field: GitVersion:
-    ./prometheus_rules_1_14_k8s_rules_container_cpu_usage_seconds_total.cue:11:124
-#version: undefined field: GitVersion:
-    ./prometheus_rules_1_14_k8s_rules_container_cpu_usage_seconds_total.cue:11:261
-#version: undefined field: GitVersion:
-    ./prometheus_rules_1_14_k8s_rules_container_memory_cache.cue:11:124
-#version: undefined field: GitVersion:
-    ./prometheus_rules_1_14_k8s_rules_container_memory_cache.cue:11:261
-#version: undefined field: GitVersion:
-    ./prometheus_rules_1_14_k8s_rules_container_memory_limits.cue:11:124
-#version: undefined field: GitVersion:
-    ./prometheus_rules_1_14_k8s_rules_container_memory_limits.cue:11:261
-#version: undefined field: GitVersion:
-    ./prometheus_rules_1_14_k8s_rules_container_memory_requests.cue:11:124
-#version: undefined field: GitVersion:
-    ./prometheus_rules_1_14_k8s_rules_container_memory_requests.cue:11:261
-#version: undefined field: GitVersion:
-    ./prometheus_rules_1_14_k8s_rules_container_memory_rss.cue:11:124
-#version: undefined field: GitVersion:
-    ./prometheus_rules_1_14_k8s_rules_container_memory_rss.cue:11:261
-#version: undefined field: GitVersion:
-    ./prometheus_rules_1_14_k8s_rules_container_memory_swap.cue:11:124
-#version: undefined field: GitVersion:
-    ./prometheus_rules_1_14_k8s_rules_container_memory_swap.cue:11:261
-#version: undefined field: GitVersion:
-    ./prometheus_rules_1_14_k8s_rules_container_memory_working_set_bytes.cue:11:124
-#version: undefined field: GitVersion:
-    ./prometheus_rules_1_14_k8s_rules_container_memory_working_set_bytes.cue:11:261
-#version: undefined field: GitVersion:
-    ./prometheus_rules_1_14_k8s_rules_container_resource.cue:11:124
-#version: undefined field: GitVersion:
-    ./prometheus_rules_1_14_k8s_rules_container_resource.cue:11:261
-#version: undefined field: GitVersion:
-    ./prometheus_rules_1_14_k8s_rules_pod_owner.cue:11:124
-#version: undefined field: GitVersion:
-    ./prometheus_rules_1_14_k8s_rules_pod_owner.cue:11:261
-#version: undefined field: GitVersion:
-    ./prometheus_rules_1_14_kube_apiserver_availability_rules.cue:11:124
-#version: undefined field: GitVersion:
-    ./prometheus_rules_1_14_kube_apiserver_availability_rules.cue:11:261
-#version: undefined field: GitVersion:
-    ./prometheus_rules_1_14_kube_apiserver_burnrate_rules.cue:11:124
-#version: undefined field: GitVersion:
-    ./prometheus_rules_1_14_kube_apiserver_burnrate_rules.cue:11:261
-#version: undefined field: GitVersion:
-    ./prometheus_rules_1_14_kube_apiserver_histogram_rules.cue:11:124
-#version: undefined field: GitVersion:
-    ./prometheus_rules_1_14_kube_apiserver_histogram_rules.cue:11:261
-#version: undefined field: GitVersion:
-    ./prometheus_rules_1_14_kube_prometheus_general_rules.cue:11:124
-#version: undefined field: GitVersion:
-    ./prometheus_rules_1_14_kube_prometheus_general_rules.cue:11:261
-#version: undefined field: GitVersion:
-    ./prometheus_rules_1_14_kube_prometheus_node_recording_rules.cue:11:124
-#version: undefined field: GitVersion:
-    ./prometheus_rules_1_14_kube_prometheus_node_recording_rules.cue:11:261
-#version: undefined field: GitVersion:
-    ./prometheus_rules_1_14_kube_scheduler_rules.cue:11:124
-#version: undefined field: GitVersion:
-    ./prometheus_rules_1_14_kube_scheduler_rules.cue:11:261
-#version: undefined field: GitVersion:
-    ./prometheus_rules_1_14_kubelet_rules.cue:11:124
-#version: undefined field: GitVersion:
-    ./prometheus_rules_1_14_kubelet_rules.cue:11:261
-#version: undefined field: GitVersion:
-    ./prometheus_rules_1_14_node_exporter_rules.cue:11:124
-#version: undefined field: GitVersion:
-    ./prometheus_rules_1_14_node_exporter_rules.cue:11:261
-#version: undefined field: GitVersion:
-    ./prometheus_rules_1_14_node_rules.cue:11:124
-#version: undefined field: GitVersion:
-    ./prometheus_rules_1_14_node_rules.cue:11:261
-#version: undefined field: GitVersion:
-    ./prometheus_rules_1_14_windows_node_rules.cue:11:124
-#version: undefined field: GitVersion:
-    ./prometheus_rules_1_14_windows_node_rules.cue:11:261
-#version: undefined field: GitVersion:
-    ./prometheus_rules_1_14_windows_pod_rules.cue:11:124
-#version: undefined field: GitVersion:
-    ./prometheus_rules_1_14_windows_pod_rules.cue:11:261
+alertmanager_secret.0.data."alertmanager.yaml": invalid interpolation: cannot use {global:{resolve_timeout:"5m"},inhibit_rules:[{source_matchers:["severity = critical"],target_matchers:["severity =~ warning|info"],equal:["namespace","alertname"]},{source_matchers:["severity = warning"],target_matchers:["severity = info"],equal:["namespace","alertname"]},{source_matchers:["alertname = InfoInhibitor"],target_matchers:["severity = info"],equal:["namespace"]},{target_matchers:["alertname = InfoInhibitor"]}],route:{group_by:["namespace"],group_wait:"30s",group_interval:"5m",repeat_interval:"12h",receiver:"null",routes:[{receiver:"null",matchers:["alertname = \"Watchdog\""]}]},receivers:[{name:"null"}],templates:["/etc/alertmanager/config/*.tmpl"]} (type struct) as (string|bytes) in argument 2 to "encoding/base64".Encode:
+    ./alertmanager_secret.cue:40:27
+    ./values.cue:485:19
+_vMajor: error in call to strconv.Atoi: strconv.Atoi: parsing "": invalid syntax:
+    ./helpers.cue:69:11
+prometheus_clusterrole.0.rules.resources: incompatible list lengths (1 and 5):
+    ./prometheus_clusterrole.cue:34:17
+prometheus_clusterrole.0.rules.resources: incompatible list lengths (1 and 5):
+    ./prometheus_clusterrole.cue:43:17
+prometheus_clusterrole.0.rules.verbs: incompatible list lengths (1 and 3):
+    ./prometheus_clusterrole.cue:50:13
+prometheus_operator_admission_webhooks_job_patch_clusterrole.0.metadata.labels.app: invalid interpolation: cannot use {"app.kubernetes.io/name":"-prometheus-operator","app.kubernetes.io/component":"prometheus-operator-webhook","app.kubernetes.io/managed-by":*"Helm" | string,"app.kubernetes.io/instance":"test","app.kubernetes.io/version":"\"82.2.1\"","app.kubernetes.io/part-of":"",chart:_,release:"test",heritage:"Helm"} (type struct) as type (bool|string|bytes|number):
+    ./prometheus_operator_admission_webhooks_job_patch_clusterrole.cue:17:11
+    ./helpers.cue:467:60
+prometheus_operator_admission_webhooks_job_patch_clusterrolebinding.0.metadata.labels.app: invalid interpolation: cannot use {"app.kubernetes.io/name":"-prometheus-operator","app.kubernetes.io/component":"prometheus-operator-webhook","app.kubernetes.io/managed-by":*"Helm" | string,"app.kubernetes.io/instance":"test","app.kubernetes.io/version":"\"82.2.1\"","app.kubernetes.io/part-of":"",chart:_,release:"test",heritage:"Helm"} (type struct) as type (bool|string|bytes|number):
+    ./prometheus_operator_admission_webhooks_job_patch_clusterrolebinding.cue:17:11
+    ./helpers.cue:467:60
+prometheus_operator_admission_webhooks_job_patch_job_createSecret.0.metadata.labels.app: invalid interpolation: cannot use {"app.kubernetes.io/name":"-prometheus-operator","app.kubernetes.io/component":"prometheus-operator-webhook","app.kubernetes.io/managed-by":*"Helm" | string,"app.kubernetes.io/instance":"test","app.kubernetes.io/version":"\"82.2.1\"","app.kubernetes.io/part-of":"",chart:_,release:"test",heritage:"Helm"} (type struct) as type (bool|string|bytes|number):
+    ./prometheus_operator_admission_webhooks_job_patch_job_createSecret.cue:23:11
+    ./helpers.cue:467:60
+prometheus_operator_admission_webhooks_job_patch_job_createSecret.0.spec.template.metadata.labels.app: invalid interpolation: cannot use {"app.kubernetes.io/name":"-prometheus-operator","app.kubernetes.io/component":"prometheus-operator-webhook","app.kubernetes.io/managed-by":*"Helm" | string,"app.kubernetes.io/instance":"test","app.kubernetes.io/version":"\"82.2.1\"","app.kubernetes.io/part-of":"",chart:_,release:"test",heritage:"Helm"} (type struct) as type (bool|string|bytes|number):
+    ./prometheus_operator_admission_webhooks_job_patch_job_createSecret.cue:35:13
+    ./helpers.cue:467:60
+prometheus_operator_admission_webhooks_job_patch_job_patchWebhook.0.metadata.labels.app: invalid interpolation: cannot use {"app.kubernetes.io/name":"-prometheus-operator","app.kubernetes.io/component":"prometheus-operator-webhook","app.kubernetes.io/managed-by":*"Helm" | string,"app.kubernetes.io/instance":"test","app.kubernetes.io/version":"\"82.2.1\"","app.kubernetes.io/part-of":"",chart:_,release:"test",heritage:"Helm"} (type struct) as type (bool|string|bytes|number):
+    ./prometheus_operator_admission_webhooks_job_patch_job_patchWebhook.cue:25:11
+    ./helpers.cue:467:60
+prometheus_operator_admission_webhooks_job_patch_job_patchWebhook.0.spec.template.metadata.labels.app: invalid interpolation: cannot use {"app.kubernetes.io/name":"-prometheus-operator","app.kubernetes.io/component":"prometheus-operator-webhook","app.kubernetes.io/managed-by":*"Helm" | string,"app.kubernetes.io/instance":"test","app.kubernetes.io/version":"\"82.2.1\"","app.kubernetes.io/part-of":"",chart:_,release:"test",heritage:"Helm"} (type struct) as type (bool|string|bytes|number):
+    ./prometheus_operator_admission_webhooks_job_patch_job_patchWebhook.cue:37:13
+    ./helpers.cue:467:60
+prometheus_operator_admission_webhooks_job_patch_role.0.metadata.labels.app: invalid interpolation: cannot use {"app.kubernetes.io/name":"-prometheus-operator","app.kubernetes.io/component":"prometheus-operator-webhook","app.kubernetes.io/managed-by":*"Helm" | string,"app.kubernetes.io/instance":"test","app.kubernetes.io/version":"\"82.2.1\"","app.kubernetes.io/part-of":"",chart:_,release:"test",heritage:"Helm"} (type struct) as type (bool|string|bytes|number):
+    ./prometheus_operator_admission_webhooks_job_patch_role.cue:18:11
+    ./helpers.cue:467:60
+prometheus_operator_admission_webhooks_job_patch_rolebinding.0.metadata.labels.app: invalid interpolation: cannot use {"app.kubernetes.io/name":"-prometheus-operator","app.kubernetes.io/component":"prometheus-operator-webhook","app.kubernetes.io/managed-by":*"Helm" | string,"app.kubernetes.io/instance":"test","app.kubernetes.io/version":"\"82.2.1\"","app.kubernetes.io/part-of":"",chart:_,release:"test",heritage:"Helm"} (type struct) as type (bool|string|bytes|number):
+    ./prometheus_operator_admission_webhooks_job_patch_rolebinding.cue:18:11
+    ./helpers.cue:467:60
+prometheus_operator_admission_webhooks_job_patch_serviceaccount.0.metadata.labels.app: invalid interpolation: cannot use {"app.kubernetes.io/name":"-prometheus-operator","app.kubernetes.io/component":"prometheus-operator-webhook","app.kubernetes.io/managed-by":*"Helm" | string,"app.kubernetes.io/instance":"test","app.kubernetes.io/version":"\"82.2.1\"","app.kubernetes.io/part-of":"",chart:_,release:"test",heritage:"Helm"} (type struct) as type (bool|string|bytes|number):
+    ./prometheus_operator_admission_webhooks_job_patch_serviceaccount.cue:20:11
+    ./helpers.cue:467:60
 results: error in call to list.FlattenN: invalid interpolation: cannot use {"app.kubernetes.io/managed-by":*"Helm" | string,"app.kubernetes.io/instance":"test","app.kubernetes.io/version":"\"82.2.1\"","app.kubernetes.io/part-of":"",chart:_,release:"test",heritage:"Helm"} (type struct) as type (bool|string|bytes|number):
     ./results.cue:7:10
     ./alertmanager_alertmanager.cue:20:11

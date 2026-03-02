@@ -218,6 +218,7 @@ func ConvertChart(chartDir, outDir string, opts ChartOptions) error {
 	mergedFieldRefs := make(map[string][][]string)
 	mergedRequiredRefs := make(map[string][][]string)
 	mergedRangeRefs := make(map[string][][]string)
+	mergedNonScalarRefs := make(map[string][][]string)
 	needsNonzero := false
 	mergedUsedHelpers := make(map[string]HelperDef)
 	hasDynamicInclude := false
@@ -238,6 +239,9 @@ func ConvertChart(chartDir, outDir string, opts ChartOptions) error {
 		}
 		for k, v := range r.rangeRefs {
 			mergedRangeRefs[k] = append(mergedRangeRefs[k], v...)
+		}
+		for k, v := range r.nonScalarRefs {
+			mergedNonScalarRefs[k] = append(mergedNonScalarRefs[k], v...)
 		}
 		if r.needsNonzero {
 			needsNonzero = true
@@ -297,7 +301,7 @@ func ConvertChart(chartDir, outDir string, opts ChartOptions) error {
 	}
 
 	// Build the values schema and validate it.
-	schemaCUE := buildValuesSchemaCUE(mergedFieldRefs["Values"], mergedRequiredRefs["Values"], mergedRangeRefs["Values"], valuesStructRefs)
+	schemaCUE := buildValuesSchemaCUE(mergedFieldRefs["Values"], mergedRequiredRefs["Values"], mergedRangeRefs["Values"], mergedNonScalarRefs["Values"], valuesStructRefs)
 	var valWarnings []string
 	if err := validateSchema(schemaCUE, cfg.ContextObjects); err != nil {
 		valWarnings = append(valWarnings, fmt.Sprintf("values schema inconsistency: %v", err))
@@ -526,13 +530,13 @@ func writeHelpersCUE(outDir, pkgName string, r *convertResult, needsNonzero bool
 // structRefs are paths to values.yaml fields with struct values; these are
 // marked as unconstrained (_) only when they are leaf nodes (no child field
 // accesses in templates), to avoid conflicting with the scalar default type.
-func buildValuesSchemaCUE(refs [][]string, requiredRefs [][]string, rangeRefs [][]string, structRefs [][]string) []byte {
+func buildValuesSchemaCUE(refs [][]string, requiredRefs [][]string, rangeRefs [][]string, nonScalarRefs [][]string, structRefs [][]string) []byte {
 	var buf bytes.Buffer
 	if len(refs) == 0 {
 		buf.WriteString("#values: _\n")
 	} else {
 		buf.WriteString("#values: {\n")
-		root := buildFieldTree(refs, requiredRefs, rangeRefs)
+		root := buildFieldTree(refs, requiredRefs, rangeRefs, nonScalarRefs)
 		// Mark struct-valued leaf nodes as non-scalar. Non-leaf nodes
 		// already emit struct type from their children.
 		for _, ref := range structRefs {
@@ -545,7 +549,7 @@ func buildValuesSchemaCUE(refs [][]string, requiredRefs [][]string, rangeRefs []
 				node = child
 			}
 			if node != root && len(node.children) == 0 {
-				node.isRange = true
+				node.isNonScalar = true
 			}
 		}
 		emitFieldNodes(&buf, root.children, 1)
@@ -1108,6 +1112,7 @@ func mergeChartDocResults(results []*convertResult) *convertResult {
 		fieldRefs:          make(map[string][][]string),
 		requiredRefs:       make(map[string][][]string),
 		rangeRefs:          make(map[string][][]string),
+		nonScalarRefs:      make(map[string][][]string),
 	}
 
 	for i, r := range results {
@@ -1131,6 +1136,9 @@ func mergeChartDocResults(results []*convertResult) *convertResult {
 		}
 		for k, v := range r.rangeRefs {
 			merged.rangeRefs[k] = append(merged.rangeRefs[k], v...)
+		}
+		for k, v := range r.nonScalarRefs {
+			merged.nonScalarRefs[k] = append(merged.nonScalarRefs[k], v...)
 		}
 		if r.hasDynamicInclude {
 			merged.hasDynamicInclude = true
