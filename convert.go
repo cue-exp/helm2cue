@@ -4028,6 +4028,24 @@ func (c *converter) conditionPipeToExpr(pipe *parse.PipeNode) (string, error) {
 			}
 			c.usedHelpers["_typeof"] = HelperDef{Name: "_typeof", Def: typeofDef}
 			return fmt.Sprintf("(_typeof & {#arg: %s, _})", valExpr), nil
+		case "contains":
+			if !c.isCoreFunc(id.Ident) {
+				return "", fmt.Errorf("unsupported condition function: %s (not a text/template builtin)", id.Ident)
+			}
+			if len(args) != 2 {
+				return "", fmt.Errorf("contains requires 2 arguments, got %d", len(args))
+			}
+			// Sprig: contains(substr, str) — CUE: strings.Contains(str, substr)
+			substrExpr, err := c.conditionNodeToRawExpr(args[0])
+			if err != nil {
+				return "", fmt.Errorf("contains substring argument: %w", err)
+			}
+			strExpr, err := c.conditionNodeToRawExpr(args[1])
+			if err != nil {
+				return "", fmt.Errorf("contains string argument: %w", err)
+			}
+			c.addImport("strings")
+			return fmt.Sprintf("strings.Contains(%s, %s)", strExpr, substrExpr), nil
 		default:
 			return "", fmt.Errorf("unsupported condition function: %s", id.Ident)
 		}
