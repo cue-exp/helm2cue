@@ -26,7 +26,7 @@ deployment: [{
 						image:           "\(#values.image.repository):\(#values.image.tag)"
 						imagePullPolicy: *#values.image.pullPolicy | "IfNotPresent"
 						ports: [
-							for _, _range0 in #values.ports {
+							if (_nonzero & {#arg: #values.ports, _}) for _, _range0 in #values.ports {
 								name:          _range0.name
 								containerPort: _range0.containerPort
 							},

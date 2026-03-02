@@ -16,7 +16,7 @@ package simple_app
 		pullPolicy?: bool | number | string | null
 		...
 	}
-	ports!: [...{
+	ports?: [...{
 		name!:          bool | number | string | null
 		containerPort!: bool | number | string | null
 		...
