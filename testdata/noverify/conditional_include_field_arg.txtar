@@ -14,7 +14,7 @@ label: present
 import "struct"
 
 #values: {
-	name?: bool | number | string | null
+	name!: bool | number | string | null
 	...
 }
 _myapp_name: {

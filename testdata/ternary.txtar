@@ -22,7 +22,7 @@ data:
 import "struct"
 
 #values: {
-	debug!: bool | number | string | null
+	debug?: bool | number | string | null
 	...
 }
 
