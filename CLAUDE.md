@@ -189,8 +189,9 @@ For integration-test failures, treat the failing integration test as the
   `sed`, `cat`, `echo`, or other Bash shell commands for file editing or creation.
 - **Use `command cd` instead of plain `cd`** when changing directory in
   shell commands. Plain `cd` may be overridden by shell functions that cause
-  errors. For all other commands (e.g. `go`, `git`, `helm`), use the plain
-  command name — do **not** prefix with `command`.
+  errors. **`cd` is the ONLY command that needs the `command` prefix.** For
+  every other command (`go`, `git`, `helm`, `gh`, `rm`, etc.), use the plain
+  command name directly. Never write `command go`, `command git`, etc.
 - Place temporary files (e.g. chart conversion output) under `tmp/` in the repo
   root. This directory is gitignored. Do not use `/tmp` or other system temp
   directories.
