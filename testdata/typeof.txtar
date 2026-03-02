@@ -1,0 +1,14 @@
+typeOf condition: check Go type name of a value.
+
+-- values.yaml --
+config: some-string
+-- input.yaml --
+{{- if eq (typeOf .Values.config) "string" }}
+stringVal: true
+{{- else }}
+otherVal: true
+{{- end }}
+-- helm_output.yaml --
+stringVal: true
+-- broken --
+unsupported condition function: typeOf
