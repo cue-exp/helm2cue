@@ -1,0 +1,34 @@
+# hasKey marks a field as non-scalar via trackNonScalarRef, which adds
+# it to rangeRefs. When the field also has children (name, key), the
+# schema wraps it as a list of structs instead of a plain struct.
+# https://github.com/cue-exp/helm2cue/issues/54
+
+! exec helm2cue chart chartdir outdir
+stderr 'mismatched types list and struct'
+
+-- chartdir/Chart.yaml --
+apiVersion: v2
+name: test-app
+version: 0.1.0
+-- chartdir/values.yaml --
+secret: {}
+-- chartdir/templates/test.yaml --
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test
+{{- if .Values.secret }}
+data:
+  name: {{ .Values.secret.name }}
+  key: {{ .Values.secret.key }}
+  {{- if hasKey .Values.secret "optional" }}
+  optional: {{ .Values.secret.optional }}
+  {{- end }}
+{{- end }}
+-- chartdir/templates/good.yaml --
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: good
+data:
+  key: value
