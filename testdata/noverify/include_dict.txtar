@@ -21,6 +21,6 @@ output: [
 		apiVersion: "v1"
 		kind:       "Pod"
 		metadata: name: "test"
-		spec: image: _common_images_image
+		spec: image: _common_images_image & {#arg: {imageRoot: #values.image, global: #values.global}, _}
 	},
 ]

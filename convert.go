@@ -1246,30 +1246,30 @@ func (c *converter) convertIncludeContext(node parse.Node) (argExpr string, helm
 		}
 		return expr, ho, bp, nil, nil
 	case *parse.PipeNode:
-		dm, pipeErr := c.processContextPipe(n)
-		return "", "", nil, dm, pipeErr
+		dm, dictExpr, pipeErr := c.processContextPipe(n)
+		return dictExpr, "", nil, dm, pipeErr
 	default:
 		return "", "", nil, nil, fmt.Errorf("include: unsupported context argument %s (only ., $, field references, and dict/list are supported)", node)
 	}
 }
 
-func (c *converter) processContextPipe(pipe *parse.PipeNode) (map[string]contextSource, error) {
+func (c *converter) processContextPipe(pipe *parse.PipeNode) (map[string]contextSource, string, error) {
 	if len(pipe.Cmds) != 1 {
-		return nil, fmt.Errorf("include: unsupported multi-command context pipe: %s", pipe)
+		return nil, "", fmt.Errorf("include: unsupported multi-command context pipe: %s", pipe)
 	}
 	cmd := pipe.Cmds[0]
 	if len(cmd.Args) == 0 {
-		return nil, fmt.Errorf("include: empty context pipe command")
+		return nil, "", fmt.Errorf("include: empty context pipe command")
 	}
 	id, ok := cmd.Args[0].(*parse.IdentifierNode)
 	if !ok {
-		return nil, fmt.Errorf("include: unsupported context expression: %s", pipe)
+		return nil, "", fmt.Errorf("include: unsupported context expression: %s", pipe)
 	}
 	switch id.Ident {
 	case "dict":
 		args := cmd.Args[1:]
 		if len(args)%2 != 0 {
-			return nil, fmt.Errorf("include: dict requires even number of arguments (key-value pairs)")
+			return nil, "", fmt.Errorf("include: dict requires even number of arguments (key-value pairs)")
 		}
 		var dictMap map[string]contextSource
 		for i := 0; i < len(args); i += 2 {
@@ -1293,14 +1293,34 @@ func (c *converter) processContextPipe(pipe *parse.PipeNode) (map[string]context
 				}
 			}
 		}
-		return dictMap, nil
+		// Build CUE struct expression for the dict.
+		var exprParts []string
+		allConverted := true
+		for i := 0; i < len(args); i += 2 {
+			keyNode, ok := args[i].(*parse.StringNode)
+			if !ok {
+				allConverted = false
+				break
+			}
+			valExpr, _, err := c.nodeToExpr(args[i+1])
+			if err != nil {
+				allConverted = false
+				break
+			}
+			exprParts = append(exprParts, cueKey(keyNode.Text)+": "+valExpr)
+		}
+		var dictExpr string
+		if allConverted && len(exprParts) > 0 {
+			dictExpr = "{" + strings.Join(exprParts, ", ") + "}"
+		}
+		return dictMap, dictExpr, nil
 	case "list":
 		for _, arg := range cmd.Args[1:] {
 			c.trackContextNode(arg)
 		}
 	default:
 	}
-	return nil, nil
+	return nil, "", nil
 }
 
 func (c *converter) trackContextNode(node parse.Node) {

@@ -7,8 +7,8 @@ converted 12/20 templates from nginx
 -- cue vet --
 exit status 1
 _common_utils_fieldToEnvVar: reference "_range1" not found:
-    ./helpers.cue:717:31
+    ./helpers.cue:700:31
 -- cue export --
 exit status 1
 _common_utils_fieldToEnvVar: reference "_range1" not found:
-    ./helpers.cue:717:31
+    ./helpers.cue:700:31
