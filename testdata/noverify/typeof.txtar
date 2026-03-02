@@ -13,7 +13,7 @@ otherVal: true
 import "struct"
 
 #values: {
-	config?: bool | number | string | null
+	config!: bool | number | string | null
 	...
 }
 

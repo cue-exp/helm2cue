@@ -15,7 +15,7 @@ key: valC
 import "struct"
 
 #values: {
-	mode?: bool | number | string | null
+	mode!: bool | number | string | null
 	...
 }
 
