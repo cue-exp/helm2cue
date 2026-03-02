@@ -339,6 +339,13 @@ func HelmConfig() *Config {
 					return fmt.Sprintf("strings.Join(%s, %s)", expr, args[0])
 				},
 			},
+			"splitList": {
+				Nargs:   1,
+				Imports: []string{"strings"},
+				Convert: func(expr string, args []string) string {
+					return fmt.Sprintf("strings.Split(%s, %s)", expr, args[0])
+				},
+			},
 			"sortAlpha": {
 				NonScalar: true,
 				Imports:   []string{"list"},
