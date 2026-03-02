@@ -249,6 +249,7 @@ type converter struct {
 	topLevelGuards              []string              // CUE conditions wrapping entire output
 	topLevelRange               string                // e.g. "for _, _range0 in #values.items"
 	topLevelRangeBody           string                // body inside the range
+	topLevelRangeIsList         bool                  // true when range body emits YAML list items
 	imports                     map[string]bool
 	hasConditions               bool                 // true if any if blocks or top-level guards exist
 	usedHelpers                 map[string]HelperDef // collected during conversion
@@ -968,12 +969,28 @@ func (c *converter) convertHelperBody(nodes []parse.Node) (string, *helperArgInf
 
 	// If processNodes extracted a top-level range, wrap the body in the
 	// for comprehension so it doesn't get lost in helper output.
+	// List-producing ranges use a CUE list comprehension [for ...{...}]
+	// so the helper evaluates to a list, not a struct.
 	if sub.topLevelRange != "" {
 		rangeBody := body
 		if sub.topLevelRangeBody != "" {
 			rangeBody = strings.TrimSpace(sub.topLevelRangeBody)
 		}
-		body = sub.topLevelRange + " {\n" + indentBlock(rangeBody, "\t") + "\n}"
+		inner := sub.topLevelRange + " {\n" + indentBlock(rangeBody, "\t") + "\n}"
+		if sub.topLevelRangeIsList {
+			body = "[" + inner + "]"
+			// The _nonzero guard {#arg: #arg.field, _} shadows the
+			// outer #arg with the inner struct's field declaration.
+			// Use a let binding to capture #arg before the inner
+			// struct introduces its own #arg field.
+			if strings.Contains(body, "#arg") {
+				fixed := strings.ReplaceAll(body, "#arg", "_args")
+				fixed = strings.ReplaceAll(fixed, "{_args:", "{#arg:")
+				body = "let _args = #arg\n" + fixed
+			}
+		} else {
+			body = inner
+		}
 	}
 
 	// If the sub-converter produced a body that mixes CUE field assignments
@@ -2203,6 +2220,7 @@ func (c *converter) processNodes(nodes []parse.Node) error {
 			guard = fmt.Sprintf("if (_nonzero & {#arg: %s, _}) ", overExpr)
 		}
 		c.topLevelRange = fmt.Sprintf("%sfor %s, %s in %s", guard, keyExpr, valName, overExpr)
+		c.topLevelRangeIsList = isListBody(rangeNode.List.Nodes)
 
 		if err := c.processBodyNodes(rangeNode.List.Nodes); err != nil {
 			return err
@@ -5421,6 +5439,9 @@ var helperExprIdentRe = regexp.MustCompile(`\b(_[a-zA-Z][a-zA-Z0-9_]*)\b`)
 // helperExprDefRe matches definition references like #foo in CUE expressions.
 var helperExprDefRe = regexp.MustCompile(`(#[a-zA-Z][a-zA-Z0-9_]*)`)
 
+// helperExprLetRe matches let-bound identifiers in CUE expressions.
+var helperExprLetRe = regexp.MustCompile(`\blet\s+(_[a-zA-Z][a-zA-Z0-9_]*)\s*=`)
+
 // validateHelperExpr checks whether a helper body expression is valid CUE
 // by stubbing out all referenced identifiers and definitions.
 func validateHelperExpr(expr string, imports map[string]bool) error {
@@ -5430,6 +5451,11 @@ func validateHelperExpr(expr string, imports map[string]bool) error {
 	}
 	for _, m := range helperExprDefRe.FindAllString(expr, -1) {
 		refs[m] = true
+	}
+	// Exclude let-bound identifiers — declaring them as top-level
+	// fields would conflict with the let binding inside the expression.
+	for _, m := range helperExprLetRe.FindAllStringSubmatch(expr, -1) {
+		delete(refs, m[1])
 	}
 
 	var buf bytes.Buffer

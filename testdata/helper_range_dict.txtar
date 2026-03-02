@@ -1,7 +1,5 @@
 Helper ranges over #arg.items (passed via dict), propagating list element
-field types back to the include call site. No round-trip: helper emits
-YAML list items as struct embeddings, producing a struct where Helm
-expects a list.
+field types back to the include call site.
 
 -- values.yaml --
 volumes:
@@ -22,6 +20,16 @@ spec:
     spec:
       volumes:
         {{- include "renderVolumes" (dict "items" .Values.volumes) | nindent 8 }}
+-- helm_output.yaml --
+apiVersion: apps/v1
+kind: Deployment
+spec:
+  template:
+    spec:
+      volumes:
+        
+        - name: data
+          mountPath: /data
 -- output.cue --
 import "struct"
 
@@ -42,12 +50,13 @@ _renderVolumes: {
 		}]
 		...
 	}
-	if (_nonzero & {#arg: #arg.items, _}) for _, _range1 in #arg.items {
+	let _args = #arg
+	[if (_nonzero & {#arg: _args.items, _}) for _, _range1 in _args.items {
 		{
 			name:      _range1.name
 			mountPath: _range1.mountPath
 		}
-	}
+	}]
 }
 
 output: [
