@@ -69,10 +69,18 @@ func newTrackingFS(fsys fs.FS) *trackingFS {
 		all:  make(map[string]bool),
 	}
 	fs.WalkDir(fsys, ".", func(path string, d fs.DirEntry, err error) error {
-		if err == nil && !d.IsDir() {
+		if err != nil {
+			return err
+		}
+		// Skip integration golden files: they are read conditionally
+		// (only in non-update mode) and are not txtar test inputs.
+		if d.IsDir() && path == "integration" {
+			return fs.SkipDir
+		}
+		if !d.IsDir() {
 			t.all[path] = true
 		}
-		return err
+		return nil
 	})
 	return t
 }
