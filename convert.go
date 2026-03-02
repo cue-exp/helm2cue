@@ -1511,6 +1511,13 @@ func (c *converter) emitTextNode(text []byte) {
 		if idx < 0 {
 			// Entire text is inline continuation.
 			c.inlineParts = append(c.inlineParts, escapeCUEString(s))
+			// If the next node produces indented multi-line output
+			// (nindent/indent), finalize the inline now so the next
+			// node is emitted standalone rather than merged into the
+			// string interpolation.
+			if len(c.remainingNodes) > 0 && nodeHasNindent(c.remainingNodes[0]) {
+				c.finalizeInline()
+			}
 			return
 		}
 		// Append the tail up to the first newline, then finalize.
@@ -1553,6 +1560,12 @@ func (c *converter) emitTextNode(text []byte) {
 	nextIsInlineOrIf := c.nextNodeIsInline ||
 		(textEndsNoNewline && len(c.remainingNodes) > 0 && isInlineNodeOrIf(c.remainingNodes[0]))
 	textContinuesInline := textEndsNoNewline && nextIsInlineOrIf
+	// Override: if the next node is an action with nindent/indent, it
+	// produces multi-line indented output and must not be merged into an
+	// inline interpolation.
+	if textContinuesInline && len(c.remainingNodes) > 0 && nodeHasNindent(c.remainingNodes[0]) {
+		textContinuesInline = false
+	}
 
 	lines := strings.Split(s, "\n")
 
@@ -2190,6 +2203,26 @@ func isInlineNode(node parse.Node) bool {
 	switch node.(type) {
 	case *parse.ActionNode, *parse.TextNode, *parse.TemplateNode:
 		return true
+	}
+	return false
+}
+
+// nodeHasNindent reports whether a node is an ActionNode whose pipeline
+// contains nindent or indent, indicating it produces indented multi-line
+// output that should not be merged into an inline string interpolation.
+func nodeHasNindent(node parse.Node) bool {
+	n, ok := node.(*parse.ActionNode)
+	if !ok || n.Pipe == nil {
+		return false
+	}
+	for _, cmd := range n.Pipe.Cmds {
+		if len(cmd.Args) > 0 {
+			if id, ok := cmd.Args[0].(*parse.IdentifierNode); ok {
+				if id.Ident == "nindent" || id.Ident == "indent" {
+					return true
+				}
+			}
+		}
 	}
 	return false
 }

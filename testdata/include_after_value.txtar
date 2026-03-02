@@ -1,0 +1,56 @@
+Include after value: include with nindent after a template
+interpolation value should be emitted as a standalone struct
+embedding, not merged into the preceding string interpolation.
+
+-- _helpers.tpl --
+{{- define "test.name" -}}
+{{ .Values.name }}
+{{- end -}}
+
+{{- define "test.labels" -}}
+chart: test-app
+{{- end -}}
+-- values.yaml --
+name: myapp
+-- input.yaml --
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test
+  labels:
+    app: {{ template "test.name" . }}-alertmanager
+    {{- include "test.labels" . | nindent 4 }}
+data:
+  key: value
+-- helm_output.yaml --
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test
+  labels:
+    app: myapp-alertmanager
+    chart: test-app
+data:
+  key: value
+-- output.cue --
+#values: {
+	name!: bool | number | string | null
+	...
+}
+_test_labels: chart: "test-app"
+_test_name: #values.name
+
+output: [
+	{
+		apiVersion: "v1"
+		kind:       "ConfigMap"
+		metadata: {
+			name: "test"
+			labels: {
+				app: "\(_test_name)-alertmanager"
+				_test_labels
+			}
+		}
+		data: key: "value"
+	},
+]
