@@ -6,13 +6,9 @@ warning: skipping tls-secret.yaml (doc 0): unsupported template action: {{$ca :=
 converted 12/20 templates from nginx
 -- cue vet --
 exit status 1
-_vMajor: error in call to strconv.Atoi: strconv.Atoi: parsing "": invalid syntax:
-    ./helpers.cue:69:11
-_common_fips_enabled: undefined field: Annotations:
-    ./helpers.cue:298:22
+_common_utils_fieldToEnvVar: reference "_range1" not found:
+    ./helpers.cue:715:31
 -- cue export --
 exit status 1
-_vMajor: error in call to strconv.Atoi: strconv.Atoi: parsing "": invalid syntax:
-    ./helpers.cue:69:11
-_common_fips_enabled: undefined field: Annotations:
-    ./helpers.cue:298:22
+_common_utils_fieldToEnvVar: reference "_range1" not found:
+    ./helpers.cue:715:31

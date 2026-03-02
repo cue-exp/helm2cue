@@ -281,6 +281,7 @@ removed once those exist.
 | `div` | `div(arg, expr)` | — |
 | `mod` | `mod(arg, expr)` | — |
 | `join` | `strings.Join(expr, arg)` | `strings` |
+| `splitList` | `strings.Split(expr, arg)` | `strings` |
 | `sortAlpha` | `list.SortStrings(expr)` | `list` |
 | `concat` | `list.Concat(expr)` | `list` |
 | `first` | `expr[0]` | — |
@@ -329,7 +330,6 @@ is a good stress test).
 
 - **`until`** — `{{ range $i, $e := until N }}` generates an integer
   sequence; neither `until` nor the two-variable range form are supported yet
-- **`splitList`** — split a string into a list by separator
 - **`omit`** — return a dict with specified keys removed
 - **`dig`** — nested map traversal with a default
   (`{{ dig "key" "subkey" "fallback" .Values }}`)
