@@ -140,7 +140,16 @@ or discovered in integration tests:
    framework:
    - **CLI tests** (`testdata/cli/`): use `! exec helm2cue chart ...`
      to expect the failure, with a `stderr` assertion matching the
-     error message.
+     **specific** error message (e.g. `stderr 'unsupported condition
+     function: contains'`). Never match a generic message like
+     `'no templates converted successfully'` — it must identify the
+     specific bug being tested. Note: `helm2cue chart` only prints
+     per-template warning lines when at least one template succeeds;
+     if the chart has a single template that fails, warnings are
+     suppressed and only the generic error appears. To ensure the
+     specific error is visible on stderr, include a second trivial
+     template (e.g. `good.yaml` with plain YAML) in the test chart
+     so that conversion partially succeeds and warnings are printed.
    - **Helm tests** (`testdata/`): if the converter **errors out**
      (e.g. produces invalid CUE), use `-- broken --` matching the
      error. Include `helm_output.yaml` so helm validation still runs.
