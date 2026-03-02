@@ -1,0 +1,21 @@
+# contains condition function should be supported.
+# https://github.com/cue-exp/helm2cue/issues/46
+
+! exec helm2cue chart chartdir outdir
+stderr 'no templates converted successfully'
+
+-- chartdir/Chart.yaml --
+apiVersion: v2
+name: test-app
+version: 0.1.0
+-- chartdir/values.yaml --
+hostname: "example.com"
+-- chartdir/templates/test.yaml --
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test
+data:
+  {{- if contains "example" .Values.hostname }}
+  matched: "yes"
+  {{- end }}
