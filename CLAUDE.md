@@ -67,6 +67,7 @@ Follow the cue-lang/cue commit message conventions:
 - Changes should be linked to a GitHub issue (except trivial changes).
 - Run `go test ./...` before submitting; all tests must pass.
 - Run `go vet ./...` to catch common mistakes.
+- Run `go generate ./...` to regenerate `examples/`; commit any diffs.
 
 ## GitHub Issues
 
@@ -177,8 +178,9 @@ or discovered in integration tests:
    - If the cross-check reveals the reduction was not faithful, go back to
      step 3: refine the reproduction test (amend the first commit), then
      redo the fix.
-8. **Run the full test suite.** `go test ./...` and `go vet ./...` must
-   pass.
+8. **Run the full test suite.** `go test ./...`, `go vet ./...`, and
+   `go generate ./...` must pass. The generate step regenerates the
+   `examples/` directory; if it produces diffs the commit is incomplete.
 9. **Commit the fix.** The fix goes in a second commit (`Fixes #N`),
    including the code change, the updated reproduction test, and — when
    the bug is reproducible at the template level — a **verified Helm
