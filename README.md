@@ -329,7 +329,6 @@ is a good stress test).
 
 - **`until`** — `{{ range $i, $e := until N }}` generates an integer
   sequence; neither `until` nor the two-variable range form are supported yet
-- **`kindIs`**, **`typeOf`** — runtime Go type introspection
 - **`splitList`** — split a string into a list by separator
 - **`omit`** — return a dict with specified keys removed
 - **`dig`** — nested map traversal with a default
