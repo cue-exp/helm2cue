@@ -1,0 +1,57 @@
+Helper ranges over #arg.items (passed via dict), propagating list element
+field types back to the include call site. Helm comparison not possible
+because #arg schema marks fields as optional, which cue export cannot
+resolve without concrete values. Promote to testdata/ when #56 is fixed.
+
+-- values.yaml --
+volumes:
+  - name: data
+    mountPath: /data
+-- helpers.tpl --
+{{- define "renderVolumes" -}}
+{{- range .items }}
+- name: {{ .name }}
+  mountPath: {{ .mountPath }}
+{{- end }}
+{{- end -}}
+-- input.yaml --
+apiVersion: apps/v1
+kind: Deployment
+spec:
+  template:
+    spec:
+      volumes:
+        {{- include "renderVolumes" (dict "items" .Values.volumes) | nindent 8 }}
+-- output.cue --
+#values: {
+	volumes!: [...{
+		name!:      bool | number | string | null
+		mountPath!: bool | number | string | null
+		...
+	}]
+	...
+}
+_renderVolumes: {
+	#arg: {
+		items?: {
+			name?:      bool | number | string | null
+			mountPath?: bool | number | string | null
+			...
+		}
+		...
+	}
+	for _, _range1 in #arg.items {
+		{
+			name:      _range1.name
+			mountPath: _range1.mountPath
+		}
+	}
+}
+
+output: [
+	{
+		apiVersion: "apps/v1"
+		kind:       "Deployment"
+		spec: template: spec: volumes: _renderVolumes
+	},
+]
