@@ -172,11 +172,12 @@ var conditionFuncs = map[string]conditionFunc{
 
 // fieldNode represents a node in a tree of nested field references.
 type fieldNode struct {
-	name     string
-	children []*fieldNode
-	childMap map[string]*fieldNode
-	required bool // true if accessed as a value (not just a condition)
-	isRange  bool // true if used as a range target (list/map/int)
+	name        string
+	children    []*fieldNode
+	childMap    map[string]*fieldNode
+	required    bool // true if accessed as a value (not just a condition)
+	isRange     bool // true if used as a range target (list/map/int)
+	isNonScalar bool // true if known non-scalar (hasKey, toYaml) but not necessarily a list
 }
 
 // frame tracks a YAML block context level for direct CUE emission.
@@ -220,6 +221,7 @@ type converter struct {
 	fieldRefs          map[string][][]string // helmObj → list of field paths referenced
 	requiredRefs       map[string][][]string // helmObj → field paths accessed as values (not conditions)
 	rangeRefs          map[string][][]string // helmObj → field paths used as range targets
+	nonScalarRefs      map[string][][]string // helmObj → field paths known non-scalar (hasKey, toYaml) but not range
 	suppressRequired   bool                  // true during condition processing
 	rangeVarStack      []rangeContext        // stack of dot-rebinding contexts for nested range/with
 	helperArgRefs      [][]string            // field paths accessed on #arg in helper bodies
@@ -308,10 +310,11 @@ func (c *converter) trackFieldRef(helmObj string, path []string) {
 
 // trackNonScalarRef marks a field path as potentially non-scalar
 // (struct, list, etc.) so that the schema emits _ instead of the
-// scalar type constraint.
+// scalar type constraint. Unlike range targets, non-scalar refs
+// do not imply list wrapping when the field has children.
 func (c *converter) trackNonScalarRef(helmObj string, path []string) {
 	if helmObj != "" && path != nil {
-		c.rangeRefs[helmObj] = append(c.rangeRefs[helmObj], path)
+		c.nonScalarRefs[helmObj] = append(c.nonScalarRefs[helmObj], path)
 	}
 }
 
@@ -329,6 +332,7 @@ type convertResult struct {
 	fieldRefs          map[string][][]string
 	requiredRefs       map[string][][]string
 	rangeRefs          map[string][][]string
+	nonScalarRefs      map[string][][]string
 	topLevelGuards     []string
 	topLevelRange      string // e.g. "for _, _range0 in #values.items"
 	topLevelRangeBody  string // body inside the range (no for wrapper)
@@ -409,6 +413,7 @@ func convertStructured(cfg *Config, input []byte, templateName string, treeSet m
 		fieldRefs:          make(map[string][][]string),
 		requiredRefs:       make(map[string][][]string),
 		rangeRefs:          make(map[string][][]string),
+		nonScalarRefs:      make(map[string][][]string),
 		localVars:          make(map[string]string),
 		imports:            make(map[string]bool),
 		usedHelpers:        make(map[string]HelperDef),
@@ -474,6 +479,7 @@ func convertStructured(cfg *Config, input []byte, templateName string, treeSet m
 		fieldRefs:          c.fieldRefs,
 		requiredRefs:       c.requiredRefs,
 		rangeRefs:          c.rangeRefs,
+		nonScalarRefs:      c.nonScalarRefs,
 		topLevelGuards:     c.topLevelGuards,
 		topLevelRange:      c.topLevelRange,
 		topLevelRangeBody:  c.topLevelRangeBody,
@@ -537,11 +543,12 @@ func assembleSingleFile(cfg *Config, r *convertResult) ([]byte, error) {
 			refs := r.fieldRefs[helmObj]
 			reqRefs := r.requiredRefs[helmObj]
 			rngRefs := r.rangeRefs[helmObj]
+			nsRefs := r.nonScalarRefs[helmObj]
 			if len(refs) == 0 {
 				fmt.Fprintf(&final, "%s: _\n", cueDef)
 			} else {
 				fmt.Fprintf(&final, "%s: {\n", cueDef)
-				root := buildFieldTree(refs, reqRefs, rngRefs)
+				root := buildFieldTree(refs, reqRefs, rngRefs, nsRefs)
 				emitFieldNodes(&final, root.children, 1)
 				writeIndent(&final, 1)
 				final.WriteString("...\n")
@@ -670,6 +677,7 @@ func mergeConvertResults(results []*convertResult) *convertResult {
 		fieldRefs:          make(map[string][][]string),
 		requiredRefs:       make(map[string][][]string),
 		rangeRefs:          make(map[string][][]string),
+		nonScalarRefs:      make(map[string][][]string),
 	}
 
 	for i, r := range results {
@@ -693,6 +701,9 @@ func mergeConvertResults(results []*convertResult) *convertResult {
 		}
 		for k, v := range r.rangeRefs {
 			merged.rangeRefs[k] = append(merged.rangeRefs[k], v...)
+		}
+		for k, v := range r.nonScalarRefs {
+			merged.nonScalarRefs[k] = append(merged.nonScalarRefs[k], v...)
 		}
 		if r.hasDynamicInclude {
 			merged.hasDynamicInclude = true
@@ -882,6 +893,7 @@ func (c *converter) convertHelperBody(nodes []parse.Node) (string, [][]string, e
 		fieldRefs:          c.fieldRefs,
 		requiredRefs:       c.requiredRefs,
 		rangeRefs:          c.rangeRefs,
+		nonScalarRefs:      c.nonScalarRefs,
 		imports:            c.imports,
 		usedHelpers:        c.usedHelpers,
 		treeSet:            c.treeSet,
@@ -5019,7 +5031,7 @@ func (c *converter) addImport(pkg string) {
 // YAML scalars (accessed via interpolation, not range).
 const cueScalarType = "bool | number | string | null"
 
-func buildFieldTree(refs [][]string, requiredRefs [][]string, rangeRefs [][]string) *fieldNode {
+func buildFieldTree(refs [][]string, requiredRefs [][]string, rangeRefs [][]string, nonScalarRefs [][]string) *fieldNode {
 	root := &fieldNode{childMap: make(map[string]*fieldNode)}
 	for _, ref := range refs {
 		node := root
@@ -5059,6 +5071,19 @@ func buildFieldTree(refs [][]string, requiredRefs [][]string, rangeRefs [][]stri
 			node.isRange = true
 		}
 	}
+	for _, ref := range nonScalarRefs {
+		node := root
+		for _, elem := range ref {
+			child, ok := node.childMap[elem]
+			if !ok {
+				break
+			}
+			node = child
+		}
+		if node != root {
+			node.isNonScalar = true
+		}
+	}
 	return root
 }
 
@@ -5090,7 +5115,7 @@ func emitFieldNodes(w *bytes.Buffer, nodes []*fieldNode, indent int) {
 				marker = "!"
 			}
 			leafType := cueScalarType
-			if n.isRange {
+			if n.isRange || n.isNonScalar {
 				leafType = "_"
 			}
 			fmt.Fprintf(w, "%s%s: %s\n", cueKey(n.name), marker, leafType)
@@ -5105,7 +5130,7 @@ func buildArgSchema(refs [][]string) string {
 	if len(refs) == 0 {
 		return "_"
 	}
-	root := buildFieldTree(refs, nil, nil)
+	root := buildFieldTree(refs, nil, nil, nil)
 	var buf bytes.Buffer
 	buf.WriteString("{\n")
 	emitFieldNodes(&buf, root.children, 2)

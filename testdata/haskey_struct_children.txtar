@@ -1,0 +1,71 @@
+hasKey on a field that also has children should infer struct type,
+not list type.
+
+-- values.yaml --
+secret:
+  name: mysecret
+  key: tls.crt
+-- input.yaml --
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test
+{{- if .Values.secret }}
+data:
+  secretName: {{ .Values.secret.name }}
+  secretKey: {{ .Values.secret.key }}
+  {{- if hasKey .Values.secret "optional" }}
+  optional: {{ .Values.secret.optional | quote }}
+  {{- end }}
+{{- end }}
+-- helm_output.yaml --
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test
+data:
+  secretName: mysecret
+  secretKey: tls.crt
+-- output.cue --
+import "struct"
+
+#values: {
+	secret!: {
+		name!:     bool | number | string | null
+		key!:      bool | number | string | null
+		optional!: bool | number | string | null
+		...
+	}
+	...
+}
+
+output: [
+	{
+		apiVersion: "v1"
+		kind:       "ConfigMap"
+		metadata: name: "test"
+		if (_nonzero & {#arg: #values.secret, _}) {
+			data: {
+				secretName: #values.secret.name
+				secretKey:  #values.secret.key
+				if (_nonzero & {#arg: #values.secret.optional, _}) {
+					optional: "\(#values.secret.optional)"
+				}
+			}
+		}
+	},
+]
+_nonzero: {
+	#arg?: _
+	[if #arg != _|_ {
+		[
+			if (#arg & int) != _|_ {#arg != 0},
+			if (#arg & string) != _|_ {#arg != ""},
+			if (#arg & float) != _|_ {#arg != 0.0},
+			if (#arg & bool) != _|_ {#arg},
+			if (#arg & [...]) != _|_ {len(#arg) > 0},
+			if (#arg & {...}) != _|_ {(#arg & struct.MaxFields(0)) == _|_},
+			false,
+		][0]
+	}, false][0]
+}
