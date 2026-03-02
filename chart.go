@@ -275,20 +275,29 @@ func ConvertChart(chartDir, outDir string, opts ChartOptions) error {
 	// in truthiness checks. Only add paths that match existing field
 	// references — otherwise buildFieldTree may mark a parent node as
 	// isRange when a child path doesn't exist in the tree.
+	// Struct paths are collected separately and applied only to leaf
+	// nodes after building the field tree.
+	var valuesStructRefs [][]string
 	if valuesErr == nil {
 		fieldRefSet := make(map[string]bool)
 		for _, ref := range mergedFieldRefs["Values"] {
 			fieldRefSet[strings.Join(ref, ".")] = true
 		}
-		for _, p := range inferNonScalarFromValues(valuesData) {
+		listPaths, structPaths := inferNonScalarFromValues(valuesData)
+		for _, p := range listPaths {
 			if fieldRefSet[strings.Join(p, ".")] {
 				mergedRangeRefs["Values"] = append(mergedRangeRefs["Values"], p)
+			}
+		}
+		for _, p := range structPaths {
+			if fieldRefSet[strings.Join(p, ".")] {
+				valuesStructRefs = append(valuesStructRefs, p)
 			}
 		}
 	}
 
 	// Build the values schema and validate it.
-	schemaCUE := buildValuesSchemaCUE(mergedFieldRefs["Values"], mergedRequiredRefs["Values"], mergedRangeRefs["Values"])
+	schemaCUE := buildValuesSchemaCUE(mergedFieldRefs["Values"], mergedRequiredRefs["Values"], mergedRangeRefs["Values"], valuesStructRefs)
 	var valWarnings []string
 	if err := validateSchema(schemaCUE, cfg.ContextObjects); err != nil {
 		valWarnings = append(valWarnings, fmt.Sprintf("values schema inconsistency: %v", err))
@@ -514,13 +523,31 @@ func writeHelpersCUE(outDir, pkgName string, r *convertResult, needsNonzero bool
 
 // buildValuesSchemaCUE generates the #values schema block (without a package
 // header) from the merged field references, defaults, and required refs.
-func buildValuesSchemaCUE(refs [][]string, requiredRefs [][]string, rangeRefs [][]string) []byte {
+// structRefs are paths to values.yaml fields with struct values; these are
+// marked as unconstrained (_) only when they are leaf nodes (no child field
+// accesses in templates), to avoid conflicting with the scalar default type.
+func buildValuesSchemaCUE(refs [][]string, requiredRefs [][]string, rangeRefs [][]string, structRefs [][]string) []byte {
 	var buf bytes.Buffer
 	if len(refs) == 0 {
 		buf.WriteString("#values: _\n")
 	} else {
 		buf.WriteString("#values: {\n")
 		root := buildFieldTree(refs, requiredRefs, rangeRefs)
+		// Mark struct-valued leaf nodes as non-scalar. Non-leaf nodes
+		// already emit struct type from their children.
+		for _, ref := range structRefs {
+			node := root
+			for _, elem := range ref {
+				child, ok := node.childMap[elem]
+				if !ok {
+					break
+				}
+				node = child
+			}
+			if node != root && len(node.children) == 0 {
+				node.isRange = true
+			}
+		}
 		emitFieldNodes(&buf, root.children, 1)
 		writeIndent(&buf, 1)
 		buf.WriteString("...\n")
@@ -686,29 +713,32 @@ func writeContextCUE(outDir, pkgName string, meta chartMetadata, usedContextObje
 }
 
 // inferNonScalarFromValues parses values.yaml and returns paths to
-// fields whose values are lists. These paths are added to rangeRefs
-// so that the schema types them as unconstrained (_) rather than
-// scalar, avoiding conflicts when values.yaml has [].
-func inferNonScalarFromValues(valuesData []byte) [][]string {
+// fields whose values are lists or structs. List paths are added to
+// rangeRefs so that the schema types them as unconstrained (_) rather
+// than scalar. Struct paths are returned separately so they can be
+// applied only to leaf nodes (no child field accesses) — struct
+// parents that also have child refs should keep their struct type
+// from the field tree rather than being wrapped as a list.
+func inferNonScalarFromValues(valuesData []byte) (listPaths, structPaths [][]string) {
 	var values map[string]interface{}
 	if err := yaml.Unmarshal(valuesData, &values); err != nil {
-		return nil
+		return nil, nil
 	}
-	var paths [][]string
 	var walk func(m map[string]interface{}, prefix []string)
 	walk = func(m map[string]interface{}, prefix []string) {
 		for k, v := range m {
 			path := append(append([]string{}, prefix...), k)
 			switch val := v.(type) {
 			case []interface{}:
-				paths = append(paths, path)
+				listPaths = append(listPaths, path)
 			case map[string]interface{}:
+				structPaths = append(structPaths, path)
 				walk(val, path)
 			}
 		}
 	}
 	walk(values, nil)
-	return paths
+	return listPaths, structPaths
 }
 
 // writeTemplateCUE writes a per-template .cue file. The body is already
