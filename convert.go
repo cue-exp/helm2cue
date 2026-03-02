@@ -209,30 +209,48 @@ type pendingResolution struct {
 
 // rangeContext tracks what dot (.) refers to inside a with or range block.
 type rangeContext struct {
-	cueExpr  string   // CUE expression for dot rebinding (e.g. "#values.tls")
-	helmObj  string   // context object name (e.g. "Values"); empty if not context-derived
-	basePath []string // field path prefix within context object (e.g. ["tls"])
+	cueExpr     string   // CUE expression for dot rebinding (e.g. "#values.tls")
+	helmObj     string   // context object name (e.g. "Values"); empty if not context-derived
+	basePath    []string // field path prefix within context object (e.g. ["tls"])
+	argBasePath []string // when non-nil, range target is #arg-based; sub-field accesses track back to #arg
+}
+
+// helperArgInfo holds ref types collected from a helper body's #arg accesses.
+type helperArgInfo struct {
+	fieldRefs     [][]string
+	rangeRefs     [][]string
+	nonScalarRefs [][]string
+}
+
+// contextSource maps a dict key to the context object field it references.
+type contextSource struct {
+	helmObj  string
+	basePath []string
 }
 
 // converter holds state accumulated during template AST walking.
 type converter struct {
-	config             *Config
-	usedContextObjects map[string]bool
-	fieldRefs          map[string][][]string // helmObj → list of field paths referenced
-	requiredRefs       map[string][][]string // helmObj → field paths accessed as values (not conditions)
-	rangeRefs          map[string][][]string // helmObj → field paths used as range targets
-	nonScalarRefs      map[string][][]string // helmObj → field paths known non-scalar (hasKey, toYaml) but not range
-	suppressRequired   bool                  // true during condition processing
-	rangeVarStack      []rangeContext        // stack of dot-rebinding contexts for nested range/with
-	helperArgRefs      [][]string            // field paths accessed on #arg in helper bodies
-	helperArgFieldRefs map[string][][]string // CUE helper name → field paths accessed on #arg
-	localVars          map[string]string     // $varName → CUE expression
-	topLevelGuards     []string              // CUE conditions wrapping entire output
-	topLevelRange      string                // e.g. "for _, _range0 in #values.items"
-	topLevelRangeBody  string                // body inside the range
-	imports            map[string]bool
-	hasConditions      bool                 // true if any if blocks or top-level guards exist
-	usedHelpers        map[string]HelperDef // collected during conversion
+	config                      *Config
+	usedContextObjects          map[string]bool
+	fieldRefs                   map[string][][]string // helmObj → list of field paths referenced
+	requiredRefs                map[string][][]string // helmObj → field paths accessed as values (not conditions)
+	rangeRefs                   map[string][][]string // helmObj → field paths used as range targets
+	nonScalarRefs               map[string][][]string // helmObj → field paths known non-scalar (hasKey, toYaml) but not range
+	suppressRequired            bool                  // true during condition processing
+	rangeVarStack               []rangeContext        // stack of dot-rebinding contexts for nested range/with
+	helperArgRefs               [][]string            // field paths accessed on #arg in helper bodies
+	helperArgRangeRefs          [][]string            // range refs on #arg in helper bodies
+	helperArgNonScalarRefs      [][]string            // nonScalar refs on #arg in helper bodies
+	helperArgFieldRefs          map[string][][]string // CUE helper name → field paths accessed on #arg
+	helperArgFieldRangeRefs     map[string][][]string // CUE helper name → range refs on #arg
+	helperArgFieldNonScalarRefs map[string][][]string // CUE helper name → nonScalar refs on #arg
+	localVars                   map[string]string     // $varName → CUE expression
+	topLevelGuards              []string              // CUE conditions wrapping entire output
+	topLevelRange               string                // e.g. "for _, _range0 in #values.items"
+	topLevelRangeBody           string                // body inside the range
+	imports                     map[string]bool
+	hasConditions               bool                 // true if any if blocks or top-level guards exist
+	usedHelpers                 map[string]HelperDef // collected during conversion
 
 	// Direct CUE emission state.
 	out                 bytes.Buffer
@@ -408,21 +426,23 @@ func convertStructured(cfg *Config, input []byte, templateName string, treeSet m
 	}
 
 	c := &converter{
-		config:             cfg,
-		usedContextObjects: make(map[string]bool),
-		fieldRefs:          make(map[string][][]string),
-		requiredRefs:       make(map[string][][]string),
-		rangeRefs:          make(map[string][][]string),
-		nonScalarRefs:      make(map[string][][]string),
-		localVars:          make(map[string]string),
-		imports:            make(map[string]bool),
-		usedHelpers:        make(map[string]HelperDef),
-		comments:           make(map[string]string),
-		treeSet:            treeSet,
-		helperExprs:        make(map[string]string),
-		helperCUE:          make(map[string]string),
-		undefinedHelpers:   make(map[string]string),
-		helperArgFieldRefs: make(map[string][][]string),
+		config:                      cfg,
+		usedContextObjects:          make(map[string]bool),
+		fieldRefs:                   make(map[string][][]string),
+		requiredRefs:                make(map[string][][]string),
+		rangeRefs:                   make(map[string][][]string),
+		nonScalarRefs:               make(map[string][][]string),
+		localVars:                   make(map[string]string),
+		imports:                     make(map[string]bool),
+		usedHelpers:                 make(map[string]HelperDef),
+		comments:                    make(map[string]string),
+		treeSet:                     treeSet,
+		helperExprs:                 make(map[string]string),
+		helperCUE:                   make(map[string]string),
+		undefinedHelpers:            make(map[string]string),
+		helperArgFieldRefs:          make(map[string][][]string),
+		helperArgFieldRangeRefs:     make(map[string][][]string),
+		helperArgFieldNonScalarRefs: make(map[string][][]string),
 	}
 
 	// Phase 0: Register CUE names for all defined helpers.
@@ -442,14 +462,22 @@ func convertStructured(cfg *Config, input []byte, templateName string, treeSet m
 		if tree.Root == nil {
 			continue
 		}
-		cueExpr, argRefs, err := c.convertHelperBody(tree.Root.Nodes)
+		cueExpr, argInfo, err := c.convertHelperBody(tree.Root.Nodes)
 		if err != nil {
 			continue
 		}
 		cueName := c.helperExprs[name]
 		c.helperCUE[cueName] = cueExpr
-		if len(argRefs) > 0 {
-			c.helperArgFieldRefs[cueName] = argRefs
+		if argInfo != nil {
+			if len(argInfo.fieldRefs) > 0 {
+				c.helperArgFieldRefs[cueName] = argInfo.fieldRefs
+			}
+			if len(argInfo.rangeRefs) > 0 {
+				c.helperArgFieldRangeRefs[cueName] = argInfo.rangeRefs
+			}
+			if len(argInfo.nonScalarRefs) > 0 {
+				c.helperArgFieldNonScalarRefs[cueName] = argInfo.nonScalarRefs
+			}
 		}
 	}
 
@@ -876,7 +904,7 @@ func helperToCUEName(name string) string {
 }
 
 // convertHelperBody converts the body nodes of a {{ define }} block to a CUE expression.
-func (c *converter) convertHelperBody(nodes []parse.Node) (string, [][]string, error) {
+func (c *converter) convertHelperBody(nodes []parse.Node) (string, *helperArgInfo, error) {
 	// Check if the body is a raw string (non-YAML content without key: value patterns).
 	if isStringHelperBody(nodes) {
 		text := strings.TrimSpace(textContent(nodes))
@@ -888,21 +916,23 @@ func (c *converter) convertHelperBody(nodes []parse.Node) (string, [][]string, e
 	}
 
 	sub := &converter{
-		config:             c.config,
-		usedContextObjects: c.usedContextObjects,
-		fieldRefs:          c.fieldRefs,
-		requiredRefs:       c.requiredRefs,
-		rangeRefs:          c.rangeRefs,
-		nonScalarRefs:      c.nonScalarRefs,
-		imports:            c.imports,
-		usedHelpers:        c.usedHelpers,
-		treeSet:            c.treeSet,
-		helperExprs:        c.helperExprs,
-		helperCUE:          c.helperCUE,
-		helperArgFieldRefs: c.helperArgFieldRefs,
-		undefinedHelpers:   c.undefinedHelpers,
-		localVars:          make(map[string]string),
-		comments:           make(map[string]string),
+		config:                      c.config,
+		usedContextObjects:          c.usedContextObjects,
+		fieldRefs:                   c.fieldRefs,
+		requiredRefs:                c.requiredRefs,
+		rangeRefs:                   c.rangeRefs,
+		nonScalarRefs:               c.nonScalarRefs,
+		imports:                     c.imports,
+		usedHelpers:                 c.usedHelpers,
+		treeSet:                     c.treeSet,
+		helperExprs:                 c.helperExprs,
+		helperCUE:                   c.helperCUE,
+		helperArgFieldRefs:          c.helperArgFieldRefs,
+		helperArgFieldRangeRefs:     c.helperArgFieldRangeRefs,
+		helperArgFieldNonScalarRefs: c.helperArgFieldNonScalarRefs,
+		undefinedHelpers:            c.undefinedHelpers,
+		localVars:                   make(map[string]string),
+		comments:                    make(map[string]string),
 	}
 
 	// Inside helper bodies, bare {{ . }} and {{ .field }} refer to
@@ -915,6 +945,8 @@ func (c *converter) convertHelperBody(nodes []parse.Node) (string, [][]string, e
 	if useArg {
 		sub.rangeVarStack = []rangeContext{{cueExpr: "#arg"}}
 		sub.helperArgRefs = [][]string{}
+		sub.helperArgRangeRefs = [][]string{}
+		sub.helperArgNonScalarRefs = [][]string{}
 	}
 
 	if err := sub.processNodes(nodes); err != nil {
@@ -926,6 +958,16 @@ func (c *converter) convertHelperBody(nodes []parse.Node) (string, [][]string, e
 	sub.closeBlocksTo(-1)
 
 	body := strings.TrimSpace(sub.out.String())
+
+	// If processNodes extracted a top-level range, wrap the body in the
+	// for comprehension so it doesn't get lost in helper output.
+	if sub.topLevelRange != "" {
+		rangeBody := body
+		if sub.topLevelRangeBody != "" {
+			rangeBody = strings.TrimSpace(sub.topLevelRangeBody)
+		}
+		body = sub.topLevelRange + " {\n" + indentBlock(rangeBody, "\t") + "\n}"
+	}
 
 	// If the sub-converter produced a body that mixes CUE field assignments
 	// with bare quoted strings (e.g. from a validation message helper whose
@@ -1008,18 +1050,23 @@ func (c *converter) convertHelperBody(nodes []parse.Node) (string, [][]string, e
 	if useArg && strings.Contains(bodyForArgCheck, "#arg") {
 		argRefs := sub.helperArgRefs
 		schema := buildArgSchema(argRefs)
+		info := &helperArgInfo{
+			fieldRefs:     argRefs,
+			rangeRefs:     sub.helperArgRangeRefs,
+			nonScalarRefs: sub.helperArgNonScalarRefs,
+		}
 		if hasFields {
 			result := "{\n\t#arg: " + schema + "\n" + indentBlock(body, "\t") + "\n}"
 			if err := validateHelperExpr(result, c.imports); err != nil {
 				return "", nil, fmt.Errorf("helper body produced invalid CUE: %w", err)
 			}
-			return result, argRefs, nil
+			return result, info, nil
 		}
 		result := "{\n\t#arg: " + schema + "\n\t" + body + "\n}"
 		if err := validateHelperExpr(result, c.imports); err != nil {
 			return "", nil, fmt.Errorf("helper body produced invalid CUE: %w", err)
 		}
-		return result, argRefs, nil
+		return result, info, nil
 	}
 
 	if hasFields {
@@ -1105,12 +1152,62 @@ func (c *converter) handleInclude(name string, pipe *parse.PipeNode) (string, st
 // passes .Values.serviceAccount, this records ["serviceAccount", "name"]
 // and ["serviceAccount", "version"] in fieldRefs["Values"].
 func (c *converter) propagateHelperArgRefs(cueName, helmObj string, basePath []string) {
-	argRefs := c.helperArgFieldRefs[cueName]
-	for _, ref := range argRefs {
+	for _, ref := range c.helperArgFieldRefs[cueName] {
 		combined := make([]string, len(basePath)+len(ref))
 		copy(combined, basePath)
 		copy(combined[len(basePath):], ref)
 		c.trackFieldRef(helmObj, combined)
+	}
+	for _, ref := range c.helperArgFieldRangeRefs[cueName] {
+		combined := make([]string, len(basePath)+len(ref))
+		copy(combined, basePath)
+		copy(combined[len(basePath):], ref)
+		c.rangeRefs[helmObj] = append(c.rangeRefs[helmObj], combined)
+	}
+	for _, ref := range c.helperArgFieldNonScalarRefs[cueName] {
+		combined := make([]string, len(basePath)+len(ref))
+		copy(combined, basePath)
+		copy(combined[len(basePath):], ref)
+		c.trackNonScalarRef(helmObj, combined)
+	}
+}
+
+// propagateDictHelperArgRefs propagates helper arg refs through a dict
+// context. Each arg ref's first path segment is matched to a dict key,
+// then combined with that key's source basePath and helmObj.
+func (c *converter) propagateDictHelperArgRefs(cueName string, dictMap map[string]contextSource) {
+	for _, ref := range c.helperArgFieldRefs[cueName] {
+		if len(ref) == 0 {
+			continue
+		}
+		src, ok := dictMap[ref[0]]
+		if !ok {
+			continue
+		}
+		combined := append(append([]string(nil), src.basePath...), ref[1:]...)
+		c.trackFieldRef(src.helmObj, combined)
+	}
+	for _, ref := range c.helperArgFieldRangeRefs[cueName] {
+		if len(ref) == 0 {
+			continue
+		}
+		src, ok := dictMap[ref[0]]
+		if !ok {
+			continue
+		}
+		combined := append(append([]string(nil), src.basePath...), ref[1:]...)
+		c.rangeRefs[src.helmObj] = append(c.rangeRefs[src.helmObj], combined)
+	}
+	for _, ref := range c.helperArgFieldNonScalarRefs[cueName] {
+		if len(ref) == 0 {
+			continue
+		}
+		src, ok := dictMap[ref[0]]
+		if !ok {
+			continue
+		}
+		combined := append(append([]string(nil), src.basePath...), ref[1:]...)
+		c.trackNonScalarRef(src.helmObj, combined)
 	}
 }
 
@@ -1120,12 +1217,13 @@ func (c *converter) propagateHelperArgRefs(cueName, helmObj string, basePath []s
 //     & {#arg: expr}), or "" for dot/variable/pipe arguments
 //   - helmObj: the Helm context object name (e.g. "Values"), or ""
 //   - basePath: the field path within the context object (e.g. ["serviceAccount"]), or nil
-func (c *converter) convertIncludeContext(node parse.Node) (argExpr string, helmObj string, basePath []string, err error) {
+//   - dictMap: for dict context args, maps dict key to its context source
+func (c *converter) convertIncludeContext(node parse.Node) (argExpr string, helmObj string, basePath []string, dictMap map[string]contextSource, err error) {
 	switch n := node.(type) {
 	case *parse.DotNode:
-		return "", "", nil, nil
+		return "", "", nil, nil, nil
 	case *parse.VariableNode:
-		return "", "", nil, nil
+		return "", "", nil, nil, nil
 	case *parse.FieldNode:
 		expr, ho := c.fieldToCUEInContext(n.Ident)
 		if ho != "" {
@@ -1138,42 +1236,63 @@ func (c *converter) convertIncludeContext(node parse.Node) (argExpr string, helm
 		if ho != "" && len(n.Ident) >= 2 {
 			bp = n.Ident[1:]
 		}
-		return expr, ho, bp, nil
+		return expr, ho, bp, nil, nil
 	case *parse.PipeNode:
-		return "", "", nil, c.processContextPipe(n)
+		dm, pipeErr := c.processContextPipe(n)
+		return "", "", nil, dm, pipeErr
 	default:
-		return "", "", nil, fmt.Errorf("include: unsupported context argument %s (only ., $, field references, and dict/list are supported)", node)
+		return "", "", nil, nil, fmt.Errorf("include: unsupported context argument %s (only ., $, field references, and dict/list are supported)", node)
 	}
 }
 
-func (c *converter) processContextPipe(pipe *parse.PipeNode) error {
+func (c *converter) processContextPipe(pipe *parse.PipeNode) (map[string]contextSource, error) {
 	if len(pipe.Cmds) != 1 {
-		return fmt.Errorf("include: unsupported multi-command context pipe: %s", pipe)
+		return nil, fmt.Errorf("include: unsupported multi-command context pipe: %s", pipe)
 	}
 	cmd := pipe.Cmds[0]
 	if len(cmd.Args) == 0 {
-		return fmt.Errorf("include: empty context pipe command")
+		return nil, fmt.Errorf("include: empty context pipe command")
 	}
 	id, ok := cmd.Args[0].(*parse.IdentifierNode)
 	if !ok {
-		return fmt.Errorf("include: unsupported context expression: %s", pipe)
+		return nil, fmt.Errorf("include: unsupported context expression: %s", pipe)
 	}
 	switch id.Ident {
 	case "dict":
 		args := cmd.Args[1:]
 		if len(args)%2 != 0 {
-			return fmt.Errorf("include: dict requires even number of arguments (key-value pairs)")
+			return nil, fmt.Errorf("include: dict requires even number of arguments (key-value pairs)")
 		}
-		for i := 1; i < len(args); i += 2 {
-			c.trackContextNode(args[i])
+		var dictMap map[string]contextSource
+		for i := 0; i < len(args); i += 2 {
+			c.trackContextNode(args[i+1])
+			// Build dict mapping from string keys to their source context.
+			if s, ok := args[i].(*parse.StringNode); ok {
+				if f, ok := args[i+1].(*parse.FieldNode); ok && len(f.Ident) > 0 {
+					if _, isCtx := c.config.ContextObjects[f.Ident[0]]; isCtx {
+						if dictMap == nil {
+							dictMap = make(map[string]contextSource)
+						}
+						var bp []string
+						if len(f.Ident) >= 2 {
+							bp = f.Ident[1:]
+						}
+						dictMap[s.Text] = contextSource{
+							helmObj:  f.Ident[0],
+							basePath: bp,
+						}
+					}
+				}
+			}
 		}
+		return dictMap, nil
 	case "list":
 		for _, arg := range cmd.Args[1:] {
 			c.trackContextNode(arg)
 		}
 	default:
 	}
-	return nil
+	return nil, nil
 }
 
 func (c *converter) trackContextNode(node parse.Node) {
@@ -1189,7 +1308,7 @@ func (c *converter) trackContextNode(node parse.Node) {
 			}
 		}
 	case *parse.PipeNode:
-		c.processContextPipe(n)
+		c.processContextPipe(n) //nolint:errcheck // dict map not needed here
 	}
 }
 
@@ -2004,6 +2123,15 @@ func (c *converter) processNodes(nodes []parse.Node) error {
 				c.rangeRefs[helmObj] = append(c.rangeRefs[helmObj], fieldPath)
 			}
 		}
+		// Track range refs on #arg in helper bodies.
+		if helmObj == "" && c.helperArgRangeRefs != nil {
+			if f, ok := rangeNode.Pipe.Cmds[0].Args[0].(*parse.FieldNode); ok {
+				c.helperArgRangeRefs = append(c.helperArgRangeRefs,
+					append([]string(nil), f.Ident...))
+			} else if _, ok := rangeNode.Pipe.Cmds[0].Args[0].(*parse.DotNode); ok {
+				c.helperArgRangeRefs = append(c.helperArgRangeRefs, []string{})
+			}
+		}
 
 		blockIdx := len(c.rangeVarStack)
 		var keyName, valName string
@@ -2023,6 +2151,14 @@ func (c *converter) processNodes(nodes []parse.Node) error {
 		if helmObj != "" && fieldPath != nil {
 			ctx.helmObj = helmObj
 			ctx.basePath = fieldPath
+		}
+		// Set argBasePath for #arg-based range tracking.
+		if c.helperArgRefs != nil {
+			if f, ok := rangeNode.Pipe.Cmds[0].Args[0].(*parse.FieldNode); ok {
+				ctx.argBasePath = f.Ident
+			} else if _, ok := rangeNode.Pipe.Cmds[0].Args[0].(*parse.DotNode); ok {
+				ctx.argBasePath = []string{}
+			}
 		}
 		c.rangeVarStack = append(c.rangeVarStack, ctx)
 
@@ -2325,7 +2461,7 @@ func (c *converter) processNode(node parse.Node) error {
 		}
 		expr := cueName
 		if n.Pipe != nil && len(n.Pipe.Cmds) == 1 && len(n.Pipe.Cmds[0].Args) == 1 {
-			argExpr, ctxHelmObj, ctxBasePath, ctxErr := c.convertIncludeContext(n.Pipe.Cmds[0].Args[0])
+			argExpr, ctxHelmObj, ctxBasePath, dictMap, ctxErr := c.convertIncludeContext(n.Pipe.Cmds[0].Args[0])
 			if ctxErr != nil {
 				return ctxErr
 			}
@@ -2334,6 +2470,8 @@ func (c *converter) processNode(node parse.Node) error {
 			}
 			if ctxHelmObj != "" {
 				c.propagateHelperArgRefs(cueName, ctxHelmObj, ctxBasePath)
+			} else if dictMap != nil {
+				c.propagateDictHelperArgRefs(cueName, dictMap)
 			}
 		}
 		c.emitActionExpr(expr, "")
@@ -3333,6 +3471,15 @@ func (c *converter) processRange(n *parse.RangeNode) error {
 			c.rangeRefs[helmObj] = append(c.rangeRefs[helmObj], fieldPath)
 		}
 	}
+	// Track range refs on #arg in helper bodies.
+	if helmObj == "" && c.helperArgRangeRefs != nil {
+		if f, ok := n.Pipe.Cmds[0].Args[0].(*parse.FieldNode); ok {
+			c.helperArgRangeRefs = append(c.helperArgRangeRefs,
+				append([]string(nil), f.Ident...))
+		} else if _, ok := n.Pipe.Cmds[0].Args[0].(*parse.DotNode); ok {
+			c.helperArgRangeRefs = append(c.helperArgRangeRefs, []string{})
+		}
+	}
 
 	blockIdx := len(c.rangeVarStack)
 
@@ -3393,6 +3540,15 @@ func (c *converter) processRange(n *parse.RangeNode) error {
 	if isList && helmObj != "" && fieldPath != nil {
 		ctx.helmObj = helmObj
 		ctx.basePath = fieldPath
+	}
+	// Set argBasePath so sub-field accesses inside the range body
+	// can be tracked back to #arg.
+	if c.helperArgRefs != nil {
+		if f, ok := n.Pipe.Cmds[0].Args[0].(*parse.FieldNode); ok {
+			ctx.argBasePath = f.Ident
+		} else if _, ok := n.Pipe.Cmds[0].Args[0].(*parse.DotNode); ok {
+			ctx.argBasePath = []string{}
+		}
 	}
 	c.rangeVarStack = append(c.rangeVarStack, ctx)
 
@@ -3669,12 +3825,12 @@ func (c *converter) pipeToFieldExpr(pipe *parse.PipeNode) (string, string, []str
 		return "", "", nil, fmt.Errorf("unsupported pipe: %s", pipe)
 	}
 	if f, ok := pipe.Cmds[0].Args[0].(*parse.FieldNode); ok {
-		expr, helmObj := fieldToCUE(c.config.ContextObjects, f.Ident)
+		expr, helmObj := c.fieldToCUEInContext(f.Ident)
 		if helmObj != "" {
 			c.trackFieldRef(helmObj, f.Ident[1:])
 			return expr, helmObj, f.Ident[1:], nil
 		}
-		return expr, helmObj, nil, nil
+		return expr, "", nil, nil
 	}
 	if v, ok := pipe.Cmds[0].Args[0].(*parse.VariableNode); ok {
 		if len(v.Ident) >= 2 && v.Ident[0] == "$" {
@@ -3968,9 +4124,12 @@ func (c *converter) conditionPipeToExpr(pipe *parse.PipeNode) (string, error) {
 			}
 			// The map argument to hasKey is non-scalar (a map/struct).
 			if f, ok := args[0].(*parse.FieldNode); ok {
-				_, helmObj := c.fieldToCUEInContext(f.Ident)
+				expr, helmObj := c.fieldToCUEInContext(f.Ident)
 				if helmObj != "" && len(f.Ident) >= 2 {
 					c.trackNonScalarRef(helmObj, f.Ident[1:])
+				} else if c.helperArgNonScalarRefs != nil && strings.HasPrefix(expr, "#arg") {
+					c.helperArgNonScalarRefs = append(c.helperArgNonScalarRefs,
+						append([]string(nil), f.Ident...))
 				}
 			}
 			mapExpr, err := c.conditionNodeToRawExpr(args[0])
@@ -4007,9 +4166,10 @@ func (c *converter) conditionPipeToExpr(pipe *parse.PipeNode) (string, error) {
 			}
 			var argExpr, ctxHelmObj string
 			var ctxBasePath []string
+			var dictMap map[string]contextSource
 			if len(args) >= 2 {
 				var err error
-				argExpr, ctxHelmObj, ctxBasePath, err = c.convertIncludeContext(args[1])
+				argExpr, ctxHelmObj, ctxBasePath, dictMap, err = c.convertIncludeContext(args[1])
 				if err != nil {
 					return "", err
 				}
@@ -4031,6 +4191,8 @@ func (c *converter) conditionPipeToExpr(pipe *parse.PipeNode) (string, error) {
 			}
 			if ctxHelmObj != "" {
 				c.propagateHelperArgRefs(inclExpr, ctxHelmObj, ctxBasePath)
+			} else if dictMap != nil {
+				c.propagateDictHelperArgRefs(inclExpr, dictMap)
 			}
 			if argExpr != "" {
 				inclExpr = inclExpr + " & {#arg: " + argExpr + ", _}"
@@ -4261,7 +4423,8 @@ func (c *converter) actionToCUE(n *parse.ActionNode) (expr string, helmObj strin
 	}
 
 	var fieldPath []string
-	var gatedFunc string // set when a core func is rejected by CoreFuncs
+	var argFieldPath []string // #arg field path for nonScalar tracking in helper bodies
+	var gatedFunc string      // set when a core func is rejected by CoreFuncs
 
 	// Check if any subsequent command is "default" — if so, the field
 	// has a fallback and should not be marked required.
@@ -4288,6 +4451,8 @@ func (c *converter) actionToCUE(n *parse.ActionNode) (expr string, helmObj strin
 			if helmObj != "" {
 				fieldPath = f.Ident[1:]
 				c.trackFieldRef(helmObj, fieldPath)
+			} else if c.helperArgNonScalarRefs != nil && strings.HasPrefix(expr, "#arg") {
+				argFieldPath = append([]string(nil), f.Ident...)
 			}
 		} else if v, ok := first.Args[0].(*parse.VariableNode); ok {
 			if len(v.Ident) >= 2 && v.Ident[0] == "$" {
@@ -4390,10 +4555,15 @@ func (c *converter) actionToCUE(n *parse.ActionNode) (expr string, helmObj strin
 				if err != nil {
 					return "", "", fmt.Errorf("%s argument: %w", id.Ident, err)
 				}
-				if f, ok := first.Args[1].(*parse.FieldNode); ok && helmObj != "" && len(f.Ident) >= 2 {
-					fieldPath = f.Ident[1:]
-					if pf.NonScalar {
-						c.trackNonScalarRef(helmObj, fieldPath)
+				if f, ok := first.Args[1].(*parse.FieldNode); ok {
+					if helmObj != "" && len(f.Ident) >= 2 {
+						fieldPath = f.Ident[1:]
+						if pf.NonScalar {
+							c.trackNonScalarRef(helmObj, fieldPath)
+						}
+					} else if pf.NonScalar && c.helperArgNonScalarRefs != nil && strings.HasPrefix(expr, "#arg") {
+						c.helperArgNonScalarRefs = append(c.helperArgNonScalarRefs,
+							append([]string(nil), f.Ident...))
 					}
 				}
 			} else if pf.Convert != nil && len(first.Args) == pf.Nargs+2 {
@@ -4418,10 +4588,15 @@ func (c *converter) actionToCUE(n *parse.ActionNode) (expr string, helmObj strin
 				if pipedErr != nil {
 					return "", "", fmt.Errorf("%s argument: %w", id.Ident, pipedErr)
 				}
-				if f, ok := pipedNode.(*parse.FieldNode); ok && helmObj != "" && len(f.Ident) >= 2 {
-					fieldPath = f.Ident[1:]
-					if pf.NonScalar {
-						c.trackNonScalarRef(helmObj, fieldPath)
+				if f, ok := pipedNode.(*parse.FieldNode); ok {
+					if helmObj != "" && len(f.Ident) >= 2 {
+						fieldPath = f.Ident[1:]
+						if pf.NonScalar {
+							c.trackNonScalarRef(helmObj, fieldPath)
+						}
+					} else if pf.NonScalar && c.helperArgNonScalarRefs != nil && strings.HasPrefix(expr, "#arg") {
+						c.helperArgNonScalarRefs = append(c.helperArgNonScalarRefs,
+							append([]string(nil), f.Ident...))
 					}
 				}
 				expr = pf.Convert(expr, args)
@@ -4469,6 +4644,10 @@ func (c *converter) actionToCUE(n *parse.ActionNode) (expr string, helmObj strin
 		} else if pf, ok := c.config.Funcs[id.Ident]; ok {
 			if pf.NonScalar {
 				c.trackNonScalarRef(helmObj, fieldPath)
+				if argFieldPath != nil && c.helperArgNonScalarRefs != nil {
+					c.helperArgNonScalarRefs = append(c.helperArgNonScalarRefs,
+						append([]string(nil), argFieldPath...))
+				}
 			}
 			if pf.Convert == nil {
 				// No-op function (e.g. nindent, indent, toYaml in pipeline).
@@ -4946,8 +5125,13 @@ func (c *converter) convertTplArg(node parse.Node) (string, string, error) {
 	if hasToYaml {
 		c.addImport("encoding/yaml")
 		// Mark the field as non-scalar since it's being serialized.
-		if f, ok := valueNode.(*parse.FieldNode); ok && helmObj != "" && len(f.Ident) >= 2 {
-			c.trackNonScalarRef(helmObj, f.Ident[1:])
+		if f, ok := valueNode.(*parse.FieldNode); ok {
+			if helmObj != "" && len(f.Ident) >= 2 {
+				c.trackNonScalarRef(helmObj, f.Ident[1:])
+			} else if c.helperArgNonScalarRefs != nil && strings.HasPrefix(expr, "#arg") {
+				c.helperArgNonScalarRefs = append(c.helperArgNonScalarRefs,
+					append([]string(nil), f.Ident...))
+			}
 		}
 		expr = fmt.Sprintf("yaml.Marshal(%s)", expr)
 	}
@@ -5042,6 +5226,13 @@ func (c *converter) fieldToCUEInContext(ident []string) (string, string) {
 		top := c.rangeVarStack[len(c.rangeVarStack)-1]
 		if top.cueExpr == "#arg" && c.helperArgRefs != nil {
 			c.helperArgRefs = append(c.helperArgRefs, append([]string(nil), ident...))
+		}
+		// Track range element accesses back to #arg.
+		if top.argBasePath != nil && c.helperArgRefs != nil {
+			fullArgPath := make([]string, len(top.argBasePath)+len(ident))
+			copy(fullArgPath, top.argBasePath)
+			copy(fullArgPath[len(top.argBasePath):], ident)
+			c.helperArgRefs = append(c.helperArgRefs, fullArgPath)
 		}
 		if top.helmObj != "" {
 			fullPath := make([]string, len(top.basePath)+len(ident))
