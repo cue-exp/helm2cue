@@ -1,0 +1,69 @@
+fail guard with and/or/not and null values does not fire.
+Regression test for https://github.com/cue-exp/helm2cue/issues/53.
+
+-- _helpers.tpl --
+{{- define "myapp.checkFolder" -}}
+{{- $a := .Values.folder -}}
+{{- $b := .Values.folderUID -}}
+{{- $c := .Values.folderRef -}}
+{{- if not (or (and $a (not $b) (not $c)) (and $b (not $a) (not $c)) (and $c (not $a) (not $b))) }}
+{{- fail "exactly one of folder, folderUID, folderRef must be set" }}
+{{- end }}
+  folder: {{ $a }}
+{{- end -}}
+-- values.yaml --
+folder: General
+folderUID: null
+folderRef: null
+-- input.yaml --
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test
+data:
+{{- include "myapp.checkFolder" . }}
+-- helm_output.yaml --
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test
+data:
+  folder: General
+-- output.cue --
+import "struct"
+
+#values: {
+	folder!:    bool | number | string | null
+	folderUID!: bool | number | string | null
+	folderRef!: bool | number | string | null
+	...
+}
+_myapp_checkFolder: {
+	if !((_nonzero & {#arg: #values.folder, _}) && !(_nonzero & {#arg: #values.folderUID, _}) && !(_nonzero & {#arg: #values.folderRef, _}) || (_nonzero & {#arg: #values.folderUID, _}) && !(_nonzero & {#arg: #values.folder, _}) && !(_nonzero & {#arg: #values.folderRef, _}) || (_nonzero & {#arg: #values.folderRef, _}) && !(_nonzero & {#arg: #values.folder, _}) && !(_nonzero & {#arg: #values.folderUID, _})) {
+		error("exactly one of folder, folderUID, folderRef must be set")
+	}
+	folder: #values.folder
+}
+
+output: [
+	{
+		apiVersion: "v1"
+		kind:       "ConfigMap"
+		metadata: name: "test"
+		data: _myapp_checkFolder
+	},
+]
+_nonzero: {
+	#arg?: _
+	[if #arg != _|_ {
+		[
+			if (#arg & int) != _|_ {#arg != 0},
+			if (#arg & string) != _|_ {#arg != ""},
+			if (#arg & float) != _|_ {#arg != 0.0},
+			if (#arg & bool) != _|_ {#arg},
+			if (#arg & [...]) != _|_ {len(#arg) > 0},
+			if (#arg & {...}) != _|_ {(#arg & struct.MaxFields(0)) == _|_},
+			false,
+		][0]
+	}, false][0]
+}
