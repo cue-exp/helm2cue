@@ -32,7 +32,7 @@ warning: skipping prometheus/rules-1.14/node-network.yaml (doc 0): unsupported t
 warning: skipping prometheus/rules-1.14/prometheus-operator.yaml (doc 0): unsupported template action: {{dig "PrometheusOperatorListErrors" "for" "15m" .Values.customRules}}
 warning: skipping prometheus/rules-1.14/prometheus.yaml (doc 0): unsupported template action: {{dig "PrometheusBadConfig" "for" "10m" .Values.customRules}}
 warning: skipping prometheus/serviceperreplica.yaml (doc 0): range: unsupported pipe: $i, $e := until $count
-error: values.yaml does not satisfy inferred schema: #values.automountServiceAccountToken: field is required but not present (and 64 more errors)
+error: values.yaml does not satisfy inferred schema: #values.automountServiceAccountToken: field is required but not present (and 54 more errors)
 converted 138/216 templates from kube-prometheus-stack
 ConvertChart error: values schema validation failed
 -- cue vet --

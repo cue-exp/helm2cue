@@ -959,6 +959,11 @@ func (c *converter) convertHelperBody(nodes []parse.Node) (string, *helperArgInf
 
 	body := strings.TrimSpace(sub.out.String())
 
+	// Propagate hasConditions so _nonzero is emitted by the parent.
+	if sub.hasConditions {
+		c.hasConditions = true
+	}
+
 	// If processNodes extracted a top-level range, wrap the body in the
 	// for comprehension so it doesn't get lost in helper output.
 	if sub.topLevelRange != "" {
@@ -2113,7 +2118,10 @@ func (c *converter) processNodes(nodes []parse.Node) error {
 		// will handle the else-if chain.
 	}
 	if rangeNode != nil {
+		saved := c.suppressRequired
+		c.suppressRequired = true
 		overExpr, helmObj, fieldPath, err := c.pipeToFieldExpr(rangeNode.Pipe)
+		c.suppressRequired = saved
 		if err != nil {
 			return fmt.Errorf("top-level range: %w", err)
 		}
@@ -2166,7 +2174,12 @@ func (c *converter) processNodes(nodes []parse.Node) error {
 		if keyName != "" {
 			keyExpr = keyName
 		}
-		c.topLevelRange = fmt.Sprintf("for %s, %s in %s", keyExpr, valName, overExpr)
+		guard := ""
+		if helmObj != "" || strings.HasPrefix(overExpr, "#arg") {
+			c.hasConditions = true
+			guard = fmt.Sprintf("if (_nonzero & {#arg: %s, _}) ", overExpr)
+		}
+		c.topLevelRange = fmt.Sprintf("%sfor %s, %s in %s", guard, keyExpr, valName, overExpr)
 
 		if err := c.processBodyNodes(rangeNode.List.Nodes); err != nil {
 			return err
@@ -3461,7 +3474,10 @@ func (c *converter) processRange(n *parse.RangeNode) error {
 	c.finalizeInline()
 	c.finalizeFlow()
 	c.flushPendingAction()
+	saved := c.suppressRequired
+	c.suppressRequired = true
 	overExpr, helmObj, fieldPath, err := c.pipeToFieldExpr(n.Pipe)
+	c.suppressRequired = saved
 	if err != nil {
 		return fmt.Errorf("range: %w", err)
 	}
@@ -3552,16 +3568,21 @@ func (c *converter) processRange(n *parse.RangeNode) error {
 	}
 	c.rangeVarStack = append(c.rangeVarStack, ctx)
 
-	// Emit the for comprehension.
+	// Emit the for comprehension, guarded for nil targets.
+	guard := ""
+	if helmObj != "" || strings.HasPrefix(overExpr, "#arg") {
+		c.hasConditions = true
+		guard = fmt.Sprintf("if (_nonzero & {#arg: %s, _}) ", overExpr)
+	}
 	writeIndent(&c.out, cueInd)
 	if isMap {
-		fmt.Fprintf(&c.out, "for %s, %s in %s {\n", keyName, valName, overExpr)
+		fmt.Fprintf(&c.out, "%sfor %s, %s in %s {\n", guard, keyName, valName, overExpr)
 	} else {
 		keyExpr := "_"
 		if keyName != "" {
 			keyExpr = keyName
 		}
-		fmt.Fprintf(&c.out, "for %s, %s in %s {\n", keyExpr, valName, overExpr)
+		fmt.Fprintf(&c.out, "%sfor %s, %s in %s {\n", guard, keyExpr, valName, overExpr)
 	}
 
 	savedStackLen := len(c.stack)

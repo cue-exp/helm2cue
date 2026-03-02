@@ -10,8 +10,8 @@ import "struct"
 		key!:  bool | number | string | null
 		...
 	}
-	labels!:   _
-	features!: _
+	labels?:   _
+	features?: _
 	...
 }
 _fullname: "\(#values.name)-server"
@@ -34,12 +34,12 @@ output: [
 				}
 			}
 			labels: {
-				for _key0, _val0 in #values.labels {
+				if (_nonzero & {#arg: #values.labels, _}) for _key0, _val0 in #values.labels {
 					(_key0): _val0
 				}
 			}
 			features: [
-				for _, _range0 in #values.features {
+				if (_nonzero & {#arg: #values.features, _}) for _, _range0 in #values.features {
 					_range0
 				},
 			]
