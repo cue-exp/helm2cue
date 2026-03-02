@@ -32,8 +32,9 @@ warning: skipping prometheus/rules-1.14/node-network.yaml (doc 0): unsupported t
 warning: skipping prometheus/rules-1.14/prometheus-operator.yaml (doc 0): unsupported template action: {{dig "PrometheusOperatorListErrors" "for" "15m" .Values.customRules}}
 warning: skipping prometheus/rules-1.14/prometheus.yaml (doc 0): unsupported template action: {{dig "PrometheusBadConfig" "for" "10m" .Values.customRules}}
 warning: skipping prometheus/serviceperreplica.yaml (doc 0): range: unsupported pipe: $i, $e := until $count
-warning: values.yaml does not satisfy inferred schema: #values.prometheus.prometheusSpec.additionalAlertManagerConfigsSecret: conflicting values [...{name!:(bool|number|string|null),key!:(bool|number|string|null),optional!:(bool|number|string|null),...}] and {} (mismatched types list and struct)
+error: values.yaml does not satisfy inferred schema: #values.prometheus.prometheusSpec.additionalAlertManagerConfigsSecret: conflicting values [...{name!:(bool|number|string|null),key!:(bool|number|string|null),optional!:(bool|number|string|null),...}] and {} (mismatched types list and struct)
 converted 138/216 templates from kube-prometheus-stack
+ConvertChart error: values schema validation failed
 -- cue vet --
 exit status 1
 #values.prometheus.prometheusSpec.additionalAlertManagerConfigsSecret: conflicting values {} and [...{name!:(bool|number|string|null),key!:(bool|number|string|null),optional!:(bool|number|string|null),...}] (mismatched types struct and list):

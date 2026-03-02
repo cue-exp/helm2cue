@@ -357,11 +357,14 @@ func ConvertChart(chartDir, outDir string, opts ChartOptions) error {
 		logf("warning: %s\n", w)
 	}
 	for _, w := range valWarnings {
-		logf("warning: %s\n", w)
+		logf("error: %s\n", w)
 	}
 	logf("converted %d/%d templates from %s\n",
 		len(results), totalDocs, meta.Name)
 
+	if len(valWarnings) > 0 {
+		return fmt.Errorf("values schema validation failed")
+	}
 	return nil
 }
 
