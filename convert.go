@@ -151,6 +151,25 @@ var identRe = regexp.MustCompile(`^[a-zA-Z_$][a-zA-Z0-9_$]*$`)
 
 var sharedCueCtx = cuecontext.New()
 
+// conditionFunc describes a table-driven condition function: its expected
+// argument count, required CUE imports, argument reordering (Sprig vs CUE
+// argument order), and a fmt.Sprintf format string with %s placeholders.
+type conditionFunc struct {
+	nargs    int
+	imports  []string
+	argOrder []int // nil = natural order; maps Sprig arg index → format placeholder
+	format   string
+}
+
+// conditionFuncs maps Sprig function names to their condition-expression
+// conversion rules. Functions listed here are handled by a single generic
+// lookup in conditionPipeToExpr instead of individual switch cases.
+var conditionFuncs = map[string]conditionFunc{
+	"contains":  {2, []string{"strings"}, []int{1, 0}, "strings.Contains(%s, %s)"},
+	"hasPrefix": {2, []string{"strings"}, []int{1, 0}, "strings.HasPrefix(%s, %s)"},
+	"hasSuffix": {2, []string{"strings"}, []int{1, 0}, "strings.HasSuffix(%s, %s)"},
+}
+
 // fieldNode represents a node in a tree of nested field references.
 type fieldNode struct {
 	name     string
@@ -3803,6 +3822,36 @@ func (c *converter) conditionPipeToExpr(pipe *parse.PipeNode) (string, error) {
 
 	if id, ok := cmd.Args[0].(*parse.IdentifierNode); ok {
 		args := cmd.Args[1:]
+
+		// Table-driven condition functions (contains, hasPrefix, hasSuffix, etc.).
+		if cf, ok := conditionFuncs[id.Ident]; ok {
+			if !c.isCoreFunc(id.Ident) {
+				return "", fmt.Errorf("unsupported condition function: %s (not a text/template builtin)", id.Ident)
+			}
+			if len(args) != cf.nargs {
+				return "", fmt.Errorf("%s requires %d arguments, got %d", id.Ident, cf.nargs, len(args))
+			}
+			exprs := make([]any, cf.nargs)
+			order := cf.argOrder
+			if order == nil {
+				order = make([]int, cf.nargs)
+				for i := range order {
+					order[i] = i
+				}
+			}
+			for i, idx := range order {
+				e, err := c.conditionNodeToRawExpr(args[idx])
+				if err != nil {
+					return "", fmt.Errorf("%s argument %d: %w", id.Ident, idx, err)
+				}
+				exprs[i] = e
+			}
+			for _, imp := range cf.imports {
+				c.addImport(imp)
+			}
+			return fmt.Sprintf(cf.format, exprs...), nil
+		}
+
 		switch id.Ident {
 		case "not":
 			if len(args) != 1 {
@@ -4028,24 +4077,6 @@ func (c *converter) conditionPipeToExpr(pipe *parse.PipeNode) (string, error) {
 			}
 			c.usedHelpers["_typeof"] = HelperDef{Name: "_typeof", Def: typeofDef}
 			return fmt.Sprintf("(_typeof & {#arg: %s, _})", valExpr), nil
-		case "contains":
-			if !c.isCoreFunc(id.Ident) {
-				return "", fmt.Errorf("unsupported condition function: %s (not a text/template builtin)", id.Ident)
-			}
-			if len(args) != 2 {
-				return "", fmt.Errorf("contains requires 2 arguments, got %d", len(args))
-			}
-			// Sprig: contains(substr, str) — CUE: strings.Contains(str, substr)
-			substrExpr, err := c.conditionNodeToRawExpr(args[0])
-			if err != nil {
-				return "", fmt.Errorf("contains substring argument: %w", err)
-			}
-			strExpr, err := c.conditionNodeToRawExpr(args[1])
-			if err != nil {
-				return "", fmt.Errorf("contains string argument: %w", err)
-			}
-			c.addImport("strings")
-			return fmt.Sprintf("strings.Contains(%s, %s)", strExpr, substrExpr), nil
 		default:
 			return "", fmt.Errorf("unsupported condition function: %s", id.Ident)
 		}
