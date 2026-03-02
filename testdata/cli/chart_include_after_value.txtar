@@ -1,7 +1,6 @@
-# Include result merged into string interpolation.
-# When {{- include ... | nindent N }} follows a value line,
-# the include struct is wrongly merged into the preceding
-# string interpolation instead of being emitted standalone.
+# Include after value: {{- include ... | nindent N }} after a
+# value line should emit the include as a standalone struct
+# embedding, not merge it into the preceding interpolation.
 # https://github.com/cue-exp/helm2cue/issues/52
 exec helm2cue chart chartdir outdir
 stderr 'converted 2/2 templates'
@@ -18,7 +17,7 @@ name: myapp
 {{ .Values.name }}
 {{- end -}}
 
-{{- define "test.labels" }}
+{{- define "test.labels" -}}
 chart: test-app
 {{- end -}}
 -- chartdir/templates/test.yaml --
@@ -49,7 +48,8 @@ test: [{
 	metadata: {
 		name: "test"
 		labels: {
-			app: "\(_test_name)-alertmanager\(_test_labels)"
+			app: "\(_test_name)-alertmanager"
+			_test_labels
 		}
 	}
 	data: {

@@ -79,9 +79,6 @@ prometheus_operator_servicemonitor.0.spec.endpoints.0.tlsConfig.ca.secret.key: c
     ./prometheus_operator_servicemonitor.cue:35:16
     ./prometheus_operator_servicemonitor.cue:39:12
     ./prometheus_operator_servicemonitor.cue:40:13
-alertmanager_alertmanager.0.metadata.labels.app: invalid interpolation: cannot use {"app.kubernetes.io/managed-by":*"Helm" | string,"app.kubernetes.io/instance":_,"app.kubernetes.io/version":"\"82.2.1\"","app.kubernetes.io/part-of":"",chart:_,release:_|_(_kube_prometheus_stack_labels.release: invalid interpolation: non-concrete value _ (type _)),heritage:"Helm"} (type struct) as type (bool|string|bytes|number):
-    ./alertmanager_alertmanager.cue:20:11
-    ./helpers.cue:413:32
 alertmanager_secret.0.data."alertmanager.yaml": invalid interpolation: cannot use {global:{resolve_timeout:"5m"},inhibit_rules:[{source_matchers:["severity = critical"],target_matchers:["severity =~ warning|info"],equal:["namespace","alertname"]},{source_matchers:["severity = warning"],target_matchers:["severity = info"],equal:["namespace","alertname"]},{source_matchers:["alertname = InfoInhibitor"],target_matchers:["severity = info"],equal:["namespace"]},{target_matchers:["alertname = InfoInhibitor"]}],route:{group_by:["namespace"],group_wait:"30s",group_interval:"5m",repeat_interval:"12h",receiver:"null",routes:[{receiver:"null",matchers:["alertname = \"Watchdog\""]}]},receivers:[{name:"null"}],templates:["/etc/alertmanager/config/*.tmpl"]} (type struct) as (string|bytes) in argument 2 to "encoding/base64".Encode:
     ./alertmanager_secret.cue:40:27
     ./values.cue:485:19
@@ -93,37 +90,10 @@ prometheus_clusterrole.0.rules.resources: incompatible list lengths (1 and 5):
     ./prometheus_clusterrole.cue:43:17
 prometheus_clusterrole.0.rules.verbs: incompatible list lengths (1 and 3):
     ./prometheus_clusterrole.cue:50:13
-prometheus_operator_admission_webhooks_job_patch_clusterrole.0.metadata.labels.app: invalid interpolation: cannot use {"app.kubernetes.io/name":"-prometheus-operator","app.kubernetes.io/component":"prometheus-operator-webhook","app.kubernetes.io/managed-by":*"Helm" | string,"app.kubernetes.io/instance":_,"app.kubernetes.io/version":"\"82.2.1\"","app.kubernetes.io/part-of":"",chart:_,release:_|_(_kube_prometheus_stack_prometheus_operator_webhook_labels.release: invalid interpolation: non-concrete value _ (type _)),heritage:"Helm"} (type struct) as type (bool|string|bytes|number):
-    ./prometheus_operator_admission_webhooks_job_patch_clusterrole.cue:17:11
-    ./helpers.cue:467:60
-prometheus_operator_admission_webhooks_job_patch_clusterrolebinding.0.metadata.labels.app: invalid interpolation: cannot use {"app.kubernetes.io/name":"-prometheus-operator","app.kubernetes.io/component":"prometheus-operator-webhook","app.kubernetes.io/managed-by":*"Helm" | string,"app.kubernetes.io/instance":_,"app.kubernetes.io/version":"\"82.2.1\"","app.kubernetes.io/part-of":"",chart:_,release:_|_(_kube_prometheus_stack_prometheus_operator_webhook_labels.release: invalid interpolation: non-concrete value _ (type _)),heritage:"Helm"} (type struct) as type (bool|string|bytes|number):
-    ./prometheus_operator_admission_webhooks_job_patch_clusterrolebinding.cue:17:11
-    ./helpers.cue:467:60
-prometheus_operator_admission_webhooks_job_patch_job_createSecret.0.metadata.labels.app: invalid interpolation: cannot use {"app.kubernetes.io/name":"-prometheus-operator","app.kubernetes.io/component":"prometheus-operator-webhook","app.kubernetes.io/managed-by":*"Helm" | string,"app.kubernetes.io/instance":_,"app.kubernetes.io/version":"\"82.2.1\"","app.kubernetes.io/part-of":"",chart:_,release:_|_(_kube_prometheus_stack_prometheus_operator_webhook_labels.release: invalid interpolation: non-concrete value _ (type _)),heritage:"Helm"} (type struct) as type (bool|string|bytes|number):
-    ./prometheus_operator_admission_webhooks_job_patch_job_createSecret.cue:23:11
-    ./helpers.cue:467:60
-prometheus_operator_admission_webhooks_job_patch_job_createSecret.0.spec.template.metadata.labels.app: invalid interpolation: cannot use {"app.kubernetes.io/name":"-prometheus-operator","app.kubernetes.io/component":"prometheus-operator-webhook","app.kubernetes.io/managed-by":*"Helm" | string,"app.kubernetes.io/instance":_,"app.kubernetes.io/version":"\"82.2.1\"","app.kubernetes.io/part-of":"",chart:_,release:_|_(_kube_prometheus_stack_prometheus_operator_webhook_labels.release: invalid interpolation: non-concrete value _ (type _)),heritage:"Helm"} (type struct) as type (bool|string|bytes|number):
-    ./prometheus_operator_admission_webhooks_job_patch_job_createSecret.cue:35:13
-    ./helpers.cue:467:60
-prometheus_operator_admission_webhooks_job_patch_job_patchWebhook.0.metadata.labels.app: invalid interpolation: cannot use {"app.kubernetes.io/name":"-prometheus-operator","app.kubernetes.io/component":"prometheus-operator-webhook","app.kubernetes.io/managed-by":*"Helm" | string,"app.kubernetes.io/instance":_,"app.kubernetes.io/version":"\"82.2.1\"","app.kubernetes.io/part-of":"",chart:_,release:_|_(_kube_prometheus_stack_prometheus_operator_webhook_labels.release: invalid interpolation: non-concrete value _ (type _)),heritage:"Helm"} (type struct) as type (bool|string|bytes|number):
-    ./prometheus_operator_admission_webhooks_job_patch_job_patchWebhook.cue:25:11
-    ./helpers.cue:467:60
-prometheus_operator_admission_webhooks_job_patch_job_patchWebhook.0.spec.template.metadata.labels.app: invalid interpolation: cannot use {"app.kubernetes.io/name":"-prometheus-operator","app.kubernetes.io/component":"prometheus-operator-webhook","app.kubernetes.io/managed-by":*"Helm" | string,"app.kubernetes.io/instance":_,"app.kubernetes.io/version":"\"82.2.1\"","app.kubernetes.io/part-of":"",chart:_,release:_|_(_kube_prometheus_stack_prometheus_operator_webhook_labels.release: invalid interpolation: non-concrete value _ (type _)),heritage:"Helm"} (type struct) as type (bool|string|bytes|number):
-    ./prometheus_operator_admission_webhooks_job_patch_job_patchWebhook.cue:37:13
-    ./helpers.cue:467:60
-prometheus_operator_admission_webhooks_job_patch_role.0.metadata.labels.app: invalid interpolation: cannot use {"app.kubernetes.io/name":"-prometheus-operator","app.kubernetes.io/component":"prometheus-operator-webhook","app.kubernetes.io/managed-by":*"Helm" | string,"app.kubernetes.io/instance":_,"app.kubernetes.io/version":"\"82.2.1\"","app.kubernetes.io/part-of":"",chart:_,release:_|_(_kube_prometheus_stack_prometheus_operator_webhook_labels.release: invalid interpolation: non-concrete value _ (type _)),heritage:"Helm"} (type struct) as type (bool|string|bytes|number):
-    ./prometheus_operator_admission_webhooks_job_patch_role.cue:18:11
-    ./helpers.cue:467:60
-prometheus_operator_admission_webhooks_job_patch_rolebinding.0.metadata.labels.app: invalid interpolation: cannot use {"app.kubernetes.io/name":"-prometheus-operator","app.kubernetes.io/component":"prometheus-operator-webhook","app.kubernetes.io/managed-by":*"Helm" | string,"app.kubernetes.io/instance":_,"app.kubernetes.io/version":"\"82.2.1\"","app.kubernetes.io/part-of":"",chart:_,release:_|_(_kube_prometheus_stack_prometheus_operator_webhook_labels.release: invalid interpolation: non-concrete value _ (type _)),heritage:"Helm"} (type struct) as type (bool|string|bytes|number):
-    ./prometheus_operator_admission_webhooks_job_patch_rolebinding.cue:18:11
-    ./helpers.cue:467:60
-prometheus_operator_admission_webhooks_job_patch_serviceaccount.0.metadata.labels.app: invalid interpolation: cannot use {"app.kubernetes.io/name":"-prometheus-operator","app.kubernetes.io/component":"prometheus-operator-webhook","app.kubernetes.io/managed-by":*"Helm" | string,"app.kubernetes.io/instance":_,"app.kubernetes.io/version":"\"82.2.1\"","app.kubernetes.io/part-of":"",chart:_,release:_|_(_kube_prometheus_stack_prometheus_operator_webhook_labels.release: invalid interpolation: non-concrete value _ (type _)),heritage:"Helm"} (type struct) as type (bool|string|bytes|number):
-    ./prometheus_operator_admission_webhooks_job_patch_serviceaccount.cue:20:11
-    ./helpers.cue:467:60
-results: error in call to list.FlattenN: invalid interpolation: cannot use {"app.kubernetes.io/managed-by":*"Helm" | string,"app.kubernetes.io/instance":_,"app.kubernetes.io/version":"\"82.2.1\"","app.kubernetes.io/part-of":"",chart:_,release:_|_(_kube_prometheus_stack_labels.release: invalid interpolation: non-concrete value _ (type _)),heritage:"Helm"} (type struct) as type (bool|string|bytes|number):
+results: error in call to list.FlattenN: invalid interpolation: cannot use {global:{resolve_timeout:"5m"},inhibit_rules:[{source_matchers:["severity = critical"],target_matchers:["severity =~ warning|info"],equal:["namespace","alertname"]},{source_matchers:["severity = warning"],target_matchers:["severity = info"],equal:["namespace","alertname"]},{source_matchers:["alertname = InfoInhibitor"],target_matchers:["severity = info"],equal:["namespace"]},{target_matchers:["alertname = InfoInhibitor"]}],route:{group_by:["namespace"],group_wait:"30s",group_interval:"5m",repeat_interval:"12h",receiver:"null",routes:[{receiver:"null",matchers:["alertname = \"Watchdog\""]}]},receivers:[{name:"null"}],templates:["/etc/alertmanager/config/*.tmpl"]} (type struct) as (string|bytes) in argument 2 to "encoding/base64".Encode:
     ./results.cue:7:10
-    ./alertmanager_alertmanager.cue:20:11
-    ./helpers.cue:413:32
+    ./alertmanager_secret.cue:40:27
+    ./values.cue:485:19
 -- cue export --
 exit status 1
 _kube_prometheus_stack_prometheus_pod_anti_affinity_matchExpressions.key: conflicting values "app.kubernetes.io/instance" and "app.kubernetes.io/name":
@@ -177,9 +147,6 @@ prometheus_operator_servicemonitor.0.spec.endpoints.0.tlsConfig.ca.secret.key: c
     ./prometheus_operator_servicemonitor.cue:35:16
     ./prometheus_operator_servicemonitor.cue:39:12
     ./prometheus_operator_servicemonitor.cue:40:13
-alertmanager_alertmanager.0.metadata.labels.app: invalid interpolation: cannot use {"app.kubernetes.io/managed-by":*"Helm" | string,"app.kubernetes.io/instance":"test","app.kubernetes.io/version":"\"82.2.1\"","app.kubernetes.io/part-of":"",chart:_,release:"test",heritage:"Helm"} (type struct) as type (bool|string|bytes|number):
-    ./alertmanager_alertmanager.cue:20:11
-    ./helpers.cue:413:32
 alertmanager_secret.0.data."alertmanager.yaml": invalid interpolation: cannot use {global:{resolve_timeout:"5m"},inhibit_rules:[{source_matchers:["severity = critical"],target_matchers:["severity =~ warning|info"],equal:["namespace","alertname"]},{source_matchers:["severity = warning"],target_matchers:["severity = info"],equal:["namespace","alertname"]},{source_matchers:["alertname = InfoInhibitor"],target_matchers:["severity = info"],equal:["namespace"]},{target_matchers:["alertname = InfoInhibitor"]}],route:{group_by:["namespace"],group_wait:"30s",group_interval:"5m",repeat_interval:"12h",receiver:"null",routes:[{receiver:"null",matchers:["alertname = \"Watchdog\""]}]},receivers:[{name:"null"}],templates:["/etc/alertmanager/config/*.tmpl"]} (type struct) as (string|bytes) in argument 2 to "encoding/base64".Encode:
     ./alertmanager_secret.cue:40:27
     ./values.cue:485:19
@@ -191,34 +158,7 @@ prometheus_clusterrole.0.rules.resources: incompatible list lengths (1 and 5):
     ./prometheus_clusterrole.cue:43:17
 prometheus_clusterrole.0.rules.verbs: incompatible list lengths (1 and 3):
     ./prometheus_clusterrole.cue:50:13
-prometheus_operator_admission_webhooks_job_patch_clusterrole.0.metadata.labels.app: invalid interpolation: cannot use {"app.kubernetes.io/name":"-prometheus-operator","app.kubernetes.io/component":"prometheus-operator-webhook","app.kubernetes.io/managed-by":*"Helm" | string,"app.kubernetes.io/instance":"test","app.kubernetes.io/version":"\"82.2.1\"","app.kubernetes.io/part-of":"",chart:_,release:"test",heritage:"Helm"} (type struct) as type (bool|string|bytes|number):
-    ./prometheus_operator_admission_webhooks_job_patch_clusterrole.cue:17:11
-    ./helpers.cue:467:60
-prometheus_operator_admission_webhooks_job_patch_clusterrolebinding.0.metadata.labels.app: invalid interpolation: cannot use {"app.kubernetes.io/name":"-prometheus-operator","app.kubernetes.io/component":"prometheus-operator-webhook","app.kubernetes.io/managed-by":*"Helm" | string,"app.kubernetes.io/instance":"test","app.kubernetes.io/version":"\"82.2.1\"","app.kubernetes.io/part-of":"",chart:_,release:"test",heritage:"Helm"} (type struct) as type (bool|string|bytes|number):
-    ./prometheus_operator_admission_webhooks_job_patch_clusterrolebinding.cue:17:11
-    ./helpers.cue:467:60
-prometheus_operator_admission_webhooks_job_patch_job_createSecret.0.metadata.labels.app: invalid interpolation: cannot use {"app.kubernetes.io/name":"-prometheus-operator","app.kubernetes.io/component":"prometheus-operator-webhook","app.kubernetes.io/managed-by":*"Helm" | string,"app.kubernetes.io/instance":"test","app.kubernetes.io/version":"\"82.2.1\"","app.kubernetes.io/part-of":"",chart:_,release:"test",heritage:"Helm"} (type struct) as type (bool|string|bytes|number):
-    ./prometheus_operator_admission_webhooks_job_patch_job_createSecret.cue:23:11
-    ./helpers.cue:467:60
-prometheus_operator_admission_webhooks_job_patch_job_createSecret.0.spec.template.metadata.labels.app: invalid interpolation: cannot use {"app.kubernetes.io/name":"-prometheus-operator","app.kubernetes.io/component":"prometheus-operator-webhook","app.kubernetes.io/managed-by":*"Helm" | string,"app.kubernetes.io/instance":"test","app.kubernetes.io/version":"\"82.2.1\"","app.kubernetes.io/part-of":"",chart:_,release:"test",heritage:"Helm"} (type struct) as type (bool|string|bytes|number):
-    ./prometheus_operator_admission_webhooks_job_patch_job_createSecret.cue:35:13
-    ./helpers.cue:467:60
-prometheus_operator_admission_webhooks_job_patch_job_patchWebhook.0.metadata.labels.app: invalid interpolation: cannot use {"app.kubernetes.io/name":"-prometheus-operator","app.kubernetes.io/component":"prometheus-operator-webhook","app.kubernetes.io/managed-by":*"Helm" | string,"app.kubernetes.io/instance":"test","app.kubernetes.io/version":"\"82.2.1\"","app.kubernetes.io/part-of":"",chart:_,release:"test",heritage:"Helm"} (type struct) as type (bool|string|bytes|number):
-    ./prometheus_operator_admission_webhooks_job_patch_job_patchWebhook.cue:25:11
-    ./helpers.cue:467:60
-prometheus_operator_admission_webhooks_job_patch_job_patchWebhook.0.spec.template.metadata.labels.app: invalid interpolation: cannot use {"app.kubernetes.io/name":"-prometheus-operator","app.kubernetes.io/component":"prometheus-operator-webhook","app.kubernetes.io/managed-by":*"Helm" | string,"app.kubernetes.io/instance":"test","app.kubernetes.io/version":"\"82.2.1\"","app.kubernetes.io/part-of":"",chart:_,release:"test",heritage:"Helm"} (type struct) as type (bool|string|bytes|number):
-    ./prometheus_operator_admission_webhooks_job_patch_job_patchWebhook.cue:37:13
-    ./helpers.cue:467:60
-prometheus_operator_admission_webhooks_job_patch_role.0.metadata.labels.app: invalid interpolation: cannot use {"app.kubernetes.io/name":"-prometheus-operator","app.kubernetes.io/component":"prometheus-operator-webhook","app.kubernetes.io/managed-by":*"Helm" | string,"app.kubernetes.io/instance":"test","app.kubernetes.io/version":"\"82.2.1\"","app.kubernetes.io/part-of":"",chart:_,release:"test",heritage:"Helm"} (type struct) as type (bool|string|bytes|number):
-    ./prometheus_operator_admission_webhooks_job_patch_role.cue:18:11
-    ./helpers.cue:467:60
-prometheus_operator_admission_webhooks_job_patch_rolebinding.0.metadata.labels.app: invalid interpolation: cannot use {"app.kubernetes.io/name":"-prometheus-operator","app.kubernetes.io/component":"prometheus-operator-webhook","app.kubernetes.io/managed-by":*"Helm" | string,"app.kubernetes.io/instance":"test","app.kubernetes.io/version":"\"82.2.1\"","app.kubernetes.io/part-of":"",chart:_,release:"test",heritage:"Helm"} (type struct) as type (bool|string|bytes|number):
-    ./prometheus_operator_admission_webhooks_job_patch_rolebinding.cue:18:11
-    ./helpers.cue:467:60
-prometheus_operator_admission_webhooks_job_patch_serviceaccount.0.metadata.labels.app: invalid interpolation: cannot use {"app.kubernetes.io/name":"-prometheus-operator","app.kubernetes.io/component":"prometheus-operator-webhook","app.kubernetes.io/managed-by":*"Helm" | string,"app.kubernetes.io/instance":"test","app.kubernetes.io/version":"\"82.2.1\"","app.kubernetes.io/part-of":"",chart:_,release:"test",heritage:"Helm"} (type struct) as type (bool|string|bytes|number):
-    ./prometheus_operator_admission_webhooks_job_patch_serviceaccount.cue:20:11
-    ./helpers.cue:467:60
-results: error in call to list.FlattenN: invalid interpolation: cannot use {"app.kubernetes.io/managed-by":*"Helm" | string,"app.kubernetes.io/instance":"test","app.kubernetes.io/version":"\"82.2.1\"","app.kubernetes.io/part-of":"",chart:_,release:"test",heritage:"Helm"} (type struct) as type (bool|string|bytes|number):
+results: error in call to list.FlattenN: invalid interpolation: cannot use {global:{resolve_timeout:"5m"},inhibit_rules:[{source_matchers:["severity = critical"],target_matchers:["severity =~ warning|info"],equal:["namespace","alertname"]},{source_matchers:["severity = warning"],target_matchers:["severity = info"],equal:["namespace","alertname"]},{source_matchers:["alertname = InfoInhibitor"],target_matchers:["severity = info"],equal:["namespace"]},{target_matchers:["alertname = InfoInhibitor"]}],route:{group_by:["namespace"],group_wait:"30s",group_interval:"5m",repeat_interval:"12h",receiver:"null",routes:[{receiver:"null",matchers:["alertname = \"Watchdog\""]}]},receivers:[{name:"null"}],templates:["/etc/alertmanager/config/*.tmpl"]} (type struct) as (string|bytes) in argument 2 to "encoding/base64".Encode:
     ./results.cue:7:10
-    ./alertmanager_alertmanager.cue:20:11
-    ./helpers.cue:413:32
+    ./alertmanager_secret.cue:40:27
+    ./values.cue:485:19
