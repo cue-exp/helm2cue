@@ -3,7 +3,6 @@
 # with the scalar type.
 # https://github.com/cue-exp/helm2cue/issues/51
 exec helm2cue chart chartdir outdir
-stderr 'values.yaml does not satisfy inferred schema'
 stderr 'converted 1/1 templates'
 cmp outdir/values.cue expected/values.cue
 
@@ -30,6 +29,6 @@ metadata:
 package test_app
 
 #values: {
-	labels?: bool | number | string | null
+	labels?: _
 	...
 }
