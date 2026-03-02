@@ -54,7 +54,7 @@ data:
 import "struct"
 
 #values: {
-	mode?: bool | number | string | null
+	mode!: bool | number | string | null
 	name!: bool | number | string | null
 	...
 }

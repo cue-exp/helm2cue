@@ -23,7 +23,7 @@ data:
 import "struct"
 
 #values: {
-	config?: _
+	config!: _
 	...
 }
 
