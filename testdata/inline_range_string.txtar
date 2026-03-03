@@ -1,0 +1,25 @@
+Inline range within a string value.
+
+-- values.yaml --
+labels:
+  - foo
+  - bar
+-- input.yaml --
+data:
+  expr: count(up) BY ({{ range .Values.labels }}{{ . }},{{ end }}cluster)
+-- helm_output.yaml --
+data:
+  expr: count(up) BY (foo,bar,cluster)
+-- output.cue --
+import "strings"
+
+#values: {
+	labels?: _
+	...
+}
+
+output: [
+	{
+		data: expr: "count(up) BY (\(strings.Join([for _, _range0 in #values.labels {"\(_range0),"}], ""))cluster)"
+	},
+]
