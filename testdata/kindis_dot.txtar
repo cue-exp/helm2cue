@@ -1,0 +1,24 @@
+kindIs with bare dot inside with block.
+
+-- values.yaml --
+config: hello
+-- input.yaml --
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test
+data:
+  {{- with .Values.config }}
+  {{- if kindIs "string" . }}
+  type: string
+  {{- end }}
+  {{- end }}
+-- helm_output.yaml --
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test
+data:
+  type: string
+-- broken --
+unsupported condition node: .
