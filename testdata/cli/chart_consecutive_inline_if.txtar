@@ -1,0 +1,39 @@
+# Consecutive YAML list items each containing an inline if/else
+# should both convert correctly. The TextNode between the two
+# inline ifs spans a newline; collectInlineSuffix must not
+# discard the second item's prefix.
+# https://github.com/cue-exp/helm2cue/issues/76
+exec helm2cue chart chartdir outdir
+cmp stderr stderr.golden
+
+-- chartdir/Chart.yaml --
+apiVersion: v2
+name: test-app
+version: 0.1.0
+-- chartdir/values.yaml --
+tls: true
+x: true
+-- chartdir/templates/good.yaml --
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: good
+data:
+  key: value
+-- chartdir/templates/test.yaml --
+apiVersion: v1
+kind: Pod
+metadata:
+  name: test
+spec:
+  containers:
+  - name: test
+    args:
+    {{- if .Values.tls }}
+      - "a={{ if .Values.x }}1{{ else }}2{{ end }}"
+      - "b={{ if .Values.x }}3{{ else }}4{{ end }}"
+    {{- end }}
+-- stderr.golden --
+warning: skipping test.yaml (doc 0): expected operand, found ']'
+warning: skipping test.yaml (doc 0): expected '}', found 'EOF'
+converted 1/2 templates from test-app
