@@ -774,32 +774,51 @@ func writeTemplateCUE(outDir, pkgName, fieldName string, r *convertResult) error
 	fmt.Fprintf(&buf, "package %s\n\n", pkgName)
 
 	// Emit only imports that are actually used in this template body.
+	// When a short import name collides with a struct field in the body,
+	// use an alias (path segments joined with underscores) and rewrite
+	// references in the body. This would be handled automatically by
+	// astutil.Sanitize if we built an AST instead of printing text (#74).
 	body := strings.TrimRight(r.body, "\n")
-	imports := make(map[string]bool)
+	type importEntry struct {
+		pkg   string
+		alias string // non-empty when aliased
+	}
+	var imports []importEntry
 	for pkg := range r.imports {
-		// The CUE package name is the last path segment.
 		shortName := pkg
 		if idx := strings.LastIndex(pkg, "/"); idx >= 0 {
 			shortName = pkg[idx+1:]
 		}
-		// Only include if the body references this package.
-		if strings.Contains(body, shortName+".") {
-			imports[pkg] = true
+		if !strings.Contains(body, shortName+".") {
+			continue
 		}
+		alias := ""
+		if strings.Contains(body, shortName+":") {
+			alias = strings.ReplaceAll(pkg, "/", "_")
+			body = replaceImportRef(body, shortName, alias)
+		}
+		imports = append(imports, importEntry{pkg: pkg, alias: alias})
 	}
+	slices.SortFunc(imports, func(a, b importEntry) int {
+		return strings.Compare(a.pkg, b.pkg)
+	})
 
 	if len(imports) > 0 {
-		var pkgs []string
-		for pkg := range imports {
-			pkgs = append(pkgs, pkg)
-		}
-		slices.Sort(pkgs)
-		if len(pkgs) == 1 {
-			fmt.Fprintf(&buf, "import %q\n\n", pkgs[0])
+		if len(imports) == 1 {
+			e := imports[0]
+			if e.alias != "" {
+				fmt.Fprintf(&buf, "import %s %q\n\n", e.alias, e.pkg)
+			} else {
+				fmt.Fprintf(&buf, "import %q\n\n", e.pkg)
+			}
 		} else {
 			buf.WriteString("import (\n")
-			for _, pkg := range pkgs {
-				fmt.Fprintf(&buf, "\t%q\n", pkg)
+			for _, e := range imports {
+				if e.alias != "" {
+					fmt.Fprintf(&buf, "\t%s %q\n", e.alias, e.pkg)
+				} else {
+					fmt.Fprintf(&buf, "\t%q\n", e.pkg)
+				}
 			}
 			buf.WriteString(")\n\n")
 		}
@@ -813,6 +832,35 @@ func writeTemplateCUE(outDir, pkgName, fieldName string, r *convertResult) error
 	fmt.Fprintf(&buf, "%s: %s\n", fieldName, body)
 
 	return writeCUEFile(filepath.Join(outDir, fieldName+".cue"), buf.Bytes())
+}
+
+// replaceImportRef replaces standalone package references (shortName + ".")
+// with alias + "." in body, without touching occurrences that are part of a
+// larger identifier (e.g. #template.field should not become #text_template.field).
+func replaceImportRef(body, shortName, alias string) string {
+	old := shortName + "."
+	newRef := alias + "."
+	var result strings.Builder
+	result.Grow(len(body))
+	for i := 0; i < len(body); {
+		if strings.HasPrefix(body[i:], old) {
+			if i > 0 && isIdentOrHash(body[i-1]) {
+				result.WriteString(old)
+			} else {
+				result.WriteString(newRef)
+			}
+			i += len(old)
+		} else {
+			result.WriteByte(body[i])
+			i++
+		}
+	}
+	return result.String()
+}
+
+func isIdentOrHash(b byte) bool {
+	return (b >= 'a' && b <= 'z') || (b >= 'A' && b <= 'Z') ||
+		(b >= '0' && b <= '9') || b == '_' || b == '#'
 }
 
 // validateTemplateBody checks that a template body is syntactically valid CUE.

@@ -31,7 +31,7 @@ package test_app
 
 import (
 	"encoding/yaml"
-	"text/template"
+	text_template "text/template"
 )
 
 deployment: [{
@@ -45,7 +45,7 @@ deployment: [{
 			spec: {
 				volumes: [
 					{
-						name: "\(yaml.Unmarshal(template.Execute(#values.configMapName, _tplContext)))"
+						name: "\(yaml.Unmarshal(text_template.Execute(#values.configMapName, _tplContext)))"
 					},
 				]
 			}
