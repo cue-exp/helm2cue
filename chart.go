@@ -27,6 +27,7 @@ import (
 
 	"cuelang.org/go/cue"
 	"cuelang.org/go/cue/cuecontext"
+	cueerrors "cuelang.org/go/cue/errors"
 	"cuelang.org/go/cue/format"
 	"cuelang.org/go/cue/parser"
 	cueyaml "cuelang.org/go/encoding/yaml"
@@ -61,6 +62,17 @@ type ChartOptions struct {
 	// Logf, if non-nil, receives warnings and the summary line that
 	// would otherwise be printed to stderr.
 	Logf func(format string, args ...any)
+}
+
+// formatCUEWarnings expands a CUE error list into individual warning
+// strings, one per error, prefixed with the given context string.
+func formatCUEWarnings(prefix string, err error) []string {
+	errs := cueerrors.Errors(err)
+	warnings := make([]string, 0, len(errs))
+	for _, e := range errs {
+		warnings = append(warnings, fmt.Sprintf("%s: %s", prefix, e))
+	}
+	return warnings
 }
 
 // ConvertChart converts a Helm chart directory to a CUE module in outDir.
@@ -186,13 +198,15 @@ func ConvertChart(chartDir, outDir string, opts ChartOptions) error {
 
 			r, err := convertStructured(cfg, doc, templateName, treeSet, helperFileNames)
 			if err != nil {
-				warnings = append(warnings, fmt.Sprintf("skipping %s (doc %d): %v", relPath, i, err))
+				warnings = append(warnings, formatCUEWarnings(
+					fmt.Sprintf("skipping %s (doc %d)", relPath, i), err)...)
 				allOK = false
 				break
 			}
 
 			if err := validateTemplateBody(r); err != nil {
-				warnings = append(warnings, fmt.Sprintf("skipping %s (doc %d): %v", relPath, i, err))
+				warnings = append(warnings, formatCUEWarnings(
+					fmt.Sprintf("skipping %s (doc %d)", relPath, i), err)...)
 				allOK = false
 				break
 			}
@@ -304,12 +318,14 @@ func ConvertChart(chartDir, outDir string, opts ChartOptions) error {
 	schemaCUE := buildValuesSchemaCUE(mergedFieldRefs["Values"], mergedRequiredRefs["Values"], mergedRangeRefs["Values"], mergedNonScalarRefs["Values"], valuesStructRefs)
 	var valWarnings []string
 	if err := validateSchema(schemaCUE, cfg.ContextObjects); err != nil {
-		valWarnings = append(valWarnings, fmt.Sprintf("values schema inconsistency: %v", err))
+		valWarnings = append(valWarnings, formatCUEWarnings(
+			"values schema inconsistency", err)...)
 	}
 
 	if valuesErr == nil {
 		if err := validateValuesAgainstSchema(schemaCUE, valuesData, cfg.ContextObjects); err != nil {
-			valWarnings = append(valWarnings, fmt.Sprintf("values.yaml does not satisfy inferred schema: %v", err))
+			valWarnings = append(valWarnings, formatCUEWarnings(
+				"values.yaml does not satisfy inferred schema", err)...)
 		}
 	}
 
@@ -834,7 +850,7 @@ func validateTemplateBody(r *convertResult) error {
 
 	_, err := parser.ParseFile("body.cue", src.Bytes())
 	if err != nil && os.Getenv("HELM2CUE_DEBUG") != "" {
-		fmt.Fprintf(os.Stderr, "DEBUG: CUE validation failed: %v\nsource:\n%s\n", err, src.Bytes())
+		fmt.Fprintf(os.Stderr, "DEBUG: CUE validation failed:\n%s\nsource:\n%s\n", cueerrors.Details(err, nil), src.Bytes())
 	}
 	return err
 }
