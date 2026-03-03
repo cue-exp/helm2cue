@@ -1,32 +1,22 @@
 -- ConvertChart --
-warning: skipping deployment.yaml (doc 0): missing ',' before newline in list literal
-warning: skipping deployment.yaml (doc 0): string literal not terminated
-warning: skipping deployment.yaml (doc 0): string literal not terminated
-warning: skipping deployment.yaml (doc 0): string literal not terminated
-warning: skipping deployment.yaml (doc 0): string literal not terminated
-warning: skipping deployment.yaml (doc 0): string literal not terminated
-warning: skipping deployment.yaml (doc 0): string literal not terminated
-warning: skipping deployment.yaml (doc 0): string literal not terminated
-warning: skipping deployment.yaml (doc 0): string literal not terminated
-warning: skipping deployment.yaml (doc 0): string literal not terminated
-warning: skipping deployment.yaml (doc 0): string literal not terminated
-warning: skipping deployment.yaml (doc 0): string literal not terminated
-warning: skipping deployment.yaml (doc 0): string literal not terminated
-warning: skipping deployment.yaml (doc 0): string literal not terminated
-warning: skipping deployment.yaml (doc 0): string literal not terminated
-warning: skipping deployment.yaml (doc 0): string literal not terminated
-warning: skipping deployment.yaml (doc 0): string literal not terminated
-warning: skipping deployment.yaml (doc 0): string literal not terminated
-warning: skipping deployment.yaml (doc 0): string literal not terminated
-warning: skipping deployment.yaml (doc 0): string literal not terminated
 warning: skipping ingress-tls-secret.yaml (doc 1): unsupported template action: {{$ca := genCA "nginx-ca" 365}}
 warning: skipping tls-secret.yaml (doc 0): unsupported template action: {{$ca := genCA "nginx-ca" 365}}
-converted 13/20 templates from nginx
+error: values.yaml does not satisfy inferred schema: #values.podSecurityContext.seLinuxOptions: field is required but not present
+converted 14/20 templates from nginx
+ConvertChart error: values schema validation failed
 -- cue vet --
 exit status 1
+imported and not used: "text/template":
+    ./deployment.cue:9:2
+deployment.spec.template.spec.containers.args: preference mark not allowed at this position:
+    ./deployment.cue:517:38
 _common_utils_fieldToEnvVar: reference "_range1" not found:
     ./helpers.cue:749:31
 -- cue export --
 exit status 1
+imported and not used: "text/template":
+    ./deployment.cue:9:2
+deployment.spec.template.spec.containers.args: preference mark not allowed at this position:
+    ./deployment.cue:517:38
 _common_utils_fieldToEnvVar: reference "_range1" not found:
     ./helpers.cue:749:31
