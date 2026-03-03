@@ -1,0 +1,12 @@
+dig function: nested map traversal with default.
+
+-- values.yaml --
+customRules:
+  key1:
+    key2: foundValue
+-- input.yaml --
+result: {{ dig "key1" "key2" "notfound" .Values.customRules }}
+-- helm_output.yaml --
+result: foundValue
+-- broken --
+unsupported template action
