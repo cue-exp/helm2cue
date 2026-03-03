@@ -3122,7 +3122,10 @@ func (c *converter) collectInlineSuffix() ([]string, int, error) {
 			if idx > 0 {
 				parts = append(parts, escapeCUEString(s[:idx]))
 			}
-			consumed++
+			// Trim the consumed prefix so the post-newline
+			// remainder (next line's content) is processed
+			// normally by the main loop.
+			t.Text = t.Text[idx:]
 			return parts, consumed, nil
 		case *parse.ActionNode:
 			expr, helmObj, err := c.actionToCUE(t)
