@@ -339,13 +339,14 @@ type converter struct {
 	flowCueInd int      // CUE indent for formatting
 	flowSuffix string   // appended after CUE result (",\n" or "\n")
 
-	// Block scalar accumulation state (for "- |" etc. in list items).
+	// Block scalar accumulation state (for "- |", "key: |", etc.).
 	blockScalarLines       []string // non-nil when accumulating block scalar content
 	blockScalarBaseIndent  int      // YAML indent of content lines (-1 until first content line)
 	blockScalarCUEInd      int      // CUE indent for emission
 	blockScalarFolded      bool     // true for > and >- (fold newlines to spaces)
 	blockScalarStrip       bool     // true for |- and >- (strip trailing newline)
 	blockScalarPartialLine bool     // last block scalar line is incomplete (action mid-line)
+	blockScalarKey         string   // non-empty for "key: |" block scalars
 
 	stripListDash bool // strip "- " prefix from next list item line
 
@@ -1631,6 +1632,24 @@ func (c *converter) finalizeFlow() {
 	c.out.WriteString(suffix)
 }
 
+// embedRangeInBlockScalar converts an inline-safe range to a string
+// interpolation and appends it to the current block scalar line, mirroring
+// how emitActionExpr handles action nodes inside block scalars.
+func (c *converter) embedRangeInBlockScalar(n *parse.RangeNode) error {
+	joinExpr, err := c.rangeToInlineExpr(n)
+	if err != nil {
+		return err
+	}
+	if len(c.blockScalarLines) > 0 {
+		last := len(c.blockScalarLines) - 1
+		c.blockScalarLines[last] += inlineExpr(joinExpr)
+	} else {
+		c.blockScalarLines = append(c.blockScalarLines, inlineExpr(joinExpr))
+	}
+	c.blockScalarPartialLine = true
+	return nil
+}
+
 // finalizeBlockScalar emits the accumulated block scalar content as a CUE
 // value. Literal scalars (|, |-) produce a multi-line string ("""); folded
 // scalars (>, >-) join lines with spaces into a quoted string.
@@ -1648,10 +1667,24 @@ func (c *converter) finalizeBlockScalar() {
 	}
 
 	ind := c.blockScalarCUEInd
+	key := c.blockScalarKey
+	c.blockScalarKey = ""
+
+	// Key-value block scalars emit "key: value\n"; list-item block
+	// scalars emit "value,\n".
+	suffix := ","
+	if key != "" {
+		suffix = ""
+	}
+
+	keyPrefix := ""
+	if key != "" {
+		keyPrefix = cueKey(key) + ": "
+	}
 
 	if len(lines) == 0 {
 		writeIndent(&c.out, ind)
-		c.out.WriteString("\"\",\n")
+		fmt.Fprintf(&c.out, "%s\"\"%s\n", keyPrefix, suffix)
 		return
 	}
 
@@ -1662,13 +1695,13 @@ func (c *converter) finalizeBlockScalar() {
 			text += "\n"
 		}
 		writeIndent(&c.out, ind)
-		fmt.Fprintf(&c.out, "%s,\n", strconv.Quote(text))
+		fmt.Fprintf(&c.out, "%s%s%s\n", keyPrefix, strconv.Quote(text), suffix)
 	} else {
 		// Literal: CUE multi-line string. Content lines and the
 		// closing """ are indented one level deeper than the opener
 		// so that cue fmt preserves the blank trailing-newline line.
 		writeIndent(&c.out, ind)
-		c.out.WriteString("\"\"\"\n")
+		c.out.WriteString(keyPrefix + "\"\"\"\n")
 		for _, line := range lines {
 			writeIndent(&c.out, ind+1)
 			c.out.WriteString(line)
@@ -1683,7 +1716,7 @@ func (c *converter) finalizeBlockScalar() {
 			c.out.WriteByte('\n')
 		}
 		writeIndent(&c.out, ind+1)
-		c.out.WriteString("\"\"\",\n")
+		fmt.Fprintf(&c.out, "\"\"\"%s\n", suffix)
 	}
 }
 
@@ -1977,9 +2010,23 @@ func (c *converter) emitTextNode(text []byte) {
 			val := strings.TrimRight(content[colonIdx+2:], " \t")
 			// Check for YAML block scalar indicators.
 			if val == "|-" || val == "|" || val == ">-" || val == ">" {
-				c.state = statePendingKey
-				c.pendingKey = key
-				c.pendingKeyInd = yamlIndent
+				// If the next node is an nindent/indent action, fall
+				// back to the pending key mechanism so the nindent
+				// special handling applies.
+				nextIsNindent := len(c.remainingNodes) > 0 && nodeHasNindent(c.remainingNodes[0])
+				if nextIsNindent {
+					c.state = statePendingKey
+					c.pendingKey = key
+					c.pendingKeyInd = yamlIndent
+				} else {
+					c.blockScalarLines = []string{}
+					c.blockScalarBaseIndent = -1
+					c.blockScalarCUEInd = cueInd
+					c.blockScalarFolded = val[0] == '>'
+					c.blockScalarStrip = strings.HasSuffix(val, "-")
+					c.blockScalarPartialLine = false
+					c.blockScalarKey = key
+				}
 			} else if val == "" && isLastLine {
 				// Trailing "key: " — value comes from next node.
 				c.state = statePendingKey
@@ -2648,6 +2695,9 @@ func (c *converter) processNode(node parse.Node) error {
 		}
 		return c.processIf(n)
 	case *parse.RangeNode:
+		if c.blockScalarLines != nil && isInlineSafeRange(n) {
+			return c.embedRangeInBlockScalar(n)
+		}
 		if c.inlineParts != nil && isInlineSafeRange(n) {
 			return c.processInlineRange(n)
 		}
