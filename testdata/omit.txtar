@@ -10,5 +10,24 @@ spec:
 -- helm_output.yaml --
 spec:
   minAvailable: 1
--- broken --
-unsupported pipe node
+-- output.cue --
+import "list"
+
+#values: {
+	pdb!: _
+	...
+}
+
+output: [
+	{
+		spec: (_omit & {#arg: #values.pdb, #omit: ["enabled"]})
+	},
+]
+_omit: {
+	#arg!:  _
+	#omit!: _
+
+	for k, v in #arg if !list.Contains(#omit, k) {
+		(k): v
+	}
+}

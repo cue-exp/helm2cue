@@ -178,6 +178,18 @@ const digDef = `_dig: {
 }
 `
 
+// omitDef is the CUE definition for returning a dict with specified
+// keys removed, matching Sprig's omit function.
+const omitDef = `_omit: {
+	#arg!:  _
+	#omit!: _
+
+	for k, v in #arg if !list.Contains(#omit, k) {
+		(k): v
+	}
+}
+`
+
 var identRe = regexp.MustCompile(`^[a-zA-Z_$][a-zA-Z0-9_$]*$`)
 
 var sharedCueCtx = cuecontext.New()
@@ -3461,13 +3473,33 @@ func (c *converter) processWith(n *parse.WithNode) error {
 // for use in dot rebinding. The tracking of field references and context
 // objects is already handled by pipeToCUECondition.
 func (c *converter) withPipeToRawExpr(pipe *parse.PipeNode) (string, error) {
-	if len(pipe.Cmds) != 1 || len(pipe.Cmds[0].Args) != 1 {
+	if len(pipe.Cmds) != 1 {
+		return "", fmt.Errorf("with: unsupported pipe shape: %s", pipe)
+	}
+	cmd := pipe.Cmds[0]
+	// Multi-arg: function call (e.g. omit .Values.x "key").
+	if len(cmd.Args) >= 2 {
+		if id, ok := cmd.Args[0].(*parse.IdentifierNode); ok {
+			if cf, ok := coreFuncs[id.Ident]; ok && c.isCoreFunc(id.Ident) {
+				funcArgs := make([]funcArg, len(cmd.Args)-1)
+				for i, n := range cmd.Args[1:] {
+					funcArgs[i] = funcArg{node: n}
+				}
+				expr, _, err := cf.convert(c, funcArgs)
+				if err != nil {
+					return "", fmt.Errorf("with: %w", err)
+				}
+				return expr, nil
+			}
+		}
+	}
+	if len(cmd.Args) != 1 {
 		return "", fmt.Errorf("with: unsupported pipe shape: %s", pipe)
 	}
 	saved := c.suppressRequired
 	c.suppressRequired = true
 	defer func() { c.suppressRequired = saved }()
-	switch a := pipe.Cmds[0].Args[0].(type) {
+	switch a := cmd.Args[0].(type) {
 	case *parse.FieldNode:
 		expr, _ := c.fieldToCUEInContext(a.Ident)
 		return expr, nil
@@ -4392,6 +4424,17 @@ func (c *converter) conditionPipeToExpr(pipe *parse.PipeNode) (string, error) {
 			c.usedHelpers["_typeof"] = HelperDef{Name: "_typeof", Def: typeofDef}
 			return fmt.Sprintf("(_typeof & {#arg: %s, _})", valExpr), nil
 		default:
+			if cf, ok := coreFuncs[id.Ident]; ok && c.isCoreFunc(id.Ident) {
+				funcArgs := make([]funcArg, len(args))
+				for i, n := range args {
+					funcArgs[i] = funcArg{node: n}
+				}
+				expr, _, err := cf.convert(c, funcArgs)
+				if err != nil {
+					return "", fmt.Errorf("%s: %w", id.Ident, err)
+				}
+				return fmt.Sprintf("(_nonzero & {#arg: %s, _})", expr), nil
+			}
 			return "", fmt.Errorf("unsupported condition function: %s", id.Ident)
 		}
 	}

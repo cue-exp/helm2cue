@@ -328,7 +328,6 @@ is a good stress test).
 
 ### Sprig functions not yet converted
 
-- **`omit`** — return a dict with specified keys removed
 - **`mustRegexReplaceAllLiteral`** — literal (non-regex) variant of
   `regexReplaceAll`
 - **Crypto**: `derivePassword`, `genCA` (runtime crypto operations)

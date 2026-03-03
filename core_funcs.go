@@ -71,6 +71,7 @@ func init() {
 		"merge":          {nargs: -1, convert: convertMergeUnsupported("merge")},
 		"mergeOverwrite": {nargs: -1, convert: convertMergeUnsupported("mergeOverwrite")},
 		"dig":            {nargs: -1, convert: convertDig},
+		"omit":           {nargs: -1, convert: convertOmit},
 	}
 }
 
@@ -591,6 +592,44 @@ func convertDig(c *converter, args []funcArg) (string, string, error) {
 	c.usedHelpers["_dig"] = HelperDef{Name: "_dig", Def: digDef}
 	expr := fmt.Sprintf("(_dig & {#path: %s, #default: %s, #arg: %s}).res",
 		pathList, defaultExpr, mapExpr)
+	return expr, helmObj, nil
+}
+
+func convertOmit(c *converter, args []funcArg) (string, string, error) {
+	if len(args) < 2 {
+		return "", "", fmt.Errorf("omit requires at least 2 arguments, got %d", len(args))
+	}
+	// First arg is the map, remaining are keys to omit.
+	mapArg := args[0]
+	keyArgs := args[1:]
+
+	mapExpr, helmObj, err := c.resolveExpr(mapArg)
+	if err != nil {
+		return "", "", fmt.Errorf("omit map argument: %w", err)
+	}
+	if helmObj != "" {
+		refs := c.fieldRefs[helmObj]
+		if len(refs) > 0 {
+			c.trackNonScalarRef(helmObj, refs[len(refs)-1])
+		}
+	}
+
+	var keyParts []string
+	for _, ka := range keyArgs {
+		keyExpr, err := c.resolveLiteral(ka)
+		if err != nil {
+			return "", "", fmt.Errorf("omit key argument: %w", err)
+		}
+		keyParts = append(keyParts, keyExpr)
+	}
+	keyList := "[" + strings.Join(keyParts, ", ") + "]"
+
+	c.addImport("list")
+	c.usedHelpers["_omit"] = HelperDef{
+		Name: "_omit", Def: omitDef, Imports: []string{"list"},
+	}
+	expr := fmt.Sprintf("(_omit & {#arg: %s, #omit: %s})",
+		mapExpr, keyList)
 	return expr, helmObj, nil
 }
 
