@@ -3094,6 +3094,13 @@ func (c *converter) collectInlineSuffix() ([]string, int, error) {
 			}
 			parts = append(parts, inlineExpr(cueName))
 			consumed++
+		case *parse.RangeNode:
+			joinExpr, err := c.rangeToInlineExpr(t)
+			if err != nil {
+				return nil, 0, err
+			}
+			parts = append(parts, inlineExpr(joinExpr))
+			consumed++
 		default:
 			return parts, consumed, nil
 		}
@@ -3217,27 +3224,16 @@ func (c *converter) processInlineIf(n *parse.IfNode) error {
 // processInlineRange handles a RangeNode encountered while inline mode is
 // active. It emits a strings.Join comprehension that keeps the range output
 // within the enclosing string value.
-func (c *converter) processInlineRange(n *parse.RangeNode) error {
-	// Save current inline state.
-	prefix := c.inlineParts
-	suffix := c.inlineSuffix
-	c.inlineParts = nil
-	c.inlineSuffix = ""
-
-	// Flush any pending action into prefix.
-	if c.pendingActionExpr != "" {
-		prefix = append(prefix, inlineExpr(c.pendingActionExpr))
-		c.pendingActionExpr = ""
-		c.pendingActionComment = ""
-	}
-
+// rangeToInlineExpr converts a RangeNode into a strings.Join CUE expression
+// suitable for embedding in a string interpolation.
+func (c *converter) rangeToInlineExpr(n *parse.RangeNode) (string, error) {
 	// Resolve range expression.
 	saved := c.suppressRequired
 	c.suppressRequired = true
 	overExpr, helmObj, fieldPath, err := c.pipeToFieldExpr(n.Pipe)
 	c.suppressRequired = saved
 	if err != nil {
-		return fmt.Errorf("inline range: %w", err)
+		return "", fmt.Errorf("inline range: %w", err)
 	}
 	if helmObj != "" {
 		c.usedContextObjects[helmObj] = true
@@ -3275,7 +3271,7 @@ func (c *converter) processInlineRange(n *parse.RangeNode) error {
 	}
 
 	if err != nil {
-		return err
+		return "", err
 	}
 	bodyStr := strings.Join(bodyParts, "")
 
@@ -3285,10 +3281,30 @@ func (c *converter) processInlineRange(n *parse.RangeNode) error {
 	if keyName != "" {
 		keyExpr = keyName
 	}
-	joinExpr := fmt.Sprintf(
+	return fmt.Sprintf(
 		`strings.Join([for %s, %s in %s {"%s"}], "")`,
 		keyExpr, valName, overExpr, bodyStr,
-	)
+	), nil
+}
+
+func (c *converter) processInlineRange(n *parse.RangeNode) error {
+	// Save current inline state.
+	prefix := c.inlineParts
+	suffix := c.inlineSuffix
+	c.inlineParts = nil
+	c.inlineSuffix = ""
+
+	// Flush any pending action into prefix.
+	if c.pendingActionExpr != "" {
+		prefix = append(prefix, inlineExpr(c.pendingActionExpr))
+		c.pendingActionExpr = ""
+		c.pendingActionComment = ""
+	}
+
+	joinExpr, err := c.rangeToInlineExpr(n)
+	if err != nil {
+		return err
+	}
 
 	// Append as interpolation to prefix.
 	prefix = append(prefix, inlineExpr(joinExpr))

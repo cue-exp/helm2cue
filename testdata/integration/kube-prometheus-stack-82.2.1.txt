@@ -62,11 +62,6 @@ warning: skipping prometheus/rules-1.14/alertmanager.rules.yaml (doc 0): illegal
 warning: skipping prometheus/rules-1.14/alertmanager.rules.yaml (doc 0): string literal not terminated
 warning: skipping prometheus/rules-1.14/alertmanager.rules.yaml (doc 0): illegal character U+005C '\'
 warning: skipping prometheus/rules-1.14/alertmanager.rules.yaml (doc 0): illegal character U+005C '\'
-warning: skipping prometheus/rules-1.14/general.rules.yaml (doc 0): expected operand, found ']'
-warning: skipping prometheus/rules-1.14/general.rules.yaml (doc 0): illegal character U+005C '\'
-warning: skipping prometheus/rules-1.14/general.rules.yaml (doc 0): string literal not terminated
-warning: skipping prometheus/rules-1.14/general.rules.yaml (doc 0): string literal not terminated
-warning: skipping prometheus/rules-1.14/general.rules.yaml (doc 0): expected '}', found 'EOF'
 warning: skipping prometheus/rules-1.14/kube-apiserver-slos.yaml (doc 0): expected operand, found ']'
 warning: skipping prometheus/rules-1.14/kube-apiserver-slos.yaml (doc 0): illegal character U+005C '\'
 warning: skipping prometheus/rules-1.14/kube-apiserver-slos.yaml (doc 0): string literal not terminated
@@ -316,9 +311,6 @@ warning: skipping prometheus/rules-1.14/kubernetes-storage.yaml (doc 0): illegal
 warning: skipping prometheus/rules-1.14/kubernetes-storage.yaml (doc 0): string literal not terminated
 warning: skipping prometheus/rules-1.14/kubernetes-storage.yaml (doc 0): illegal character U+005C '\'
 warning: skipping prometheus/rules-1.14/kubernetes-storage.yaml (doc 0): illegal character U+005C '\'
-warning: skipping prometheus/rules-1.14/kubernetes-system-apiserver.yaml (doc 0): expected operand, found ']'
-warning: skipping prometheus/rules-1.14/kubernetes-system-apiserver.yaml (doc 0): illegal character U+005C '\'
-warning: skipping prometheus/rules-1.14/kubernetes-system-apiserver.yaml (doc 0): expected '}', found 'EOF'
 warning: skipping prometheus/rules-1.14/kubernetes-system-kubelet.yaml (doc 0): expected operand, found ']'
 warning: skipping prometheus/rules-1.14/kubernetes-system-kubelet.yaml (doc 0): illegal character U+005C '\'
 warning: skipping prometheus/rules-1.14/kubernetes-system-kubelet.yaml (doc 0): string literal not terminated
@@ -358,63 +350,12 @@ warning: skipping prometheus/rules-1.14/kubernetes-system-kubelet.yaml (doc 0): 
 warning: skipping prometheus/rules-1.14/kubernetes-system-kubelet.yaml (doc 0): illegal character U+005C '\'
 warning: skipping prometheus/rules-1.14/kubernetes-system.yaml (doc 0): expected operand, found ']'
 warning: skipping prometheus/rules-1.14/kubernetes-system.yaml (doc 0): illegal character U+005C '\'
-warning: skipping prometheus/rules-1.14/kubernetes-system.yaml (doc 0): string literal not terminated
-warning: skipping prometheus/rules-1.14/kubernetes-system.yaml (doc 0): illegal character U+005C '\'
 warning: skipping prometheus/rules-1.14/kubernetes-system.yaml (doc 0): expected '}', found 'EOF'
-warning: skipping prometheus/rules-1.14/prometheus-operator.yaml (doc 0): expected operand, found ']'
-warning: skipping prometheus/rules-1.14/prometheus-operator.yaml (doc 0): illegal character U+005C '\'
-warning: skipping prometheus/rules-1.14/prometheus-operator.yaml (doc 0): illegal character U+005C '\'
-warning: skipping prometheus/rules-1.14/prometheus-operator.yaml (doc 0): illegal character U+005C '\'
-warning: skipping prometheus/rules-1.14/prometheus-operator.yaml (doc 0): illegal character U+005C '\'
-warning: skipping prometheus/rules-1.14/prometheus-operator.yaml (doc 0): string literal not terminated
-warning: skipping prometheus/rules-1.14/prometheus-operator.yaml (doc 0): illegal character U+005C '\'
-warning: skipping prometheus/rules-1.14/prometheus-operator.yaml (doc 0): illegal character U+005C '\'
-warning: skipping prometheus/rules-1.14/prometheus-operator.yaml (doc 0): illegal character U+005C '\'
-warning: skipping prometheus/rules-1.14/prometheus-operator.yaml (doc 0): illegal character U+005C '\'
-warning: skipping prometheus/rules-1.14/prometheus-operator.yaml (doc 0): illegal character U+005C '\'
-warning: skipping prometheus/rules-1.14/prometheus-operator.yaml (doc 0): illegal character U+005C '\'
-warning: skipping prometheus/rules-1.14/prometheus-operator.yaml (doc 0): illegal character U+005C '\'
-warning: skipping prometheus/rules-1.14/prometheus-operator.yaml (doc 0): string literal not terminated
-warning: skipping prometheus/rules-1.14/prometheus-operator.yaml (doc 0): illegal character U+005C '\'
-warning: skipping prometheus/rules-1.14/prometheus-operator.yaml (doc 0): illegal character U+005C '\'
-warning: skipping prometheus/rules-1.14/prometheus-operator.yaml (doc 0): illegal character U+005C '\'
-warning: skipping prometheus/rules-1.14/prometheus-operator.yaml (doc 0): illegal character U+005C '\'
-warning: skipping prometheus/rules-1.14/prometheus-operator.yaml (doc 0): string literal not terminated
-warning: skipping prometheus/rules-1.14/prometheus-operator.yaml (doc 0): illegal character U+005C '\'
-warning: skipping prometheus/rules-1.14/prometheus-operator.yaml (doc 0): illegal character U+005C '\'
-warning: skipping prometheus/rules-1.14/prometheus-operator.yaml (doc 0): illegal character U+005C '\'
-warning: skipping prometheus/rules-1.14/prometheus-operator.yaml (doc 0): illegal character U+005C '\'
-warning: skipping prometheus/rules-1.14/prometheus-operator.yaml (doc 0): illegal character U+005C '\'
-warning: skipping prometheus/rules-1.14/prometheus-operator.yaml (doc 0): illegal character U+005C '\'
-warning: skipping prometheus/rules-1.14/prometheus-operator.yaml (doc 0): illegal character U+005C '\'
-warning: skipping prometheus/rules-1.14/prometheus-operator.yaml (doc 0): string literal not terminated
-warning: skipping prometheus/rules-1.14/prometheus-operator.yaml (doc 0): illegal character U+005C '\'
-warning: skipping prometheus/rules-1.14/prometheus-operator.yaml (doc 0): illegal character U+005C '\'
-warning: skipping prometheus/rules-1.14/prometheus-operator.yaml (doc 0): illegal character U+005C '\'
-warning: skipping prometheus/rules-1.14/prometheus-operator.yaml (doc 0): illegal character U+005C '\'
-warning: skipping prometheus/rules-1.14/prometheus-operator.yaml (doc 0): illegal character U+005C '\'
-warning: skipping prometheus/rules-1.14/prometheus-operator.yaml (doc 0): illegal character U+005C '\'
-warning: skipping prometheus/rules-1.14/prometheus-operator.yaml (doc 0): illegal character U+005C '\'
-warning: skipping prometheus/rules-1.14/prometheus-operator.yaml (doc 0): string literal not terminated
-warning: skipping prometheus/rules-1.14/prometheus-operator.yaml (doc 0): illegal character U+005C '\'
-warning: skipping prometheus/rules-1.14/prometheus-operator.yaml (doc 0): illegal character U+005C '\'
-warning: skipping prometheus/rules-1.14/prometheus-operator.yaml (doc 0): illegal character U+005C '\'
-warning: skipping prometheus/rules-1.14/prometheus-operator.yaml (doc 0): illegal character U+005C '\'
-warning: skipping prometheus/rules-1.14/prometheus-operator.yaml (doc 0): string literal not terminated
-warning: skipping prometheus/rules-1.14/prometheus-operator.yaml (doc 0): illegal character U+005C '\'
-warning: skipping prometheus/rules-1.14/prometheus-operator.yaml (doc 0): illegal character U+005C '\'
-warning: skipping prometheus/rules-1.14/prometheus-operator.yaml (doc 0): illegal character U+005C '\'
-warning: skipping prometheus/rules-1.14/prometheus-operator.yaml (doc 0): illegal character U+005C '\'
-warning: skipping prometheus/rules-1.14/prometheus-operator.yaml (doc 0): string literal not terminated
-warning: skipping prometheus/rules-1.14/prometheus-operator.yaml (doc 0): illegal character U+005C '\'
-warning: skipping prometheus/rules-1.14/prometheus-operator.yaml (doc 0): illegal character U+005C '\'
-warning: skipping prometheus/rules-1.14/prometheus-operator.yaml (doc 0): illegal character U+005C '\'
-warning: skipping prometheus/rules-1.14/prometheus-operator.yaml (doc 0): illegal character U+005C '\'
 error: values.yaml does not satisfy inferred schema: #values.alertmanager.servicePerReplica: conflicting values [...{enabled?:(bool|number|string|null),...}] and {enabled:false,annotations:{},port:9093,targetPort:9093,nodePort:30904,loadBalancerSourceRanges:[],externalTrafficPolicy:"Cluster",type:"ClusterIP"} (mismatched types list and struct)
 error: values.yaml does not satisfy inferred schema: #values.alertmanager.ingressPerReplica: conflicting values [...{enabled?:(bool|number|string|null),pathType?:(bool|number|string|null),...}] and {enabled:false,ingressClassName:"",annotations:{},labels:{},hostPrefix:"",hostDomain:"",paths:[],tlsSecretName:"",tlsSecretPerReplica:{enabled:false,prefix:"alertmanager"}} (mismatched types list and struct)
 error: values.yaml does not satisfy inferred schema: #values.prometheus.servicePerReplica: conflicting values [...{enabled?:(bool|number|string|null),port!:(bool|number|string|null),...}] and {enabled:false,annotations:{},port:9090,targetPort:9090,nodePort:30091,loadBalancerSourceRanges:[],externalTrafficPolicy:"Cluster",type:"ClusterIP",ipDualStack:{enabled:false,ipFamilies:["IPv6","IPv4"],ipFamilyPolicy:"PreferDualStack"}} (mismatched types list and struct)
 error: values.yaml does not satisfy inferred schema: #values.prometheus.ingressPerReplica: conflicting values [...{enabled?:(bool|number|string|null),pathType?:(bool|number|string|null),...}] and {enabled:false,ingressClassName:"",annotations:{},labels:{},hostPrefix:"",hostDomain:"",paths:[],tlsSecretName:"",tlsSecretPerReplica:{enabled:false,prefix:"prometheus"}} (mismatched types list and struct)
-converted 155/216 templates from kube-prometheus-stack
+converted 158/216 templates from kube-prometheus-stack
 ConvertChart error: values schema validation failed
 -- cue vet --
 exit status 1
