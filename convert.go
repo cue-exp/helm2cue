@@ -5037,6 +5037,31 @@ func (c *converter) conditionPipeToExpr(pipe *parse.PipeNode) (string, error) {
 		}
 	}
 
+	// Handle FieldNode method calls like .Capabilities.APIVersions.Has "v1".
+	// The parser produces a FieldNode with the method name as the last ident
+	// element, and the method argument as cmd.Args[1].
+	if f, ok := cmd.Args[0].(*parse.FieldNode); ok && len(cmd.Args) == 2 && len(f.Ident) >= 2 {
+		lastIdent := f.Ident[len(f.Ident)-1]
+		if lastIdent == "Has" {
+			strArg, ok := cmd.Args[1].(*parse.StringNode)
+			if !ok {
+				return "", fmt.Errorf(".Has argument must be a string literal")
+			}
+			// Strip "Has" to get the list field path.
+			listIdent := f.Ident[:len(f.Ident)-1]
+			expr, helmObj := c.fieldToCUEInContext(listIdent)
+			if helmObj != "" {
+				c.usedContextObjects[helmObj] = true
+				if len(listIdent) >= 2 {
+					c.trackFieldRef(helmObj, listIdent[1:])
+					c.trackNonScalarRef(helmObj, listIdent[1:])
+				}
+			}
+			c.addImport("list")
+			return fmt.Sprintf("list.Contains(%s, %s)", expr, strconv.Quote(strArg.Text)), nil
+		}
+	}
+
 	if len(cmd.Args) == 1 {
 		return c.conditionNodeToExpr(cmd.Args[0])
 	}

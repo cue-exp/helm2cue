@@ -1,16 +1,19 @@
 -- ConvertChart --
-warning: skipping prometheus-operator/verticalpodautoscaler.yaml (doc 0): top-level if condition: unsupported condition: .Capabilities.APIVersions.Has "autoscaling.k8s.io/v1"
 error: values.yaml does not satisfy inferred schema: #values.alertmanager.servicePerReplica: conflicting values [...{enabled?:(bool|number|string|null),...}] and {enabled:false,annotations:{},port:9093,targetPort:9093,nodePort:30904,loadBalancerSourceRanges:[],externalTrafficPolicy:"Cluster",type:"ClusterIP"} (mismatched types list and struct)
 error: values.yaml does not satisfy inferred schema: #values.alertmanager.ingressPerReplica: conflicting values [...{enabled?:(bool|number|string|null),pathType?:(bool|number|string|null),...}] and {enabled:false,ingressClassName:"",annotations:{},labels:{},hostPrefix:"",hostDomain:"",paths:[],tlsSecretName:"",tlsSecretPerReplica:{enabled:false,prefix:"alertmanager"}} (mismatched types list and struct)
 error: values.yaml does not satisfy inferred schema: #values.prometheus.servicePerReplica: conflicting values [...{enabled?:(bool|number|string|null),port!:(bool|number|string|null),...}] and {enabled:false,annotations:{},port:9090,targetPort:9090,nodePort:30091,loadBalancerSourceRanges:[],externalTrafficPolicy:"Cluster",type:"ClusterIP",ipDualStack:{enabled:false,ipFamilies:["IPv6","IPv4"],ipFamilyPolicy:"PreferDualStack"}} (mismatched types list and struct)
 error: values.yaml does not satisfy inferred schema: #values.prometheus.ingressPerReplica: conflicting values [...{enabled?:(bool|number|string|null),pathType?:(bool|number|string|null),...}] and {enabled:false,ingressClassName:"",annotations:{},labels:{},hostPrefix:"",hostDomain:"",paths:[],tlsSecretName:"",tlsSecretPerReplica:{enabled:false,prefix:"prometheus"}} (mismatched types list and struct)
-converted 170/216 templates from kube-prometheus-stack
+converted 171/216 templates from kube-prometheus-stack
 ConvertChart error: values schema validation failed
 -- cue vet --
 exit status 1
 prometheus_operator_deployment.spec.template.spec.containers.args.#in: reference "_range1" not found:
     ./prometheus_operator_deployment.cue:88:91
+imported and not used: "list":
+    ./prometheus_rules_1_14_kubernetes_system_kubelet.cue:6:2
 -- cue export --
 exit status 1
 prometheus_operator_deployment.spec.template.spec.containers.args.#in: reference "_range1" not found:
     ./prometheus_operator_deployment.cue:88:91
+imported and not used: "list":
+    ./prometheus_rules_1_14_kubernetes_system_kubelet.cue:6:2
