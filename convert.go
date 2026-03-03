@@ -147,6 +147,37 @@ const typeofDef = `_typeof: {
 }
 `
 
+// digDef is the CUE definition for nested map traversal with a default,
+// matching Sprig's dig function.
+const digDef = `_dig: {
+	#path!:    _
+	#default!: _
+	#arg?:     _
+
+	_prep: [if #arg != _|_ for i, v in #path {
+		if i == 0 {
+			#arg[v]
+		}
+		if i > 0 {
+			if _prep[i-1][v] != _|_ {
+				_prep[i-1][v]
+			}
+			if _prep[i-1][v] == _|_ && i == len(#path)-1 {
+				#default
+			}
+		}
+	}]
+
+	res: [
+		if len(#path) > 0 && len(#path) == len(_prep) if _prep[len(#path)-1] != _|_ {
+			_prep[len(#path)-1]
+		},
+
+		#default,
+	][0]
+}
+`
+
 var identRe = regexp.MustCompile(`^[a-zA-Z_$][a-zA-Z0-9_$]*$`)
 
 var sharedCueCtx = cuecontext.New()

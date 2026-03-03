@@ -8,5 +8,41 @@ customRules:
 result: {{ dig "key1" "key2" "notfound" .Values.customRules }}
 -- helm_output.yaml --
 result: foundValue
--- broken --
-unsupported template action
+-- output.cue --
+#values: {
+	customRules!: _
+	...
+}
+
+output: [
+	{
+		result: (_dig & {#path: ["key1", "key2"], #default: "notfound", #arg: #values.customRules}).res
+	},
+]
+_dig: {
+	#path!:    _
+	#default!: _
+	#arg?:     _
+
+	_prep: [if #arg != _|_ for i, v in #path {
+		if i == 0 {
+			#arg[v]
+		}
+		if i > 0 {
+			if _prep[i-1][v] != _|_ {
+				_prep[i-1][v]
+			}
+			if _prep[i-1][v] == _|_ && i == len(#path)-1 {
+				#default
+			}
+		}
+	}]
+
+	res: [
+		if len(#path) > 0 && len(#path) == len(_prep) if _prep[len(#path)-1] != _|_ {
+			_prep[len(#path)-1]
+		},
+
+		#default,
+	][0]
+}
