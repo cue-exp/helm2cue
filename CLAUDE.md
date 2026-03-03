@@ -29,6 +29,9 @@ cue export [flags] .
 helm pull <chart> --version <ver> --untar --untardir tmp/<dir>
 helm repo add <name> <url>
 helm template <release> <chart>
+gh api repos/cue-exp/helm2cue/issues/<N> [--jq <expr>]
+gh api repos/cue-exp/helm2cue/issues/<N>/comments [--jq <expr>]
+gh issue create <flags>
 git status
 git diff
 git log
@@ -89,6 +92,12 @@ deprecation error. Use `gh api` instead:
     gh api repos/cue-exp/helm2cue/issues/N --jq '.body'
     gh api repos/cue-exp/helm2cue/issues/N --jq '.title'
 
+**When investigating an issue**, always read the issue body **and all
+comments**. Follow-up comments often contain important clarifications,
+suggestions, or revised reproducers:
+
+    gh api repos/cue-exp/helm2cue/issues/N/comments --jq '.[].body'
+
 For the "helm2cue version" field in bug reports, build a binary first so that
 VCS metadata is included (`go run` does not embed it):
 
@@ -118,6 +127,9 @@ Follow the conventions of existing CLI tests:
 Follow these steps when working on a bug, whether reported in a GitHub issue
 or discovered in integration tests:
 
+0. **Read the full issue.** Read the issue body **and all comments** before
+   starting work. Follow-up comments often contain refined reproducers,
+   implementation suggestions, or scope changes from the reporter.
 1. **Reproduce at the reported commit.** Check out the commit referenced in
    the report (or the commit where the integration test fails) and confirm
    the bug reproduces. This validates our understanding of the problem. If
