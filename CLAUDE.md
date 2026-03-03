@@ -100,11 +100,12 @@ reproducer that could be dropped into `testdata/cli/` as a `.txtar` file.
 Follow the conventions of existing CLI tests:
 
 - Use `stdin` + `exec helm2cue template` (or the appropriate subcommand).
-- Compare full output against a golden file with `cmp stdout want-stdout`
-  (or `cmp stderr want-stderr` for error cases). Do **not** use `stdout` /
-  `stderr` pattern assertions for non-error reproducers.
-- Include all necessary archive files (`-- input.yaml --`, `-- want-stdout --`,
-  etc.).
+- **Always** compare full output against golden files with `cmp stdout
+  stdout.golden` and `cmp stderr stderr.golden`. Do **not** use bare
+  `stdout` / `stderr` pattern assertions — golden file comparisons are
+  easier to review and catch unexpected output changes.
+- Include all necessary archive files (`-- input.yaml --`,
+  `-- stdout.golden --`, `-- stderr.golden --`, etc.).
 
 ## Bug-fix workflow
 
@@ -139,18 +140,17 @@ or discovered in integration tests:
    **Every commit must pass CI** (Gerrit reviews each commit individually),
    so the test must demonstrate the bug in a way that passes the test
    framework:
-   - **CLI tests** (`testdata/cli/`): use `! exec helm2cue chart ...`
-     to expect the failure, with a `stderr` assertion matching the
-     **specific** error message (e.g. `stderr 'unsupported condition
-     function: contains'`). Never match a generic message like
-     `'no templates converted successfully'` — it must identify the
-     specific bug being tested. Note: `helm2cue chart` only prints
-     per-template warning lines when at least one template succeeds;
-     if the chart has a single template that fails, warnings are
-     suppressed and only the generic error appears. To ensure the
-     specific error is visible on stderr, include a second trivial
-     template (e.g. `good.yaml` with plain YAML) in the test chart
-     so that conversion partially succeeds and warnings are printed.
+   - **CLI tests** (`testdata/cli/`): include a second trivial template
+     (e.g. `good.yaml` with plain YAML) so that conversion partially
+     succeeds and per-template warnings are printed. Use
+     `exec helm2cue chart ...` (not `! exec` — partial success exits
+     0) and compare stderr against a golden file with
+     `cmp stderr stderr.golden`. The golden file must contain the
+     **specific** error/warning (e.g. `expected operand`), not just
+     the summary line. Note: `helm2cue chart` only prints per-template
+     warning lines when at least one template succeeds; without
+     `good.yaml` a single failing template produces only the generic
+     `no templates converted successfully` message.
    - **Helm tests** (`testdata/`): if the converter **errors out**
      (e.g. produces invalid CUE), use `-- broken --` matching the
      error. Include `helm_output.yaml` so helm validation still runs.
@@ -165,8 +165,9 @@ or discovered in integration tests:
    in-place to reflect the correct behaviour. **Do not move or rename
    the file** between commits — keep the test at the same path so the
    diff clearly shows how expectations changed.
-   - **CLI tests**: change `! exec` to `exec`, update `stderr`
-     assertions, and add golden output comparisons (`cmp`).
+   - **CLI tests**: update `stderr.golden` to reflect the fixed
+     output and add `cmp outdir/<file>.cue expected/<file>.cue`
+     for the converted template.
    - **Helm tests**: remove `-- broken --` and replace with an empty
      `-- output.cue --` section, then run `go test -run <test> -update`
      to auto-populate the correct output. (The `-update` flag only works
