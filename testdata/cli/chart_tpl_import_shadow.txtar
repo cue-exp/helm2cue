@@ -6,6 +6,11 @@ exec helm2cue chart chartdir outdir
 cmp stderr stderr.golden
 cmp outdir/deployment.cue expected/deployment.cue
 
+# cue vet must pass — before the fix it reported
+# "imported and not used: text/template".
+cd outdir
+exec cue vet -c=false .
+
 -- chartdir/Chart.yaml --
 apiVersion: v2
 name: test-app
@@ -31,7 +36,7 @@ package test_app
 
 import (
 	"encoding/yaml"
-	"text/template"
+	text_template "text/template"
 )
 
 deployment: [{
@@ -45,7 +50,7 @@ deployment: [{
 			spec: {
 				volumes: [
 					{
-						name: "\(yaml.Unmarshal(template.Execute(#values.configMapName, _tplContext)))"
+						name: "\(yaml.Unmarshal(text_template.Execute(#values.configMapName, _tplContext)))"
 					},
 				]
 			}
