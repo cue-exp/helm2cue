@@ -1,0 +1,14 @@
+omit function: return a dict with specified keys removed.
+
+-- values.yaml --
+pdb:
+  enabled: true
+  minAvailable: 1
+-- input.yaml --
+spec:
+{{- toYaml (omit .Values.pdb "enabled") | nindent 2 }}
+-- helm_output.yaml --
+spec:
+  minAvailable: 1
+-- broken --
+unsupported pipe node
