@@ -1,0 +1,29 @@
+# .Capabilities.APIVersions.Has should be supported in conditions.
+# https://github.com/cue-exp/helm2cue/issues/39
+
+exec helm2cue chart chartdir outdir
+cmp stderr stderr.golden
+
+-- chartdir/Chart.yaml --
+apiVersion: v2
+name: test-app
+version: 0.1.0
+-- chartdir/values.yaml --
+name: test
+-- chartdir/templates/test.yaml --
+{{- if .Capabilities.APIVersions.Has "autoscaling.k8s.io/v1" }}
+apiVersion: autoscaling.k8s.io/v1
+kind: VerticalPodAutoscaler
+metadata:
+  name: test
+{{- end }}
+-- chartdir/templates/good.yaml --
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: good
+data:
+  key: value
+-- stderr.golden --
+warning: skipping test.yaml (doc 0): top-level if condition: unsupported condition: .Capabilities.APIVersions.Has "autoscaling.k8s.io/v1"
+converted 1/2 templates from test-app
