@@ -13,6 +13,12 @@ warning: skipping deployment.yaml (doc 0): string literal not terminated
 warning: skipping deployment.yaml (doc 0): string literal not terminated
 warning: skipping deployment.yaml (doc 0): string literal not terminated
 warning: skipping deployment.yaml (doc 0): string literal not terminated
+warning: skipping deployment.yaml (doc 0): string literal not terminated
+warning: skipping deployment.yaml (doc 0): string literal not terminated
+warning: skipping deployment.yaml (doc 0): string literal not terminated
+warning: skipping deployment.yaml (doc 0): string literal not terminated
+warning: skipping deployment.yaml (doc 0): string literal not terminated
+warning: skipping deployment.yaml (doc 0): string literal not terminated
 warning: skipping ingress-tls-secret.yaml (doc 1): unsupported template action: {{$ca := genCA "nginx-ca" 365}}
 warning: skipping tls-secret.yaml (doc 0): unsupported template action: {{$ca := genCA "nginx-ca" 365}}
 converted 13/20 templates from nginx
