@@ -1765,7 +1765,7 @@ func (c *converter) emitTextNode(text []byte) {
 	// Also consider inline-safe IfNodes (if/else with text-only branches).
 	textEndsNoNewline := len(s) > 0 && s[len(s)-1] != '\n'
 	nextIsInlineOrIf := c.nextNodeIsInline ||
-		(textEndsNoNewline && len(c.remainingNodes) > 0 && isInlineNodeOrIf(c.remainingNodes[0]))
+		(textEndsNoNewline && len(c.remainingNodes) > 0 && isInlineNodeOrControl(c.remainingNodes[0]))
 	textContinuesInline := textEndsNoNewline && nextIsInlineOrIf
 	// Override: if the next node is an action with nindent/indent, it
 	// produces multi-line indented output and must not be merged into an
@@ -2460,15 +2460,18 @@ func nodeHasNindent(node parse.Node) bool {
 	return false
 }
 
-// isInlineNodeOrIf is like isInlineNode but also considers inline-safe
-// IfNodes. Used only when checking whether the next sibling can continue
-// an already-active inline accumulation.
-func isInlineNodeOrIf(node parse.Node) bool {
+// isInlineNodeOrControl is like isInlineNode but also considers inline-safe
+// IfNodes and RangeNodes. Used only when checking whether the next sibling
+// can continue an already-active inline accumulation.
+func isInlineNodeOrControl(node parse.Node) bool {
 	if isInlineNode(node) {
 		return true
 	}
 	if n, ok := node.(*parse.IfNode); ok {
 		return isInlineSafeIf(n)
+	}
+	if n, ok := node.(*parse.RangeNode); ok {
+		return isInlineSafeRange(n)
 	}
 	return false
 }
@@ -2513,6 +2516,15 @@ func isInlineSafeIf(n *parse.IfNode) bool {
 	return true
 }
 
+// isInlineSafeRange reports whether a RangeNode can be handled inline:
+// the body contains only inline-safe nodes and there is no else branch.
+func isInlineSafeRange(n *parse.RangeNode) bool {
+	if n.List == nil || !isInlineBody(n.List.Nodes) {
+		return false
+	}
+	return n.ElseList == nil || len(n.ElseList.Nodes) == 0
+}
+
 func (c *converter) processNode(node parse.Node) error {
 	switch n := node.(type) {
 	case *parse.TextNode:
@@ -2545,6 +2557,9 @@ func (c *converter) processNode(node parse.Node) error {
 		}
 		return c.processIf(n)
 	case *parse.RangeNode:
+		if c.inlineParts != nil && isInlineSafeRange(n) {
+			return c.processInlineRange(n)
+		}
 		return c.processRange(n)
 	case *parse.WithNode:
 		return c.processWith(n)
@@ -3075,6 +3090,109 @@ func (c *converter) processInlineIf(n *parse.IfNode) error {
 		writeIndent(&c.out, cueInd)
 		c.out.WriteString("}\n")
 	}
+
+	return nil
+}
+
+// processInlineRange handles a RangeNode encountered while inline mode is
+// active. It emits a strings.Join comprehension that keeps the range output
+// within the enclosing string value.
+func (c *converter) processInlineRange(n *parse.RangeNode) error {
+	// Save current inline state.
+	prefix := c.inlineParts
+	suffix := c.inlineSuffix
+	c.inlineParts = nil
+	c.inlineSuffix = ""
+
+	// Flush any pending action into prefix.
+	if c.pendingActionExpr != "" {
+		prefix = append(prefix, inlineExpr(c.pendingActionExpr))
+		c.pendingActionExpr = ""
+		c.pendingActionComment = ""
+	}
+
+	// Resolve range expression.
+	saved := c.suppressRequired
+	c.suppressRequired = true
+	overExpr, helmObj, fieldPath, err := c.pipeToFieldExpr(n.Pipe)
+	c.suppressRequired = saved
+	if err != nil {
+		return fmt.Errorf("inline range: %w", err)
+	}
+	if helmObj != "" {
+		c.usedContextObjects[helmObj] = true
+		if fieldPath != nil {
+			c.rangeRefs[helmObj] = append(c.rangeRefs[helmObj], fieldPath)
+		}
+	}
+
+	// Determine loop variable names.
+	blockIdx := len(c.rangeVarStack)
+	var keyName, valName string
+	if len(n.Pipe.Decl) == 2 {
+		keyName = fmt.Sprintf("_key%d", blockIdx)
+		valName = fmt.Sprintf("_val%d", blockIdx)
+		c.localVars[n.Pipe.Decl[0].Ident[0]] = keyName
+		c.localVars[n.Pipe.Decl[1].Ident[0]] = valName
+	} else if len(n.Pipe.Decl) == 1 {
+		valName = fmt.Sprintf("_range%d", blockIdx)
+		c.localVars[n.Pipe.Decl[0].Ident[0]] = valName
+	} else {
+		valName = fmt.Sprintf("_range%d", blockIdx)
+	}
+
+	// Push range context so branchToInlineParts resolves {{ . }} correctly.
+	ctx := rangeContext{cueExpr: valName}
+	c.rangeVarStack = append(c.rangeVarStack, ctx)
+
+	// Convert body to inline parts.
+	bodyParts, err := c.branchToInlineParts(n.List.Nodes)
+
+	// Pop range context and clean up local vars.
+	c.rangeVarStack = c.rangeVarStack[:blockIdx]
+	for _, decl := range n.Pipe.Decl {
+		delete(c.localVars, decl.Ident[0])
+	}
+
+	if err != nil {
+		return err
+	}
+	bodyStr := strings.Join(bodyParts, "")
+
+	// Build strings.Join expression.
+	c.addImport("strings")
+	keyExpr := "_"
+	if keyName != "" {
+		keyExpr = keyName
+	}
+	joinExpr := fmt.Sprintf(
+		`strings.Join([for %s, %s in %s {"%s"}], "")`,
+		keyExpr, valName, overExpr, bodyStr,
+	)
+
+	// Append as interpolation to prefix.
+	prefix = append(prefix, inlineExpr(joinExpr))
+
+	// Collect remaining suffix from sibling nodes.
+	suffixParts, consumed, err := c.collectInlineSuffix()
+	if err != nil {
+		return err
+	}
+	c.skipCount = consumed
+
+	// Emit the complete string value.
+	allParts := make([]string, 0, len(prefix)+len(suffixParts))
+	allParts = append(allParts, prefix...)
+	allParts = append(allParts, suffixParts...)
+
+	linePrefix := c.out.String()[c.inlineStartPos:]
+	c.out.Truncate(c.inlineStartPos)
+
+	cueInd := c.currentCUEIndent()
+	writeIndent(&c.out, cueInd)
+	c.out.WriteString(linePrefix)
+	c.out.WriteString(`"` + strings.Join(allParts, "") + `"` + suffix)
+	c.out.WriteByte('\n')
 
 	return nil
 }
