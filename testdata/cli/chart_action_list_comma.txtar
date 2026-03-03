@@ -1,0 +1,32 @@
+# Action nodes inside a block scalar list item should produce
+# valid CUE with trailing commas.
+# https://github.com/cue-exp/helm2cue/issues/67
+exec helm2cue chart chartdir outdir
+cmp stderr stderr.golden
+
+-- chartdir/Chart.yaml --
+apiVersion: v2
+name: test-app
+version: 0.1.0
+-- chartdir/values.yaml --
+branch: main
+interval: 60
+-- chartdir/templates/test.yaml --
+command:
+  - /bin/bash
+  - -ec
+  - |
+    pull origin {{ .Values.branch }}
+    sleep {{ .Values.interval }}
+-- chartdir/templates/good.yaml --
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: good
+data:
+  key: value
+-- stderr.golden --
+warning: skipping test.yaml (doc 0): missing ',' before newline in list literal
+warning: skipping test.yaml (doc 0): string literal not terminated
+warning: skipping test.yaml (doc 0): missing ',' in list literal
+converted 1/2 templates from test-app
