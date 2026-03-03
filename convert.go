@@ -3500,6 +3500,12 @@ func (c *converter) withPipeToRawExpr(pipe *parse.PipeNode) (string, error) {
 	c.suppressRequired = true
 	defer func() { c.suppressRequired = saved }()
 	switch a := cmd.Args[0].(type) {
+	case *parse.PipeNode:
+		expr, _, err := c.convertSubPipe(a)
+		if err != nil {
+			return "", fmt.Errorf("with: %w", err)
+		}
+		return expr, nil
 	case *parse.FieldNode:
 		expr, _ := c.fieldToCUEInContext(a.Ident)
 		return expr, nil
