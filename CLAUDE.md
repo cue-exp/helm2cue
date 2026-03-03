@@ -145,33 +145,43 @@ or discovered in integration tests:
      succeeds and per-template warnings are printed. Use
      `exec helm2cue chart ...` (not `! exec` — partial success exits
      0) and compare stderr against a golden file with
-     `cmp stderr stderr.golden`. The golden file must contain the
-     **specific** error/warning (e.g. `expected operand`), not just
-     the summary line. Note: `helm2cue chart` only prints per-template
-     warning lines when at least one template succeeds; without
-     `good.yaml` a single failing template produces only the generic
-     `no templates converted successfully` message.
+     `cmp stderr stderr.golden`. Write the test commands and empty
+     golden sections (`-- stderr.golden --`, etc.), then run
+     `go test -run TestCLI/<test> -update` to populate them. The
+     golden file must contain the **specific** error/warning (e.g.
+     `expected operand`), not just the summary line — verify this
+     after `-update` populates it. Note: `helm2cue chart` only prints
+     per-template warning lines when at least one template succeeds;
+     without `good.yaml` a single failing template produces only the
+     generic `no templates converted successfully` message.
    - **Helm tests** (`testdata/`): if the converter **errors out**
      (e.g. produces invalid CUE), use `-- broken --` matching the
      error. Include `helm_output.yaml` so helm validation still runs.
      This keeps the test in the verified directory from the start.
    - **Noverify tests** (`testdata/noverify/`): use `-- error --`
      matching the error (when helm comparison is also not possible).
-   - If the converter **succeeds but produces wrong output**, put the
-     current (wrong) output in `-- output.cue --`.
+   - If the converter **succeeds but produces wrong output**, add an
+     empty `-- output.cue --` section and run
+     `go test -run <test> -update` to populate it with the current
+     (wrong) output.
 5. **Fix the bug.** With the reproduction test in hand the scope is clear —
    make the minimal code change that fixes the issue.
-6. **Update the test in the same file.** Edit the reproduction test
-   in-place to reflect the correct behaviour. **Do not move or rename
-   the file** between commits — keep the test at the same path so the
-   diff clearly shows how expectations changed.
-   - **CLI tests**: update `stderr.golden` to reflect the fixed
-     output and add `cmp outdir/<file>.cue expected/<file>.cue`
-     for the converted template.
+6. **Update the test in the same file.** Use `-update` to refresh
+   expected output — do not manually edit golden files or
+   `-- output.cue --` sections. **Do not move or rename the file**
+   between commits — keep the test at the same path so the diff
+   clearly shows how expectations changed.
+   - **CLI tests**: add `cmp outdir/<file>.cue expected/<file>.cue`
+     for the converted template (with an empty
+     `-- expected/<file>.cue --` section), then run
+     `go test -run TestCLI/<test> -update` to populate all golden
+     files (`stderr.golden`, `expected/`, etc.).
    - **Helm tests**: remove `-- broken --` and replace with an empty
      `-- output.cue --` section, then run `go test -run <test> -update`
      to auto-populate the correct output. (The `-update` flag only works
      after `-- broken --` is removed, since broken tests exit early.)
+   - **Noverify tests**: clear `-- output.cue --` to just the section
+     header, then run `go test -run <test> -update`.
 7. **Cross-check against the original report.** Go back to the original
    reproducer (from the issue or integration test) and verify it is also
    fixed. If the original report involved the `chart` subcommand, run the
@@ -194,6 +204,35 @@ or discovered in integration tests:
 
 For integration-test failures, treat the failing integration test as the
 "report" — the same reduce-then-fix discipline applies.
+
+## Populating test expected output with `-update`
+
+All test types support `go test -run <pattern> -update` to auto-populate
+expected output. **Never manually edit golden files or `output.cue`
+sections** — always use `-update`.
+
+How it works for each test type:
+
+- **Converter tests** (`TestConvert`, `TestConvertNoVerify`, `TestConvertCore`):
+  write a txtar with an empty `-- output.cue --` section (just the header,
+  no content), then run `go test -run <TestFunc>/<name> -update`. The test
+  framework replaces the `output.cue` section with the converter's actual
+  output. For `-- error --` and `-- broken --` sections, write the expected
+  error substring manually (these are not auto-populated).
+- **CLI tests** (`TestCLI`): write a txtar with empty golden file sections
+  (e.g. `-- stderr.golden --` and `-- expected/test.cue --` with no
+  content), then run `go test -run TestCLI/<name> -update`. The
+  `testscript` framework captures actual output and populates the golden
+  files. The test commands (`exec`, `cmp`, etc.) must be written manually.
+- **Integration tests** (`TestConvertChartIntegration`): run
+  `go test -run TestConvertChartIntegration/<chart> -update` to regenerate
+  the `testdata/integration/<chart>-<version>.txt` golden file.
+
+Workflow summary:
+1. Write the test structure (inputs, commands, empty expected sections).
+2. Run `go test -run <pattern> -update` to populate expected output.
+3. Review the populated output to confirm it matches expectations.
+4. Commit.
 
 ## Rules
 
