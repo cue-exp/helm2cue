@@ -1,0 +1,68 @@
+Bare list items starting with a template action followed by more
+text should produce a concatenated string interpolation.
+
+-- _helpers.tpl --
+-- values.yaml --
+hostPrefix: "alertmanager"
+hostDomain: "example.com"
+tlsSecret: "my-tls"
+-- input.yaml --
+apiVersion: v1
+kind: Test
+spec:
+  rules:
+    - host: {{ .Values.hostPrefix }}-{{ .Values.hostDomain }}
+      http:
+        paths:
+          - path: /
+  tls:
+    - hosts:
+        - {{ .Values.hostPrefix }}-{{ .Values.hostDomain }}
+      secretName: {{ .Values.tlsSecret }}
+-- helm_output.yaml --
+apiVersion: v1
+kind: Test
+spec:
+  rules:
+    - host: alertmanager-example.com
+      http:
+        paths:
+          - path: /
+  tls:
+    - hosts:
+        - alertmanager-example.com
+      secretName: my-tls
+-- output.cue --
+#values: {
+	hostPrefix!: bool | number | string | null
+	hostDomain!: bool | number | string | null
+	tlsSecret!:  bool | number | string | null
+	...
+}
+
+output: [
+	{
+		apiVersion: "v1"
+		kind:       "Test"
+		spec: {
+			rules: [
+				{
+					host: "\(#values.hostPrefix)-\(#values.hostDomain)"
+					http: paths: [
+						{
+							path: "/"
+						},
+					]
+				},
+			]
+			tls: [
+				{
+					hosts: [
+						"\(#values.hostPrefix)-\(#values.hostDomain)",
+					]
+					secretName: #values.tlsSecret
+				},
+			]
+		}
+	},
+]

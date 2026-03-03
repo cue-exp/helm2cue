@@ -315,6 +315,12 @@ type converter struct {
 	pendingActionCUEInd  int // CUE indent when the action was deferred
 	nextActionYamlIndent int // YAML indent hint from trailing whitespace line
 
+	// Deferred list item: bare "- " followed by an action, waiting
+	// to see if more content follows on the same line.
+	pendingListItemExpr    string
+	pendingListItemComment string
+	pendingListItemCUEInd  int
+
 	// Inline interpolation state: when text and actions are interleaved
 	// on a single YAML line, accumulate fragments for CUE string
 	// interpolation (e.g. "- --{{ $key }}={{ $value }}" → "--\(_key0)=\(_val0)").
@@ -1442,8 +1448,29 @@ func (c *converter) closeOneFrame() {
 	}
 }
 
+// flushPendingListItem emits any deferred list item action as a standalone list element.
+func (c *converter) flushPendingListItem() {
+	if c.pendingListItemExpr == "" {
+		return
+	}
+	expr := c.pendingListItemExpr
+	comment := c.pendingListItemComment
+	cueInd := c.pendingListItemCUEInd
+	c.pendingListItemExpr = ""
+	c.pendingListItemComment = ""
+
+	writeIndent(&c.out, cueInd)
+	c.out.WriteString(expr)
+	c.out.WriteByte(',')
+	if comment != "" {
+		fmt.Fprintf(&c.out, " %s", comment)
+	}
+	c.out.WriteByte('\n')
+}
+
 // flushPendingAction emits any deferred action expression as a standalone expression.
 func (c *converter) flushPendingAction() {
+	c.flushPendingListItem()
 	if c.pendingActionExpr == "" {
 		return
 	}
@@ -1688,6 +1715,24 @@ func (c *converter) emitTextNode(text []byte) {
 	s := string(text)
 	if s == "" {
 		return
+	}
+
+	// Check if text starts as a continuation of a deferred list item action.
+	// This handles "- {{ action }}suffix" patterns where the suffix
+	// text is part of the same list element value.
+	if c.pendingListItemExpr != "" {
+		if s[0] != '\n' {
+			// Text continues on the same line — start inline accumulation.
+			c.inlineStartPos = c.out.Len()
+			writeIndent(&c.out, c.pendingListItemCUEInd)
+			c.inlineParts = []string{inlineExpr(c.pendingListItemExpr)}
+			c.inlineSuffix = ","
+			c.pendingListItemExpr = ""
+			c.pendingListItemComment = ""
+			// Fall through to inline handler below.
+		} else {
+			c.flushPendingListItem()
+		}
 	}
 
 	// Check if text starts as a continuation of a deferred key-value.
@@ -2681,21 +2726,30 @@ func (c *converter) emitActionExpr(expr string, comment string) {
 		return
 	}
 
+	// If a list item action is pending and another action follows,
+	// the item is a concatenation — start inline accumulation.
+	if c.pendingListItemExpr != "" {
+		c.inlineStartPos = c.out.Len()
+		writeIndent(&c.out, c.pendingListItemCUEInd)
+		c.inlineParts = []string{inlineExpr(c.pendingListItemExpr)}
+		c.inlineSuffix = ","
+		c.pendingListItemExpr = ""
+		c.pendingListItemComment = ""
+		// Append current action to inline parts and return.
+		c.inlineParts = append(c.inlineParts, inlineExpr(expr))
+		return
+	}
+
 	// Flush any previously deferred action and key-value.
 	c.flushPendingAction()
 	c.flushDeferred()
 
 	if c.state == statePendingKey {
 		if c.pendingKey == "" {
-			// Pending list item ("- " was seen). Emit as list item.
-			cueInd := c.currentCUEIndent()
-			writeIndent(&c.out, cueInd)
-			c.out.WriteString(expr)
-			c.out.WriteByte(',')
-			if comment != "" {
-				fmt.Fprintf(&c.out, " %s", comment)
-			}
-			c.out.WriteByte('\n')
+			// Defer list item — more content may follow on this line.
+			c.pendingListItemExpr = expr
+			c.pendingListItemComment = comment
+			c.pendingListItemCUEInd = c.currentCUEIndent()
 			c.state = stateNormal
 		} else {
 			// Defer the resolution — deeper content may follow.
