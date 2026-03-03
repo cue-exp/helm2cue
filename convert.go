@@ -3102,6 +3102,62 @@ func (c *converter) processIfScopeExitNodes(
 	return nil
 }
 
+// processIfMultiListItems handles an if/else whose body contains multiple
+// list items. CUE treats multiple values at the same list position inside
+// a single conditional guard as conflicting, so each item is emitted in
+// its own guard.
+func (c *converter) processIfMultiListItems(
+	n *parse.IfNode,
+	condition, negCondition string,
+	bodyIndent int,
+	cueInd int,
+) error {
+	pureTextIf := allTextNodes(n.List.Nodes)
+	pureTextElse := n.ElseList == nil || allTextNodes(n.ElseList.Nodes)
+
+	if pureTextIf && pureTextElse {
+		// Pure text bodies: split text and emit each item.
+		ifText := []byte(textContent(n.List.Nodes))
+		for _, item := range splitListItems(ifText, bodyIndent) {
+			if err := c.emitConditionalBlock(cueInd, condition, bodyIndent, true, item); err != nil {
+				return err
+			}
+		}
+		if n.ElseList != nil && len(n.ElseList.Nodes) > 0 {
+			elseText := []byte(textContent(n.ElseList.Nodes))
+			elseBI := peekTextIndent(elseText)
+			if elseBI < 0 {
+				elseBI = bodyIndent
+			}
+			for _, item := range splitListItems(elseText, elseBI) {
+				if err := c.emitConditionalBlock(cueInd, negCondition, elseBI, true, item); err != nil {
+					return err
+				}
+			}
+		}
+		return nil
+	}
+
+	// Mixed bodies: split nodes and emit each item group.
+	for _, itemNodes := range splitListItemNodes(n.List.Nodes, bodyIndent) {
+		if err := c.emitConditionalBlockNodes(cueInd, condition, bodyIndent, true, itemNodes); err != nil {
+			return err
+		}
+	}
+	if n.ElseList != nil && len(n.ElseList.Nodes) > 0 {
+		elseBI := peekBodyIndent(n.ElseList.Nodes)
+		if elseBI < 0 {
+			elseBI = bodyIndent
+		}
+		for _, itemNodes := range splitListItemNodes(n.ElseList.Nodes, elseBI) {
+			if err := c.emitConditionalBlockNodes(cueInd, negCondition, elseBI, true, itemNodes); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
 // collectInlineSuffix scans remaining sibling nodes to collect text/action
 // parts that follow an inline IfNode on the same YAML line (up to the first
 // newline or non-inline node). Returns the collected parts and how many
@@ -3446,6 +3502,14 @@ func (c *converter) processIf(n *parse.IfNode) error {
 	if inList && isList && bodyIndent >= 0 &&
 		bodyExitsScope(n.List.Nodes, bodyIndent) {
 		return c.processIfScopeExit(n, condition, negCondition, bodyIndent, cueInd)
+	}
+
+	// Detect conditional body with multiple list items.
+	// CUE treats multiple values at the same list position inside a single
+	// conditional guard as conflicting. Split each item into its own guard.
+	if inList && isList && bodyIndent >= 0 &&
+		countTopListItems(n.List.Nodes, bodyIndent) > 1 {
+		return c.processIfMultiListItems(n, condition, negCondition, bodyIndent, cueInd)
 	}
 
 	// Detect conditional list item with continuation fields after {{end}}.
@@ -4232,6 +4296,91 @@ func splitListItems(text []byte, listIndent int) [][]byte {
 		items = append(items, bytes.Join(current, []byte("\n")))
 	}
 	return items
+}
+
+// splitListItemNodes splits a node list into per-list-item groups by
+// finding "- " boundaries at listIndent in the concatenated text content,
+// then walking through nodes and splitting TextNodes at those byte offsets.
+func splitListItemNodes(nodes []parse.Node, listIndent int) [][]parse.Node {
+	textBytes := []byte(textContent(nodes))
+
+	// Find byte offsets of each list item start (skip the first).
+	var splitOffsets []int
+	offset := 0
+	first := true
+	for _, line := range bytes.Split(textBytes, []byte("\n")) {
+		trimmed := bytes.TrimSpace(line)
+		if len(trimmed) > 0 {
+			indent := len(line) - len(bytes.TrimLeft(line, " "))
+			if indent == listIndent && bytes.HasPrefix(line[indent:], []byte("- ")) {
+				if first {
+					first = false
+				} else {
+					splitOffsets = append(splitOffsets, offset)
+				}
+			}
+		}
+		offset += len(line) + 1
+	}
+
+	if len(splitOffsets) == 0 {
+		return [][]parse.Node{nodes}
+	}
+
+	// Single pass through nodes, splitting at each offset.
+	result := make([][]parse.Node, 0, len(splitOffsets)+1)
+	var current []parse.Node
+	textPos := 0
+	splitIdx := 0
+
+	for _, node := range nodes {
+		tn, ok := node.(*parse.TextNode)
+		if !ok {
+			current = append(current, node)
+			continue
+		}
+
+		// Process this TextNode, potentially splitting it at multiple offsets.
+		remaining := tn.Text
+		localBase := textPos
+
+		for splitIdx < len(splitOffsets) && splitOffsets[splitIdx] < textPos+len(tn.Text) {
+			splitOff := splitOffsets[splitIdx]
+			localOffset := splitOff - localBase
+
+			if localOffset > 0 {
+				pre := tn.Copy().(*parse.TextNode)
+				pre.Text = remaining[:localOffset]
+				current = append(current, pre)
+			}
+
+			result = append(result, current)
+			current = nil
+			remaining = remaining[localOffset:]
+			localBase = splitOff
+			splitIdx++
+		}
+
+		// Remaining text goes into current group.
+		if len(remaining) > 0 {
+			if localBase != textPos {
+				// Node was split; create a new TextNode for the remainder.
+				post := tn.Copy().(*parse.TextNode)
+				post.Text = remaining
+				current = append(current, post)
+			} else {
+				current = append(current, node)
+			}
+		}
+
+		textPos += len(tn.Text)
+	}
+
+	if len(current) > 0 {
+		result = append(result, current)
+	}
+
+	return result
 }
 
 // peekTextIndent returns the YAML indent of the first non-empty line

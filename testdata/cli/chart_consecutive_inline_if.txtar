@@ -59,6 +59,8 @@ test: [{
 						if !(_nonzero & {#arg: #values.x, _}) {
 							"\"a=2\""
 						}
+					},
+					if (_nonzero & {#arg: #values.tls, _}) {
 						if (_nonzero & {#arg: #values.x, _}) {
 							"\"b=3\""
 						}
