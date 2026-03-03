@@ -4082,6 +4082,15 @@ func (c *converter) conditionNodeToExpr(node parse.Node) (string, error) {
 			baseExpr += "." + cueKey(field)
 		}
 		return fmt.Sprintf("(_nonzero & {#arg: %s, _})", baseExpr), nil
+	case *parse.DotNode:
+		if len(c.rangeVarStack) > 0 {
+			expr := c.rangeVarStack[len(c.rangeVarStack)-1].cueExpr
+			return fmt.Sprintf("(_nonzero & {#arg: %s, _})", expr), nil
+		}
+		if c.config.RootExpr != "" {
+			return fmt.Sprintf("(_nonzero & {#arg: %s, _})", c.config.RootExpr), nil
+		}
+		return "", fmt.Errorf("{{ . }} outside range/with not supported")
 	case *parse.PipeNode:
 		return c.conditionPipeToExpr(n)
 	default:
@@ -4144,6 +4153,14 @@ func (c *converter) conditionNodeToRawExpr(node parse.Node) (string, error) {
 			baseExpr += "." + cueKey(field)
 		}
 		return baseExpr, nil
+	case *parse.DotNode:
+		if len(c.rangeVarStack) > 0 {
+			return c.rangeVarStack[len(c.rangeVarStack)-1].cueExpr, nil
+		}
+		if c.config.RootExpr != "" {
+			return c.config.RootExpr, nil
+		}
+		return "", fmt.Errorf("{{ . }} outside range/with not supported")
 	case *parse.PipeNode:
 		return c.conditionPipeToExpr(n)
 	default:
