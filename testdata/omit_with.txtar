@@ -1,0 +1,18 @@
+omit function inside with block: dot rebinding for parenthesized omit.
+
+-- values.yaml --
+annotations:
+  enabled: true
+  app: myapp
+-- input.yaml --
+metadata:
+{{- with (omit .Values.annotations "enabled") }}
+  annotations:
+{{- toYaml . | nindent 4 }}
+{{- end }}
+-- helm_output.yaml --
+metadata:
+  annotations:
+    app: myapp
+-- broken --
+unsupported expression for dot rebinding
