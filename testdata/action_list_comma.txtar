@@ -1,0 +1,40 @@
+Action nodes inside a block scalar list item should produce
+a single CUE multi-line string with inline interpolations.
+
+-- input.yaml --
+command:
+  - /bin/bash
+  - -ec
+  - |
+    pull origin {{ .Values.branch }}
+    sleep {{ .Values.interval }}
+-- values.yaml --
+branch: main
+interval: 60
+-- helm_output.yaml --
+command:
+  - /bin/bash
+  - -ec
+  - |
+    pull origin main
+    sleep 60
+-- output.cue --
+#values: {
+	branch!:   bool | number | string | null
+	interval!: bool | number | string | null
+	...
+}
+
+output: [
+	{
+		command: [
+			"/bin/bash",
+			"-ec",
+			"""
+				pull origin \(#values.branch)
+				sleep \(#values.interval)
+				
+				""",
+		]
+	},
+]

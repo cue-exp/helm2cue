@@ -334,11 +334,12 @@ type converter struct {
 	flowSuffix string   // appended after CUE result (",\n" or "\n")
 
 	// Block scalar accumulation state (for "- |" etc. in list items).
-	blockScalarLines      []string // non-nil when accumulating block scalar content
-	blockScalarBaseIndent int      // YAML indent of content lines (-1 until first content line)
-	blockScalarCUEInd     int      // CUE indent for emission
-	blockScalarFolded     bool     // true for > and >- (fold newlines to spaces)
-	blockScalarStrip      bool     // true for |- and >- (strip trailing newline)
+	blockScalarLines       []string // non-nil when accumulating block scalar content
+	blockScalarBaseIndent  int      // YAML indent of content lines (-1 until first content line)
+	blockScalarCUEInd      int      // CUE indent for emission
+	blockScalarFolded      bool     // true for > and >- (fold newlines to spaces)
+	blockScalarStrip       bool     // true for |- and >- (strip trailing newline)
+	blockScalarPartialLine bool     // last block scalar line is incomplete (action mid-line)
 
 	stripListDash bool // strip "- " prefix from next list item line
 
@@ -1454,6 +1455,9 @@ func (c *converter) flushPendingAction() {
 
 	writeIndent(&c.out, cueInd)
 	c.out.WriteString(expr)
+	if len(c.stack) > 0 && c.stack[len(c.stack)-1].isList {
+		c.out.WriteByte(',')
+	}
 	if comment != "" {
 		fmt.Fprintf(&c.out, " %s", comment)
 	}
@@ -1609,6 +1613,7 @@ func (c *converter) finalizeBlockScalar() {
 	}
 	lines := c.blockScalarLines
 	c.blockScalarLines = nil
+	c.blockScalarPartialLine = false
 
 	// Trim trailing empty lines.
 	for len(lines) > 0 && lines[len(lines)-1] == "" {
@@ -1782,6 +1787,19 @@ func (c *converter) emitTextNode(text []byte) {
 		// Block scalar accumulation: collect indented lines for the
 		// multi-line string started by "- |" etc.
 		if c.blockScalarLines != nil {
+			if c.blockScalarPartialLine {
+				c.blockScalarPartialLine = false
+				if rawLine == "" {
+					// \n terminating the partial line — not an empty content line.
+					continue
+				}
+				// Text continues on the same line as the action.
+				if len(c.blockScalarLines) > 0 {
+					last := len(c.blockScalarLines) - 1
+					c.blockScalarLines[last] += rawLine
+				}
+				continue
+			}
 			trimLine := strings.TrimSpace(rawLine)
 			if c.blockScalarBaseIndent < 0 {
 				// Haven't seen first content line yet.
@@ -1949,6 +1967,9 @@ func (c *converter) emitTextNode(text []byte) {
 			c.inlineStartPos = c.out.Len()
 			writeIndent(&c.out, cueInd)
 			c.inlineParts = []string{escapeCUEString(trimmed)}
+			if len(c.stack) > 0 && c.stack[len(c.stack)-1].isList {
+				c.inlineSuffix = ","
+			}
 		} else {
 			// Bare value or embedded expression.
 			writeIndent(&c.out, cueInd)
@@ -1957,7 +1978,12 @@ func (c *converter) emitTextNode(text []byte) {
 	}
 
 	// Finalize any block scalar that runs to end of text.
-	c.finalizeBlockScalar()
+	// If text ends mid-line, the block scalar continues into the next node.
+	if c.blockScalarLines != nil && len(s) > 0 && s[len(s)-1] != '\n' {
+		// Text ends mid-line — block scalar continues into next node.
+	} else {
+		c.finalizeBlockScalar()
+	}
 }
 
 // openPendingAsList resolves a pending key as a list block.
@@ -2092,6 +2118,7 @@ func (c *converter) processListItem(trimmed string, yamlIndent, cueInd int, isLa
 		c.blockScalarCUEInd = cueInd
 		c.blockScalarFolded = tc[0] == '>'
 		c.blockScalarStrip = strings.HasSuffix(tc, "-")
+		c.blockScalarPartialLine = false
 	} else if continuesInline {
 		// Scalar list item continues into next AST node — start inline.
 		c.inlineStartPos = c.out.Len()
@@ -2642,6 +2669,18 @@ func (c *converter) emitActionExpr(expr string, comment string) {
 		return
 	}
 
+	// If block scalar accumulation is active, embed as interpolation.
+	if c.blockScalarLines != nil {
+		if len(c.blockScalarLines) > 0 {
+			last := len(c.blockScalarLines) - 1
+			c.blockScalarLines[last] += inlineExpr(expr)
+		} else {
+			c.blockScalarLines = append(c.blockScalarLines, inlineExpr(expr))
+		}
+		c.blockScalarPartialLine = true
+		return
+	}
+
 	// Flush any previously deferred action and key-value.
 	c.flushPendingAction()
 	c.flushDeferred()
@@ -2732,7 +2771,11 @@ func (c *converter) emitConditionalBlock(cueInd int, condition string, bodyInden
 	c.state = savedState
 
 	writeIndent(&c.out, cueInd)
-	c.out.WriteString("}\n")
+	if len(c.stack) > 0 && c.stack[len(c.stack)-1].isList {
+		c.out.WriteString("},\n")
+	} else {
+		c.out.WriteString("}\n")
+	}
 	return nil
 }
 
@@ -2789,7 +2832,11 @@ func (c *converter) emitConditionalBlockNodes(cueInd int, condition string, body
 	c.state = savedState
 
 	writeIndent(&c.out, cueInd)
-	c.out.WriteString("}\n")
+	if len(c.stack) > 0 && c.stack[len(c.stack)-1].isList {
+		c.out.WriteString("},\n")
+	} else {
+		c.out.WriteString("}\n")
+	}
 	return nil
 }
 
@@ -3345,7 +3392,11 @@ func (c *converter) processIf(n *parse.IfNode) error {
 	c.state = savedState
 
 	writeIndent(&c.out, cueInd)
-	c.out.WriteString("}\n")
+	if inList {
+		c.out.WriteString("},\n")
+	} else {
+		c.out.WriteString("}\n")
+	}
 
 	// Walk else/else-if chain, flattening into CUE multi-clause
 	// comprehensions: if !condA if condB { ... }.
@@ -3398,7 +3449,11 @@ func (c *converter) processIf(n *parse.IfNode) error {
 				c.state = savedState
 
 				writeIndent(&c.out, cueInd)
-				c.out.WriteString("}\n")
+				if inList {
+					c.out.WriteString("},\n")
+				} else {
+					c.out.WriteString("}\n")
+				}
 
 				negChain = append(negChain, innerNeg)
 				elseList = innerIf.ElseList
@@ -3443,7 +3498,11 @@ func (c *converter) processIf(n *parse.IfNode) error {
 		}
 
 		writeIndent(&c.out, cueInd)
-		c.out.WriteString("}\n")
+		if inList {
+			c.out.WriteString("},\n")
+		} else {
+			c.out.WriteString("}\n")
+		}
 		break
 	}
 
@@ -3556,7 +3615,11 @@ func (c *converter) processWith(n *parse.WithNode) error {
 	c.state = savedState
 
 	writeIndent(&c.out, cueInd)
-	c.out.WriteString("}\n")
+	if inList {
+		c.out.WriteString("},\n")
+	} else {
+		c.out.WriteString("}\n")
+	}
 
 	// Pop from rangeVarStack (no dot rebinding in else).
 	c.rangeVarStack = c.rangeVarStack[:len(c.rangeVarStack)-1]
@@ -3595,7 +3658,11 @@ func (c *converter) processWith(n *parse.WithNode) error {
 		}
 
 		writeIndent(&c.out, cueInd)
-		c.out.WriteString("}\n")
+		if inList {
+			c.out.WriteString("},\n")
+		} else {
+			c.out.WriteString("}\n")
+		}
 	}
 
 	// Clean up declared variable.
@@ -3869,7 +3936,11 @@ func (c *converter) processRange(n *parse.RangeNode) error {
 	c.state = savedState
 
 	writeIndent(&c.out, cueInd)
-	c.out.WriteString("}\n")
+	if inList {
+		c.out.WriteString("},\n")
+	} else {
+		c.out.WriteString("}\n")
+	}
 
 	c.rangeVarStack = c.rangeVarStack[:len(c.rangeVarStack)-1]
 	for _, decl := range n.Pipe.Decl {
