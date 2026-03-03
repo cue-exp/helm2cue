@@ -1,0 +1,32 @@
+# List item key-value with inline interpolation should stay inline.
+# https://github.com/cue-exp/helm2cue/issues/66
+exec helm2cue chart chartdir outdir
+cmp stderr stderr.golden
+
+-- chartdir/Chart.yaml --
+apiVersion: v2
+name: test-app
+version: 0.1.0
+-- chartdir/values.yaml --
+replicas: 2
+-- chartdir/templates/test.yaml --
+items:
+{{ range $i, $e := until (.Values.replicas | int) }}
+  - spec:
+      rules:
+        - host: host-{{ $i }}.example.com
+          http:
+            paths:
+              - path: /foo
+{{- end -}}
+-- chartdir/templates/good.yaml --
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: good
+data:
+  key: value
+-- stderr.golden --
+warning: skipping test.yaml (doc 0): expected operand, found ']'
+warning: skipping test.yaml (doc 0): expected '}', found 'EOF'
+converted 1/2 templates from test-app
