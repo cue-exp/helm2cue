@@ -6,16 +6,12 @@ converted 14/20 templates from nginx
 ConvertChart error: values schema validation failed
 -- cue vet --
 exit status 1
-imported and not used: "text/template":
-    ./deployment.cue:9:2
 deployment.spec.template.spec.containers.args: preference mark not allowed at this position:
     ./deployment.cue:517:38
 _common_utils_fieldToEnvVar: reference "_range1" not found:
     ./helpers.cue:749:31
 -- cue export --
 exit status 1
-imported and not used: "text/template":
-    ./deployment.cue:9:2
 deployment.spec.template.spec.containers.args: preference mark not allowed at this position:
     ./deployment.cue:517:38
 _common_utils_fieldToEnvVar: reference "_range1" not found:
