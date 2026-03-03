@@ -1,8 +1,7 @@
 -- ConvertChart --
-warning: skipping alertmanager/ingressperreplica.yaml (doc 0): range: unsupported pipe: $i, $e := until $count
-warning: skipping alertmanager/serviceperreplica.yaml (doc 0): range: unsupported pipe: $i, $e := until $count
+warning: skipping alertmanager/ingressperreplica.yaml (doc 0): expected operand, found ']' (and 5 more errors)
 warning: skipping extra-objects.yaml (doc 1): if condition: kindIs value argument: unsupported condition node: .
-warning: skipping grafana/configmaps-datasources.yaml (doc 0): range: unsupported pipe: until (int .Values.prometheus.prometheusSpec.replicas)
+warning: skipping grafana/configmaps-datasources.yaml (doc 0): expected operand, found ']' (and 15 more errors)
 warning: skipping prometheus-operator/admission-webhooks/deployment/deployment.yaml (doc 0): expected operand, found ']' (and 4 more errors)
 warning: skipping prometheus-operator/admission-webhooks/deployment/pdb.yaml (doc 0): toYaml argument: unsupported pipe node: omit .Values.prometheusOperator.admissionWebhooks.deployment.podDisruptionBudget "enabled"
 warning: skipping prometheus-operator/admission-webhooks/mutatingWebhookConfiguration.yaml (doc 0): with condition: unsupported condition function: omit
@@ -10,7 +9,7 @@ warning: skipping prometheus-operator/admission-webhooks/validatingWebhookConfig
 warning: skipping prometheus-operator/deployment.yaml (doc 0): expected operand, found ']' (and 4 more errors)
 warning: skipping prometheus-operator/pdb.yaml (doc 0): toYaml argument: unsupported pipe node: omit .Values.prometheusOperator.podDisruptionBudget "enabled"
 warning: skipping prometheus-operator/verticalpodautoscaler.yaml (doc 0): top-level if condition: unsupported condition: .Capabilities.APIVersions.Has "autoscaling.k8s.io/v1"
-warning: skipping prometheus/ingressperreplica.yaml (doc 0): range: unsupported pipe: $i, $e := until $count
+warning: skipping prometheus/ingressperreplica.yaml (doc 0): expected operand, found ']' (and 5 more errors)
 warning: skipping prometheus/prometheus.yaml (doc 0): with condition: unsupported condition function: omit
 warning: skipping prometheus/rules-1.14/alertmanager.rules.yaml (doc 0): unsupported template action: {{dig "AlertmanagerFailedReload" "for" "10m" .Values.customRules}}
 warning: skipping prometheus/rules-1.14/config-reloaders.yaml (doc 0): unsupported template action: {{dig "ConfigReloaderSidecarErrors" "for" "10m" .Values.customRules}}
@@ -31,12 +30,15 @@ warning: skipping prometheus/rules-1.14/node-exporter.yaml (doc 0): unsupported 
 warning: skipping prometheus/rules-1.14/node-network.yaml (doc 0): unsupported template action: {{dig "NodeNetworkInterfaceFlapping" "for" "2m" .Values.customRules}}
 warning: skipping prometheus/rules-1.14/prometheus-operator.yaml (doc 0): unsupported template action: {{dig "PrometheusOperatorListErrors" "for" "15m" .Values.customRules}}
 warning: skipping prometheus/rules-1.14/prometheus.yaml (doc 0): unsupported template action: {{dig "PrometheusBadConfig" "for" "10m" .Values.customRules}}
-warning: skipping prometheus/serviceperreplica.yaml (doc 0): range: unsupported pipe: $i, $e := until $count
-error: values.yaml does not satisfy inferred schema: #values.automountServiceAccountToken: field is required but not present (and 54 more errors)
-converted 138/216 templates from kube-prometheus-stack
+error: values.yaml does not satisfy inferred schema: #values.alertmanager.servicePerReplica: conflicting values [...{enabled?:(bool|number|string|null),...}] and {enabled:false,annotations:{},port:9093,targetPort:9093,nodePort:30904,loadBalancerSourceRanges:[],externalTrafficPolicy:"Cluster",type:"ClusterIP"} (mismatched types list and struct) (and 1 more errors)
+converted 140/216 templates from kube-prometheus-stack
 ConvertChart error: values schema validation failed
 -- cue vet --
 exit status 1
+#values.alertmanager.servicePerReplica: conflicting values {enabled:false,annotations:{},port:9093,targetPort:9093,nodePort:30904,loadBalancerSourceRanges:[],externalTrafficPolicy:"Cluster",type:"ClusterIP"} and [...{enabled?:(bool|number|string|null),...}] (mismatched types struct and list):
+    ./values.cue:508:23
+#values.prometheus.servicePerReplica: conflicting values {enabled:false,annotations:{},port:9090,targetPort:9090,nodePort:30091,loadBalancerSourceRanges:[],externalTrafficPolicy:"Cluster",type:"ClusterIP",ipDualStack:{enabled:false,ipFamilies:["IPv6","IPv4"],ipFamilyPolicy:"PreferDualStack"}} and [...{enabled?:(bool|number|string|null),...}] (mismatched types struct and list):
+    ./values.cue:1121:23
 _kube_prometheus_stack_prometheus_pod_anti_affinity_matchExpressions.key: conflicting values "app.kubernetes.io/instance" and "app.kubernetes.io/name":
     ./helpers.cue:486:71
     ./helpers.cue:491:2
@@ -44,58 +46,50 @@ _kube_prometheus_stack_prometheus_pod_anti_affinity_matchExpressions.key: confli
     ./helpers.cue:492:9
     ./helpers.cue:493:3
     ./helpers.cue:493:9
-prometheus_clusterrole.0.rules.apiGroups.0: conflicting values "discovery.k8s.io" and "":
-    ./prometheus_clusterrole.cue:6:110
-    ./prometheus_clusterrole.cue:7:3
-    ./prometheus_clusterrole.cue:21:5
-    ./prometheus_clusterrole.cue:22:18
-    ./prometheus_clusterrole.cue:32:5
-    ./prometheus_clusterrole.cue:33:18
-prometheus_clusterrole.0.rules.apiGroups.0: conflicting values "networking.k8s.io" and "":
-    ./prometheus_clusterrole.cue:6:110
-    ./prometheus_clusterrole.cue:7:3
-    ./prometheus_clusterrole.cue:21:5
-    ./prometheus_clusterrole.cue:22:18
-    ./prometheus_clusterrole.cue:39:5
-    ./prometheus_clusterrole.cue:41:7
-prometheus_clusterrole.0.rules.resources.0: conflicting values "endpointslices" and "nodes":
-    ./prometheus_clusterrole.cue:6:110
-    ./prometheus_clusterrole.cue:7:3
-    ./prometheus_clusterrole.cue:21:5
-    ./prometheus_clusterrole.cue:24:7
-    ./prometheus_clusterrole.cue:32:5
-    ./prometheus_clusterrole.cue:35:7
-prometheus_clusterrole.0.rules.resources.0: conflicting values "ingresses" and "nodes":
-    ./prometheus_clusterrole.cue:6:110
-    ./prometheus_clusterrole.cue:7:3
-    ./prometheus_clusterrole.cue:21:5
-    ./prometheus_clusterrole.cue:24:7
-    ./prometheus_clusterrole.cue:39:5
-    ./prometheus_clusterrole.cue:44:7
-prometheus_operator_servicemonitor.0.spec.endpoints.0.tlsConfig.ca.secret.key: conflicting values {optional:false} and "ca" (mismatched types struct and string):
-    ./prometheus_operator_servicemonitor.cue:11:145
-    ./prometheus_operator_servicemonitor.cue:12:3
-    ./prometheus_operator_servicemonitor.cue:27:7
-    ./prometheus_operator_servicemonitor.cue:35:16
-    ./prometheus_operator_servicemonitor.cue:39:12
-    ./prometheus_operator_servicemonitor.cue:40:13
-alertmanager_secret.0.data."alertmanager.yaml": invalid interpolation: cannot use {global:{resolve_timeout:"5m"},inhibit_rules:[{source_matchers:["severity = critical"],target_matchers:["severity =~ warning|info"],equal:["namespace","alertname"]},{source_matchers:["severity = warning"],target_matchers:["severity = info"],equal:["namespace","alertname"]},{source_matchers:["alertname = InfoInhibitor"],target_matchers:["severity = info"],equal:["namespace"]},{target_matchers:["alertname = InfoInhibitor"]}],route:{group_by:["namespace"],group_wait:"30s",group_interval:"5m",repeat_interval:"12h",receiver:"null",routes:[{receiver:"null",matchers:["alertname = \"Watchdog\""]}]},receivers:[{name:"null"}],templates:["/etc/alertmanager/config/*.tmpl"]} (type struct) as (string|bytes) in argument 2 to "encoding/base64".Encode:
-    ./alertmanager_secret.cue:40:27
-    ./values.cue:485:19
-_vMajor: error in call to strconv.Atoi: strconv.Atoi: parsing "": invalid syntax:
-    ./helpers.cue:69:11
-prometheus_clusterrole.0.rules.resources: incompatible list lengths (1 and 5):
-    ./prometheus_clusterrole.cue:34:17
-prometheus_clusterrole.0.rules.resources: incompatible list lengths (1 and 5):
-    ./prometheus_clusterrole.cue:43:17
-prometheus_clusterrole.0.rules.verbs: incompatible list lengths (1 and 3):
-    ./prometheus_clusterrole.cue:50:13
-results: error in call to list.FlattenN: invalid interpolation: cannot use {global:{resolve_timeout:"5m"},inhibit_rules:[{source_matchers:["severity = critical"],target_matchers:["severity =~ warning|info"],equal:["namespace","alertname"]},{source_matchers:["severity = warning"],target_matchers:["severity = info"],equal:["namespace","alertname"]},{source_matchers:["alertname = InfoInhibitor"],target_matchers:["severity = info"],equal:["namespace"]},{target_matchers:["alertname = InfoInhibitor"]}],route:{group_by:["namespace"],group_wait:"30s",group_interval:"5m",repeat_interval:"12h",receiver:"null",routes:[{receiver:"null",matchers:["alertname = \"Watchdog\""]}]},receivers:[{name:"null"}],templates:["/etc/alertmanager/config/*.tmpl"]} (type struct) as (string|bytes) in argument 2 to "encoding/base64".Encode:
+alertmanager_alertmanager.0.spec.alertmanagerConfigNamespaceSelector: error in call to text/template.Execute: conflicting values {enabled:false,annotations:{},port:9093,targetPort:9093,nodePort:30904,loadBalancerSourceRanges:[],externalTrafficPolicy:"Cluster",type:"ClusterIP"} and [...{enabled?:(bool|number|string|null),...}] (mismatched types struct and list):
+    ./alertmanager_alertmanager.cue:91:57
+    ./values.cue:508:23
+#values.alertmanager.servicePerReplica: invalid interpolation: conflicting values {enabled:false,annotations:{},port:9093,targetPort:9093,nodePort:30904,loadBalancerSourceRanges:[],externalTrafficPolicy:"Cluster",type:"ClusterIP"} and [...{enabled?:(bool|number|string|null),...}] (mismatched types struct and list):
+    ./helpers.cue:184:17
+    ./values.cue:508:23
+#values.alertmanager.servicePerReplica: invalid interpolation: conflicting values {enabled:false,annotations:{},port:9093,targetPort:9093,nodePort:30904,loadBalancerSourceRanges:[],externalTrafficPolicy:"Cluster",type:"ClusterIP"} and [...{enabled?:(bool|number|string|null),...}] (mismatched types struct and list):
+    ./helpers.cue:193:16
+    ./values.cue:508:23
+#values.alertmanager.servicePerReplica: invalid interpolation: conflicting values {enabled:false,annotations:{},port:9093,targetPort:9093,nodePort:30904,loadBalancerSourceRanges:[],externalTrafficPolicy:"Cluster",type:"ClusterIP"} and [...{enabled?:(bool|number|string|null),...}] (mismatched types struct and list):
+    ./helpers.cue:234:2
+    ./values.cue:508:23
+#values.alertmanager.servicePerReplica: invalid interpolation: conflicting values {enabled:false,annotations:{},port:9093,targetPort:9093,nodePort:30904,loadBalancerSourceRanges:[],externalTrafficPolicy:"Cluster",type:"ClusterIP"} and [...{enabled?:(bool|number|string|null),...}] (mismatched types struct and list):
+    ./helpers.cue:242:2
+    ./values.cue:508:23
+#values.alertmanager.servicePerReplica: invalid interpolation: conflicting values {enabled:false,annotations:{},port:9093,targetPort:9093,nodePort:30904,loadBalancerSourceRanges:[],externalTrafficPolicy:"Cluster",type:"ClusterIP"} and [...{enabled?:(bool|number|string|null),...}] (mismatched types struct and list):
+    ./helpers.cue:250:2
+    ./values.cue:508:23
+#values.alertmanager.servicePerReplica: invalid interpolation: conflicting values {enabled:false,annotations:{},port:9093,targetPort:9093,nodePort:30904,loadBalancerSourceRanges:[],externalTrafficPolicy:"Cluster",type:"ClusterIP"} and [...{enabled?:(bool|number|string|null),...}] (mismatched types struct and list):
+    ./helpers.cue:258:2
+    ./values.cue:508:23
+_kube_prometheus_stack_grafana_operator_folder: grafana.operator: only one of folder, folderUID, or folderRef must be set:
+    ./helpers.cue:379:3
+#values.alertmanager.servicePerReplica: invalid interpolation: conflicting values {enabled:false,annotations:{},port:9093,targetPort:9093,nodePort:30904,loadBalancerSourceRanges:[],externalTrafficPolicy:"Cluster",type:"ClusterIP"} and [...{enabled?:(bool|number|string|null),...}] (mismatched types struct and list):
+    ./helpers.cue:559:3
+    ./values.cue:508:23
+#values.alertmanager.servicePerReplica: invalid interpolation: conflicting values {enabled:false,annotations:{},port:9093,targetPort:9093,nodePort:30904,loadBalancerSourceRanges:[],externalTrafficPolicy:"Cluster",type:"ClusterIP"} and [...{enabled?:(bool|number|string|null),...}] (mismatched types struct and list):
+    ./helpers.cue:620:3
+    ./values.cue:508:23
+#values.alertmanager.servicePerReplica: invalid interpolation: conflicting values {enabled:false,annotations:{},port:9093,targetPort:9093,nodePort:30904,loadBalancerSourceRanges:[],externalTrafficPolicy:"Cluster",type:"ClusterIP"} and [...{enabled?:(bool|number|string|null),...}] (mismatched types struct and list):
+    ./helpers.cue:706:3
+    ./values.cue:508:23
+#values.alertmanager.servicePerReplica: invalid interpolation: conflicting values {enabled:false,annotations:{},port:9093,targetPort:9093,nodePort:30904,loadBalancerSourceRanges:[],externalTrafficPolicy:"Cluster",type:"ClusterIP"} and [...{enabled?:(bool|number|string|null),...}] (mismatched types struct and list):
+    ./helpers.cue:819:3
+    ./values.cue:508:23
+results: error in call to list.FlattenN: conflicting values {enabled:false,annotations:{},port:9093,targetPort:9093,nodePort:30904,loadBalancerSourceRanges:[],externalTrafficPolicy:"Cluster",type:"ClusterIP"} and [...{enabled?:(bool|number|string|null),...}] (mismatched types struct and list):
     ./results.cue:7:10
-    ./alertmanager_secret.cue:40:27
-    ./values.cue:485:19
+    ./values.cue:508:23
 -- cue export --
 exit status 1
+#values.alertmanager.servicePerReplica: conflicting values {enabled:false,annotations:{},port:9093,targetPort:9093,nodePort:30904,loadBalancerSourceRanges:[],externalTrafficPolicy:"Cluster",type:"ClusterIP"} and [...{enabled?:(bool|number|string|null),...}] (mismatched types struct and list):
+    ./values.cue:508:23
+#values.prometheus.servicePerReplica: conflicting values {enabled:false,annotations:{},port:9090,targetPort:9090,nodePort:30091,loadBalancerSourceRanges:[],externalTrafficPolicy:"Cluster",type:"ClusterIP",ipDualStack:{enabled:false,ipFamilies:["IPv6","IPv4"],ipFamilyPolicy:"PreferDualStack"}} and [...{enabled?:(bool|number|string|null),...}] (mismatched types struct and list):
+    ./values.cue:1121:23
 _kube_prometheus_stack_prometheus_pod_anti_affinity_matchExpressions.key: conflicting values "app.kubernetes.io/instance" and "app.kubernetes.io/name":
     ./helpers.cue:486:71
     ./helpers.cue:491:2
@@ -112,53 +106,41 @@ _kube_prometheus_stack_prometheus_pod_anti_affinity_matchExpressions.values.0: c
     ./helpers.cue:492:60
     ./helpers.cue:493:3
     ./helpers.cue:493:64
-prometheus_clusterrole.0.rules.apiGroups.0: conflicting values "discovery.k8s.io" and "":
-    ./prometheus_clusterrole.cue:6:110
-    ./prometheus_clusterrole.cue:7:3
-    ./prometheus_clusterrole.cue:21:5
-    ./prometheus_clusterrole.cue:22:18
-    ./prometheus_clusterrole.cue:32:5
-    ./prometheus_clusterrole.cue:33:18
-prometheus_clusterrole.0.rules.apiGroups.0: conflicting values "networking.k8s.io" and "":
-    ./prometheus_clusterrole.cue:6:110
-    ./prometheus_clusterrole.cue:7:3
-    ./prometheus_clusterrole.cue:21:5
-    ./prometheus_clusterrole.cue:22:18
-    ./prometheus_clusterrole.cue:39:5
-    ./prometheus_clusterrole.cue:41:7
-prometheus_clusterrole.0.rules.resources.0: conflicting values "endpointslices" and "nodes":
-    ./prometheus_clusterrole.cue:6:110
-    ./prometheus_clusterrole.cue:7:3
-    ./prometheus_clusterrole.cue:21:5
-    ./prometheus_clusterrole.cue:24:7
-    ./prometheus_clusterrole.cue:32:5
-    ./prometheus_clusterrole.cue:35:7
-prometheus_clusterrole.0.rules.resources.0: conflicting values "ingresses" and "nodes":
-    ./prometheus_clusterrole.cue:6:110
-    ./prometheus_clusterrole.cue:7:3
-    ./prometheus_clusterrole.cue:21:5
-    ./prometheus_clusterrole.cue:24:7
-    ./prometheus_clusterrole.cue:39:5
-    ./prometheus_clusterrole.cue:44:7
-prometheus_operator_servicemonitor.0.spec.endpoints.0.tlsConfig.ca.secret.key: conflicting values {optional:false} and "ca" (mismatched types struct and string):
-    ./prometheus_operator_servicemonitor.cue:11:145
-    ./prometheus_operator_servicemonitor.cue:12:3
-    ./prometheus_operator_servicemonitor.cue:27:7
-    ./prometheus_operator_servicemonitor.cue:35:16
-    ./prometheus_operator_servicemonitor.cue:39:12
-    ./prometheus_operator_servicemonitor.cue:40:13
-alertmanager_secret.0.data."alertmanager.yaml": invalid interpolation: cannot use {global:{resolve_timeout:"5m"},inhibit_rules:[{source_matchers:["severity = critical"],target_matchers:["severity =~ warning|info"],equal:["namespace","alertname"]},{source_matchers:["severity = warning"],target_matchers:["severity = info"],equal:["namespace","alertname"]},{source_matchers:["alertname = InfoInhibitor"],target_matchers:["severity = info"],equal:["namespace"]},{target_matchers:["alertname = InfoInhibitor"]}],route:{group_by:["namespace"],group_wait:"30s",group_interval:"5m",repeat_interval:"12h",receiver:"null",routes:[{receiver:"null",matchers:["alertname = \"Watchdog\""]}]},receivers:[{name:"null"}],templates:["/etc/alertmanager/config/*.tmpl"]} (type struct) as (string|bytes) in argument 2 to "encoding/base64".Encode:
-    ./alertmanager_secret.cue:40:27
-    ./values.cue:485:19
-_vMajor: error in call to strconv.Atoi: strconv.Atoi: parsing "": invalid syntax:
-    ./helpers.cue:69:11
-prometheus_clusterrole.0.rules.resources: incompatible list lengths (1 and 5):
-    ./prometheus_clusterrole.cue:34:17
-prometheus_clusterrole.0.rules.resources: incompatible list lengths (1 and 5):
-    ./prometheus_clusterrole.cue:43:17
-prometheus_clusterrole.0.rules.verbs: incompatible list lengths (1 and 3):
-    ./prometheus_clusterrole.cue:50:13
-results: error in call to list.FlattenN: invalid interpolation: cannot use {global:{resolve_timeout:"5m"},inhibit_rules:[{source_matchers:["severity = critical"],target_matchers:["severity =~ warning|info"],equal:["namespace","alertname"]},{source_matchers:["severity = warning"],target_matchers:["severity = info"],equal:["namespace","alertname"]},{source_matchers:["alertname = InfoInhibitor"],target_matchers:["severity = info"],equal:["namespace"]},{target_matchers:["alertname = InfoInhibitor"]}],route:{group_by:["namespace"],group_wait:"30s",group_interval:"5m",repeat_interval:"12h",receiver:"null",routes:[{receiver:"null",matchers:["alertname = \"Watchdog\""]}]},receivers:[{name:"null"}],templates:["/etc/alertmanager/config/*.tmpl"]} (type struct) as (string|bytes) in argument 2 to "encoding/base64".Encode:
+alertmanager_alertmanager.0.spec.alertmanagerConfigNamespaceSelector: error in call to text/template.Execute: conflicting values {enabled:false,annotations:{},port:9093,targetPort:9093,nodePort:30904,loadBalancerSourceRanges:[],externalTrafficPolicy:"Cluster",type:"ClusterIP"} and [...{enabled?:(bool|number|string|null),...}] (mismatched types struct and list):
+    ./alertmanager_alertmanager.cue:91:57
+    ./values.cue:508:23
+#values.alertmanager.servicePerReplica: invalid interpolation: conflicting values {enabled:false,annotations:{},port:9093,targetPort:9093,nodePort:30904,loadBalancerSourceRanges:[],externalTrafficPolicy:"Cluster",type:"ClusterIP"} and [...{enabled?:(bool|number|string|null),...}] (mismatched types struct and list):
+    ./helpers.cue:184:17
+    ./values.cue:508:23
+#values.alertmanager.servicePerReplica: invalid interpolation: conflicting values {enabled:false,annotations:{},port:9093,targetPort:9093,nodePort:30904,loadBalancerSourceRanges:[],externalTrafficPolicy:"Cluster",type:"ClusterIP"} and [...{enabled?:(bool|number|string|null),...}] (mismatched types struct and list):
+    ./helpers.cue:193:16
+    ./values.cue:508:23
+#values.alertmanager.servicePerReplica: invalid interpolation: conflicting values {enabled:false,annotations:{},port:9093,targetPort:9093,nodePort:30904,loadBalancerSourceRanges:[],externalTrafficPolicy:"Cluster",type:"ClusterIP"} and [...{enabled?:(bool|number|string|null),...}] (mismatched types struct and list):
+    ./helpers.cue:234:2
+    ./values.cue:508:23
+#values.alertmanager.servicePerReplica: invalid interpolation: conflicting values {enabled:false,annotations:{},port:9093,targetPort:9093,nodePort:30904,loadBalancerSourceRanges:[],externalTrafficPolicy:"Cluster",type:"ClusterIP"} and [...{enabled?:(bool|number|string|null),...}] (mismatched types struct and list):
+    ./helpers.cue:242:2
+    ./values.cue:508:23
+#values.alertmanager.servicePerReplica: invalid interpolation: conflicting values {enabled:false,annotations:{},port:9093,targetPort:9093,nodePort:30904,loadBalancerSourceRanges:[],externalTrafficPolicy:"Cluster",type:"ClusterIP"} and [...{enabled?:(bool|number|string|null),...}] (mismatched types struct and list):
+    ./helpers.cue:250:2
+    ./values.cue:508:23
+#values.alertmanager.servicePerReplica: invalid interpolation: conflicting values {enabled:false,annotations:{},port:9093,targetPort:9093,nodePort:30904,loadBalancerSourceRanges:[],externalTrafficPolicy:"Cluster",type:"ClusterIP"} and [...{enabled?:(bool|number|string|null),...}] (mismatched types struct and list):
+    ./helpers.cue:258:2
+    ./values.cue:508:23
+_kube_prometheus_stack_grafana_operator_folder: grafana.operator: only one of folder, folderUID, or folderRef must be set:
+    ./helpers.cue:379:3
+#values.alertmanager.servicePerReplica: invalid interpolation: conflicting values {enabled:false,annotations:{},port:9093,targetPort:9093,nodePort:30904,loadBalancerSourceRanges:[],externalTrafficPolicy:"Cluster",type:"ClusterIP"} and [...{enabled?:(bool|number|string|null),...}] (mismatched types struct and list):
+    ./helpers.cue:559:3
+    ./values.cue:508:23
+#values.alertmanager.servicePerReplica: invalid interpolation: conflicting values {enabled:false,annotations:{},port:9093,targetPort:9093,nodePort:30904,loadBalancerSourceRanges:[],externalTrafficPolicy:"Cluster",type:"ClusterIP"} and [...{enabled?:(bool|number|string|null),...}] (mismatched types struct and list):
+    ./helpers.cue:620:3
+    ./values.cue:508:23
+#values.alertmanager.servicePerReplica: invalid interpolation: conflicting values {enabled:false,annotations:{},port:9093,targetPort:9093,nodePort:30904,loadBalancerSourceRanges:[],externalTrafficPolicy:"Cluster",type:"ClusterIP"} and [...{enabled?:(bool|number|string|null),...}] (mismatched types struct and list):
+    ./helpers.cue:706:3
+    ./values.cue:508:23
+#values.alertmanager.servicePerReplica: invalid interpolation: conflicting values {enabled:false,annotations:{},port:9093,targetPort:9093,nodePort:30904,loadBalancerSourceRanges:[],externalTrafficPolicy:"Cluster",type:"ClusterIP"} and [...{enabled?:(bool|number|string|null),...}] (mismatched types struct and list):
+    ./helpers.cue:819:3
+    ./values.cue:508:23
+results: error in call to list.FlattenN: conflicting values {enabled:false,annotations:{},port:9093,targetPort:9093,nodePort:30904,loadBalancerSourceRanges:[],externalTrafficPolicy:"Cluster",type:"ClusterIP"} and [...{enabled?:(bool|number|string|null),...}] (mismatched types struct and list):
     ./results.cue:7:10
-    ./alertmanager_secret.cue:40:27
-    ./values.cue:485:19
+    ./values.cue:508:23

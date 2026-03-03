@@ -1,4 +1,4 @@
-Range over until(N), producing per-replica entries.
+Range over until(N), producing per-replica list items.
 
 -- values.yaml --
 replicas: 3
@@ -8,8 +8,9 @@ kind: ConfigMap
 metadata:
   name: test
 data:
+  items:
   {{- range $i, $e := until (int .Values.replicas) }}
-  replica-{{ $i }}: "instance-{{ $e }}"
+    - {{ $e }}
   {{- end }}
 -- helm_output.yaml --
 apiVersion: v1
@@ -17,8 +18,27 @@ kind: ConfigMap
 metadata:
   name: test
 data:
-  replica-0: "instance-0"
-  replica-1: "instance-1"
-  replica-2: "instance-2"
--- broken --
-unsupported pipe
+  items:
+    - 0
+    - 1
+    - 2
+-- output.cue --
+import "list"
+
+#values: {
+	replicas?: bool | number | string | null
+	...
+}
+
+output: [
+	{
+		apiVersion: "v1"
+		kind:       "ConfigMap"
+		metadata: name: "test"
+		data: items: [
+			for _key0, _val0 in list.Range(0, int & #values.replicas, 1) {
+				_val0
+			},
+		]
+	},
+]
