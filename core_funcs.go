@@ -70,6 +70,7 @@ func init() {
 		"index":          {nargs: -1, convert: convertIndex},
 		"merge":          {nargs: -1, convert: convertMergeUnsupported("merge")},
 		"mergeOverwrite": {nargs: -1, convert: convertMergeUnsupported("mergeOverwrite")},
+		"dig":            {nargs: -1, convert: convertDig},
 	}
 }
 
@@ -546,6 +547,50 @@ func convertTpl(c *converter, args []funcArg) (string, string, error) {
 	if tmplObj != "" {
 		helmObj = tmplObj
 	}
+	return expr, helmObj, nil
+}
+
+func convertDig(c *converter, args []funcArg) (string, string, error) {
+	if len(args) < 3 {
+		return "", "", fmt.Errorf("dig requires at least 3 arguments, got %d", len(args))
+	}
+	// Last arg is the map, second-to-last is the default,
+	// everything before that is the key path.
+	mapArg := args[len(args)-1]
+	defaultArg := args[len(args)-2]
+	keyArgs := args[:len(args)-2]
+
+	mapExpr, helmObj, err := c.resolveExpr(mapArg)
+	if err != nil {
+		return "", "", fmt.Errorf("dig map argument: %w", err)
+	}
+	if helmObj != "" {
+		// Track the map as a non-scalar ref.
+		refs := c.fieldRefs[helmObj]
+		if len(refs) > 0 {
+			c.trackNonScalarRef(helmObj, refs[len(refs)-1])
+		}
+	}
+
+	defaultExpr, err := c.resolveLiteral(defaultArg)
+	if err != nil {
+		return "", "", fmt.Errorf("dig default argument: %w", err)
+	}
+
+	// Build the path list: ["key1", "key2", ...]
+	var pathParts []string
+	for _, ka := range keyArgs {
+		keyExpr, err := c.resolveLiteral(ka)
+		if err != nil {
+			return "", "", fmt.Errorf("dig key argument: %w", err)
+		}
+		pathParts = append(pathParts, keyExpr)
+	}
+	pathList := "[" + strings.Join(pathParts, ", ") + "]"
+
+	c.usedHelpers["_dig"] = HelperDef{Name: "_dig", Def: digDef}
+	expr := fmt.Sprintf("(_dig & {#path: %s, #default: %s, #arg: %s}).res",
+		pathList, defaultExpr, mapExpr)
 	return expr, helmObj, nil
 }
 
