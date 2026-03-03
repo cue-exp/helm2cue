@@ -18,11 +18,17 @@ go test -update
 go generate ./...
 go mod tidy
 go run . chart <dir> <out>
+HELM2CUE_DEBUG=1 go run . chart <dir> <out>
 go run . template [helpers.tpl] [file]
 echo '...' | go run . template [helpers.tpl]
 go run . version
 go vet ./...
 go run honnef.co/go/tools/cmd/staticcheck ./...
+cue vet [flags] .
+cue export [flags] .
+helm pull <chart> --version <ver> --untar --untardir tmp/<dir>
+helm repo add <name> <url>
+helm template <release> <chart>
 git status
 git diff
 git log
@@ -164,6 +170,13 @@ or discovered in integration tests:
      empty `-- output.cue --` section and run
      `go test -run <test> -update` to populate it with the current
      (wrong) output.
+   - **CLI tests for wrong-but-parseable output**: when the converter
+     produces syntactically valid but semantically wrong CUE (no
+     warnings, no errors), `good.yaml` is not needed (there are no
+     per-template warnings to capture). Use
+     `cmp outdir/<file>.cue expected/<file>.cue` with an empty
+     `-- expected/<file>.cue --` section and `-update` to capture
+     the wrong output.
 5. **Fix the bug.** With the reproduction test in hand the scope is clear —
    make the minimal code change that fixes the issue.
 6. **Update the test in the same file.** Use `-update` to refresh
@@ -364,6 +377,47 @@ Key implication: YAML structural analysis (indentation, list detection,
 scope exit) can be determined from TextNode content alone. ActionNodes
 are inline and never affect the indent structure.
 
+### Converter state machine
+
+The converter maintains several concurrent state modes that affect how
+each node type is processed. When debugging, always determine which
+state is active before tracing the code path:
+
+- **`blockScalarLines`** (non-nil): accumulating a YAML block scalar
+  (`key: |-` or list item `- |`). Text lines are collected; actions
+  and inline-safe ranges are embedded as `\(...)` interpolations.
+  Finalized by `finalizeBlockScalar` into a CUE multi-line string.
+- **`inlineParts`** (non-nil): accumulating an inline string
+  interpolation where text and actions are interleaved on a single
+  YAML line. Finalized by `finalizeInline`.
+- **`pendingActionExpr`** (non-empty): an action expression waiting
+  to see if the next text starts with `: ` (dynamic key) or is a
+  standalone value.
+- **`deferredKV`** (non-nil): a key-value pair waiting to see if
+  deeper content follows (which opens a mapping/list block).
+- **`statePendingKey`**: a bare `key:` was seen; waiting for the
+  value on the next line or next node.
+- **`flowParts`** (non-nil): accumulating a YAML flow collection
+  (`{...}` or `[...]`) that spans multiple AST nodes.
+
+These states interact: e.g. `emitTextNode` checks `blockScalarLines`
+before `inlineParts` before normal line processing. `processNode`
+checks `blockScalarLines` and `inlineParts` to decide whether
+RangeNode/IfNode should be embedded inline or processed as blocks.
+A bug often manifests as the wrong state being active (or not active)
+when a particular node type is encountered.
+
+### Pulling integration test charts
+
+Integration tests pull charts to a temporary directory that is cleaned
+up after each run. To inspect chart templates for reduction, pull the
+chart manually:
+
+    helm repo add prometheus-community \
+      https://prometheus-community.github.io/helm-charts
+    helm pull prometheus-community/kube-prometheus-stack \
+      --version 82.2.1 --untar --untardir tmp/kps
+
 ## Core vs Helm test split
 
 Core tests (`testdata/core/*.txtar`, run by `TestConvertCore`) must use **only
@@ -415,3 +469,11 @@ When adding new Helm tests:
   `testdata/noverify/`.
 - Promoting tests from `testdata/noverify/` to `testdata/` is encouraged when
   the underlying limitation is resolved.
+
+## Continuous improvement
+
+After completing work in each session, suggest improvements to this
+CLAUDE.md file based on lessons learned — patterns that were unclear,
+missing documentation that caused wasted effort, or workflows that
+could be streamlined. This keeps the instructions effective as the
+codebase evolves.
