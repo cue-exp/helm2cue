@@ -4294,10 +4294,74 @@ func (c *converter) pipeToFieldExpr(pipe *parse.PipeNode) (string, string, []str
 			return fmt.Sprintf("list.Range(0, %s, 1)", argExpr), "", nil, nil
 		}
 	}
-	if len(pipe.Cmds) != 1 || len(pipe.Cmds[0].Args) != 1 {
+
+	// Determine the base field expression and any pipeline functions.
+	var expr, helmObj string
+	var fieldPath []string
+	var pipelineCmds []*parse.CommandNode
+
+	cmd0 := pipe.Cmds[0]
+	if len(cmd0.Args) >= 2 {
+		// Function call as first command (e.g. mustUniq .Values.foo).
+		id, ok := cmd0.Args[0].(*parse.IdentifierNode)
+		if !ok {
+			return "", "", nil, fmt.Errorf("unsupported pipe: %s", pipe)
+		}
+		pf, ok := c.config.Funcs[id.Ident]
+		if !ok {
+			return "", "", nil, fmt.Errorf("unsupported pipe: %s", pipe)
+		}
+		// The last argument is the input expression; any middle
+		// arguments are extra function parameters.
+		var err error
+		expr, helmObj, fieldPath, err = c.singleNodeToFieldExpr(cmd0.Args[len(cmd0.Args)-1])
+		if err != nil {
+			return "", "", nil, err
+		}
+		expr, err = c.applyRangePipelineFunc(pf, id.Ident, expr, helmObj, fieldPath, cmd0.Args[1:len(cmd0.Args)-1])
+		if err != nil {
+			return "", "", nil, err
+		}
+		pipelineCmds = pipe.Cmds[1:]
+	} else if len(cmd0.Args) == 1 {
+		var err error
+		expr, helmObj, fieldPath, err = c.singleNodeToFieldExpr(cmd0.Args[0])
+		if err != nil {
+			return "", "", nil, err
+		}
+		pipelineCmds = pipe.Cmds[1:]
+	} else {
 		return "", "", nil, fmt.Errorf("unsupported pipe: %s", pipe)
 	}
-	if f, ok := pipe.Cmds[0].Args[0].(*parse.FieldNode); ok {
+
+	// Apply pipeline functions from remaining commands
+	// (e.g. .Values.foo | mustUniq).
+	for _, cmd := range pipelineCmds {
+		if len(cmd.Args) == 0 {
+			return "", "", nil, fmt.Errorf("empty command in range pipeline: %s", pipe)
+		}
+		id, ok := cmd.Args[0].(*parse.IdentifierNode)
+		if !ok {
+			return "", "", nil, fmt.Errorf("unsupported function in range pipeline: %s", cmd)
+		}
+		pf, ok := c.config.Funcs[id.Ident]
+		if !ok {
+			return "", "", nil, fmt.Errorf("unsupported function in range pipeline: %s", id.Ident)
+		}
+		var err error
+		expr, err = c.applyRangePipelineFunc(pf, id.Ident, expr, helmObj, fieldPath, cmd.Args[1:])
+		if err != nil {
+			return "", "", nil, err
+		}
+	}
+
+	return expr, helmObj, fieldPath, nil
+}
+
+// singleNodeToFieldExpr converts a single parse node (field, variable,
+// or dot) to a CUE field expression for use as a range target.
+func (c *converter) singleNodeToFieldExpr(node parse.Node) (string, string, []string, error) {
+	if f, ok := node.(*parse.FieldNode); ok {
 		expr, helmObj := c.fieldToCUEInContext(f.Ident)
 		if helmObj != "" {
 			c.trackFieldRef(helmObj, f.Ident[1:])
@@ -4305,7 +4369,7 @@ func (c *converter) pipeToFieldExpr(pipe *parse.PipeNode) (string, string, []str
 		}
 		return expr, "", nil, nil
 	}
-	if v, ok := pipe.Cmds[0].Args[0].(*parse.VariableNode); ok {
+	if v, ok := node.(*parse.VariableNode); ok {
 		if len(v.Ident) >= 2 && v.Ident[0] == "$" {
 			expr, helmObj := fieldToCUE(c.config.ContextObjects, v.Ident[1:])
 			if helmObj != "" {
@@ -4337,13 +4401,44 @@ func (c *converter) pipeToFieldExpr(pipe *parse.PipeNode) (string, string, []str
 			}
 		}
 	}
-	if _, ok := pipe.Cmds[0].Args[0].(*parse.DotNode); ok {
+	if _, ok := node.(*parse.DotNode); ok {
 		if len(c.rangeVarStack) > 0 {
 			return c.rangeVarStack[len(c.rangeVarStack)-1].cueExpr, "", nil, nil
 		}
 		return "", "", nil, fmt.Errorf("{{ . }} outside range/with not supported")
 	}
-	return "", "", nil, fmt.Errorf("unsupported node: %s", pipe.Cmds[0].Args[0])
+	return "", "", nil, fmt.Errorf("unsupported node: %s", node)
+}
+
+// applyRangePipelineFunc applies a registered pipeline function to a
+// range target expression. It handles imports, helpers, non-scalar
+// tracking, and the Convert call.
+func (c *converter) applyRangePipelineFunc(pf PipelineFunc, name, expr, helmObj string, fieldPath []string, extraArgs []parse.Node) (string, error) {
+	if pf.NonScalar {
+		c.trackNonScalarRef(helmObj, fieldPath)
+	}
+	for _, pkg := range pf.Imports {
+		c.addImport(pkg)
+	}
+	for _, h := range pf.Helpers {
+		c.usedHelpers[h.Name] = h
+	}
+	if pf.Convert == nil {
+		return expr, nil
+	}
+	var args []string
+	for _, a := range extraArgs {
+		argExpr, _, err := c.nodeToExpr(a)
+		if err != nil {
+			return "", fmt.Errorf("range function %s: %w", name, err)
+		}
+		args = append(args, argExpr)
+	}
+	result := pf.Convert(expr, args)
+	if result == "" {
+		return "", fmt.Errorf("function %q has no CUE equivalent", name)
+	}
+	return result, nil
 }
 
 func (c *converter) pipeToCUECondition(pipe *parse.PipeNode) (string, string, error) {
