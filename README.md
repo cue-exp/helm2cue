@@ -328,8 +328,6 @@ is a good stress test).
 
 ### Sprig functions not yet converted
 
-- **`until`** — `{{ range $i, $e := until N }}` generates an integer
-  sequence; neither `until` nor the two-variable range form are supported yet
 - **`omit`** — return a dict with specified keys removed
 - **`dig`** — nested map traversal with a default
   (`{{ dig "key" "subkey" "fallback" .Values }}`)

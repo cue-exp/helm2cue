@@ -3883,6 +3883,20 @@ func hasListItemContinuation(nodes []parse.Node, itemContentIndent int) bool {
 }
 
 func (c *converter) pipeToFieldExpr(pipe *parse.PipeNode) (string, string, []string, error) {
+	// Handle "until N" — produces list.Range(0, N, 1).
+	if len(pipe.Cmds) == 1 && len(pipe.Cmds[0].Args) >= 2 {
+		if id, ok := pipe.Cmds[0].Args[0].(*parse.IdentifierNode); ok && id.Ident == "until" {
+			if len(pipe.Cmds[0].Args) != 2 {
+				return "", "", nil, fmt.Errorf("until: expected 1 argument, got %d", len(pipe.Cmds[0].Args)-1)
+			}
+			argExpr, _, err := c.nodeToExpr(pipe.Cmds[0].Args[1])
+			if err != nil {
+				return "", "", nil, fmt.Errorf("until: %w", err)
+			}
+			c.addImport("list")
+			return fmt.Sprintf("list.Range(0, %s, 1)", argExpr), "", nil, nil
+		}
+	}
 	if len(pipe.Cmds) != 1 || len(pipe.Cmds[0].Args) != 1 {
 		return "", "", nil, fmt.Errorf("unsupported pipe: %s", pipe)
 	}
