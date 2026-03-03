@@ -2041,6 +2041,19 @@ func (c *converter) processListItem(trimmed string, yamlIndent, cueInd int, isLa
 				cueIndent:  cueInd + 1,
 				isListItem: true,
 			})
+		} else if continuesInline && val != "" {
+			// Value continues into next AST node — start inline.
+			writeIndent(&c.out, cueInd)
+			c.out.WriteString("{\n")
+			c.inlineStartPos = c.out.Len()
+			writeIndent(&c.out, cueInd+1)
+			fmt.Fprintf(&c.out, "%s: ", cueKey(key))
+			c.inlineParts = []string{escapeCUEString(val)}
+			c.stack = append(c.stack, frame{
+				yamlIndent: itemContentIndent,
+				cueIndent:  cueInd + 1,
+				isListItem: true,
+			})
 		} else {
 			// Open struct, emit first field.
 			writeIndent(&c.out, cueInd)
@@ -2118,6 +2131,12 @@ func (c *converter) processRangeListItem(content string, yamlIndent, cueInd int,
 			writeIndent(&c.out, cueInd)
 			fmt.Fprintf(&c.out, "%s: ", cueKey(key))
 			c.startFlowAccum(content[colonIdx+2:], cueInd, "\n")
+		} else if continuesInline && val != "" {
+			// Value continues into next AST node — start inline.
+			c.inlineStartPos = c.out.Len()
+			writeIndent(&c.out, cueInd)
+			fmt.Fprintf(&c.out, "%s: ", cueKey(key))
+			c.inlineParts = []string{escapeCUEString(val)}
 		} else {
 			writeIndent(&c.out, cueInd)
 			fmt.Fprintf(&c.out, "%s: %s\n", cueKey(key), yamlToCUE(val, cueInd))
