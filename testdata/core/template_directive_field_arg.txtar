@@ -20,6 +20,9 @@ _id: {
 
 output: [
 	{
-		name: _id & {#arg: #input.name, _}
+		name: _id & {
+			#arg: #input.name
+			_
+		}
 	},
 ]

@@ -32,7 +32,10 @@ output: [
 		apiVersion: "v1"
 		kind:       "ConfigMap"
 		metadata: name: "test"
-		if (_nonzero & {#arg: #values.config.debug, _}) {
+		if (_nonzero & {
+			#arg: #values.config.debug
+			_
+		}) {
 			data: debug: "enabled"
 		}
 	},

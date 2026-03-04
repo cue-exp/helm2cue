@@ -31,7 +31,10 @@ import "struct"
 output: [
 	{
 		spec: {
-			args: [if (_nonzero & {#arg: #values.extraArgs, _}) for _key0, _val0 in #values.extraArgs {
+			args: [if (_nonzero & {
+				#arg: #values.extraArgs
+				_
+			}) for _key0, _val0 in #values.extraArgs {
 				"--\(_key0)=\(_val0)"
 			},
 			]

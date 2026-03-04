@@ -35,11 +35,20 @@ test: [
 		spec: containers: [
 			{
 				name: "test"
-				args: [if (_nonzero & {#arg: #values.tls, _}) {
-					if (_nonzero & {#arg: #values.certManager, _}) {
+				args: [if (_nonzero & {
+					#arg: #values.tls
+					_
+				}) {
+					if (_nonzero & {
+						#arg: #values.certManager
+						_
+					}) {
 						"\"--cert=tls.crt\""
 					}
-					if !(_nonzero & {#arg: #values.certManager, _}) {
+					if !(_nonzero & {
+						#arg: #values.certManager
+						_
+					}) {
 						"\"--cert=cert\""
 					}
 				},

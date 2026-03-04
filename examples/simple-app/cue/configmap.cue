@@ -12,10 +12,16 @@ configmap: [
 		}
 		data: {
 			environment: "\(*#values.env | "development")"
-			if (_nonzero & {#arg: #values.debug, _}) {
+			if (_nonzero & {
+				#arg: #values.debug
+				_
+			}) {
 				logLevel: "debug"
 			}
-			if !(_nonzero & {#arg: #values.debug, _}) {
+			if !(_nonzero & {
+				#arg: #values.debug
+				_
+			}) {
 				logLevel: "info"
 			}
 		}

@@ -43,7 +43,10 @@ output: [
 		metadata: {
 			name: "test"
 			annotations: {
-				if (_nonzero & {#arg: #values.enabled, _}) {
+				if (_nonzero & {
+					#arg: #values.enabled
+					_
+				}) {
 					_myapp_annotations
 				}
 			}

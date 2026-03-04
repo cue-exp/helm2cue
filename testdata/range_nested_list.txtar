@@ -55,7 +55,10 @@ output: [
 		apiVersion: "v1"
 		kind:       "ConfigMap"
 		metadata: name: "test"
-		data: rules: [if (_nonzero & {#arg: #values.hosts, _}) for _, _range0 in #values.hosts {
+		data: rules: [if (_nonzero & {
+			#arg: #values.hosts
+			_
+		}) for _, _range0 in #values.hosts {
 			host: _range0.name
 			port: _range0.port
 			paths: [

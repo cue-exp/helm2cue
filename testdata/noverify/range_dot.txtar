@@ -26,7 +26,10 @@ import "struct"
 output: [
 	{
 		metadata: annotations: {
-			if (_nonzero & {#arg: #values.customAnnotations, _}) {
+			if (_nonzero & {
+				#arg: #values.customAnnotations
+				_
+			}) {
 				for _key1, _val1 in #values.customAnnotations {
 					(_key1): _val1
 				}

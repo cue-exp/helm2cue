@@ -16,7 +16,11 @@ result: foundValue
 
 output: [
 	{
-		result: (_dig & {#path: ["key1", "key2"], #default: "notfound", #arg: #values.customRules}).res
+		result: (_dig & {
+			#path: ["key1", "key2"]
+			#default: "notfound"
+			#arg:     #values.customRules
+		}).res
 	},
 ]
 _dig: {

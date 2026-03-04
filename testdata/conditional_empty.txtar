@@ -34,12 +34,18 @@ output: [
 		apiVersion: "v1"
 		kind:       "Service"
 		spec: {
-			if !(!(_nonzero & {#arg: #values.loadBalancerSourceRanges, _})) {
+			if !(!(_nonzero & {
+				#arg: #values.loadBalancerSourceRanges
+				_
+			})) {
 				loadBalancerSourceRanges: [
 					"10.0.0.0/8",
 				]
 			}
-			if !(_nonzero & {#arg: #values.optional, _}) {
+			if !(_nonzero & {
+				#arg: #values.optional
+				_
+			}) {
 				optional: "default-value"
 			}
 		}

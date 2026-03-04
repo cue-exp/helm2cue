@@ -16,13 +16,19 @@ deployment: [
 			template: {
 				metadata: labels: _simple_app_selectorLabels
 				spec: {
-					serviceAccountName: _simple_app_serviceAccountName & {#arg: #values.serviceAccount, _}
+					serviceAccountName: _simple_app_serviceAccountName & {
+						#arg: #values.serviceAccount
+						_
+					}
 					containers: [
 						{
 							name:            _simple_app_name
 							image:           "\(#values.image.repository):\(#values.image.tag)"
 							imagePullPolicy: *#values.image.pullPolicy | "IfNotPresent"
-							ports: [if (_nonzero & {#arg: #values.ports, _}) for _, _range0 in #values.ports {
+							ports: [if (_nonzero & {
+								#arg: #values.ports
+								_
+							}) for _, _range0 in #values.ports {
 								name:          _range0.name
 								containerPort: _range0.containerPort
 							},

@@ -38,7 +38,10 @@ output: [
 			name: #values.name
 			labels: {
 				app: #values.name
-				if (_nonzero & {#arg: #values.tier, _}) {
+				if (_nonzero & {
+					#arg: #values.tier
+					_
+				}) {
 					tier: #values.tier
 				}
 			}
