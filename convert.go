@@ -478,6 +478,30 @@ func buildSelChain(base ast.Expr, fields []string) ast.Expr {
 	return e
 }
 
+// decomposeSelChain extracts the root identifier name and selector
+// field names from a selector chain expression (e.g. a.b.c → "a", ["b","c"]).
+// Returns "", nil if the expression is not a pure selector chain.
+func decomposeSelChain(e ast.Expr) (string, []string) {
+	var sels []string
+	for {
+		switch x := e.(type) {
+		case *ast.Ident:
+			return x.Name, sels
+		case *ast.SelectorExpr:
+			if id, ok := x.Sel.(*ast.Ident); ok {
+				sels = append([]string{id.Name}, sels...)
+			} else if lit, ok := x.Sel.(*ast.BasicLit); ok {
+				sels = append([]string{lit.Value}, sels...)
+			} else {
+				return "", nil
+			}
+			e = x.X
+		default:
+			return "", nil
+		}
+	}
+}
+
 // isArgIdent reports whether expr is exactly the identifier #arg.
 func isArgIdent(e ast.Expr) bool {
 	id, ok := e.(*ast.Ident)
@@ -4902,16 +4926,15 @@ func (c *converter) singleNodeToFieldExpr(node parse.Node) (ast.Expr, string, []
 					result = localExpr
 				}
 				// Recover helmObj/fieldPath for range type inference.
-				localStr := exprToText(localExpr)
-				parts := strings.Split(localStr, ".")
-				for helmName, cueName := range c.config.ContextObjects {
-					if parts[0] == cueName {
-						fp := append([]string(nil), parts[1:]...)
-						fp = append(fp, v.Ident[1:]...)
-						if len(fp) > 0 {
-							return result, helmName, fp, nil
+				if root, sels := decomposeSelChain(localExpr); root != "" {
+					for helmName, cueName := range c.config.ContextObjects {
+						if root == cueName {
+							fp := append(append([]string(nil), sels...), v.Ident[1:]...)
+							if len(fp) > 0 {
+								return result, helmName, fp, nil
+							}
+							return result, helmName, nil, nil
 						}
-						return result, helmName, nil, nil
 					}
 				}
 				return result, "", nil, nil
