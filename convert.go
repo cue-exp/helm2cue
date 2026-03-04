@@ -304,13 +304,13 @@ type converter struct {
 	rootDecls           []ast.Decl // top-level declarations built during conversion
 	stack               []frame
 	state               emitState
-	pendingKey          string             // the key name when in statePendingKey
-	pendingKeyInd       int                // YAML indent of the pending key
-	deferredKV          *pendingResolution // non-nil when action resolved pendingKey but deeper content may follow
-	comments            map[string]string  // expr → trailing comment
-	inRangeBody         bool               // true when processing range body (suppresses list item struct wrapping)
-	rangeBodyStackDepth int                // stack depth when inRangeBody was set; only suppress at this depth
-	remainingNodes      []parse.Node       // sibling nodes not yet processed (set by processBodyNodes)
+	pendingKey          string              // the key name when in statePendingKey
+	pendingKeyInd       int                 // YAML indent of the pending key
+	deferredKV          *pendingResolution  // non-nil when action resolved pendingKey but deeper content may follow
+	comments            map[ast.Expr]string // expr → trailing comment
+	inRangeBody         bool                // true when processing range body (suppresses list item struct wrapping)
+	rangeBodyStackDepth int                 // stack depth when inRangeBody was set; only suppress at this depth
+	remainingNodes      []parse.Node        // sibling nodes not yet processed (set by processBodyNodes)
 
 	// Deferred action: action expression waiting to see if next text starts with ": " (dynamic key).
 	pendingActionExpr    ast.Expr
@@ -1059,7 +1059,7 @@ func convertStructured(cfg *Config, input []byte, templateName string, treeSet m
 		localVars:                   make(map[string]ast.Expr),
 		imports:                     make(map[string]bool),
 		usedHelpers:                 make(map[string]HelperDef),
-		comments:                    make(map[string]string),
+		comments:                    make(map[ast.Expr]string),
 		treeSet:                     treeSet,
 		helperExprs:                 make(map[string]string),
 		helperCUE:                   make(map[string]string),
@@ -1545,7 +1545,7 @@ func (c *converter) convertHelperBody(nodes []parse.Node) (string, *helperArgInf
 		helperArgFieldNonScalarRefs: c.helperArgFieldNonScalarRefs,
 		undefinedHelpers:            c.undefinedHelpers,
 		localVars:                   make(map[string]ast.Expr),
-		comments:                    make(map[string]string),
+		comments:                    make(map[ast.Expr]string),
 	}
 
 	// Inside helper bodies, bare {{ . }} and {{ .field }} refer to
@@ -3214,7 +3214,7 @@ func (c *converter) processNode(node parse.Node) error {
 		if helmObj != "" {
 			c.usedContextObjects[helmObj] = true
 		}
-		comment := c.comments[exprToText(expr)]
+		comment := c.comments[expr]
 		c.emitActionExpr(expr, comment)
 	case *parse.IfNode:
 		if c.inlineParts != nil && isInlineSafeIf(n) {

@@ -247,7 +247,7 @@ func convertRequired(c *converter, args []funcArg) (ast.Expr, string, error) {
 		return nil, "", fmt.Errorf("required field: %w", err)
 	}
 	_ = fieldPath // tracked inside resolveField
-	c.comments[exprToText(expr)] = fmt.Sprintf("// required: %s", exprToText(msg))
+	c.comments[expr] = fmt.Sprintf("// required: %s", exprToText(msg))
 	return expr, helmObj, nil
 }
 
