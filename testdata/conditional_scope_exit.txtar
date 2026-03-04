@@ -53,16 +53,13 @@ output: [
 			{
 				name:  "test"
 				image: "busybox"
-				args: [
-					if (_nonzero & {#arg: #values.tls, _}) {
-						"--enable-tls=true"
-					},
-					if (_nonzero & {#arg: #values.tls, _}) {
-						"--port=443"
-					},
-					if !(_nonzero & {#arg: #values.tls, _}) {
-						"--enable-tls=false"
-					},
+				args: [if (_nonzero & {#arg: #values.tls, _}) {
+					"--enable-tls=true"
+				}, if (_nonzero & {#arg: #values.tls, _}) {
+					"--port=443"
+				}, if !(_nonzero & {#arg: #values.tls, _}) {
+					"--enable-tls=false"
+				},
 				]
 				if (_nonzero & {#arg: #values.tls, _}) {
 					ports: [

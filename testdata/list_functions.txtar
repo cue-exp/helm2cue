@@ -30,6 +30,6 @@ output: [
 		apiVersion: "v1"
 		kind:       "ConfigMap"
 		metadata: name: "test"
-		data: head: #values.items[0]
+		data: head:     #values.items[0]
 	},
 ]

@@ -34,13 +34,15 @@ package test_app
 
 import "strings"
 
-test: [{
-	apiVersion: "v1"
-	kind:       "ConfigMap"
-	metadata: name: "test"
-	data: {
-		if strings.Contains(#values.hostname, "example") {
-			matched: "yes"
+test: [
+	{
+		apiVersion: "v1"
+		kind:       "ConfigMap"
+		metadata: name: "test"
+		data: {
+			if strings.Contains(#values.hostname, "example") {
+				matched: "yes"
+			}
 		}
-	}
-}]
+	},
+]

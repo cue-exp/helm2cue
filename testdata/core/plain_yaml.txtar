@@ -14,6 +14,6 @@ output: [
 		apiVersion: "v1"
 		kind:       "ConfigMap"
 		metadata: name: "my-config"
-		data: key: "value"
+		data: key:      "value"
 	},
 ]

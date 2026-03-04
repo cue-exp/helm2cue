@@ -50,15 +50,12 @@ output: [
 			apiVersion: "v1"
 			kind:       "ConfigMap"
 			metadata: name: "\(#values.name)-one"
-			data: key: "one"
+			data: key:      "one"
 		}
 	},
 	{
 		if (_nonzero & {#arg: #values.enabled, _}) {
-			apiVersion: "v1"
-			kind:       "ConfigMap"
-			metadata: name: "\(#values.name)-two"
-			data: key: "two"
+			apiVersion: "v1", kind: "ConfigMap", metadata: name: "\(#values.name)-two", data: key: "two"
 		}
 	},
 ]

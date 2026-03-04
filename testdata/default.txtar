@@ -28,6 +28,6 @@ output: [
 		apiVersion: "v1"
 		kind:       "ConfigMap"
 		metadata: name: *#values.name | "fallback"
-		data: env: *#values.env | "production"
+		data: env:      *#values.env | "production"
 	},
 ]

@@ -57,13 +57,11 @@ output: [
 		spec: containers: [
 			{
 				name: "test"
-				args: [
-					if (_nonzero & {#arg: #values.tls.enabled, _}) {
-						#values.tls.port
-					},
-					if !(_nonzero & {#arg: #values.tls.enabled, _}) {
-						"8080"
-					},
+				args: [if (_nonzero & {#arg: #values.tls.enabled, _}) {
+					#values.tls.port
+				}, if !(_nonzero & {#arg: #values.tls.enabled, _}) {
+					"8080"
+				},
 				]
 				if (_nonzero & {#arg: #values.tls.enabled, _}) {
 					ports: [

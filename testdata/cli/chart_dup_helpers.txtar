@@ -89,20 +89,22 @@ package dup_helpers
 
 package dup_helpers
 
-deployment: [{
-	apiVersion: "apps/v1"
-	kind:       "Deployment"
-	metadata: {
-		name:   _dup_helpers_name
-		labels: _dup_helpers_labels
-	}
-	spec: {
-		replicas: #values.replicaCount
-		template: spec: containers: [
-			{
-				name:  _dup_helpers_name
-				image: #values.image
-			},
-		]
-	}
-}]
+deployment: [
+	{
+		apiVersion: "apps/v1"
+		kind:       "Deployment"
+		metadata: {
+			name:   _dup_helpers_name
+			labels: _dup_helpers_labels
+		}
+		spec: {
+			replicas: #values.replicaCount
+			template: spec: containers: [
+				{
+					name:  _dup_helpers_name
+					image: #values.image
+				},
+			]
+		}
+	},
+]

@@ -19,6 +19,6 @@ output: [
 		apiVersion: "v1"
 		kind:       "ConfigMap"
 		metadata: name: "test"
-		data: port: "\(#values.port)"
+		data: port:     "\(#values.port)"
 	},
 ]

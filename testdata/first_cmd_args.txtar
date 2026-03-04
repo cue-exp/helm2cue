@@ -29,6 +29,6 @@ output: [
 		apiVersion: "v1"
 		kind:       "ConfigMap"
 		metadata: name: "test"
-		data: path: strings.TrimSuffix(#values.path, "/")
+		data: path:     strings.TrimSuffix(#values.path, "/")
 	},
 ]

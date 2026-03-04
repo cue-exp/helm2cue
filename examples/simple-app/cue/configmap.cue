@@ -2,20 +2,22 @@
 
 package simple_app
 
-configmap: [{
-	apiVersion: "v1"
-	kind:       "ConfigMap"
-	metadata: {
-		name:   _simple_app_fullname
-		labels: _simple_app_labels
-	}
-	data: {
-		environment: "\(*#values.env | "development")"
-		if (_nonzero & {#arg: #values.debug, _}) {
-			logLevel: "debug"
+configmap: [
+	{
+		apiVersion: "v1"
+		kind:       "ConfigMap"
+		metadata: {
+			name:   _simple_app_fullname
+			labels: _simple_app_labels
 		}
-		if !(_nonzero & {#arg: #values.debug, _}) {
-			logLevel: "info"
+		data: {
+			environment: "\(*#values.env | "development")"
+			if (_nonzero & {#arg: #values.debug, _}) {
+				logLevel: "debug"
+			}
+			if !(_nonzero & {#arg: #values.debug, _}) {
+				logLevel: "info"
+			}
 		}
-	}
-}]
+	},
+]

@@ -54,7 +54,7 @@ output: [
 	{
 		apiVersion: "v1"
 		kind:       "ConfigMap"
-		metadata: name: "test"
+		metadata: name:   "test"
 		data: validation: "\(_test_validateValues_cloneRepo)"
 	},
 ]

@@ -31,10 +31,10 @@ output: [
 			"/bin/bash",
 			"-ec",
 			"""
-				pull origin \(#values.branch)
-				sleep \(#values.interval)
-				
-				""",
+	pull origin \(#values.branch)
+	sleep \(#values.interval)
+	
+	""",
 		]
 	},
 ]

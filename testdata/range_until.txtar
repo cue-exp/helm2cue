@@ -35,10 +35,9 @@ output: [
 		apiVersion: "v1"
 		kind:       "ConfigMap"
 		metadata: name: "test"
-		data: items: [
-			for _key0, _val0 in list.Range(0, int & #values.replicas, 1) {
-				_val0
-			},
+		data: items: [for _key0, _val0 in list.Range(0, int & #values.replicas, 1) {
+			_val0
+		},
 		]
 	},
 ]

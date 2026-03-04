@@ -49,7 +49,7 @@ output: [
 			apiVersion: "v1"
 			kind:       "ConfigMap"
 			metadata: name: #values.name
-			data: key: "one"
+			data: key:      "one"
 		}
 	},
 	if (_nonzero & {#arg: #values.enabled, _}) {
@@ -57,7 +57,7 @@ output: [
 			apiVersion: "v1"
 			kind:       "ConfigMap"
 			metadata: name: #values.name
-			data: key: "two"
+			data: key:      "two"
 		}
 	},
 ]
