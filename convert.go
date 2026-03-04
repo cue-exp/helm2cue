@@ -29,6 +29,7 @@ import (
 	"cuelang.org/go/cue/cuecontext"
 	"cuelang.org/go/cue/format"
 	"cuelang.org/go/cue/parser"
+	"cuelang.org/go/cue/token"
 	cueyaml "cuelang.org/go/encoding/yaml"
 )
 
@@ -571,6 +572,8 @@ func convertStructured(cfg *Config, input []byte, templateName string, treeSet m
 }
 
 // assembleSingleFile assembles a complete single-file CUE output from a convertResult.
+// It builds an *ast.File from parsed body declarations, schema fields,
+// and helper definitions, then resolves import sentinels and formats.
 func assembleSingleFile(cfg *Config, r *convertResult) ([]byte, error) {
 	allImports := make(map[string]bool)
 	for k, v := range r.imports {
@@ -585,16 +588,16 @@ func assembleSingleFile(cfg *Config, r *convertResult) ([]byte, error) {
 		}
 	}
 
-	var final bytes.Buffer
+	var allDecls []ast.Decl
 
-	// Emit context object declarations.
-	var decls []string
+	// Context object and helper declarations.
+	var declNames []string
 	for helmObj := range r.usedContextObjects {
-		decls = append(decls, cfg.ContextObjects[helmObj])
+		declNames = append(declNames, cfg.ContextObjects[helmObj])
 	}
-	slices.Sort(decls)
+	slices.Sort(declNames)
 
-	hasDecls := len(decls) > 0
+	hasDecls := len(declNames) > 0
 	hasHelpers := len(r.helperOrder) > 0 || len(r.undefinedHelpers) > 0 || r.hasDynamicInclude
 
 	if hasDecls || hasHelpers {
@@ -603,30 +606,45 @@ func assembleSingleFile(cfg *Config, r *convertResult) ([]byte, error) {
 			cueToHelm[c] = h
 		}
 
-		for _, cueDef := range decls {
+		for _, cueDef := range declNames {
 			helmObj := cueToHelm[cueDef]
 			refs := r.fieldRefs[helmObj]
 			reqRefs := r.requiredRefs[helmObj]
 			rngRefs := r.rangeRefs[helmObj]
 			nsRefs := r.nonScalarRefs[helmObj]
 			if len(refs) == 0 {
-				fmt.Fprintf(&final, "%s: _\n", cueDef)
+				allDecls = append(allDecls, &ast.Field{
+					Label: ast.NewIdent(cueDef),
+					Value: ast.NewIdent("_"),
+				})
 			} else {
-				fmt.Fprintf(&final, "%s: {\n", cueDef)
 				root := buildFieldTree(refs, reqRefs, rngRefs, nsRefs)
-				emitFieldNodes(&final, root.children, 1)
-				writeIndent(&final, 1)
-				final.WriteString("...\n")
-				fmt.Fprintf(&final, "}\n")
+				childDecls := fieldNodesToDecls(root.children)
+				childDecls = append(childDecls, &ast.Ellipsis{})
+				allDecls = append(allDecls, &ast.Field{
+					Label: ast.NewIdent(cueDef),
+					Value: &ast.StructLit{Elts: childDecls},
+				})
 			}
 		}
 
 		for _, name := range r.helperOrder {
 			cueName := r.helperExprs[name]
 			if cueExpr, ok := r.helpers[cueName]; ok {
-				fmt.Fprintf(&final, "%s: %s\n", cueName, cueExpr)
+				exprDecls, err := bodyToDecls(fmt.Sprintf("%s: %s", cueName, cueExpr))
+				if err != nil {
+					allDecls = append(allDecls, &ast.Field{
+						Label: ast.NewIdent(cueName),
+						Value: ast.NewIdent("_"),
+					})
+				} else {
+					allDecls = append(allDecls, exprDecls...)
+				}
 			} else {
-				fmt.Fprintf(&final, "%s: _\n", cueName)
+				allDecls = append(allDecls, &ast.Field{
+					Label: ast.NewIdent(cueName),
+					Value: ast.NewIdent("_"),
+				})
 			}
 		}
 
@@ -639,7 +657,10 @@ func assembleSingleFile(cfg *Config, r *convertResult) ([]byte, error) {
 			}
 			slices.Sort(undefs)
 			for _, cueName := range undefs {
-				fmt.Fprintf(&final, "%s: _\n", cueName)
+				allDecls = append(allDecls, &ast.Field{
+					Label: ast.NewIdent(cueName),
+					Value: ast.NewIdent("_"),
+				})
 			}
 		}
 
@@ -659,38 +680,67 @@ func assembleSingleFile(cfg *Config, r *convertResult) ([]byte, error) {
 			slices.SortFunc(entries, func(a, b helperEntry) int {
 				return strings.Compare(a.origName, b.origName)
 			})
-			final.WriteString("_helpers: {\n")
+			var helpersText bytes.Buffer
+			helpersText.WriteString("_helpers: {\n")
 			for _, e := range entries {
-				fmt.Fprintf(&final, "\t%s: %s\n", strconv.Quote(e.origName), e.cueName)
+				fmt.Fprintf(&helpersText, "\t%s: %s\n", strconv.Quote(e.origName), e.cueName)
 			}
-			final.WriteString("}\n")
+			helpersText.WriteString("}")
+			helpersDecls, err := bodyToDecls(helpersText.String())
+			if err != nil {
+				return nil, fmt.Errorf("parsing _helpers: %w", err)
+			}
+			allDecls = append(allDecls, helpersDecls...)
 		}
-
-		final.WriteString("\n")
 	}
 
-	// Emit body wrapped in output list.
+	// Body.
 	body := strings.TrimRight(r.body, "\n")
 	if body != "" {
-		final.WriteString(body)
-		final.WriteByte('\n')
+		bodyDecls, err := bodyToDecls(body)
+		if err != nil {
+			return nil, fmt.Errorf("parsing body: %w", err)
+		}
+		if len(allDecls) > 0 && len(bodyDecls) > 0 {
+			ast.SetRelPos(bodyDecls[0], token.NewSection)
+		}
+		allDecls = append(allDecls, bodyDecls...)
 	}
 
-	// Emit _nonzero if needed — sentinelize import refs in the constant.
+	// _nonzero and helper definitions. The first definition follows
+	// the body without a blank line; subsequent definitions are
+	// separated by blank lines.
+	helperDefCount := 0
 	if r.needsNonzero {
 		def := sentinelizeImportsRaw(stripCUEComments(nonzeroDef), []string{"struct"}, nil)
-		final.WriteString(def)
-		final.WriteString("\n")
+		defDecls, err := bodyToDecls(def)
+		if err != nil {
+			return nil, fmt.Errorf("parsing nonzero def: %w", err)
+		}
+		if helperDefCount > 0 {
+			allDecls = appendSectionDecls(allDecls, defDecls)
+		} else {
+			allDecls = append(allDecls, defDecls...)
+		}
+		helperDefCount++
 	}
 
-	// Emit used helper definitions — sentinelize import refs.
 	for _, h := range r.usedHelpers {
 		def := sentinelizeImportsRaw(stripCUEComments(h.Def), h.Imports, nil)
-		final.WriteString(def)
-		final.WriteString("\n")
+		defDecls, err := bodyToDecls(def)
+		if err != nil {
+			return nil, fmt.Errorf("parsing helper def %s: %w", h.Name, err)
+		}
+		if helperDefCount > 0 {
+			allDecls = appendSectionDecls(allDecls, defDecls)
+		} else {
+			allDecls = append(allDecls, defDecls...)
+		}
+		helperDefCount++
 	}
 
-	return resolveImportsAndFormat(final.Bytes(), allImports)
+	f := &ast.File{Decls: allDecls}
+	return formatResolvedFile(f, allImports)
 }
 
 // Convert transforms a template YAML file into CUE using the given config.
@@ -6074,11 +6124,47 @@ func isIdentOrHash(b byte) bool {
 		(b >= '0' && b <= '9') || b == '_' || b == '#'
 }
 
-// resolveImportsAndFormat parses CUE source containing import sentinels,
-// resolves them to real import-tagged identifiers, calls astutil.Sanitize
-// to manage imports, and formats the result.
-func resolveImportsAndFormat(src []byte, knownImports map[string]bool) ([]byte, error) {
-	// Build sentinel → package map.
+// appendSectionDecls appends declarations with a blank line separator.
+// It sets token.NewSection on the first new declaration to ensure
+// format.Node inserts a blank line before it.
+func appendSectionDecls(target, newDecls []ast.Decl) []ast.Decl {
+	if len(newDecls) > 0 && len(target) > 0 {
+		ast.SetRelPos(newDecls[0], token.NewSection)
+	}
+	return append(target, newDecls...)
+}
+
+// bodyToDecls parses a converter body string into CUE declarations.
+// It wraps the body in struct braces, parses the result, and extracts
+// the inner declarations. This bridges the text-based converter output
+// with AST-based assembly.
+func bodyToDecls(body string) ([]ast.Decl, error) {
+	body = strings.TrimRight(body, "\n")
+	if body == "" {
+		return nil, nil
+	}
+	src := "{\n" + body + "\n}"
+	f, err := parser.ParseFile("body.cue", src, parser.ParseComments)
+	if err != nil {
+		return nil, err
+	}
+	if len(f.Decls) == 0 {
+		return nil, nil
+	}
+	embed, ok := f.Decls[0].(*ast.EmbedDecl)
+	if !ok {
+		return nil, fmt.Errorf("expected embed decl, got %T", f.Decls[0])
+	}
+	lit, ok := embed.Expr.(*ast.StructLit)
+	if !ok {
+		return nil, fmt.Errorf("expected struct lit, got %T", embed.Expr)
+	}
+	return lit.Elts, nil
+}
+
+// resolveImportSentinels walks an *ast.File and resolves sentinel
+// identifiers (e.g. _h2c_strings_) to import-tagged identifiers.
+func resolveImportSentinels(f *ast.File, knownImports map[string]bool) {
 	type sentinelInfo struct {
 		pkg       string
 		shortName string
@@ -6093,14 +6179,6 @@ func resolveImportsAndFormat(src []byte, knownImports map[string]bool) ([]byte, 
 		sentinels[sentinel] = sentinelInfo{pkg: pkg, shortName: shortName}
 	}
 
-	f, err := parser.ParseFile("output.cue", src, parser.ParseComments)
-	if err != nil {
-		return nil, fmt.Errorf("generated invalid CUE:\n%s\nerror: %w", src, err)
-	}
-
-	// Walk AST: for each SelectorExpr where X is an Ident matching
-	// a sentinel, replace X.Name with the real short name and set
-	// X.Node = ast.NewImport(nil, pkg).
 	ast.Walk(f, func(n ast.Node) bool {
 		sel, ok := n.(*ast.SelectorExpr)
 		if !ok {
@@ -6118,12 +6196,90 @@ func resolveImportsAndFormat(src []byte, knownImports map[string]bool) ([]byte, 
 		ident.Node = ast.NewImport(nil, info.pkg)
 		return true
 	}, nil)
+}
 
+// formatResolvedFile applies resolveImportSentinels, astutil.Sanitize,
+// and format.Node to produce formatted CUE source from an AST file.
+func formatResolvedFile(f *ast.File, knownImports map[string]bool) ([]byte, error) {
+	resolveImportSentinels(f, knownImports)
 	if err := astutil.Sanitize(f); err != nil {
 		return nil, fmt.Errorf("sanitize: %w", err)
 	}
-
 	return format.Node(f, format.Simplify())
+}
+
+// cueKeyLabel returns an AST label for a CUE field key.
+// Identifiers are returned as *ast.Ident; non-identifiers are quoted.
+func cueKeyLabel(s string) ast.Label {
+	if identRe.MatchString(s) {
+		return ast.NewIdent(s)
+	}
+	return &ast.BasicLit{Kind: token.STRING, Value: strconv.Quote(s)}
+}
+
+// cueScalarTypeExpr returns a fresh AST expression for the scalar type
+// union: bool | number | string | null.
+func cueScalarTypeExpr() ast.Expr {
+	return &ast.BinaryExpr{
+		X: &ast.BinaryExpr{
+			X: &ast.BinaryExpr{
+				X:  ast.NewIdent("bool"),
+				Op: token.OR,
+				Y:  ast.NewIdent("number"),
+			},
+			Op: token.OR,
+			Y:  ast.NewIdent("string"),
+		},
+		Op: token.OR,
+		Y:  ast.NewIdent("null"),
+	}
+}
+
+// fieldNodesToDecls converts a slice of fieldNodes into AST declarations.
+// This is the AST equivalent of emitFieldNodes.
+func fieldNodesToDecls(nodes []*fieldNode) []ast.Decl {
+	var decls []ast.Decl
+	for _, n := range nodes {
+		constraint := token.OPTION
+		if n.required {
+			constraint = token.NOT
+		}
+
+		if len(n.children) > 0 {
+			childDecls := fieldNodesToDecls(n.children)
+			childDecls = append(childDecls, &ast.Ellipsis{})
+			structLit := &ast.StructLit{Elts: childDecls}
+
+			var value ast.Expr
+			if n.isRange {
+				value = &ast.ListLit{
+					Elts: []ast.Expr{
+						&ast.Ellipsis{Type: structLit},
+					},
+				}
+			} else {
+				value = structLit
+			}
+			decls = append(decls, &ast.Field{
+				Label:      cueKeyLabel(n.name),
+				Constraint: constraint,
+				Value:      value,
+			})
+		} else {
+			var value ast.Expr
+			if n.isRange || n.isNonScalar {
+				value = ast.NewIdent("_")
+			} else {
+				value = cueScalarTypeExpr()
+			}
+			decls = append(decls, &ast.Field{
+				Label:      cueKeyLabel(n.name),
+				Constraint: constraint,
+				Value:      value,
+			})
+		}
+	}
+	return decls
 }
 
 // cueScalarType is the CUE type for leaf fields that are known to be
