@@ -1,32 +1,29 @@
-Conditional on a string value: the field is used both as a condition and a value.
+Value reference inside an if-guard for the same field should be optional.
 
 -- values.yaml --
-name: my-app
-tier: frontend
+name: myapp
+x: hello
 -- input.yaml --
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: {{ .Values.name }}
-  labels:
-    app: {{ .Values.name }}
-    {{- if .Values.tier }}
-    tier: {{ .Values.tier }}
-    {{- end }}
+  name: test
+data:
+{{- if .Values.x }}
+  key: {{ .Values.x }}
+{{- end }}
 -- helm_output.yaml --
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: my-app
-  labels:
-    app: my-app
-    tier: frontend
+  name: test
+data:
+  key: hello
 -- output.cue --
 import "struct"
 
 #values: {
-	name!: bool | number | string | null
-	tier?: bool | number | string | null
+	x?: bool | number | string | null
 	...
 }
 
@@ -34,16 +31,13 @@ output: [
 	{
 		apiVersion: "v1"
 		kind:       "ConfigMap"
-		metadata: {
-			name: #values.name
-			labels: {
-				app: #values.name
-				if (_nonzero & {
-					#arg: #values.tier
-					_
-				}) {
-					tier: #values.tier
-				}
+		metadata: name: "test"
+		data: {
+			if (_nonzero & {
+				#arg: #values.x
+				_
+			}) {
+				key: #values.x
 			}
 		}
 	},

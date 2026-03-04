@@ -31,8 +31,8 @@ spec:
 import "struct"
 
 #values: {
-	updateStrategy!: _
-	resources!:      _
+	updateStrategy?: _
+	resources?:      _
 	...
 }
 

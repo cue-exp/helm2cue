@@ -41,10 +41,10 @@ data:
 package test_app
 
 #values: {
-	secret!: {
-		name!:     bool | number | string | null
-		key!:      bool | number | string | null
-		optional!: bool | number | string | null
+	secret?: {
+		name?:     bool | number | string | null
+		key?:      bool | number | string | null
+		optional?: bool | number | string | null
 		...
 	}
 	...
