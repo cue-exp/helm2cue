@@ -32,19 +32,15 @@ package test_app
 deployment: [{
 	apiVersion: "v1"
 	kind:       "Pod"
-	metadata: {
-		name: "test"
-	}
-	spec: {
-		containers: [
-			{
-				name: "test"
-				args: [
-					"first",
-					#values.port,
-					"last",
-				]
-			},
-		]
-	}
+	metadata: name: "test"
+	spec: containers: [
+		{
+			name: "test"
+			args: [
+				"first",
+				#values.port,
+				"last",
+			]
+		},
+	]
 }]

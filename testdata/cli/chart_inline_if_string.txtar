@@ -31,21 +31,19 @@ package test_app
 test: [{
 	apiVersion: "v1"
 	kind:       "Pod"
-	spec: {
-		containers: [
-			{
-				name: "test"
-				args: [
-					if (_nonzero & {#arg: #values.tls, _}) {
-						if (_nonzero & {#arg: #values.certManager, _}) {
-							"\"--cert=tls.crt\""
-						}
-						if !(_nonzero & {#arg: #values.certManager, _}) {
-							"\"--cert=cert\""
-						}
-					},
-				]
-			},
-		]
-	}
+	spec: containers: [
+		{
+			name: "test"
+			args: [
+				if (_nonzero & {#arg: #values.tls, _}) {
+					if (_nonzero & {#arg: #values.certManager, _}) {
+						"\"--cert=tls.crt\""
+					}
+					if !(_nonzero & {#arg: #values.certManager, _}) {
+						"\"--cert=cert\""
+					}
+				},
+			]
+		},
+	]
 }]

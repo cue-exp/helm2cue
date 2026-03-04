@@ -43,38 +43,34 @@ package test_app
 deployment: [{
 	apiVersion: "v1"
 	kind:       "Pod"
-	metadata: {
-		name: "test"
-	}
-	spec: {
-		containers: [
-			{
-				name: "test"
-				args: [
-					if (_nonzero & {#arg: #values.tls.enabled, _}) {
-						#values.tls.port
-					},
-					if !(_nonzero & {#arg: #values.tls.enabled, _}) {
-						"8080"
+	metadata: name: "test"
+	spec: containers: [
+		{
+			name: "test"
+			args: [
+				if (_nonzero & {#arg: #values.tls.enabled, _}) {
+					#values.tls.port
+				},
+				if !(_nonzero & {#arg: #values.tls.enabled, _}) {
+					"8080"
+				},
+			]
+			if (_nonzero & {#arg: #values.tls.enabled, _}) {
+				ports: [
+					{
+						containerPort: #values.tls.port
+						name:          "https"
 					},
 				]
-				if (_nonzero & {#arg: #values.tls.enabled, _}) {
-					ports: [
-						{
-							containerPort: #values.tls.port
-							name:          "https"
-						},
-					]
-				}
-				if !(_nonzero & {#arg: #values.tls.enabled, _}) {
-					ports: [
-						{
-							containerPort: 8080
-							name:          "http"
-						},
-					]
-				}
-			},
-		]
-	}
+			}
+			if !(_nonzero & {#arg: #values.tls.enabled, _}) {
+				ports: [
+					{
+						containerPort: 8080
+						name:          "http"
+					},
+				]
+			}
+		},
+	]
 }]
