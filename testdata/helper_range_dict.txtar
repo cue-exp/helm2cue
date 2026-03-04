@@ -38,7 +38,13 @@ import "struct"
 		name!:      bool | number | string | null
 		mountPath!: bool | number | string | null
 		...
-	}]
+	}] | {
+		[string]: {
+			name!:      bool | number | string | null
+			mountPath!: bool | number | string | null
+			...
+		}
+	}
 	...
 }
 _renderVolumes: {
@@ -47,7 +53,11 @@ _renderVolumes: {
 			name!:      bool | number | string | null
 			mountPath!: bool | number | string | null
 			...
-		}]
+		}] | {[string]: {
+			name!:      bool | number | string | null
+			mountPath!: bool | number | string | null
+			...
+		}}
 		...
 	}
 	let _args = #arg

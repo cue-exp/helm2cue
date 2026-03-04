@@ -10,8 +10,12 @@ import "struct"
 		key!:  bool | number | string | null
 		...
 	}
-	labels?:   _
-	features?: _
+	labels?: [...] | {
+		...
+	}
+	features?: [...] | {
+		...
+	}
 	...
 }
 _fullname: "\(#values.name)-server"

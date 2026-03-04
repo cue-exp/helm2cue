@@ -1,307 +1,228 @@
 -- ConvertChart --
-error: values.yaml does not satisfy inferred schema: #values.alertmanager.servicePerReplica: conflicting values [...{enabled?:(bool|number|string|null),...}] and {enabled:false,annotations:{},port:9093,targetPort:9093,nodePort:30904,loadBalancerSourceRanges:[],externalTrafficPolicy:"Cluster",type:"ClusterIP"} (mismatched types list and struct)
-error: values.yaml does not satisfy inferred schema: #values.alertmanager.ingressPerReplica: conflicting values [...{enabled?:(bool|number|string|null),pathType?:(bool|number|string|null),...}] and {enabled:false,ingressClassName:"",annotations:{},labels:{},hostPrefix:"",hostDomain:"",paths:[],tlsSecretName:"",tlsSecretPerReplica:{enabled:false,prefix:"alertmanager"}} (mismatched types list and struct)
-error: values.yaml does not satisfy inferred schema: #values.prometheus.servicePerReplica: conflicting values [...{enabled?:(bool|number|string|null),port!:(bool|number|string|null),...}] and {enabled:false,annotations:{},port:9090,targetPort:9090,nodePort:30091,loadBalancerSourceRanges:[],externalTrafficPolicy:"Cluster",type:"ClusterIP",ipDualStack:{enabled:false,ipFamilies:["IPv6","IPv4"],ipFamilyPolicy:"PreferDualStack"}} (mismatched types list and struct)
-error: values.yaml does not satisfy inferred schema: #values.prometheus.ingressPerReplica: conflicting values [...{enabled?:(bool|number|string|null),pathType?:(bool|number|string|null),...}] and {enabled:false,ingressClassName:"",annotations:{},labels:{},hostPrefix:"",hostDomain:"",paths:[],tlsSecretName:"",tlsSecretPerReplica:{enabled:false,prefix:"prometheus"}} (mismatched types list and struct)
+error: values.yaml does not satisfy inferred schema: #values.automountServiceAccountToken: field is required but not present
+error: values.yaml does not satisfy inferred schema: #values.shareProcessNamespace: field is required but not present
+error: values.yaml does not satisfy inferred schema: #values.hostUsers: field is required but not present
+error: values.yaml does not satisfy inferred schema: #values.dnsPolicy: field is required but not present
+error: values.yaml does not satisfy inferred schema: #values.enableServiceLinks: field is required but not present
+error: values.yaml does not satisfy inferred schema: #values.podPortName: field is required but not present
+error: values.yaml does not satisfy inferred schema: #values.gossipPortName: field is required but not present
+error: values.yaml does not satisfy inferred schema: #values.envFromSecret: field is required but not present
+error: values.yaml does not satisfy inferred schema: #values.adminUser: field is required but not present
+error: values.yaml does not satisfy inferred schema: #values.adminPassword: field is required but not present
+error: values.yaml does not satisfy inferred schema: #values.alertmanager.alertmanagerSpec.configSecret: field is required but not present
+error: values.yaml does not satisfy inferred schema: #values.alertmanager.service.clusterPort: field is required but not present
+error: values.yaml does not satisfy inferred schema: #values.alertmanager.podDisruptionBudget.maxUnavailable: field is required but not present
+error: values.yaml does not satisfy inferred schema: #values.grafana.sidecar.datasources.url: field is required but not present
+error: values.yaml does not satisfy inferred schema: #values.grafana.sidecar.datasources.timeout: field is required but not present
+error: values.yaml does not satisfy inferred schema: #values.grafana.sidecar.datasources.customQueryParameters: field is required but not present
+error: values.yaml does not satisfy inferred schema: #values.grafana.sidecar.datasources.exemplarTraceIdDestinations.datasourceUid: field is required but not present
+error: values.yaml does not satisfy inferred schema: #values.grafana.sidecar.datasources.exemplarTraceIdDestinations.traceIdLabelName: field is required but not present
+error: values.yaml does not satisfy inferred schema: #values.grafana.sidecar.datasources.exemplarTraceIdDestinations.urlDisplayLabel: field is required but not present
+error: values.yaml does not satisfy inferred schema: #values.grafana.sidecar.datasources.alertmanager.url: field is required but not present
+error: values.yaml does not satisfy inferred schema: #values.kubelet.serviceMonitor.scrapeTimeout: field is required but not present
+error: values.yaml does not satisfy inferred schema: #values.kubelet.serviceMonitor.resourceMetricRelabelings: field is required but not present
+error: values.yaml does not satisfy inferred schema: #values.prometheusOperator.admissionWebhooks.deployment.priorityClassName: field is required but not present
+error: values.yaml does not satisfy inferred schema: #values.prometheusOperator.admissionWebhooks.deployment.logFormat: field is required but not present
+error: values.yaml does not satisfy inferred schema: #values.prometheusOperator.admissionWebhooks.deployment.logLevel: field is required but not present
+error: values.yaml does not satisfy inferred schema: #values.prometheusOperator.admissionWebhooks.certManager.issuerRef: field is required but not present
+error: values.yaml does not satisfy inferred schema: #values.prometheusOperator.networkPolicy.matchLabels: field is required but not present
+error: values.yaml does not satisfy inferred schema: #values.prometheusOperator.priorityClassName: field is required but not present
+error: values.yaml does not satisfy inferred schema: #values.prometheusOperator.logFormat: field is required but not present
+error: values.yaml does not satisfy inferred schema: #values.prometheusOperator.logLevel: field is required but not present
+error: values.yaml does not satisfy inferred schema: #values.prometheusOperator.prometheusDefaultBaseImage: field is required but not present
+error: values.yaml does not satisfy inferred schema: #values.prometheusOperator.alertmanagerDefaultBaseImage: field is required but not present
+error: values.yaml does not satisfy inferred schema: #values.prometheusOperator.clusterDomain: field is required but not present
+error: values.yaml does not satisfy inferred schema: #values.prometheusOperator.verticalPodAutoscaler.controlledValues: field is required but not present
+error: values.yaml does not satisfy inferred schema: #values.prometheus.prometheusSpec.thanos.secretProviderClass: field is required but not present
+error: values.yaml does not satisfy inferred schema: #values.prometheus.prometheusSpec.additionalScrapeConfigsSecret.name: field is required but not present
+error: values.yaml does not satisfy inferred schema: #values.prometheus.prometheusSpec.additionalScrapeConfigsSecret.key: field is required but not present
+error: values.yaml does not satisfy inferred schema: #values.prometheus.prometheusSpec.additionalAlertManagerConfigsSecret.name: field is required but not present
+error: values.yaml does not satisfy inferred schema: #values.prometheus.prometheusSpec.additionalAlertManagerConfigsSecret.key: field is required but not present
+error: values.yaml does not satisfy inferred schema: #values.prometheus.prometheusSpec.additionalAlertManagerConfigsSecret.optional: field is required but not present
+error: values.yaml does not satisfy inferred schema: #values.prometheus.prometheusSpec.additionalAlertRelabelConfigsSecret.name: field is required but not present
+error: values.yaml does not satisfy inferred schema: #values.prometheus.prometheusSpec.additionalAlertRelabelConfigsSecret.key: field is required but not present
+error: values.yaml does not satisfy inferred schema: #values.prometheus.networkPolicy.egress: field is required but not present
+error: values.yaml does not satisfy inferred schema: #values.prometheus.networkPolicy.ingress: field is required but not present
+error: values.yaml does not satisfy inferred schema: #values.prometheus.networkPolicy.podSelector: field is required but not present
+error: values.yaml does not satisfy inferred schema: #values.prometheus.podDisruptionBudget.maxUnavailable: field is required but not present
+error: values.yaml does not satisfy inferred schema: #values.prometheus.serviceMonitor.proxyUrl: field is required but not present
+error: values.yaml does not satisfy inferred schema: #values.prometheus.thanosServiceMonitor.sampleLimit: field is required but not present
+error: values.yaml does not satisfy inferred schema: #values.prometheus.thanosServiceMonitor.targetLimit: field is required but not present
+error: values.yaml does not satisfy inferred schema: #values.prometheus.thanosServiceMonitor.labelLimit: field is required but not present
+error: values.yaml does not satisfy inferred schema: #values.prometheus.thanosServiceMonitor.labelNameLengthLimit: field is required but not present
+error: values.yaml does not satisfy inferred schema: #values.prometheus.thanosServiceMonitor.labelValueLengthLimit: field is required but not present
+error: values.yaml does not satisfy inferred schema: #values.thanosRuler.thanosRulerSpec.alertQueryUrl: field is required but not present
+error: values.yaml does not satisfy inferred schema: #values.thanosRuler.thanosRulerSpec.alertmanagersUrl: field is required but not present
+error: values.yaml does not satisfy inferred schema: #values.thanosRuler.thanosRulerSpec.alertmanagersConfig.existingSecret.key: field is required but not present
+error: values.yaml does not satisfy inferred schema: #values.thanosRuler.thanosRulerSpec.alertmanagersConfig.existingSecret.name: field is required but not present
+error: values.yaml does not satisfy inferred schema: #values.thanosRuler.thanosRulerSpec.queryConfig.existingSecret.key: field is required but not present
+error: values.yaml does not satisfy inferred schema: #values.thanosRuler.thanosRulerSpec.queryConfig.existingSecret.name: field is required but not present
+error: values.yaml does not satisfy inferred schema: #values.thanosRuler.thanosRulerSpec.objectStorageConfig.existingSecret.key: field is required but not present
+error: values.yaml does not satisfy inferred schema: #values.thanosRuler.thanosRulerSpec.objectStorageConfig.existingSecret.name: field is required but not present
+error: values.yaml does not satisfy inferred schema: #values.thanosRuler.podDisruptionBudget.maxUnavailable: field is required but not present
+error: values.yaml does not satisfy inferred schema: #values.customLabels: field is required but not present
+error: values.yaml does not satisfy inferred schema: #values.selectorOverride: field is required but not present
+error: values.yaml does not satisfy inferred schema: #values.coreDns.service.selector: field is required but not present
+error: values.yaml does not satisfy inferred schema: #values.kubeControllerManager.service.selector: field is required but not present
+error: values.yaml does not satisfy inferred schema: #values.kubeDns.service.selector: field is required but not present
+error: values.yaml does not satisfy inferred schema: #values.kubeEtcd.service.selector: field is required but not present
+error: values.yaml does not satisfy inferred schema: #values.kubeProxy.service.selector: field is required but not present
+error: values.yaml does not satisfy inferred schema: #values.kubeScheduler.service.selector: field is required but not present
 converted 171/216 templates from kube-prometheus-stack
 ConvertChart error: values schema validation failed
 -- cue vet --
 exit status 1
-#values.alertmanager.ingressPerReplica: conflicting values {enabled:false,ingressClassName:"",annotations:{},labels:{},hostPrefix:"",hostDomain:"",paths:[],tlsSecretName:"",tlsSecretPerReplica:{enabled:false,prefix:"alertmanager"}} and [...{enabled?:(bool|number|string|null),pathType?:(bool|number|string|null),...}] (mismatched types struct and list):
-    ./values.cue:518:23
-#values.alertmanager.servicePerReplica: conflicting values {enabled:false,annotations:{},port:9093,targetPort:9093,nodePort:30904,loadBalancerSourceRanges:[],externalTrafficPolicy:"Cluster",type:"ClusterIP"} and [...{enabled?:(bool|number|string|null),...}] (mismatched types struct and list):
-    ./values.cue:514:23
-#values.prometheus.ingressPerReplica: conflicting values {enabled:false,ingressClassName:"",annotations:{},labels:{},hostPrefix:"",hostDomain:"",paths:[],tlsSecretName:"",tlsSecretPerReplica:{enabled:false,prefix:"prometheus"}} and [...{enabled?:(bool|number|string|null),pathType?:(bool|number|string|null),...}] (mismatched types struct and list):
-    ./values.cue:1312:23
-#values.prometheus.servicePerReplica: conflicting values {enabled:false,annotations:{},port:9090,targetPort:9090,nodePort:30091,loadBalancerSourceRanges:[],externalTrafficPolicy:"Cluster",type:"ClusterIP",ipDualStack:{enabled:false,ipFamilies:["IPv6","IPv4"],ipFamilyPolicy:"PreferDualStack"}} and [...{enabled?:(bool|number|string|null),port!:(bool|number|string|null),...}] (mismatched types struct and list):
-    ./values.cue:1307:23
-alertmanager_alertmanager.0.spec.alertmanagerConfigNamespaceSelector: error in call to text/template.Execute: conflicting values {enabled:false,ingressClassName:"",annotations:{},labels:{},hostPrefix:"",hostDomain:"",paths:[],tlsSecretName:"",tlsSecretPerReplica:{enabled:false,prefix:"alertmanager"}} and [...{enabled?:(bool|number|string|null),pathType?:(bool|number|string|null),...}] (mismatched types struct and list):
-    ./alertmanager_alertmanager.cue:190:57
-    ./values.cue:518:23
-#values.alertmanager.ingressPerReplica: invalid interpolation: conflicting values {enabled:false,ingressClassName:"",annotations:{},labels:{},hostPrefix:"",hostDomain:"",paths:[],tlsSecretName:"",tlsSecretPerReplica:{enabled:false,prefix:"alertmanager"}} and [...{enabled?:(bool|number|string|null),pathType?:(bool|number|string|null),...}] (mismatched types struct and list):
-    ./grafana_dashboards_1_14_alertmanager_overview.cue:60:33
-    ./values.cue:518:23
-#values.alertmanager.ingressPerReplica: invalid interpolation: conflicting values {enabled:false,ingressClassName:"",annotations:{},labels:{},hostPrefix:"",hostDomain:"",paths:[],tlsSecretName:"",tlsSecretPerReplica:{enabled:false,prefix:"alertmanager"}} and [...{enabled?:(bool|number|string|null),pathType?:(bool|number|string|null),...}] (mismatched types struct and list):
-    ./grafana_dashboards_1_14_apiserver.cue:65:21
-    ./values.cue:518:23
-#values.alertmanager.ingressPerReplica: invalid interpolation: conflicting values {enabled:false,ingressClassName:"",annotations:{},labels:{},hostPrefix:"",hostDomain:"",paths:[],tlsSecretName:"",tlsSecretPerReplica:{enabled:false,prefix:"alertmanager"}} and [...{enabled?:(bool|number|string|null),pathType?:(bool|number|string|null),...}] (mismatched types struct and list):
-    ./grafana_dashboards_1_14_cluster_total.cue:62:25
-    ./values.cue:518:23
-#values.alertmanager.ingressPerReplica: invalid interpolation: conflicting values {enabled:false,ingressClassName:"",annotations:{},labels:{},hostPrefix:"",hostDomain:"",paths:[],tlsSecretName:"",tlsSecretPerReplica:{enabled:false,prefix:"alertmanager"}} and [...{enabled?:(bool|number|string|null),pathType?:(bool|number|string|null),...}] (mismatched types struct and list):
-    ./grafana_dashboards_1_14_controller_manager.cue:65:30
-    ./values.cue:518:23
-#values.alertmanager.ingressPerReplica: invalid interpolation: conflicting values {enabled:false,ingressClassName:"",annotations:{},labels:{},hostPrefix:"",hostDomain:"",paths:[],tlsSecretName:"",tlsSecretPerReplica:{enabled:false,prefix:"alertmanager"}} and [...{enabled?:(bool|number|string|null),pathType?:(bool|number|string|null),...}] (mismatched types struct and list):
-    ./grafana_dashboards_1_14_etcd.cue:71:16
-    ./values.cue:518:23
-#values.alertmanager.ingressPerReplica: invalid interpolation: conflicting values {enabled:false,ingressClassName:"",annotations:{},labels:{},hostPrefix:"",hostDomain:"",paths:[],tlsSecretName:"",tlsSecretPerReplica:{enabled:false,prefix:"alertmanager"}} and [...{enabled?:(bool|number|string|null),pathType?:(bool|number|string|null),...}] (mismatched types struct and list):
-    ./grafana_dashboards_1_14_grafana_overview.cue:54:28
-    ./values.cue:518:23
-#values.alertmanager.ingressPerReplica: invalid interpolation: conflicting values {enabled:false,ingressClassName:"",annotations:{},labels:{},hostPrefix:"",hostDomain:"",paths:[],tlsSecretName:"",tlsSecretPerReplica:{enabled:false,prefix:"alertmanager"}} and [...{enabled?:(bool|number|string|null),pathType?:(bool|number|string|null),...}] (mismatched types struct and list):
-    ./grafana_dashboards_1_14_k8s_coredns.cue:65:23
-    ./values.cue:518:23
-#values.alertmanager.ingressPerReplica: invalid interpolation: conflicting values {enabled:false,ingressClassName:"",annotations:{},labels:{},hostPrefix:"",hostDomain:"",paths:[],tlsSecretName:"",tlsSecretPerReplica:{enabled:false,prefix:"alertmanager"}} and [...{enabled?:(bool|number|string|null),pathType?:(bool|number|string|null),...}] (mismatched types struct and list):
-    ./grafana_dashboards_1_14_k8s_resources_cluster.cue:62:33
-    ./values.cue:518:23
-#values.alertmanager.ingressPerReplica: invalid interpolation: conflicting values {enabled:false,ingressClassName:"",annotations:{},labels:{},hostPrefix:"",hostDomain:"",paths:[],tlsSecretName:"",tlsSecretPerReplica:{enabled:false,prefix:"alertmanager"}} and [...{enabled?:(bool|number|string|null),pathType?:(bool|number|string|null),...}] (mismatched types struct and list):
-    ./grafana_dashboards_1_14_k8s_resources_multicluster.cue:54:38
-    ./values.cue:518:23
-#values.alertmanager.ingressPerReplica: invalid interpolation: conflicting values {enabled:false,ingressClassName:"",annotations:{},labels:{},hostPrefix:"",hostDomain:"",paths:[],tlsSecretName:"",tlsSecretPerReplica:{enabled:false,prefix:"alertmanager"}} and [...{enabled?:(bool|number|string|null),pathType?:(bool|number|string|null),...}] (mismatched types struct and list):
-    ./grafana_dashboards_1_14_k8s_resources_namespace.cue:62:35
-    ./values.cue:518:23
-#values.alertmanager.ingressPerReplica: invalid interpolation: conflicting values {enabled:false,ingressClassName:"",annotations:{},labels:{},hostPrefix:"",hostDomain:"",paths:[],tlsSecretName:"",tlsSecretPerReplica:{enabled:false,prefix:"alertmanager"}} and [...{enabled?:(bool|number|string|null),pathType?:(bool|number|string|null),...}] (mismatched types struct and list):
-    ./grafana_dashboards_1_14_k8s_resources_node.cue:62:30
-    ./values.cue:518:23
-#values.alertmanager.ingressPerReplica: invalid interpolation: conflicting values {enabled:false,ingressClassName:"",annotations:{},labels:{},hostPrefix:"",hostDomain:"",paths:[],tlsSecretName:"",tlsSecretPerReplica:{enabled:false,prefix:"alertmanager"}} and [...{enabled?:(bool|number|string|null),pathType?:(bool|number|string|null),...}] (mismatched types struct and list):
-    ./grafana_dashboards_1_14_k8s_resources_pod.cue:62:29
-    ./values.cue:518:23
-#values.alertmanager.ingressPerReplica: invalid interpolation: conflicting values {enabled:false,ingressClassName:"",annotations:{},labels:{},hostPrefix:"",hostDomain:"",paths:[],tlsSecretName:"",tlsSecretPerReplica:{enabled:false,prefix:"alertmanager"}} and [...{enabled?:(bool|number|string|null),pathType?:(bool|number|string|null),...}] (mismatched types struct and list):
-    ./grafana_dashboards_1_14_k8s_resources_windows_cluster.cue:65:41
-    ./values.cue:518:23
-#values.alertmanager.ingressPerReplica: invalid interpolation: conflicting values {enabled:false,ingressClassName:"",annotations:{},labels:{},hostPrefix:"",hostDomain:"",paths:[],tlsSecretName:"",tlsSecretPerReplica:{enabled:false,prefix:"alertmanager"}} and [...{enabled?:(bool|number|string|null),pathType?:(bool|number|string|null),...}] (mismatched types struct and list):
-    ./grafana_dashboards_1_14_k8s_resources_windows_namespace.cue:65:43
-    ./values.cue:518:23
-#values.alertmanager.ingressPerReplica: invalid interpolation: conflicting values {enabled:false,ingressClassName:"",annotations:{},labels:{},hostPrefix:"",hostDomain:"",paths:[],tlsSecretName:"",tlsSecretPerReplica:{enabled:false,prefix:"alertmanager"}} and [...{enabled?:(bool|number|string|null),pathType?:(bool|number|string|null),...}] (mismatched types struct and list):
-    ./grafana_dashboards_1_14_k8s_resources_windows_pod.cue:65:37
-    ./values.cue:518:23
-#values.alertmanager.ingressPerReplica: invalid interpolation: conflicting values {enabled:false,ingressClassName:"",annotations:{},labels:{},hostPrefix:"",hostDomain:"",paths:[],tlsSecretName:"",tlsSecretPerReplica:{enabled:false,prefix:"alertmanager"}} and [...{enabled?:(bool|number|string|null),pathType?:(bool|number|string|null),...}] (mismatched types struct and list):
-    ./grafana_dashboards_1_14_k8s_resources_workload.cue:62:34
-    ./values.cue:518:23
-#values.alertmanager.ingressPerReplica: invalid interpolation: conflicting values {enabled:false,ingressClassName:"",annotations:{},labels:{},hostPrefix:"",hostDomain:"",paths:[],tlsSecretName:"",tlsSecretPerReplica:{enabled:false,prefix:"alertmanager"}} and [...{enabled?:(bool|number|string|null),pathType?:(bool|number|string|null),...}] (mismatched types struct and list):
-    ./grafana_dashboards_1_14_k8s_resources_workloads_namespace.cue:62:45
-    ./values.cue:518:23
-#values.alertmanager.ingressPerReplica: invalid interpolation: conflicting values {enabled:false,ingressClassName:"",annotations:{},labels:{},hostPrefix:"",hostDomain:"",paths:[],tlsSecretName:"",tlsSecretPerReplica:{enabled:false,prefix:"alertmanager"}} and [...{enabled?:(bool|number|string|null),pathType?:(bool|number|string|null),...}] (mismatched types struct and list):
-    ./grafana_dashboards_1_14_k8s_windows_cluster_rsrc_use.cue:65:40
-    ./values.cue:518:23
-#values.alertmanager.ingressPerReplica: invalid interpolation: conflicting values {enabled:false,ingressClassName:"",annotations:{},labels:{},hostPrefix:"",hostDomain:"",paths:[],tlsSecretName:"",tlsSecretPerReplica:{enabled:false,prefix:"alertmanager"}} and [...{enabled?:(bool|number|string|null),pathType?:(bool|number|string|null),...}] (mismatched types struct and list):
-    ./grafana_dashboards_1_14_k8s_windows_node_rsrc_use.cue:65:37
-    ./values.cue:518:23
-#values.alertmanager.ingressPerReplica: invalid interpolation: conflicting values {enabled:false,ingressClassName:"",annotations:{},labels:{},hostPrefix:"",hostDomain:"",paths:[],tlsSecretName:"",tlsSecretPerReplica:{enabled:false,prefix:"alertmanager"}} and [...{enabled?:(bool|number|string|null),pathType?:(bool|number|string|null),...}] (mismatched types struct and list):
-    ./grafana_dashboards_1_14_kubelet.cue:65:19
-    ./values.cue:518:23
-#values.alertmanager.ingressPerReplica: invalid interpolation: conflicting values {enabled:false,ingressClassName:"",annotations:{},labels:{},hostPrefix:"",hostDomain:"",paths:[],tlsSecretName:"",tlsSecretPerReplica:{enabled:false,prefix:"alertmanager"}} and [...{enabled?:(bool|number|string|null),pathType?:(bool|number|string|null),...}] (mismatched types struct and list):
-    ./grafana_dashboards_1_14_namespace_by_pod.cue:62:28
-    ./values.cue:518:23
-#values.alertmanager.ingressPerReplica: invalid interpolation: conflicting values {enabled:false,ingressClassName:"",annotations:{},labels:{},hostPrefix:"",hostDomain:"",paths:[],tlsSecretName:"",tlsSecretPerReplica:{enabled:false,prefix:"alertmanager"}} and [...{enabled?:(bool|number|string|null),pathType?:(bool|number|string|null),...}] (mismatched types struct and list):
-    ./grafana_dashboards_1_14_namespace_by_workload.cue:62:33
-    ./values.cue:518:23
-#values.alertmanager.ingressPerReplica: invalid interpolation: conflicting values {enabled:false,ingressClassName:"",annotations:{},labels:{},hostPrefix:"",hostDomain:"",paths:[],tlsSecretName:"",tlsSecretPerReplica:{enabled:false,prefix:"alertmanager"}} and [...{enabled?:(bool|number|string|null),pathType?:(bool|number|string|null),...}] (mismatched types struct and list):
-    ./grafana_dashboards_1_14_node_cluster_rsrc_use.cue:68:33
-    ./values.cue:518:23
-#values.alertmanager.ingressPerReplica: invalid interpolation: conflicting values {enabled:false,ingressClassName:"",annotations:{},labels:{},hostPrefix:"",hostDomain:"",paths:[],tlsSecretName:"",tlsSecretPerReplica:{enabled:false,prefix:"alertmanager"}} and [...{enabled?:(bool|number|string|null),pathType?:(bool|number|string|null),...}] (mismatched types struct and list):
-    ./grafana_dashboards_1_14_node_rsrc_use.cue:68:25
-    ./values.cue:518:23
-#values.alertmanager.ingressPerReplica: invalid interpolation: conflicting values {enabled:false,ingressClassName:"",annotations:{},labels:{},hostPrefix:"",hostDomain:"",paths:[],tlsSecretName:"",tlsSecretPerReplica:{enabled:false,prefix:"alertmanager"}} and [...{enabled?:(bool|number|string|null),pathType?:(bool|number|string|null),...}] (mismatched types struct and list):
-    ./grafana_dashboards_1_14_nodes.cue:71:17
-    ./values.cue:518:23
-#values.alertmanager.ingressPerReplica: invalid interpolation: conflicting values {enabled:false,ingressClassName:"",annotations:{},labels:{},hostPrefix:"",hostDomain:"",paths:[],tlsSecretName:"",tlsSecretPerReplica:{enabled:false,prefix:"alertmanager"}} and [...{enabled?:(bool|number|string|null),pathType?:(bool|number|string|null),...}] (mismatched types struct and list):
-    ./grafana_dashboards_1_14_nodes_aix.cue:71:21
-    ./values.cue:518:23
-#values.alertmanager.ingressPerReplica: invalid interpolation: conflicting values {enabled:false,ingressClassName:"",annotations:{},labels:{},hostPrefix:"",hostDomain:"",paths:[],tlsSecretName:"",tlsSecretPerReplica:{enabled:false,prefix:"alertmanager"}} and [...{enabled?:(bool|number|string|null),pathType?:(bool|number|string|null),...}] (mismatched types struct and list):
-    ./grafana_dashboards_1_14_nodes_darwin.cue:71:24
-    ./values.cue:518:23
-#values.alertmanager.ingressPerReplica: invalid interpolation: conflicting values {enabled:false,ingressClassName:"",annotations:{},labels:{},hostPrefix:"",hostDomain:"",paths:[],tlsSecretName:"",tlsSecretPerReplica:{enabled:false,prefix:"alertmanager"}} and [...{enabled?:(bool|number|string|null),pathType?:(bool|number|string|null),...}] (mismatched types struct and list):
-    ./grafana_dashboards_1_14_persistentvolumesusage.cue:62:34
-    ./values.cue:518:23
-#values.alertmanager.ingressPerReplica: invalid interpolation: conflicting values {enabled:false,ingressClassName:"",annotations:{},labels:{},hostPrefix:"",hostDomain:"",paths:[],tlsSecretName:"",tlsSecretPerReplica:{enabled:false,prefix:"alertmanager"}} and [...{enabled?:(bool|number|string|null),pathType?:(bool|number|string|null),...}] (mismatched types struct and list):
-    ./grafana_dashboards_1_14_pod_total.cue:62:21
-    ./values.cue:518:23
-#values.alertmanager.ingressPerReplica: invalid interpolation: conflicting values {enabled:false,ingressClassName:"",annotations:{},labels:{},hostPrefix:"",hostDomain:"",paths:[],tlsSecretName:"",tlsSecretPerReplica:{enabled:false,prefix:"alertmanager"}} and [...{enabled?:(bool|number|string|null),pathType?:(bool|number|string|null),...}] (mismatched types struct and list):
-    ./grafana_dashboards_1_14_prometheus.cue:62:22
-    ./values.cue:518:23
-#values.alertmanager.ingressPerReplica: invalid interpolation: conflicting values {enabled:false,ingressClassName:"",annotations:{},labels:{},hostPrefix:"",hostDomain:"",paths:[],tlsSecretName:"",tlsSecretPerReplica:{enabled:false,prefix:"alertmanager"}} and [...{enabled?:(bool|number|string|null),pathType?:(bool|number|string|null),...}] (mismatched types struct and list):
-    ./grafana_dashboards_1_14_prometheus_remote_write.cue:65:35
-    ./values.cue:518:23
-#values.alertmanager.ingressPerReplica: invalid interpolation: conflicting values {enabled:false,ingressClassName:"",annotations:{},labels:{},hostPrefix:"",hostDomain:"",paths:[],tlsSecretName:"",tlsSecretPerReplica:{enabled:false,prefix:"alertmanager"}} and [...{enabled?:(bool|number|string|null),pathType?:(bool|number|string|null),...}] (mismatched types struct and list):
-    ./grafana_dashboards_1_14_proxy.cue:65:17
-    ./values.cue:518:23
-#values.alertmanager.ingressPerReplica: invalid interpolation: conflicting values {enabled:false,ingressClassName:"",annotations:{},labels:{},hostPrefix:"",hostDomain:"",paths:[],tlsSecretName:"",tlsSecretPerReplica:{enabled:false,prefix:"alertmanager"}} and [...{enabled?:(bool|number|string|null),pathType?:(bool|number|string|null),...}] (mismatched types struct and list):
-    ./grafana_dashboards_1_14_scheduler.cue:65:21
-    ./values.cue:518:23
-#values.alertmanager.ingressPerReplica: invalid interpolation: conflicting values {enabled:false,ingressClassName:"",annotations:{},labels:{},hostPrefix:"",hostDomain:"",paths:[],tlsSecretName:"",tlsSecretPerReplica:{enabled:false,prefix:"alertmanager"}} and [...{enabled?:(bool|number|string|null),pathType?:(bool|number|string|null),...}] (mismatched types struct and list):
-    ./grafana_dashboards_1_14_workload_total.cue:62:26
-    ./values.cue:518:23
-#values.alertmanager.ingressPerReplica: invalid interpolation: conflicting values {enabled:false,ingressClassName:"",annotations:{},labels:{},hostPrefix:"",hostDomain:"",paths:[],tlsSecretName:"",tlsSecretPerReplica:{enabled:false,prefix:"alertmanager"}} and [...{enabled?:(bool|number|string|null),pathType?:(bool|number|string|null),...}] (mismatched types struct and list):
-    ./helpers.cue:292:17
-    ./values.cue:518:23
-#values.alertmanager.ingressPerReplica: invalid interpolation: conflicting values {enabled:false,ingressClassName:"",annotations:{},labels:{},hostPrefix:"",hostDomain:"",paths:[],tlsSecretName:"",tlsSecretPerReplica:{enabled:false,prefix:"alertmanager"}} and [...{enabled?:(bool|number|string|null),pathType?:(bool|number|string|null),...}] (mismatched types struct and list):
-    ./helpers.cue:310:16
-    ./values.cue:518:23
-#values.alertmanager.ingressPerReplica: invalid interpolation: conflicting values {enabled:false,ingressClassName:"",annotations:{},labels:{},hostPrefix:"",hostDomain:"",paths:[],tlsSecretName:"",tlsSecretPerReplica:{enabled:false,prefix:"alertmanager"}} and [...{enabled?:(bool|number|string|null),pathType?:(bool|number|string|null),...}] (mismatched types struct and list):
-    ./helpers.cue:397:2
-    ./values.cue:518:23
-#values.alertmanager.ingressPerReplica: invalid interpolation: conflicting values {enabled:false,ingressClassName:"",annotations:{},labels:{},hostPrefix:"",hostDomain:"",paths:[],tlsSecretName:"",tlsSecretPerReplica:{enabled:false,prefix:"alertmanager"}} and [...{enabled?:(bool|number|string|null),pathType?:(bool|number|string|null),...}] (mismatched types struct and list):
-    ./helpers.cue:415:2
-    ./values.cue:518:23
-#values.alertmanager.ingressPerReplica: invalid interpolation: conflicting values {enabled:false,ingressClassName:"",annotations:{},labels:{},hostPrefix:"",hostDomain:"",paths:[],tlsSecretName:"",tlsSecretPerReplica:{enabled:false,prefix:"alertmanager"}} and [...{enabled?:(bool|number|string|null),pathType?:(bool|number|string|null),...}] (mismatched types struct and list):
-    ./helpers.cue:433:2
-    ./values.cue:518:23
-#values.alertmanager.ingressPerReplica: invalid interpolation: conflicting values {enabled:false,ingressClassName:"",annotations:{},labels:{},hostPrefix:"",hostDomain:"",paths:[],tlsSecretName:"",tlsSecretPerReplica:{enabled:false,prefix:"alertmanager"}} and [...{enabled?:(bool|number|string|null),pathType?:(bool|number|string|null),...}] (mismatched types struct and list):
-    ./helpers.cue:451:2
-    ./values.cue:518:23
-_kube_prometheus_stack_grafana_operator_folder: grafana.operator: only one of folder, folderUID, or folderRef must be set:
-    ./helpers.cue:700:3
-#values.alertmanager.ingressPerReplica: invalid interpolation: conflicting values {enabled:false,ingressClassName:"",annotations:{},labels:{},hostPrefix:"",hostDomain:"",paths:[],tlsSecretName:"",tlsSecretPerReplica:{enabled:false,prefix:"alertmanager"}} and [...{enabled?:(bool|number|string|null),pathType?:(bool|number|string|null),...}] (mismatched types struct and list):
-    ./helpers.cue:1028:3
-    ./values.cue:518:23
-#values.alertmanager.ingressPerReplica: invalid interpolation: conflicting values {enabled:false,ingressClassName:"",annotations:{},labels:{},hostPrefix:"",hostDomain:"",paths:[],tlsSecretName:"",tlsSecretPerReplica:{enabled:false,prefix:"alertmanager"}} and [...{enabled?:(bool|number|string|null),pathType?:(bool|number|string|null),...}] (mismatched types struct and list):
-    ./helpers.cue:1145:3
-    ./values.cue:518:23
-#values.alertmanager.ingressPerReplica: invalid interpolation: conflicting values {enabled:false,ingressClassName:"",annotations:{},labels:{},hostPrefix:"",hostDomain:"",paths:[],tlsSecretName:"",tlsSecretPerReplica:{enabled:false,prefix:"alertmanager"}} and [...{enabled?:(bool|number|string|null),pathType?:(bool|number|string|null),...}] (mismatched types struct and list):
-    ./helpers.cue:1289:3
-    ./values.cue:518:23
-#values.alertmanager.ingressPerReplica: invalid interpolation: conflicting values {enabled:false,ingressClassName:"",annotations:{},labels:{},hostPrefix:"",hostDomain:"",paths:[],tlsSecretName:"",tlsSecretPerReplica:{enabled:false,prefix:"alertmanager"}} and [...{enabled?:(bool|number|string|null),pathType?:(bool|number|string|null),...}] (mismatched types struct and list):
-    ./helpers.cue:1531:3
-    ./values.cue:518:23
-results: error in call to list.FlattenN: conflicting values {enabled:false,ingressClassName:"",annotations:{},labels:{},hostPrefix:"",hostDomain:"",paths:[],tlsSecretName:"",tlsSecretPerReplica:{enabled:false,prefix:"alertmanager"}} and [...{enabled?:(bool|number|string|null),pathType?:(bool|number|string|null),...}] (mismatched types struct and list):
+grafana_configmaps_datasources.0.data.datasources.0.name: conflicting values "\"Alertmanager\"" and "\"Prometheus\"":
+    ./grafana_configmaps_datasources.cue:22:5
+    ./grafana_configmaps_datasources.cue:23:3
+    ./grafana_configmaps_datasources.cue:61:6
+    ./grafana_configmaps_datasources.cue:65:7
+    ./grafana_configmaps_datasources.cue:66:14
+    ./grafana_configmaps_datasources.cue:88:6
+    ./grafana_configmaps_datasources.cue:89:13
+grafana_configmaps_datasources.0.data.datasources.0.type: conflicting values "alertmanager" and "prometheus":
+    ./grafana_configmaps_datasources.cue:22:5
+    ./grafana_configmaps_datasources.cue:23:3
+    ./grafana_configmaps_datasources.cue:61:6
+    ./grafana_configmaps_datasources.cue:65:7
+    ./grafana_configmaps_datasources.cue:67:14
+    ./grafana_configmaps_datasources.cue:88:6
+    ./grafana_configmaps_datasources.cue:90:13
+grafana_configmaps_datasources.0.data.datasources.0.uid: 4 errors in empty disjunction:
+grafana_configmaps_datasources.0.data.datasources.0.uid: conflicting values "alertmanager" and "prometheus":
+    ./grafana_configmaps_datasources.cue:22:5
+    ./grafana_configmaps_datasources.cue:23:3
+    ./grafana_configmaps_datasources.cue:61:6
+    ./grafana_configmaps_datasources.cue:65:7
+    ./grafana_configmaps_datasources.cue:68:14
+    ./grafana_configmaps_datasources.cue:88:6
+    ./grafana_configmaps_datasources.cue:91:13
+    values.yaml:1411:12
+    values.yaml:1457:14
+grafana_configmaps_datasources.0.data.datasources.0.uid: conflicting values "alertmanager" and bool (mismatched types string and bool):
+    ./grafana_configmaps_datasources.cue:22:5
+    ./grafana_configmaps_datasources.cue:23:3
+    ./grafana_configmaps_datasources.cue:88:6
+    ./grafana_configmaps_datasources.cue:91:13
+    ./values.cue:668:39
+    values.yaml:1457:14
+grafana_configmaps_datasources.0.data.datasources.0.uid: conflicting values "alertmanager" and null (mismatched types string and null):
+    ./grafana_configmaps_datasources.cue:22:5
+    ./grafana_configmaps_datasources.cue:23:3
+    ./grafana_configmaps_datasources.cue:88:6
+    ./grafana_configmaps_datasources.cue:91:13
+    ./values.cue:668:64
+    values.yaml:1457:14
+grafana_configmaps_datasources.0.data.datasources.0.uid: conflicting values "alertmanager" and number (mismatched types string and number):
+    ./grafana_configmaps_datasources.cue:22:5
+    ./grafana_configmaps_datasources.cue:23:3
+    ./grafana_configmaps_datasources.cue:88:6
+    ./grafana_configmaps_datasources.cue:91:13
+    ./values.cue:668:46
+    values.yaml:1457:14
+prometheus_operator_admission_webhooks_validatingWebhookConfiguration.0.path: conflicting values "/admission-alertmanagerconfigs/validate" and "/admission-prometheusrules/validate":
+    ./prometheus_operator_admission_webhooks_validatingWebhookConfiguration.cue:14:5
+    ./prometheus_operator_admission_webhooks_validatingWebhookConfiguration.cue:15:3
+    ./prometheus_operator_admission_webhooks_validatingWebhookConfiguration.cue:96:10
+    ./prometheus_operator_admission_webhooks_validatingWebhookConfiguration.cue:188:10
+prometheus_operator_servicemonitor.0.spec.endpoints.0.tlsConfig.ca.secret.key: conflicting values {optional:false} and "ca" (mismatched types struct and string):
+    ./prometheus_operator_servicemonitor.cue:17:5
+    ./prometheus_operator_servicemonitor.cue:18:3
+    ./prometheus_operator_servicemonitor.cue:39:7
+    ./prometheus_operator_servicemonitor.cue:49:15
+    ./prometheus_operator_servicemonitor.cue:56:11
+    ./prometheus_operator_servicemonitor.cue:60:12
+alertmanager_secret.0.data."alertmanager.yaml": invalid interpolation: cannot use {global:{resolve_timeout:"5m"},inhibit_rules:[{source_matchers:["severity = critical"],target_matchers:["severity =~ warning|info"],equal:["namespace","alertname"]},{source_matchers:["severity = warning"],target_matchers:["severity = info"],equal:["namespace","alertname"]},{source_matchers:["alertname = InfoInhibitor"],target_matchers:["severity = info"],equal:["namespace"]},{target_matchers:["alertname = InfoInhibitor"]}],route:{group_by:["namespace"],group_wait:"30s",group_interval:"5m",repeat_interval:"12h",receiver:"null",routes:[{receiver:"null",matchers:["alertname = \"Watchdog\""]}]},receivers:[{name:"null"}],templates:["/etc/alertmanager/config/*.tmpl"]} (type struct) as (string|bytes) in argument 2 to "encoding/base64".Encode:
+    ./alertmanager_secret.cue:70:27
+    ./values.cue:599:18
+extra_objects.1: cannot range over *#values.extraManifests | [] (found null, want list or struct):
+    ./extra_objects.cue:18:21
+_vMajor: error in call to strconv.Atoi: strconv.Atoi: parsing "": invalid syntax:
+    ./helpers.cue:107:11
+results: error in call to list.FlattenN: invalid interpolation: cannot use {global:{resolve_timeout:"5m"},inhibit_rules:[{source_matchers:["severity = critical"],target_matchers:["severity =~ warning|info"],equal:["namespace","alertname"]},{source_matchers:["severity = warning"],target_matchers:["severity = info"],equal:["namespace","alertname"]},{source_matchers:["alertname = InfoInhibitor"],target_matchers:["severity = info"],equal:["namespace"]},{target_matchers:["alertname = InfoInhibitor"]}],route:{group_by:["namespace"],group_wait:"30s",group_interval:"5m",repeat_interval:"12h",receiver:"null",routes:[{receiver:"null",matchers:["alertname = \"Watchdog\""]}]},receivers:[{name:"null"}],templates:["/etc/alertmanager/config/*.tmpl"]} (type struct) as (string|bytes) in argument 2 to "encoding/base64".Encode:
     ./results.cue:7:10
-    ./values.cue:518:23
+    ./alertmanager_secret.cue:70:27
+    ./values.cue:599:18
 -- cue export --
 exit status 1
-#values.alertmanager.ingressPerReplica: conflicting values {enabled:false,ingressClassName:"",annotations:{},labels:{},hostPrefix:"",hostDomain:"",paths:[],tlsSecretName:"",tlsSecretPerReplica:{enabled:false,prefix:"alertmanager"}} and [...{enabled?:(bool|number|string|null),pathType?:(bool|number|string|null),...}] (mismatched types struct and list):
-    ./values.cue:518:23
-#values.alertmanager.servicePerReplica: conflicting values {enabled:false,annotations:{},port:9093,targetPort:9093,nodePort:30904,loadBalancerSourceRanges:[],externalTrafficPolicy:"Cluster",type:"ClusterIP"} and [...{enabled?:(bool|number|string|null),...}] (mismatched types struct and list):
-    ./values.cue:514:23
-#values.prometheus.ingressPerReplica: conflicting values {enabled:false,ingressClassName:"",annotations:{},labels:{},hostPrefix:"",hostDomain:"",paths:[],tlsSecretName:"",tlsSecretPerReplica:{enabled:false,prefix:"prometheus"}} and [...{enabled?:(bool|number|string|null),pathType?:(bool|number|string|null),...}] (mismatched types struct and list):
-    ./values.cue:1312:23
-#values.prometheus.servicePerReplica: conflicting values {enabled:false,annotations:{},port:9090,targetPort:9090,nodePort:30091,loadBalancerSourceRanges:[],externalTrafficPolicy:"Cluster",type:"ClusterIP",ipDualStack:{enabled:false,ipFamilies:["IPv6","IPv4"],ipFamilyPolicy:"PreferDualStack"}} and [...{enabled?:(bool|number|string|null),port!:(bool|number|string|null),...}] (mismatched types struct and list):
-    ./values.cue:1307:23
-alertmanager_alertmanager.0.spec.alertmanagerConfigNamespaceSelector: error in call to text/template.Execute: conflicting values {enabled:false,ingressClassName:"",annotations:{},labels:{},hostPrefix:"",hostDomain:"",paths:[],tlsSecretName:"",tlsSecretPerReplica:{enabled:false,prefix:"alertmanager"}} and [...{enabled?:(bool|number|string|null),pathType?:(bool|number|string|null),...}] (mismatched types struct and list):
-    ./alertmanager_alertmanager.cue:190:57
-    ./values.cue:518:23
-#values.alertmanager.ingressPerReplica: invalid interpolation: conflicting values {enabled:false,ingressClassName:"",annotations:{},labels:{},hostPrefix:"",hostDomain:"",paths:[],tlsSecretName:"",tlsSecretPerReplica:{enabled:false,prefix:"alertmanager"}} and [...{enabled?:(bool|number|string|null),pathType?:(bool|number|string|null),...}] (mismatched types struct and list):
-    ./grafana_dashboards_1_14_alertmanager_overview.cue:60:33
-    ./values.cue:518:23
-#values.alertmanager.ingressPerReplica: invalid interpolation: conflicting values {enabled:false,ingressClassName:"",annotations:{},labels:{},hostPrefix:"",hostDomain:"",paths:[],tlsSecretName:"",tlsSecretPerReplica:{enabled:false,prefix:"alertmanager"}} and [...{enabled?:(bool|number|string|null),pathType?:(bool|number|string|null),...}] (mismatched types struct and list):
-    ./grafana_dashboards_1_14_apiserver.cue:65:21
-    ./values.cue:518:23
-#values.alertmanager.ingressPerReplica: invalid interpolation: conflicting values {enabled:false,ingressClassName:"",annotations:{},labels:{},hostPrefix:"",hostDomain:"",paths:[],tlsSecretName:"",tlsSecretPerReplica:{enabled:false,prefix:"alertmanager"}} and [...{enabled?:(bool|number|string|null),pathType?:(bool|number|string|null),...}] (mismatched types struct and list):
-    ./grafana_dashboards_1_14_cluster_total.cue:62:25
-    ./values.cue:518:23
-#values.alertmanager.ingressPerReplica: invalid interpolation: conflicting values {enabled:false,ingressClassName:"",annotations:{},labels:{},hostPrefix:"",hostDomain:"",paths:[],tlsSecretName:"",tlsSecretPerReplica:{enabled:false,prefix:"alertmanager"}} and [...{enabled?:(bool|number|string|null),pathType?:(bool|number|string|null),...}] (mismatched types struct and list):
-    ./grafana_dashboards_1_14_controller_manager.cue:65:30
-    ./values.cue:518:23
-#values.alertmanager.ingressPerReplica: invalid interpolation: conflicting values {enabled:false,ingressClassName:"",annotations:{},labels:{},hostPrefix:"",hostDomain:"",paths:[],tlsSecretName:"",tlsSecretPerReplica:{enabled:false,prefix:"alertmanager"}} and [...{enabled?:(bool|number|string|null),pathType?:(bool|number|string|null),...}] (mismatched types struct and list):
-    ./grafana_dashboards_1_14_etcd.cue:71:16
-    ./values.cue:518:23
-#values.alertmanager.ingressPerReplica: invalid interpolation: conflicting values {enabled:false,ingressClassName:"",annotations:{},labels:{},hostPrefix:"",hostDomain:"",paths:[],tlsSecretName:"",tlsSecretPerReplica:{enabled:false,prefix:"alertmanager"}} and [...{enabled?:(bool|number|string|null),pathType?:(bool|number|string|null),...}] (mismatched types struct and list):
-    ./grafana_dashboards_1_14_grafana_overview.cue:54:28
-    ./values.cue:518:23
-#values.alertmanager.ingressPerReplica: invalid interpolation: conflicting values {enabled:false,ingressClassName:"",annotations:{},labels:{},hostPrefix:"",hostDomain:"",paths:[],tlsSecretName:"",tlsSecretPerReplica:{enabled:false,prefix:"alertmanager"}} and [...{enabled?:(bool|number|string|null),pathType?:(bool|number|string|null),...}] (mismatched types struct and list):
-    ./grafana_dashboards_1_14_k8s_coredns.cue:65:23
-    ./values.cue:518:23
-#values.alertmanager.ingressPerReplica: invalid interpolation: conflicting values {enabled:false,ingressClassName:"",annotations:{},labels:{},hostPrefix:"",hostDomain:"",paths:[],tlsSecretName:"",tlsSecretPerReplica:{enabled:false,prefix:"alertmanager"}} and [...{enabled?:(bool|number|string|null),pathType?:(bool|number|string|null),...}] (mismatched types struct and list):
-    ./grafana_dashboards_1_14_k8s_resources_cluster.cue:62:33
-    ./values.cue:518:23
-#values.alertmanager.ingressPerReplica: invalid interpolation: conflicting values {enabled:false,ingressClassName:"",annotations:{},labels:{},hostPrefix:"",hostDomain:"",paths:[],tlsSecretName:"",tlsSecretPerReplica:{enabled:false,prefix:"alertmanager"}} and [...{enabled?:(bool|number|string|null),pathType?:(bool|number|string|null),...}] (mismatched types struct and list):
-    ./grafana_dashboards_1_14_k8s_resources_multicluster.cue:54:38
-    ./values.cue:518:23
-#values.alertmanager.ingressPerReplica: invalid interpolation: conflicting values {enabled:false,ingressClassName:"",annotations:{},labels:{},hostPrefix:"",hostDomain:"",paths:[],tlsSecretName:"",tlsSecretPerReplica:{enabled:false,prefix:"alertmanager"}} and [...{enabled?:(bool|number|string|null),pathType?:(bool|number|string|null),...}] (mismatched types struct and list):
-    ./grafana_dashboards_1_14_k8s_resources_namespace.cue:62:35
-    ./values.cue:518:23
-#values.alertmanager.ingressPerReplica: invalid interpolation: conflicting values {enabled:false,ingressClassName:"",annotations:{},labels:{},hostPrefix:"",hostDomain:"",paths:[],tlsSecretName:"",tlsSecretPerReplica:{enabled:false,prefix:"alertmanager"}} and [...{enabled?:(bool|number|string|null),pathType?:(bool|number|string|null),...}] (mismatched types struct and list):
-    ./grafana_dashboards_1_14_k8s_resources_node.cue:62:30
-    ./values.cue:518:23
-#values.alertmanager.ingressPerReplica: invalid interpolation: conflicting values {enabled:false,ingressClassName:"",annotations:{},labels:{},hostPrefix:"",hostDomain:"",paths:[],tlsSecretName:"",tlsSecretPerReplica:{enabled:false,prefix:"alertmanager"}} and [...{enabled?:(bool|number|string|null),pathType?:(bool|number|string|null),...}] (mismatched types struct and list):
-    ./grafana_dashboards_1_14_k8s_resources_pod.cue:62:29
-    ./values.cue:518:23
-#values.alertmanager.ingressPerReplica: invalid interpolation: conflicting values {enabled:false,ingressClassName:"",annotations:{},labels:{},hostPrefix:"",hostDomain:"",paths:[],tlsSecretName:"",tlsSecretPerReplica:{enabled:false,prefix:"alertmanager"}} and [...{enabled?:(bool|number|string|null),pathType?:(bool|number|string|null),...}] (mismatched types struct and list):
-    ./grafana_dashboards_1_14_k8s_resources_windows_cluster.cue:65:41
-    ./values.cue:518:23
-#values.alertmanager.ingressPerReplica: invalid interpolation: conflicting values {enabled:false,ingressClassName:"",annotations:{},labels:{},hostPrefix:"",hostDomain:"",paths:[],tlsSecretName:"",tlsSecretPerReplica:{enabled:false,prefix:"alertmanager"}} and [...{enabled?:(bool|number|string|null),pathType?:(bool|number|string|null),...}] (mismatched types struct and list):
-    ./grafana_dashboards_1_14_k8s_resources_windows_namespace.cue:65:43
-    ./values.cue:518:23
-#values.alertmanager.ingressPerReplica: invalid interpolation: conflicting values {enabled:false,ingressClassName:"",annotations:{},labels:{},hostPrefix:"",hostDomain:"",paths:[],tlsSecretName:"",tlsSecretPerReplica:{enabled:false,prefix:"alertmanager"}} and [...{enabled?:(bool|number|string|null),pathType?:(bool|number|string|null),...}] (mismatched types struct and list):
-    ./grafana_dashboards_1_14_k8s_resources_windows_pod.cue:65:37
-    ./values.cue:518:23
-#values.alertmanager.ingressPerReplica: invalid interpolation: conflicting values {enabled:false,ingressClassName:"",annotations:{},labels:{},hostPrefix:"",hostDomain:"",paths:[],tlsSecretName:"",tlsSecretPerReplica:{enabled:false,prefix:"alertmanager"}} and [...{enabled?:(bool|number|string|null),pathType?:(bool|number|string|null),...}] (mismatched types struct and list):
-    ./grafana_dashboards_1_14_k8s_resources_workload.cue:62:34
-    ./values.cue:518:23
-#values.alertmanager.ingressPerReplica: invalid interpolation: conflicting values {enabled:false,ingressClassName:"",annotations:{},labels:{},hostPrefix:"",hostDomain:"",paths:[],tlsSecretName:"",tlsSecretPerReplica:{enabled:false,prefix:"alertmanager"}} and [...{enabled?:(bool|number|string|null),pathType?:(bool|number|string|null),...}] (mismatched types struct and list):
-    ./grafana_dashboards_1_14_k8s_resources_workloads_namespace.cue:62:45
-    ./values.cue:518:23
-#values.alertmanager.ingressPerReplica: invalid interpolation: conflicting values {enabled:false,ingressClassName:"",annotations:{},labels:{},hostPrefix:"",hostDomain:"",paths:[],tlsSecretName:"",tlsSecretPerReplica:{enabled:false,prefix:"alertmanager"}} and [...{enabled?:(bool|number|string|null),pathType?:(bool|number|string|null),...}] (mismatched types struct and list):
-    ./grafana_dashboards_1_14_k8s_windows_cluster_rsrc_use.cue:65:40
-    ./values.cue:518:23
-#values.alertmanager.ingressPerReplica: invalid interpolation: conflicting values {enabled:false,ingressClassName:"",annotations:{},labels:{},hostPrefix:"",hostDomain:"",paths:[],tlsSecretName:"",tlsSecretPerReplica:{enabled:false,prefix:"alertmanager"}} and [...{enabled?:(bool|number|string|null),pathType?:(bool|number|string|null),...}] (mismatched types struct and list):
-    ./grafana_dashboards_1_14_k8s_windows_node_rsrc_use.cue:65:37
-    ./values.cue:518:23
-#values.alertmanager.ingressPerReplica: invalid interpolation: conflicting values {enabled:false,ingressClassName:"",annotations:{},labels:{},hostPrefix:"",hostDomain:"",paths:[],tlsSecretName:"",tlsSecretPerReplica:{enabled:false,prefix:"alertmanager"}} and [...{enabled?:(bool|number|string|null),pathType?:(bool|number|string|null),...}] (mismatched types struct and list):
-    ./grafana_dashboards_1_14_kubelet.cue:65:19
-    ./values.cue:518:23
-#values.alertmanager.ingressPerReplica: invalid interpolation: conflicting values {enabled:false,ingressClassName:"",annotations:{},labels:{},hostPrefix:"",hostDomain:"",paths:[],tlsSecretName:"",tlsSecretPerReplica:{enabled:false,prefix:"alertmanager"}} and [...{enabled?:(bool|number|string|null),pathType?:(bool|number|string|null),...}] (mismatched types struct and list):
-    ./grafana_dashboards_1_14_namespace_by_pod.cue:62:28
-    ./values.cue:518:23
-#values.alertmanager.ingressPerReplica: invalid interpolation: conflicting values {enabled:false,ingressClassName:"",annotations:{},labels:{},hostPrefix:"",hostDomain:"",paths:[],tlsSecretName:"",tlsSecretPerReplica:{enabled:false,prefix:"alertmanager"}} and [...{enabled?:(bool|number|string|null),pathType?:(bool|number|string|null),...}] (mismatched types struct and list):
-    ./grafana_dashboards_1_14_namespace_by_workload.cue:62:33
-    ./values.cue:518:23
-#values.alertmanager.ingressPerReplica: invalid interpolation: conflicting values {enabled:false,ingressClassName:"",annotations:{},labels:{},hostPrefix:"",hostDomain:"",paths:[],tlsSecretName:"",tlsSecretPerReplica:{enabled:false,prefix:"alertmanager"}} and [...{enabled?:(bool|number|string|null),pathType?:(bool|number|string|null),...}] (mismatched types struct and list):
-    ./grafana_dashboards_1_14_node_cluster_rsrc_use.cue:68:33
-    ./values.cue:518:23
-#values.alertmanager.ingressPerReplica: invalid interpolation: conflicting values {enabled:false,ingressClassName:"",annotations:{},labels:{},hostPrefix:"",hostDomain:"",paths:[],tlsSecretName:"",tlsSecretPerReplica:{enabled:false,prefix:"alertmanager"}} and [...{enabled?:(bool|number|string|null),pathType?:(bool|number|string|null),...}] (mismatched types struct and list):
-    ./grafana_dashboards_1_14_node_rsrc_use.cue:68:25
-    ./values.cue:518:23
-#values.alertmanager.ingressPerReplica: invalid interpolation: conflicting values {enabled:false,ingressClassName:"",annotations:{},labels:{},hostPrefix:"",hostDomain:"",paths:[],tlsSecretName:"",tlsSecretPerReplica:{enabled:false,prefix:"alertmanager"}} and [...{enabled?:(bool|number|string|null),pathType?:(bool|number|string|null),...}] (mismatched types struct and list):
-    ./grafana_dashboards_1_14_nodes.cue:71:17
-    ./values.cue:518:23
-#values.alertmanager.ingressPerReplica: invalid interpolation: conflicting values {enabled:false,ingressClassName:"",annotations:{},labels:{},hostPrefix:"",hostDomain:"",paths:[],tlsSecretName:"",tlsSecretPerReplica:{enabled:false,prefix:"alertmanager"}} and [...{enabled?:(bool|number|string|null),pathType?:(bool|number|string|null),...}] (mismatched types struct and list):
-    ./grafana_dashboards_1_14_nodes_aix.cue:71:21
-    ./values.cue:518:23
-#values.alertmanager.ingressPerReplica: invalid interpolation: conflicting values {enabled:false,ingressClassName:"",annotations:{},labels:{},hostPrefix:"",hostDomain:"",paths:[],tlsSecretName:"",tlsSecretPerReplica:{enabled:false,prefix:"alertmanager"}} and [...{enabled?:(bool|number|string|null),pathType?:(bool|number|string|null),...}] (mismatched types struct and list):
-    ./grafana_dashboards_1_14_nodes_darwin.cue:71:24
-    ./values.cue:518:23
-#values.alertmanager.ingressPerReplica: invalid interpolation: conflicting values {enabled:false,ingressClassName:"",annotations:{},labels:{},hostPrefix:"",hostDomain:"",paths:[],tlsSecretName:"",tlsSecretPerReplica:{enabled:false,prefix:"alertmanager"}} and [...{enabled?:(bool|number|string|null),pathType?:(bool|number|string|null),...}] (mismatched types struct and list):
-    ./grafana_dashboards_1_14_persistentvolumesusage.cue:62:34
-    ./values.cue:518:23
-#values.alertmanager.ingressPerReplica: invalid interpolation: conflicting values {enabled:false,ingressClassName:"",annotations:{},labels:{},hostPrefix:"",hostDomain:"",paths:[],tlsSecretName:"",tlsSecretPerReplica:{enabled:false,prefix:"alertmanager"}} and [...{enabled?:(bool|number|string|null),pathType?:(bool|number|string|null),...}] (mismatched types struct and list):
-    ./grafana_dashboards_1_14_pod_total.cue:62:21
-    ./values.cue:518:23
-#values.alertmanager.ingressPerReplica: invalid interpolation: conflicting values {enabled:false,ingressClassName:"",annotations:{},labels:{},hostPrefix:"",hostDomain:"",paths:[],tlsSecretName:"",tlsSecretPerReplica:{enabled:false,prefix:"alertmanager"}} and [...{enabled?:(bool|number|string|null),pathType?:(bool|number|string|null),...}] (mismatched types struct and list):
-    ./grafana_dashboards_1_14_prometheus.cue:62:22
-    ./values.cue:518:23
-#values.alertmanager.ingressPerReplica: invalid interpolation: conflicting values {enabled:false,ingressClassName:"",annotations:{},labels:{},hostPrefix:"",hostDomain:"",paths:[],tlsSecretName:"",tlsSecretPerReplica:{enabled:false,prefix:"alertmanager"}} and [...{enabled?:(bool|number|string|null),pathType?:(bool|number|string|null),...}] (mismatched types struct and list):
-    ./grafana_dashboards_1_14_prometheus_remote_write.cue:65:35
-    ./values.cue:518:23
-#values.alertmanager.ingressPerReplica: invalid interpolation: conflicting values {enabled:false,ingressClassName:"",annotations:{},labels:{},hostPrefix:"",hostDomain:"",paths:[],tlsSecretName:"",tlsSecretPerReplica:{enabled:false,prefix:"alertmanager"}} and [...{enabled?:(bool|number|string|null),pathType?:(bool|number|string|null),...}] (mismatched types struct and list):
-    ./grafana_dashboards_1_14_proxy.cue:65:17
-    ./values.cue:518:23
-#values.alertmanager.ingressPerReplica: invalid interpolation: conflicting values {enabled:false,ingressClassName:"",annotations:{},labels:{},hostPrefix:"",hostDomain:"",paths:[],tlsSecretName:"",tlsSecretPerReplica:{enabled:false,prefix:"alertmanager"}} and [...{enabled?:(bool|number|string|null),pathType?:(bool|number|string|null),...}] (mismatched types struct and list):
-    ./grafana_dashboards_1_14_scheduler.cue:65:21
-    ./values.cue:518:23
-#values.alertmanager.ingressPerReplica: invalid interpolation: conflicting values {enabled:false,ingressClassName:"",annotations:{},labels:{},hostPrefix:"",hostDomain:"",paths:[],tlsSecretName:"",tlsSecretPerReplica:{enabled:false,prefix:"alertmanager"}} and [...{enabled?:(bool|number|string|null),pathType?:(bool|number|string|null),...}] (mismatched types struct and list):
-    ./grafana_dashboards_1_14_workload_total.cue:62:26
-    ./values.cue:518:23
-#values.alertmanager.ingressPerReplica: invalid interpolation: conflicting values {enabled:false,ingressClassName:"",annotations:{},labels:{},hostPrefix:"",hostDomain:"",paths:[],tlsSecretName:"",tlsSecretPerReplica:{enabled:false,prefix:"alertmanager"}} and [...{enabled?:(bool|number|string|null),pathType?:(bool|number|string|null),...}] (mismatched types struct and list):
-    ./helpers.cue:292:17
-    ./values.cue:518:23
-#values.alertmanager.ingressPerReplica: invalid interpolation: conflicting values {enabled:false,ingressClassName:"",annotations:{},labels:{},hostPrefix:"",hostDomain:"",paths:[],tlsSecretName:"",tlsSecretPerReplica:{enabled:false,prefix:"alertmanager"}} and [...{enabled?:(bool|number|string|null),pathType?:(bool|number|string|null),...}] (mismatched types struct and list):
-    ./helpers.cue:310:16
-    ./values.cue:518:23
-#values.alertmanager.ingressPerReplica: invalid interpolation: conflicting values {enabled:false,ingressClassName:"",annotations:{},labels:{},hostPrefix:"",hostDomain:"",paths:[],tlsSecretName:"",tlsSecretPerReplica:{enabled:false,prefix:"alertmanager"}} and [...{enabled?:(bool|number|string|null),pathType?:(bool|number|string|null),...}] (mismatched types struct and list):
-    ./helpers.cue:397:2
-    ./values.cue:518:23
-#values.alertmanager.ingressPerReplica: invalid interpolation: conflicting values {enabled:false,ingressClassName:"",annotations:{},labels:{},hostPrefix:"",hostDomain:"",paths:[],tlsSecretName:"",tlsSecretPerReplica:{enabled:false,prefix:"alertmanager"}} and [...{enabled?:(bool|number|string|null),pathType?:(bool|number|string|null),...}] (mismatched types struct and list):
-    ./helpers.cue:415:2
-    ./values.cue:518:23
-#values.alertmanager.ingressPerReplica: invalid interpolation: conflicting values {enabled:false,ingressClassName:"",annotations:{},labels:{},hostPrefix:"",hostDomain:"",paths:[],tlsSecretName:"",tlsSecretPerReplica:{enabled:false,prefix:"alertmanager"}} and [...{enabled?:(bool|number|string|null),pathType?:(bool|number|string|null),...}] (mismatched types struct and list):
-    ./helpers.cue:433:2
-    ./values.cue:518:23
-#values.alertmanager.ingressPerReplica: invalid interpolation: conflicting values {enabled:false,ingressClassName:"",annotations:{},labels:{},hostPrefix:"",hostDomain:"",paths:[],tlsSecretName:"",tlsSecretPerReplica:{enabled:false,prefix:"alertmanager"}} and [...{enabled?:(bool|number|string|null),pathType?:(bool|number|string|null),...}] (mismatched types struct and list):
-    ./helpers.cue:451:2
-    ./values.cue:518:23
-_kube_prometheus_stack_grafana_operator_folder: grafana.operator: only one of folder, folderUID, or folderRef must be set:
-    ./helpers.cue:700:3
-#values.alertmanager.ingressPerReplica: invalid interpolation: conflicting values {enabled:false,ingressClassName:"",annotations:{},labels:{},hostPrefix:"",hostDomain:"",paths:[],tlsSecretName:"",tlsSecretPerReplica:{enabled:false,prefix:"alertmanager"}} and [...{enabled?:(bool|number|string|null),pathType?:(bool|number|string|null),...}] (mismatched types struct and list):
-    ./helpers.cue:1028:3
-    ./values.cue:518:23
-#values.alertmanager.ingressPerReplica: invalid interpolation: conflicting values {enabled:false,ingressClassName:"",annotations:{},labels:{},hostPrefix:"",hostDomain:"",paths:[],tlsSecretName:"",tlsSecretPerReplica:{enabled:false,prefix:"alertmanager"}} and [...{enabled?:(bool|number|string|null),pathType?:(bool|number|string|null),...}] (mismatched types struct and list):
-    ./helpers.cue:1145:3
-    ./values.cue:518:23
-#values.alertmanager.ingressPerReplica: invalid interpolation: conflicting values {enabled:false,ingressClassName:"",annotations:{},labels:{},hostPrefix:"",hostDomain:"",paths:[],tlsSecretName:"",tlsSecretPerReplica:{enabled:false,prefix:"alertmanager"}} and [...{enabled?:(bool|number|string|null),pathType?:(bool|number|string|null),...}] (mismatched types struct and list):
-    ./helpers.cue:1289:3
-    ./values.cue:518:23
-#values.alertmanager.ingressPerReplica: invalid interpolation: conflicting values {enabled:false,ingressClassName:"",annotations:{},labels:{},hostPrefix:"",hostDomain:"",paths:[],tlsSecretName:"",tlsSecretPerReplica:{enabled:false,prefix:"alertmanager"}} and [...{enabled?:(bool|number|string|null),pathType?:(bool|number|string|null),...}] (mismatched types struct and list):
-    ./helpers.cue:1531:3
-    ./values.cue:518:23
-results: error in call to list.FlattenN: conflicting values {enabled:false,ingressClassName:"",annotations:{},labels:{},hostPrefix:"",hostDomain:"",paths:[],tlsSecretName:"",tlsSecretPerReplica:{enabled:false,prefix:"alertmanager"}} and [...{enabled?:(bool|number|string|null),pathType?:(bool|number|string|null),...}] (mismatched types struct and list):
+grafana_configmaps_datasources.0.data.datasources.0.name: conflicting values "\"Alertmanager\"" and "\"Prometheus\"":
+    ./grafana_configmaps_datasources.cue:22:5
+    ./grafana_configmaps_datasources.cue:23:3
+    ./grafana_configmaps_datasources.cue:61:6
+    ./grafana_configmaps_datasources.cue:65:7
+    ./grafana_configmaps_datasources.cue:66:14
+    ./grafana_configmaps_datasources.cue:88:6
+    ./grafana_configmaps_datasources.cue:89:13
+grafana_configmaps_datasources.0.data.datasources.0.type: conflicting values "alertmanager" and "prometheus":
+    ./grafana_configmaps_datasources.cue:22:5
+    ./grafana_configmaps_datasources.cue:23:3
+    ./grafana_configmaps_datasources.cue:61:6
+    ./grafana_configmaps_datasources.cue:65:7
+    ./grafana_configmaps_datasources.cue:67:14
+    ./grafana_configmaps_datasources.cue:88:6
+    ./grafana_configmaps_datasources.cue:90:13
+grafana_configmaps_datasources.0.data.datasources.0.uid: 4 errors in empty disjunction:
+grafana_configmaps_datasources.0.data.datasources.0.uid: conflicting values "alertmanager" and "prometheus":
+    ./grafana_configmaps_datasources.cue:22:5
+    ./grafana_configmaps_datasources.cue:23:3
+    ./grafana_configmaps_datasources.cue:61:6
+    ./grafana_configmaps_datasources.cue:65:7
+    ./grafana_configmaps_datasources.cue:68:14
+    ./grafana_configmaps_datasources.cue:88:6
+    ./grafana_configmaps_datasources.cue:91:13
+    values.yaml:1411:12
+    values.yaml:1457:14
+grafana_configmaps_datasources.0.data.datasources.0.uid: conflicting values "alertmanager" and bool (mismatched types string and bool):
+    ./grafana_configmaps_datasources.cue:22:5
+    ./grafana_configmaps_datasources.cue:23:3
+    ./grafana_configmaps_datasources.cue:88:6
+    ./grafana_configmaps_datasources.cue:91:13
+    ./values.cue:668:39
+    values.yaml:1457:14
+grafana_configmaps_datasources.0.data.datasources.0.uid: conflicting values "alertmanager" and null (mismatched types string and null):
+    ./grafana_configmaps_datasources.cue:22:5
+    ./grafana_configmaps_datasources.cue:23:3
+    ./grafana_configmaps_datasources.cue:88:6
+    ./grafana_configmaps_datasources.cue:91:13
+    ./values.cue:668:64
+    values.yaml:1457:14
+grafana_configmaps_datasources.0.data.datasources.0.uid: conflicting values "alertmanager" and number (mismatched types string and number):
+    ./grafana_configmaps_datasources.cue:22:5
+    ./grafana_configmaps_datasources.cue:23:3
+    ./grafana_configmaps_datasources.cue:88:6
+    ./grafana_configmaps_datasources.cue:91:13
+    ./values.cue:668:46
+    values.yaml:1457:14
+grafana_configmaps_datasources.0.data.datasources.0.url: conflicting values "http://test-alertmanager.default:9093/" and "http://test-prometheus.default:9090/":
+    ./grafana_configmaps_datasources.cue:22:5
+    ./grafana_configmaps_datasources.cue:23:3
+    ./grafana_configmaps_datasources.cue:61:6
+    ./grafana_configmaps_datasources.cue:65:7
+    ./grafana_configmaps_datasources.cue:75:8
+    ./grafana_configmaps_datasources.cue:79:14
+    ./grafana_configmaps_datasources.cue:88:6
+    ./grafana_configmaps_datasources.cue:98:7
+    ./grafana_configmaps_datasources.cue:102:13
+prometheus_operator_admission_webhooks_validatingWebhookConfiguration.0.path: conflicting values "/admission-alertmanagerconfigs/validate" and "/admission-prometheusrules/validate":
+    ./prometheus_operator_admission_webhooks_validatingWebhookConfiguration.cue:14:5
+    ./prometheus_operator_admission_webhooks_validatingWebhookConfiguration.cue:15:3
+    ./prometheus_operator_admission_webhooks_validatingWebhookConfiguration.cue:96:10
+    ./prometheus_operator_admission_webhooks_validatingWebhookConfiguration.cue:188:10
+prometheus_operator_servicemonitor.0.spec.endpoints.0.tlsConfig.ca.secret.key: conflicting values {optional:false} and "ca" (mismatched types struct and string):
+    ./prometheus_operator_servicemonitor.cue:17:5
+    ./prometheus_operator_servicemonitor.cue:18:3
+    ./prometheus_operator_servicemonitor.cue:39:7
+    ./prometheus_operator_servicemonitor.cue:49:15
+    ./prometheus_operator_servicemonitor.cue:56:11
+    ./prometheus_operator_servicemonitor.cue:60:12
+alertmanager_secret.0.data."alertmanager.yaml": invalid interpolation: cannot use {global:{resolve_timeout:"5m"},inhibit_rules:[{source_matchers:["severity = critical"],target_matchers:["severity =~ warning|info"],equal:["namespace","alertname"]},{source_matchers:["severity = warning"],target_matchers:["severity = info"],equal:["namespace","alertname"]},{source_matchers:["alertname = InfoInhibitor"],target_matchers:["severity = info"],equal:["namespace"]},{target_matchers:["alertname = InfoInhibitor"]}],route:{group_by:["namespace"],group_wait:"30s",group_interval:"5m",repeat_interval:"12h",receiver:"null",routes:[{receiver:"null",matchers:["alertname = \"Watchdog\""]}]},receivers:[{name:"null"}],templates:["/etc/alertmanager/config/*.tmpl"]} (type struct) as (string|bytes) in argument 2 to "encoding/base64".Encode:
+    ./alertmanager_secret.cue:70:27
+    ./values.cue:599:18
+extra_objects.1: cannot range over *#values.extraManifests | [] (found null, want list or struct):
+    ./extra_objects.cue:18:21
+_vMajor: error in call to strconv.Atoi: strconv.Atoi: parsing "": invalid syntax:
+    ./helpers.cue:107:11
+results: error in call to list.FlattenN: invalid interpolation: cannot use {global:{resolve_timeout:"5m"},inhibit_rules:[{source_matchers:["severity = critical"],target_matchers:["severity =~ warning|info"],equal:["namespace","alertname"]},{source_matchers:["severity = warning"],target_matchers:["severity = info"],equal:["namespace","alertname"]},{source_matchers:["alertname = InfoInhibitor"],target_matchers:["severity = info"],equal:["namespace"]},{target_matchers:["alertname = InfoInhibitor"]}],route:{group_by:["namespace"],group_wait:"30s",group_interval:"5m",repeat_interval:"12h",receiver:"null",routes:[{receiver:"null",matchers:["alertname = \"Watchdog\""]}]},receivers:[{name:"null"}],templates:["/etc/alertmanager/config/*.tmpl"]} (type struct) as (string|bytes) in argument 2 to "encoding/base64".Encode:
     ./results.cue:7:10
-    ./values.cue:518:23
+    ./alertmanager_secret.cue:70:27
+    ./values.cue:599:18

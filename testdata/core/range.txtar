@@ -14,7 +14,9 @@ items:
 import "struct"
 
 #input: {
-	items?: _
+	items?: [...] | {
+		...
+	}
 	...
 }
 

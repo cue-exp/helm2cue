@@ -30,7 +30,9 @@ import (
 )
 
 #values: {
-	denyNamespaces?: _
+	denyNamespaces?: [...] | {
+		...
+	}
 	...
 }
 

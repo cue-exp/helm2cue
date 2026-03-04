@@ -6864,11 +6864,21 @@ func fieldNodesToDecls(nodes []*fieldNode) []ast.Decl {
 
 			var value ast.Expr
 			if n.isRange {
-				value = &ast.ListLit{
-					Elts: []ast.Expr{
+				// Range targets allow both list and map types.
+				childDecls2 := fieldNodesToDecls(n.children)
+				childDecls2 = append(childDecls2, &ast.Ellipsis{})
+				structLit2 := &ast.StructLit{Elts: childDecls2}
+				value = binOp(token.OR,
+					&ast.ListLit{Elts: []ast.Expr{
 						&ast.Ellipsis{Type: structLit},
-					},
-				}
+					}},
+					&ast.StructLit{Elts: []ast.Decl{
+						&ast.Field{
+							Label: &ast.ListLit{Elts: []ast.Expr{ast.NewIdent("string")}},
+							Value: structLit2,
+						},
+					}},
+				)
 			} else {
 				value = structLit
 			}
@@ -6879,7 +6889,18 @@ func fieldNodesToDecls(nodes []*fieldNode) []ast.Decl {
 			})
 		} else {
 			var value ast.Expr
-			if n.isRange || n.isNonScalar {
+			if n.isRange {
+				// Range targets allow both list and map types.
+				value = binOp(token.OR,
+					&ast.ListLit{Elts: []ast.Expr{&ast.Ellipsis{}}},
+					&ast.StructLit{Elts: []ast.Decl{
+						&ast.Field{
+							Label: &ast.ListLit{Elts: []ast.Expr{ast.NewIdent("string")}},
+							Value: ast.NewIdent("_"),
+						},
+					}},
+				)
+			} else if n.isNonScalar {
 				value = ast.NewIdent("_")
 			} else {
 				value = cueScalarTypeExpr()
@@ -6930,7 +6951,11 @@ func buildFieldTree(refs [][]string, requiredRefs [][]string, rangeRefs [][]stri
 		for _, elem := range ref {
 			child, ok := node.childMap[elem]
 			if !ok {
-				break
+				// Create the node so the isRange flag lands on the
+				// correct (leaf) element, not on an ancestor.
+				child = &fieldNode{name: elem, childMap: make(map[string]*fieldNode)}
+				node.childMap[elem] = child
+				node.children = append(node.children, child)
 			}
 			node = child
 		}
@@ -6964,16 +6989,22 @@ func emitFieldNodes(w *bytes.Buffer, nodes []*fieldNode, indent int) {
 			}
 			if n.isRange {
 				fmt.Fprintf(w, "%s%s: [...{\n", cueKey(n.name), marker)
+				emitFieldNodes(w, n.children, indent+1)
+				writeIndent(w, indent+1)
+				w.WriteString("...\n")
+				writeIndent(w, indent)
+				w.WriteString("}] | {[string]: {\n")
+				emitFieldNodes(w, n.children, indent+1)
+				writeIndent(w, indent+1)
+				w.WriteString("...\n")
+				writeIndent(w, indent)
+				w.WriteString("}}\n")
 			} else {
 				fmt.Fprintf(w, "%s%s: {\n", cueKey(n.name), marker)
-			}
-			emitFieldNodes(w, n.children, indent+1)
-			writeIndent(w, indent+1)
-			w.WriteString("...\n")
-			writeIndent(w, indent)
-			if n.isRange {
-				w.WriteString("}]\n")
-			} else {
+				emitFieldNodes(w, n.children, indent+1)
+				writeIndent(w, indent+1)
+				w.WriteString("...\n")
+				writeIndent(w, indent)
 				w.WriteString("}\n")
 			}
 		} else {
@@ -6982,7 +7013,9 @@ func emitFieldNodes(w *bytes.Buffer, nodes []*fieldNode, indent int) {
 				marker = "!"
 			}
 			leafType := cueScalarType
-			if n.isRange || n.isNonScalar {
+			if n.isRange {
+				leafType = "[...] | {[string]: _}"
+			} else if n.isNonScalar {
 				leafType = "_"
 			}
 			fmt.Fprintf(w, "%s%s: %s\n", cueKey(n.name), marker, leafType)
