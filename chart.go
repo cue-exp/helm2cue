@@ -30,7 +30,6 @@ import (
 	"cuelang.org/go/cue/cuecontext"
 	cueerrors "cuelang.org/go/cue/errors"
 	"cuelang.org/go/cue/format"
-	"cuelang.org/go/cue/parser"
 	cueyaml "cuelang.org/go/encoding/yaml"
 	"gopkg.in/yaml.v3"
 )
@@ -810,45 +809,39 @@ func writeTemplateCUE(outDir, pkgName, fieldName string, r *convertResult) error
 }
 
 // validateTemplateBody checks that a template body is syntactically valid CUE.
-// It uses parser-level validation only (no evaluation), since the full context
+// It uses format.Node to validate the AST, since the full context
 // (imports, helpers, values) is not available for semantic checking.
 func validateTemplateBody(r *convertResult) error {
 	if len(r.body) == 0 {
 		return nil
 	}
 
-	body := declsToText(r.body)
-	if body == "" {
-		return nil
+	// Build: _body: [{<body>}]
+	bodyStruct := &ast.StructLit{Elts: append([]ast.Decl(nil), r.body...)}
+	bodyStruct.Lbrace = newlinePos()
+	listLit := &ast.ListLit{Elts: []ast.Expr{bodyStruct}}
+	expandList(listLit)
+	var inner ast.Decl = &ast.Field{
+		Label: ast.NewIdent("_body"),
+		Value: listLit,
 	}
 
-	// Build a CUE file with the body wrapped in a list element.
-	var src bytes.Buffer
-	indent := 0
-	if len(r.topLevelGuards) > 0 {
-		for _, guard := range r.topLevelGuards {
-			writeIndent(&src, indent)
-			fmt.Fprintf(&src, "if %s {\n", exprToText(guard))
-			indent++
+	// Wrap in if guards.
+	for i := len(r.topLevelGuards) - 1; i >= 0; i-- {
+		inner = &ast.Comprehension{
+			Clauses: []ast.Clause{
+				&ast.IfClause{Condition: r.topLevelGuards[i]},
+			},
+			Value: &ast.StructLit{Elts: []ast.Decl{inner}},
 		}
 	}
-	writeIndent(&src, indent)
-	src.WriteString("_body: [{\n")
-	for _, line := range strings.Split(body, "\n") {
-		writeIndent(&src, indent+1)
-		src.WriteString(line)
-		src.WriteByte('\n')
-	}
-	writeIndent(&src, indent)
-	src.WriteString("}]\n")
-	for i := len(r.topLevelGuards) - 1; i >= 0; i-- {
-		writeIndent(&src, i)
-		src.WriteString("}\n")
-	}
 
-	_, err := parser.ParseFile("body.cue", src.Bytes())
+	f := &ast.File{Decls: []ast.Decl{inner}}
+	_, err := format.Node(f)
 	if err != nil && os.Getenv("HELM2CUE_DEBUG") != "" {
-		fmt.Fprintf(os.Stderr, "DEBUG: CUE validation failed:\n%s\nsource:\n%s\n", cueerrors.Details(err, nil), src.Bytes())
+		// Best-effort text dump for debugging.
+		src := declsToText(f.Decls)
+		fmt.Fprintf(os.Stderr, "DEBUG: CUE validation failed:\n%v\nsource:\n%s\n", err, src)
 	}
 	return err
 }
