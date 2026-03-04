@@ -534,6 +534,88 @@ func exprToText(e ast.Expr) string {
 	return string(b)
 }
 
+// exprEqual reports whether two AST expressions are structurally equal.
+func exprEqual(a, b ast.Expr) bool {
+	switch x := a.(type) {
+	case *ast.Ident:
+		y, ok := b.(*ast.Ident)
+		return ok && x.Name == y.Name
+	case *ast.BasicLit:
+		y, ok := b.(*ast.BasicLit)
+		return ok && x.Kind == y.Kind && x.Value == y.Value
+	case *ast.SelectorExpr:
+		y, ok := b.(*ast.SelectorExpr)
+		return ok && exprEqual(x.X, y.X) && labelEqual(x.Sel, y.Sel)
+	case *ast.IndexExpr:
+		y, ok := b.(*ast.IndexExpr)
+		return ok && exprEqual(x.X, y.X) && exprEqual(x.Index, y.Index)
+	case *ast.BinaryExpr:
+		y, ok := b.(*ast.BinaryExpr)
+		return ok && x.Op == y.Op && exprEqual(x.X, y.X) && exprEqual(x.Y, y.Y)
+	case *ast.UnaryExpr:
+		y, ok := b.(*ast.UnaryExpr)
+		return ok && x.Op == y.Op && exprEqual(x.X, y.X)
+	case *ast.ParenExpr:
+		y, ok := b.(*ast.ParenExpr)
+		return ok && exprEqual(x.X, y.X)
+	case *ast.CallExpr:
+		y, ok := b.(*ast.CallExpr)
+		if !ok || !exprEqual(x.Fun, y.Fun) || len(x.Args) != len(y.Args) {
+			return false
+		}
+		for i := range x.Args {
+			if !exprEqual(x.Args[i], y.Args[i]) {
+				return false
+			}
+		}
+		return true
+	case *ast.StructLit:
+		y, ok := b.(*ast.StructLit)
+		if !ok || len(x.Elts) != len(y.Elts) {
+			return false
+		}
+		for i := range x.Elts {
+			if !declEqual(x.Elts[i], y.Elts[i]) {
+				return false
+			}
+		}
+		return true
+	case *ast.BottomLit:
+		_, ok := b.(*ast.BottomLit)
+		return ok
+	default:
+		return false
+	}
+}
+
+// labelEqual reports whether two AST labels are structurally equal.
+func labelEqual(a, b ast.Label) bool {
+	switch x := a.(type) {
+	case *ast.Ident:
+		y, ok := b.(*ast.Ident)
+		return ok && x.Name == y.Name
+	case *ast.BasicLit:
+		y, ok := b.(*ast.BasicLit)
+		return ok && x.Kind == y.Kind && x.Value == y.Value
+	default:
+		return false
+	}
+}
+
+// declEqual reports whether two AST declarations are structurally equal.
+func declEqual(a, b ast.Decl) bool {
+	switch x := a.(type) {
+	case *ast.Field:
+		y, ok := b.(*ast.Field)
+		return ok && labelEqual(x.Label, y.Label) && exprEqual(x.Value, y.Value)
+	case *ast.EmbedDecl:
+		y, ok := b.(*ast.EmbedDecl)
+		return ok && exprEqual(x.Expr, y.Expr)
+	default:
+		return false
+	}
+}
+
 // clausesEqual reports whether two clause slices are structurally equal.
 func clausesEqual(a, b []ast.Clause) bool {
 	if len(a) != len(b) {
@@ -546,9 +628,9 @@ func clausesEqual(a, b []ast.Clause) bool {
 			if !ok {
 				return false
 			}
-			if exprToText(ca.Key) != exprToText(cb.Key) ||
-				exprToText(ca.Value) != exprToText(cb.Value) ||
-				exprToText(ca.Source) != exprToText(cb.Source) {
+			if !exprEqual(ca.Key, cb.Key) ||
+				!exprEqual(ca.Value, cb.Value) ||
+				!exprEqual(ca.Source, cb.Source) {
 				return false
 			}
 		case *ast.IfClause:
@@ -556,7 +638,7 @@ func clausesEqual(a, b []ast.Clause) bool {
 			if !ok {
 				return false
 			}
-			if exprToText(ca.Condition) != exprToText(cb.Condition) {
+			if !exprEqual(ca.Condition, cb.Condition) {
 				return false
 			}
 		default:
