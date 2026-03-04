@@ -36,7 +36,10 @@ output: [
 		metadata: {
 			name: "test"
 			labels: {
-				if (_nonzero & {#arg: #values.labels, _}) for _key0, _val0 in #values.labels {
+				if (_nonzero & {
+					#arg: #values.labels
+					_
+				}) for _key0, _val0 in #values.labels {
 					(_key0): _val0
 				}
 			}

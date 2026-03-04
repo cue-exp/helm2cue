@@ -20,22 +20,37 @@ output: [
 	{
 		server: {
 			name: _fullname, address: "\(#values.host):\(#values.port)"
-			if (_nonzero & {#arg: #values.debug, _}) {
+			if (_nonzero & {
+				#arg: #values.debug
+				_
+			}) {
 				logLevel: "debug"
 			}
-			if !(_nonzero & {#arg: #values.debug, _}) {
+			if !(_nonzero & {
+				#arg: #values.debug
+				_
+			}) {
 				logLevel: "info"
 			}
-			if (_nonzero & {#arg: #values.tls, _}) {
+			if (_nonzero & {
+				#arg: #values.tls
+				_
+			}) {
 				tls: {
 					cert: #values.tls.cert, key: #values.tls.key
 				}
 			}, labels: {
-				if (_nonzero & {#arg: #values.labels, _}) for _key0, _val0 in #values.labels {
+				if (_nonzero & {
+					#arg: #values.labels
+					_
+				}) for _key0, _val0 in #values.labels {
 					(_key0): _val0
 				}
 			}
-			features: [if (_nonzero & {#arg: #values.features, _}) for _, _range0 in #values.features {
+			features: [if (_nonzero & {
+				#arg: #values.features
+				_
+			}) for _, _range0 in #values.features {
 				_range0
 			},
 			]

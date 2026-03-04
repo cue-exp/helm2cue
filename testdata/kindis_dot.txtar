@@ -34,7 +34,10 @@ output: [
 		kind:       "ConfigMap"
 		metadata: name: "test"
 		data: {
-			if (_nonzero & {#arg: #values.config, _}) {
+			if (_nonzero & {
+				#arg: #values.config
+				_
+			}) {
 				if (#values.config & string) != _|_ {
 					type: "string"
 				}

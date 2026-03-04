@@ -51,7 +51,10 @@ _renderVolumes: {
 		...
 	}
 	let _args = #arg
-	[if (_nonzero & {#arg: _args.items, _}) for _, _range1 in _args.items {
+	[if (_nonzero & {
+		#arg: _args.items
+		_
+	}) for _, _range1 in _args.items {
 		name:      _range1.name
 		mountPath: _range1.mountPath
 	}]
@@ -61,7 +64,10 @@ output: [
 	{
 		apiVersion: "apps/v1"
 		kind:       "Deployment"
-		spec: template: spec: volumes: _renderVolumes & {#arg: items: #values.volumes, _}
+		spec: template: spec: volumes: _renderVolumes & {
+			#arg: {items: #values.volumes}
+			_
+		}
 	},
 ]
 _nonzero: {

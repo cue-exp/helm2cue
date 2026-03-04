@@ -32,7 +32,11 @@ import "struct"
 	...
 }
 _myapp_enabled: {
-	if (_nonzero & {#arg: #values.enabled, _}) {
+	#arg: _
+	if (_nonzero & {
+		#arg: #values.enabled
+		_
+	}) {
 		true
 	}
 }
@@ -42,7 +46,10 @@ output: [
 		apiVersion: "v1"
 		kind:       "ConfigMap"
 		metadata: name: #values.name
-		if (_nonzero & {#arg: _myapp_enabled, _}) {
+		if (_nonzero & {
+			#arg: _myapp_enabled
+			_
+		}) {
 			data: status: "active"
 		}
 	},

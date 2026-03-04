@@ -41,11 +41,17 @@ output: [
 		metadata: name: "test"
 		spec: endpoints: [
 			{
-				if (_nonzero & {#arg: #values.useHttps, _}) {
+				if (_nonzero & {
+					#arg: #values.useHttps
+					_
+				}) {
 					port:   "https"
 					scheme: "https"
 				}
-				if !(_nonzero & {#arg: #values.useHttps, _}) {
+				if !(_nonzero & {
+					#arg: #values.useHttps
+					_
+				}) {
 					port: "http"
 				}
 				honorLabels: true

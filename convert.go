@@ -291,7 +291,7 @@ type converter struct {
 	helperArgFieldRefs          map[string][][]string // CUE helper name → field paths accessed on #arg
 	helperArgFieldRangeRefs     map[string][][]string // CUE helper name → range refs on #arg
 	helperArgFieldNonScalarRefs map[string][][]string // CUE helper name → nonScalar refs on #arg
-	localVars                   map[string]string     // $varName → CUE expression
+	localVars                   map[string]ast.Expr   // $varName → CUE expression
 	topLevelGuards              []string              // CUE conditions wrapping entire output
 	topLevelRange               string                // e.g. "for _, _range0 in #values.items"
 	topLevelRangeBody           []ast.Decl            // body inside the range
@@ -416,7 +416,13 @@ func indexExpr(x ast.Expr, idx ast.Expr) *ast.IndexExpr {
 
 // selExpr builds x.sel (non-import selector).
 func selExpr(x ast.Expr, sel string) *ast.SelectorExpr {
-	return &ast.SelectorExpr{X: x, Sel: ast.NewIdent(sel)}
+	var label ast.Label
+	if strings.HasPrefix(sel, "\"") {
+		label = &ast.BasicLit{Kind: token.STRING, Value: sel}
+	} else {
+		label = ast.NewIdent(sel)
+	}
+	return &ast.SelectorExpr{X: x, Sel: label}
 }
 
 // callExpr builds fn(args...) for CUE builtins (div, mod, len, error).
@@ -429,6 +435,49 @@ func cueInt(n int) *ast.BasicLit {
 	return &ast.BasicLit{Kind: token.INT, Value: strconv.Itoa(n)}
 }
 
+// cueFloat builds a *ast.BasicLit float.
+func cueFloat(f float64) *ast.BasicLit {
+	return &ast.BasicLit{Kind: token.FLOAT, Value: strconv.FormatFloat(f, 'f', -1, 64)}
+}
+
+// cueString builds a *ast.BasicLit quoted string.
+func cueString(s string) *ast.BasicLit {
+	return &ast.BasicLit{Kind: token.STRING, Value: strconv.Quote(s)}
+}
+
+// parenExpr builds (x).
+func parenExpr(x ast.Expr) *ast.ParenExpr {
+	return &ast.ParenExpr{X: x}
+}
+
+// nonzeroExpr builds (_nonzero & {#arg: expr, _}).
+func nonzeroExpr(expr ast.Expr) ast.Expr {
+	return parenExpr(binOp(token.AND, ast.NewIdent("_nonzero"),
+		&ast.StructLit{Elts: []ast.Decl{
+			&ast.Field{Label: ast.NewIdent("#arg"), Value: expr},
+			&ast.EmbedDecl{Expr: ast.NewIdent("_")},
+		}}))
+}
+
+// defaultExpr builds *expr | defaultVal.
+func defaultExpr(expr, defaultVal ast.Expr) ast.Expr {
+	return binOp(token.OR, &ast.UnaryExpr{Op: token.MUL, X: expr}, defaultVal)
+}
+
+// negExpr builds !(x).
+func negExpr(x ast.Expr) *ast.UnaryExpr {
+	return &ast.UnaryExpr{Op: token.NOT, X: x}
+}
+
+// buildSelChain builds a.b.c from a base expression and field names.
+func buildSelChain(base ast.Expr, fields []string) ast.Expr {
+	e := base
+	for _, f := range fields {
+		e = selExpr(e, f)
+	}
+	return e
+}
+
 // exprToText formats an ast.Expr to CUE text. Used as a bridge
 // for text-based contexts (block scalars, flow collections, etc.).
 func exprToText(e ast.Expr) string {
@@ -437,6 +486,42 @@ func exprToText(e ast.Expr) string {
 		panic(fmt.Sprintf("exprToText: %v", err))
 	}
 	return string(b)
+}
+
+// exprToGuardText formats an ast.Expr to CUE text while replacing
+// import-tagged idents with sentinel identifiers so the text survives
+// a mustParseExpr roundtrip. The converter's addImport is called for
+// each import found, and resolveImportSentinels will convert the
+// sentinels back to import-tagged idents during final formatting.
+func (c *converter) exprToGuardText(e ast.Expr) string {
+	sentinelizeTaggedImports(e, func(pkg string) {
+		c.addImport(pkg)
+	})
+	return exprToText(e)
+}
+
+// sentinelizeTaggedImports walks an AST expression and replaces
+// import-tagged idents with their sentinel forms in place. The record
+// function is called for each import package found.
+func sentinelizeTaggedImports(n ast.Node, record func(string)) {
+	ast.Walk(n, func(node ast.Node) bool {
+		ident, ok := node.(*ast.Ident)
+		if !ok {
+			return true
+		}
+		if ident.Node == nil {
+			return true
+		}
+		imp, ok := ident.Node.(*ast.ImportSpec)
+		if !ok {
+			return true
+		}
+		pkg := strings.Trim(imp.Path.Value, "\"")
+		record(pkg)
+		ident.Name = importSentinel(pkg)
+		ident.Node = nil
+		return true
+	}, nil)
 }
 
 // helperOutExpr builds (helper & {#in: expr}).out.
@@ -594,25 +679,25 @@ func (c *converter) appendListExpr(e ast.Expr) {
 }
 
 // emitField creates an ast.Field and appends it to the current scope.
-func (c *converter) emitField(key, value string) {
+func (c *converter) emitField(key string, value ast.Expr) {
 	label := cueKeyLabel(key)
 	c.appendToParent(&ast.Field{
 		Label: label,
-		Value: mustParseExpr(value),
+		Value: value,
 	})
 }
 
 // emitRawField creates an ast.Field with a raw key expression and appends it.
-func (c *converter) emitRawField(rawKey, value string) {
+func (c *converter) emitRawField(rawKey string, value ast.Expr) {
 	c.appendToParent(&ast.Field{
 		Label: mustParseExpr(rawKey).(ast.Label),
-		Value: mustParseExpr(value),
+		Value: value,
 	})
 }
 
 // emitEmbed creates an ast.EmbedDecl and appends it to the current scope.
-func (c *converter) emitEmbed(expr string) {
-	c.appendToParent(&ast.EmbedDecl{Expr: mustParseExpr(expr)})
+func (c *converter) emitEmbed(expr ast.Expr) {
+	c.appendToParent(&ast.EmbedDecl{Expr: expr})
 }
 
 // buildComprehensionValue builds the struct literal value for an
@@ -632,7 +717,7 @@ func (c *converter) buildComprehensionValue(bodyStruct *ast.StructLit, bodyList 
 // emitInlineComprehension emits a conditional comprehension for an inline
 // value. Used by processInlineIf to emit each branch as a separate
 // if comprehension that produces the complete field/list/embed value.
-func (c *converter) emitInlineComprehension(condition, key string, rawKey bool, value string) {
+func (c *converter) emitInlineComprehension(condition ast.Expr, key string, rawKey bool, value ast.Expr) {
 	bodyStruct := &ast.StructLit{}
 	var bodyDecl ast.Decl
 	if key != "" {
@@ -642,15 +727,15 @@ func (c *converter) emitInlineComprehension(condition, key string, rawKey bool, 
 		} else {
 			label = cueKeyLabel(key)
 		}
-		bodyDecl = &ast.Field{Label: label, Value: mustParseExpr(value)}
+		bodyDecl = &ast.Field{Label: label, Value: value}
 	} else if c.inListContext() {
-		bodyDecl = &ast.EmbedDecl{Expr: mustParseExpr(value)}
+		bodyDecl = &ast.EmbedDecl{Expr: value}
 	} else {
-		bodyDecl = &ast.EmbedDecl{Expr: mustParseExpr(value)}
+		bodyDecl = &ast.EmbedDecl{Expr: value}
 	}
 	bodyStruct.Elts = []ast.Decl{bodyDecl}
 	comp := &ast.Comprehension{
-		Clauses: []ast.Clause{&ast.IfClause{Condition: mustParseExpr(condition)}},
+		Clauses: []ast.Clause{&ast.IfClause{Condition: condition}},
 		Value:   bodyStruct,
 	}
 	c.appendToParent(comp)
@@ -883,7 +968,7 @@ func convertStructured(cfg *Config, input []byte, templateName string, treeSet m
 		requiredRefs:                make(map[string][][]string),
 		rangeRefs:                   make(map[string][][]string),
 		nonScalarRefs:               make(map[string][][]string),
-		localVars:                   make(map[string]string),
+		localVars:                   make(map[string]ast.Expr),
 		imports:                     make(map[string]bool),
 		usedHelpers:                 make(map[string]HelperDef),
 		comments:                    make(map[string]string),
@@ -1371,7 +1456,7 @@ func (c *converter) convertHelperBody(nodes []parse.Node) (string, *helperArgInf
 		helperArgFieldRangeRefs:     c.helperArgFieldRangeRefs,
 		helperArgFieldNonScalarRefs: c.helperArgFieldNonScalarRefs,
 		undefinedHelpers:            c.undefinedHelpers,
-		localVars:                   make(map[string]string),
+		localVars:                   make(map[string]ast.Expr),
 		comments:                    make(map[string]string),
 	}
 
@@ -1423,7 +1508,10 @@ func (c *converter) convertHelperBody(nodes []parse.Node) (string, *helperArgInf
 			// struct introduces its own #arg field.
 			if strings.Contains(body, "#arg") {
 				fixed := strings.ReplaceAll(body, "#arg", "_args")
-				fixed = strings.ReplaceAll(fixed, "{_args:", "{#arg:")
+				// Undo the #arg -> _args rename inside _nonzero struct
+				// fields, which use #arg as a field key. Handle both
+				// inline ({_args:) and multi-line formats ({\n\t_args:).
+				fixed = nonzeroArgUndoRe.ReplaceAllString(fixed, "${1}#arg:")
 				body = "let _args = #arg\n" + fixed
 			}
 		} else {
@@ -1597,6 +1685,14 @@ func escapeCUEString(s string) string {
 		return q[1 : len(q)-1]
 	}
 	lit := strings.TrimSpace(string(b))
+	// format.Node may produce triple-quoted strings ("""\n...\n""") for
+	// multi-line content. Since escapeCUEString returns content for
+	// embedding inside a regular single-quoted CUE string, fall back to
+	// strconv.Quote for these cases.
+	if strings.HasPrefix(lit, `"""`) {
+		q := strconv.Quote(s)
+		return q[1 : len(q)-1]
+	}
 	return lit[1 : len(lit)-1]
 }
 
@@ -1681,12 +1777,12 @@ func (c *converter) propagateDictHelperArgRefs(cueName string, dictMap map[strin
 //   - helmObj: the Helm context object name (e.g. "Values"), or ""
 //   - basePath: the field path within the context object (e.g. ["serviceAccount"]), or nil
 //   - dictMap: for dict context args, maps dict key to its context source
-func (c *converter) convertIncludeContext(node parse.Node) (argExpr string, helmObj string, basePath []string, dictMap map[string]contextSource, err error) {
+func (c *converter) convertIncludeContext(node parse.Node) (argExpr ast.Expr, helmObj string, basePath []string, dictMap map[string]contextSource, err error) {
 	switch n := node.(type) {
 	case *parse.DotNode:
-		return "", "", nil, nil, nil
+		return nil, "", nil, nil, nil
 	case *parse.VariableNode:
-		return "", "", nil, nil, nil
+		return nil, "", nil, nil, nil
 	case *parse.FieldNode:
 		expr, ho := c.fieldToCUEInContext(n.Ident)
 		if ho != "" {
@@ -1702,9 +1798,12 @@ func (c *converter) convertIncludeContext(node parse.Node) (argExpr string, helm
 		return expr, ho, bp, nil, nil
 	case *parse.PipeNode:
 		dm, dictExpr, pipeErr := c.processContextPipe(n)
-		return dictExpr, "", nil, dm, pipeErr
+		if dictExpr == "" {
+			return nil, "", nil, dm, pipeErr
+		}
+		return mustParseExpr(dictExpr), "", nil, dm, pipeErr
 	default:
-		return "", "", nil, nil, fmt.Errorf("include: unsupported context argument %s (only ., $, field references, and dict/list are supported)", node)
+		return nil, "", nil, nil, fmt.Errorf("include: unsupported context argument %s (only ., $, field references, and dict/list are supported)", node)
 	}
 }
 
@@ -1762,7 +1861,7 @@ func (c *converter) processContextPipe(pipe *parse.PipeNode) (map[string]context
 				allConverted = false
 				break
 			}
-			exprParts = append(exprParts, cueKey(keyNode.Text)+": "+valExpr)
+			exprParts = append(exprParts, cueKey(keyNode.Text)+": "+exprToText(valExpr))
 		}
 		var dictExpr string
 		if allConverted && len(exprParts) > 0 {
@@ -1854,7 +1953,7 @@ func (c *converter) flushPendingAction() {
 	if c.inListContext() {
 		c.appendListExpr(expr)
 	} else {
-		c.emitEmbed(exprToText(expr))
+		c.emitEmbed(expr)
 	}
 }
 
@@ -1866,9 +1965,9 @@ func (c *converter) flushDeferred() {
 	d := c.deferredKV
 	c.deferredKV = nil
 	if d.rawKey {
-		c.emitRawField(d.key, exprToText(d.value))
+		c.emitRawField(d.key, d.value)
 	} else {
-		c.emitField(d.key, exprToText(d.value))
+		c.emitField(d.key, d.value)
 	}
 }
 
@@ -1878,7 +1977,7 @@ func (c *converter) finalizeInline() {
 	if c.inlineParts == nil {
 		return
 	}
-	result := exprToText(partsToExpr(c.inlineParts))
+	result := partsToExpr(c.inlineParts)
 	key := c.inlineKey
 	rawKey := c.inlineRawKey
 	suffix := c.inlineSuffix
@@ -1895,7 +1994,7 @@ func (c *converter) finalizeInline() {
 			c.emitField(key, result)
 		}
 	} else if c.inListContext() {
-		c.appendListExpr(mustParseExpr(result))
+		c.appendListExpr(result)
 	} else {
 		c.emitEmbed(result)
 	}
@@ -2002,12 +2101,13 @@ func (c *converter) finalizeFlow() {
 		cueStr = strings.Replace(cueStr, quoted, exprToText(expr), 1)
 	}
 
+	cueExpr := mustParseExpr(cueStr)
 	if key != "" {
-		c.emitField(key, cueStr)
+		c.emitField(key, cueExpr)
 	} else if c.inListContext() {
-		c.appendListExpr(mustParseExpr(cueStr))
+		c.appendListExpr(cueExpr)
 	} else {
-		c.emitEmbed(cueStr)
+		c.emitEmbed(cueExpr)
 	}
 }
 
@@ -2073,12 +2173,13 @@ func (c *converter) finalizeBlockScalar() {
 		value = sb.String()
 	}
 
+	valueExpr := mustParseExpr(value)
 	if key != "" {
-		c.emitField(key, value)
+		c.emitField(key, valueExpr)
 	} else if c.inListContext() {
-		c.appendListExpr(mustParseExpr(value))
+		c.appendListExpr(valueExpr)
 	} else {
-		c.emitEmbed(value)
+		c.emitEmbed(valueExpr)
 	}
 }
 
@@ -2266,7 +2367,7 @@ func (c *converter) emitTextNode(text []byte) {
 				if val == "" {
 					continue
 				}
-				c.emitRawField(c.pendingKey, yamlToCUE(val, 0))
+				c.emitRawField(c.pendingKey, mustParseExpr(yamlToCUE(val, 0)))
 				c.state = stateNormal
 				c.pendingKey = ""
 				continue
@@ -2314,9 +2415,9 @@ func (c *converter) emitTextNode(text []byte) {
 		if strings.HasPrefix(content, "- ") {
 			c.processListItem(content, yamlIndent, isLastLine, continuesInline)
 		} else if isFlowCollection(trimmed) {
-			cueVal := yamlToCUE(trimmed, 0)
+			cueVal := mustParseExpr(yamlToCUE(trimmed, 0))
 			if c.inListContext() {
-				c.appendListExpr(mustParseExpr(cueVal))
+				c.appendListExpr(cueVal)
 			} else {
 				c.emitEmbed(cueVal)
 			}
@@ -2350,7 +2451,7 @@ func (c *converter) emitTextNode(text []byte) {
 				c.inlineRawKey = false
 				c.inlineParts = []inlinePart{{text: escapeCUEString(val)}}
 			} else {
-				c.emitField(key, yamlToCUE(val, 0))
+				c.emitField(key, mustParseExpr(yamlToCUE(val, 0)))
 			}
 		} else if strings.HasSuffix(trimmed, ":") {
 			key := strings.TrimSuffix(trimmed, ":")
@@ -2365,9 +2466,9 @@ func (c *converter) emitTextNode(text []byte) {
 				c.inlineSuffix = ","
 			}
 		} else {
-			cueVal := yamlToCUE(trimmed, 0)
+			cueVal := mustParseExpr(yamlToCUE(trimmed, 0))
 			if c.inListContext() {
-				c.appendListExpr(mustParseExpr(cueVal))
+				c.appendListExpr(cueVal)
 			} else {
 				c.emitEmbed(cueVal)
 			}
@@ -2480,7 +2581,7 @@ func (c *converter) processListItem(trimmed string, yamlIndent int, isLastLine, 
 				structLit:  itemStruct,
 				isListItem: true,
 			})
-			c.emitField(key, yamlToCUE(val, 0))
+			c.emitField(key, mustParseExpr(yamlToCUE(val, 0)))
 		}
 	} else if strings.HasSuffix(strings.TrimSpace(content), ":") {
 		// "- key:" — struct in list with bare key.
@@ -2524,7 +2625,7 @@ func (c *converter) processRangeListItem(content string, yamlIndent int, isLastL
 	itemContentIndent := yamlIndent + 2
 
 	if isFlowCollection(content) {
-		c.emitEmbed(yamlToCUE(content, 0))
+		c.emitEmbed(mustParseExpr(yamlToCUE(content, 0)))
 	} else if continuesInline && startsIncompleteFlow(content) {
 		// Flow collection in range list item, but actions split it.
 		c.startFlowAccum(content, "", "\n")
@@ -2544,7 +2645,7 @@ func (c *converter) processRangeListItem(content string, yamlIndent int, isLastL
 			c.inlineKey = key
 			c.inlineParts = []inlinePart{{text: escapeCUEString(val)}}
 		} else {
-			c.emitField(key, yamlToCUE(val, 0))
+			c.emitField(key, mustParseExpr(yamlToCUE(val, 0)))
 		}
 	} else if strings.HasSuffix(strings.TrimSpace(content), ":") {
 		key := strings.TrimSuffix(strings.TrimSpace(content), ":")
@@ -2562,7 +2663,7 @@ func (c *converter) processRangeListItem(content string, yamlIndent int, isLastL
 		c.inlineParts = []inlinePart{{text: escapeCUEString(strings.TrimSpace(content))}}
 	} else {
 		// Simple scalar value — emit directly.
-		c.emitEmbed(strconv.Quote(strings.TrimSpace(content)))
+		c.emitEmbed(cueString(strings.TrimSpace(content)))
 	}
 }
 
@@ -2650,11 +2751,11 @@ func (c *converter) processNodes(nodes []parse.Node) error {
 		if len(rangeNode.Pipe.Decl) == 2 {
 			keyName = fmt.Sprintf("_key%d", blockIdx)
 			valName = fmt.Sprintf("_val%d", blockIdx)
-			c.localVars[rangeNode.Pipe.Decl[0].Ident[0]] = keyName
-			c.localVars[rangeNode.Pipe.Decl[1].Ident[0]] = valName
+			c.localVars[rangeNode.Pipe.Decl[0].Ident[0]] = ast.NewIdent(keyName)
+			c.localVars[rangeNode.Pipe.Decl[1].Ident[0]] = ast.NewIdent(valName)
 		} else if len(rangeNode.Pipe.Decl) == 1 {
 			valName = fmt.Sprintf("_range%d", blockIdx)
-			c.localVars[rangeNode.Pipe.Decl[0].Ident[0]] = valName
+			c.localVars[rangeNode.Pipe.Decl[0].Ident[0]] = ast.NewIdent(valName)
 		} else {
 			valName = fmt.Sprintf("_range%d", blockIdx)
 		}
@@ -2678,12 +2779,13 @@ func (c *converter) processNodes(nodes []parse.Node) error {
 		if keyName != "" {
 			keyExpr = keyName
 		}
+		overExprStr := c.exprToGuardText(overExpr)
 		guard := ""
-		if helmObj != "" || strings.HasPrefix(overExpr, "#arg") {
+		if helmObj != "" || strings.HasPrefix(overExprStr, "#arg") {
 			c.hasConditions = true
-			guard = fmt.Sprintf("if (_nonzero & {#arg: %s, _}) ", overExpr)
+			guard = fmt.Sprintf("if %s ", c.exprToGuardText(nonzeroExpr(overExpr)))
 		}
-		c.topLevelRange = fmt.Sprintf("%sfor %s, %s in %s", guard, keyExpr, valName, overExpr)
+		c.topLevelRange = fmt.Sprintf("%sfor %s, %s in %s", guard, keyExpr, valName, overExprStr)
 		c.topLevelRangeIsList = isListBody(rangeNode.List.Nodes)
 
 		savedRangeBody := c.inRangeBody
@@ -2742,7 +2844,7 @@ func (c *converter) processTopLevelIf(ifNode *parse.IfNode) (bool, error) {
 
 	// Simple if without else — use the guard optimization directly.
 	if ifNode.ElseList == nil {
-		c.topLevelGuards = append(c.topLevelGuards, condition)
+		c.topLevelGuards = append(c.topLevelGuards, c.exprToGuardText(condition))
 		return true, c.processNodes(ifNode.List.Nodes)
 	}
 
@@ -2752,9 +2854,9 @@ func (c *converter) processTopLevelIf(ifNode *parse.IfNode) (bool, error) {
 		nodes  []parse.Node
 	}
 	var branches []branch
-	negChain := []string{negCondition}
+	negChain := []string{c.exprToGuardText(negCondition)}
 	branches = append(branches, branch{
-		guards: []string{condition},
+		guards: []string{c.exprToGuardText(condition)},
 		nodes:  ifNode.List.Nodes,
 	})
 
@@ -2768,12 +2870,12 @@ func (c *converter) processTopLevelIf(ifNode *parse.IfNode) (bool, error) {
 				}
 				guards := make([]string, len(negChain)+1)
 				copy(guards, negChain)
-				guards[len(negChain)] = innerCond
+				guards[len(negChain)] = c.exprToGuardText(innerCond)
 				branches = append(branches, branch{
 					guards: guards,
 					nodes:  innerIf.List.Nodes,
 				})
-				negChain = append(negChain, innerNeg)
+				negChain = append(negChain, c.exprToGuardText(innerNeg))
 				elseList = innerIf.ElseList
 				continue
 			}
@@ -2977,7 +3079,7 @@ func (c *converter) processNode(node parse.Node) error {
 		if helmObj != "" {
 			c.usedContextObjects[helmObj] = true
 		}
-		comment := c.comments[expr]
+		comment := c.comments[exprToText(expr)]
 		c.emitActionExpr(expr, comment)
 	case *parse.IfNode:
 		if c.inlineParts != nil && isInlineSafeIf(n) {
@@ -3002,14 +3104,17 @@ func (c *converter) processNode(node parse.Node) error {
 		if helmObj != "" {
 			c.usedContextObjects[helmObj] = true
 		}
-		expr := cueName
+		var expr ast.Expr = mustParseExpr(cueName)
 		if n.Pipe != nil && len(n.Pipe.Cmds) == 1 && len(n.Pipe.Cmds[0].Args) == 1 {
-			argExpr, ctxHelmObj, ctxBasePath, dictMap, ctxErr := c.convertIncludeContext(n.Pipe.Cmds[0].Args[0])
+			ctxArgExpr, ctxHelmObj, ctxBasePath, dictMap, ctxErr := c.convertIncludeContext(n.Pipe.Cmds[0].Args[0])
 			if ctxErr != nil {
 				return ctxErr
 			}
-			if argExpr != "" {
-				expr = expr + " & {#arg: " + argExpr + ", _}"
+			if ctxArgExpr != nil {
+				expr = binOp(token.AND, expr, &ast.StructLit{Elts: []ast.Decl{
+					&ast.Field{Label: ast.NewIdent("#arg"), Value: ctxArgExpr},
+					&ast.EmbedDecl{Expr: ast.NewIdent("_")},
+				}})
 			}
 			if ctxHelmObj != "" {
 				c.propagateHelperArgRefs(cueName, ctxHelmObj, ctxBasePath)
@@ -3034,28 +3139,29 @@ func (c *converter) processNode(node parse.Node) error {
 }
 
 // emitActionExpr emits a CUE expression from a template action.
-func (c *converter) emitActionExpr(expr string, comment string) {
+func (c *converter) emitActionExpr(expr ast.Expr, comment string) {
 	// If flow accumulation is active, replace with sentinel.
 	if c.flowParts != nil {
 		sentinel := fmt.Sprintf("__h2c_%d__", len(c.flowExprs))
 		c.flowParts = append(c.flowParts, sentinel)
-		c.flowExprs = append(c.flowExprs, mustParseExpr(expr))
+		c.flowExprs = append(c.flowExprs, expr)
 		return
 	}
 
 	// If inline accumulation is active, append the expression.
 	if c.inlineParts != nil {
-		c.inlineParts = append(c.inlineParts, toInlinePart(mustParseExpr(expr)))
+		c.inlineParts = append(c.inlineParts, toInlinePart(expr))
 		return
 	}
 
 	// If block scalar accumulation is active, embed as interpolation.
 	if c.blockScalarLines != nil {
+		exprStr := exprToText(expr)
 		if len(c.blockScalarLines) > 0 {
 			last := len(c.blockScalarLines) - 1
-			c.blockScalarLines[last] += inlineExpr(expr)
+			c.blockScalarLines[last] += inlineExpr(exprStr)
 		} else {
-			c.blockScalarLines = append(c.blockScalarLines, inlineExpr(expr))
+			c.blockScalarLines = append(c.blockScalarLines, inlineExpr(exprStr))
 		}
 		c.blockScalarPartialLine = true
 		return
@@ -3070,7 +3176,7 @@ func (c *converter) emitActionExpr(expr string, comment string) {
 		c.pendingListItemExpr = nil
 		c.pendingListItemComment = ""
 		// Append current action to inline parts and return.
-		c.inlineParts = append(c.inlineParts, toInlinePart(mustParseExpr(expr)))
+		c.inlineParts = append(c.inlineParts, toInlinePart(expr))
 		return
 	}
 
@@ -3081,14 +3187,14 @@ func (c *converter) emitActionExpr(expr string, comment string) {
 	if c.state == statePendingKey {
 		if c.pendingKey == "" {
 			// Defer list item — more content may follow on this line.
-			c.pendingListItemExpr = mustParseExpr(expr)
+			c.pendingListItemExpr = expr
 			c.pendingListItemComment = comment
 			c.state = stateNormal
 		} else {
 			// Defer the resolution — deeper content may follow.
 			c.deferredKV = &pendingResolution{
 				key:     c.pendingKey,
-				value:   mustParseExpr(expr),
+				value:   expr,
 				comment: comment,
 				indent:  c.pendingKeyInd,
 				rawKey:  strings.HasPrefix(c.pendingKey, "("),
@@ -3098,7 +3204,7 @@ func (c *converter) emitActionExpr(expr string, comment string) {
 		}
 	} else {
 		// Standalone expression — defer in case next text starts with ": " (dynamic key).
-		c.pendingActionExpr = mustParseExpr(expr)
+		c.pendingActionExpr = expr
 		c.pendingActionComment = comment
 	}
 }
@@ -3106,7 +3212,7 @@ func (c *converter) emitActionExpr(expr string, comment string) {
 // emitConditionalBlock emits a CUE conditional guard around body text.
 // It handles the full body processing lifecycle: push context frame,
 // emit text, finalize state, close inner frames, pop context, close guard.
-func (c *converter) emitConditionalBlock(condition string, bodyIndent int, isList bool, bodyText []byte) error {
+func (c *converter) emitConditionalBlock(condition ast.Expr, bodyIndent int, isList bool, bodyText []byte) error {
 	if len(bytes.TrimSpace(bodyText)) == 0 {
 		return nil
 	}
@@ -3161,7 +3267,7 @@ func (c *converter) emitConditionalBlock(condition string, bodyIndent int, isLis
 	// Build the comprehension value from collected body content.
 	compValue := c.buildComprehensionValue(bodyStruct, bodyList)
 	comp := &ast.Comprehension{
-		Clauses: []ast.Clause{&ast.IfClause{Condition: mustParseExpr(condition)}},
+		Clauses: []ast.Clause{&ast.IfClause{Condition: condition}},
 		Value:   compValue,
 	}
 	c.appendToParent(comp)
@@ -3171,7 +3277,7 @@ func (c *converter) emitConditionalBlock(condition string, bodyIndent int, isLis
 // emitConditionalBlockNodes emits a CUE conditional guard around body nodes.
 // Unlike emitConditionalBlock which processes raw text bytes, this method
 // processes a full node list (including ActionNodes) via processBodyNodes.
-func (c *converter) emitConditionalBlockNodes(condition string, bodyIndent int, isList bool, nodes []parse.Node) error {
+func (c *converter) emitConditionalBlockNodes(condition ast.Expr, bodyIndent int, isList bool, nodes []parse.Node) error {
 	if len(nodes) == 0 {
 		return nil
 	}
@@ -3226,7 +3332,7 @@ func (c *converter) emitConditionalBlockNodes(condition string, bodyIndent int, 
 	// Build the comprehension value from collected body content.
 	compValue := c.buildComprehensionValue(bodyStruct, bodyList)
 	comp := &ast.Comprehension{
-		Clauses: []ast.Clause{&ast.IfClause{Condition: mustParseExpr(condition)}},
+		Clauses: []ast.Clause{&ast.IfClause{Condition: condition}},
 		Value:   compValue,
 	}
 	c.appendToParent(comp)
@@ -3249,7 +3355,7 @@ func allTextNodes(nodes []parse.Node) bool {
 // the current list, then closes the list and emits the struct content.
 func (c *converter) processIfScopeExit(
 	n *parse.IfNode,
-	condition, negCondition string,
+	condition, negCondition ast.Expr,
 	bodyIndent int,
 ) error {
 	// Determine whether the bodies are pure text or mixed (with action nodes).
@@ -3268,7 +3374,7 @@ func (c *converter) processIfScopeExit(
 // at the text level and emitting each list item in its own conditional guard.
 func (c *converter) processIfScopeExitText(
 	n *parse.IfNode,
-	condition, negCondition string,
+	condition, negCondition ast.Expr,
 	bodyIndent int,
 ) error {
 	// Split if-body into in-scope (list items) and out-of-scope (struct).
@@ -3332,7 +3438,7 @@ func (c *converter) processIfScopeExitText(
 // action nodes, nested if nodes, etc.) by splitting at the node level.
 func (c *converter) processIfScopeExitNodes(
 	n *parse.IfNode,
-	condition, negCondition string,
+	condition, negCondition ast.Expr,
 	bodyIndent int,
 ) error {
 	// Split if-body nodes at scope boundary.
@@ -3392,7 +3498,7 @@ func (c *converter) processIfScopeExitNodes(
 // its own guard.
 func (c *converter) processIfMultiListItems(
 	n *parse.IfNode,
-	condition, negCondition string,
+	condition, negCondition ast.Expr,
 	bodyIndent int,
 ) error {
 	pureTextIf := allTextNodes(n.List.Nodes)
@@ -3474,7 +3580,7 @@ func (c *converter) collectInlineSuffix() ([]inlinePart, int, error) {
 			if helmObj != "" {
 				c.usedContextObjects[helmObj] = true
 			}
-			parts = append(parts, toInlinePart(mustParseExpr(expr)))
+			parts = append(parts, toInlinePart(expr))
 			consumed++
 		case *parse.TemplateNode:
 			cueName, helmObj, err := c.handleInclude(t.Name, t.Pipe)
@@ -3516,7 +3622,7 @@ func (c *converter) branchToInlineParts(nodes []parse.Node) ([]inlinePart, error
 			if helmObj != "" {
 				c.usedContextObjects[helmObj] = true
 			}
-			parts = append(parts, toInlinePart(mustParseExpr(expr)))
+			parts = append(parts, toInlinePart(expr))
 		case *parse.TemplateNode:
 			cueName, helmObj, err := c.handleInclude(t.Name, t.Pipe)
 			if err != nil {
@@ -3578,10 +3684,10 @@ func (c *converter) processInlineIf(n *parse.IfNode) error {
 	allParts = append(allParts, prefix...)
 	allParts = append(allParts, ifParts...)
 	allParts = append(allParts, suffixParts...)
-	ifValue := exprToText(partsToExpr(allParts))
+	ifValueExpr := partsToExpr(allParts)
 
 	// Emit if comprehension.
-	c.emitInlineComprehension(condition, key, rawKey, ifValue)
+	c.emitInlineComprehension(condition, key, rawKey, ifValueExpr)
 
 	// Emit else branch.
 	if n.ElseList != nil && len(n.ElseList.Nodes) > 0 {
@@ -3593,9 +3699,9 @@ func (c *converter) processInlineIf(n *parse.IfNode) error {
 		allParts = append(allParts, prefix...)
 		allParts = append(allParts, elseParts...)
 		allParts = append(allParts, suffixParts...)
-		elseValue := exprToText(partsToExpr(allParts))
+		elseValueExpr := partsToExpr(allParts)
 
-		c.emitInlineComprehension(negCondition, key, rawKey, elseValue)
+		c.emitInlineComprehension(negCondition, key, rawKey, elseValueExpr)
 	}
 
 	return nil
@@ -3628,11 +3734,11 @@ func (c *converter) rangeToInlineExpr(n *parse.RangeNode) (string, error) {
 	if len(n.Pipe.Decl) == 2 {
 		keyName = fmt.Sprintf("_key%d", blockIdx)
 		valName = fmt.Sprintf("_val%d", blockIdx)
-		c.localVars[n.Pipe.Decl[0].Ident[0]] = keyName
-		c.localVars[n.Pipe.Decl[1].Ident[0]] = valName
+		c.localVars[n.Pipe.Decl[0].Ident[0]] = ast.NewIdent(keyName)
+		c.localVars[n.Pipe.Decl[1].Ident[0]] = ast.NewIdent(valName)
 	} else if len(n.Pipe.Decl) == 1 {
 		valName = fmt.Sprintf("_range%d", blockIdx)
-		c.localVars[n.Pipe.Decl[0].Ident[0]] = valName
+		c.localVars[n.Pipe.Decl[0].Ident[0]] = ast.NewIdent(valName)
 	} else {
 		valName = fmt.Sprintf("_range%d", blockIdx)
 	}
@@ -3670,7 +3776,7 @@ func (c *converter) rangeToInlineExpr(n *parse.RangeNode) (string, error) {
 	}
 	return fmt.Sprintf(
 		`%s.Join([for %s, %s in %s {"%s"}], "")`,
-		stringsRef, keyExpr, valName, overExpr, bodyExprStr,
+		stringsRef, keyExpr, valName, exprToText(overExpr), bodyExprStr,
 	), nil
 }
 
@@ -3712,17 +3818,17 @@ func (c *converter) processInlineRange(n *parse.RangeNode) error {
 	allParts = append(allParts, prefix...)
 	allParts = append(allParts, suffixParts...)
 
-	value := exprToText(partsToExpr(allParts))
+	valueExpr := partsToExpr(allParts)
 	if key != "" {
 		if rawKey {
-			c.emitRawField(key, value)
+			c.emitRawField(key, valueExpr)
 		} else {
-			c.emitField(key, value)
+			c.emitField(key, valueExpr)
 		}
 	} else if c.inListContext() {
-		c.appendListExpr(mustParseExpr(value))
+		c.appendListExpr(valueExpr)
 	} else {
-		c.emitEmbed(value)
+		c.emitEmbed(valueExpr)
 	}
 
 	return nil
@@ -3810,11 +3916,11 @@ func (c *converter) processIf(n *parse.IfNode) error {
 	}
 
 	// Process the if body and emit as comprehension.
-	c.emitIfBranchComprehension(condition, bodyIndent, inList && isList && !preOpenedListItem, preOpenedListItem, n.List.Nodes)
+	c.emitIfBranchComprehension([]ast.Expr{condition}, bodyIndent, inList && isList && !preOpenedListItem, preOpenedListItem, n.List.Nodes)
 
 	// Walk else/else-if chain, flattening into CUE multi-clause
 	// comprehensions: if !condA if condB { ... }.
-	negChain := []string{negCondition}
+	negChain := []ast.Expr{negCondition}
 	elseList := n.ElseList
 	for elseList != nil && len(elseList.Nodes) > 0 {
 		// Detect else-if sugar: ElseList is a single IfNode.
@@ -3825,7 +3931,7 @@ func (c *converter) processIf(n *parse.IfNode) error {
 					return fmt.Errorf("else-if condition: %w", err)
 				}
 
-				guard := strings.Join(append(negChain, innerCond), " if ")
+				guard := append(append([]ast.Expr(nil), negChain...), innerCond)
 				elseIfIsList := isListBody(innerIf.List.Nodes)
 				elseIfBodyIndent := peekBodyIndent(innerIf.List.Nodes)
 				c.emitIfBranchComprehension(guard, elseIfBodyIndent, inList && elseIfIsList && !preOpenedListItem, preOpenedListItem, innerIf.List.Nodes)
@@ -3836,10 +3942,9 @@ func (c *converter) processIf(n *parse.IfNode) error {
 			}
 		}
 		// Plain else: emit with all accumulated negations.
-		guard := strings.Join(negChain, " if ")
 		elseIsList := isListBody(elseList.Nodes)
 		elseBodyIndent := peekBodyIndent(elseList.Nodes)
-		c.emitIfBranchComprehension(guard, elseBodyIndent, inList && elseIsList && !preOpenedListItem, preOpenedListItem, elseList.Nodes)
+		c.emitIfBranchComprehension(negChain, elseBodyIndent, inList && elseIsList && !preOpenedListItem, preOpenedListItem, elseList.Nodes)
 		break
 	}
 
@@ -3848,7 +3953,7 @@ func (c *converter) processIf(n *parse.IfNode) error {
 
 // emitIfBranchComprehension processes a branch body (if/else-if/else)
 // and emits it as an ast.Comprehension.
-func (c *converter) emitIfBranchComprehension(condition string, bodyIndent int, isList, stripDash bool, nodes []parse.Node) error {
+func (c *converter) emitIfBranchComprehension(conditions []ast.Expr, bodyIndent int, isList, stripDash bool, nodes []parse.Node) error {
 	savedStackLen := len(c.stack)
 	savedState := c.state
 	c.state = stateNormal
@@ -3891,10 +3996,9 @@ func (c *converter) emitIfBranchComprehension(condition string, bodyIndent int, 
 
 	compValue := c.buildComprehensionValue(bodyStruct, bodyList)
 
-	// Build multi-clause condition: "condA if condB" → [IfClause(condA), IfClause(condB)]
 	var clauses []ast.Clause
-	for _, part := range strings.Split(condition, " if ") {
-		clauses = append(clauses, &ast.IfClause{Condition: mustParseExpr(part)})
+	for _, cond := range conditions {
+		clauses = append(clauses, &ast.IfClause{Condition: cond})
 	}
 	comp := &ast.Comprehension{
 		Clauses: clauses,
@@ -3967,13 +4071,13 @@ func (c *converter) processWith(n *parse.WithNode) error {
 	// Push context for dot rebinding inside the with body.
 	helmObj, basePath := c.withPipeContext(n.Pipe)
 	c.rangeVarStack = append(c.rangeVarStack, rangeContext{
-		cueExpr:  mustParseExpr(rawExpr),
+		cueExpr:  rawExpr,
 		helmObj:  helmObj,
 		basePath: basePath,
 	})
 
 	// Process body and emit as comprehension.
-	c.emitIfBranchComprehension(condition, bodyIndent, inList && isList, false, n.List.Nodes)
+	c.emitIfBranchComprehension([]ast.Expr{condition}, bodyIndent, inList && isList, false, n.List.Nodes)
 
 	// Pop from rangeVarStack (no dot rebinding in else).
 	c.rangeVarStack = c.rangeVarStack[:len(c.rangeVarStack)-1]
@@ -3982,7 +4086,7 @@ func (c *converter) processWith(n *parse.WithNode) error {
 	if n.ElseList != nil && len(n.ElseList.Nodes) > 0 {
 		elseIsList := isListBody(n.ElseList.Nodes)
 		elseBodyIndent := peekBodyIndent(n.ElseList.Nodes)
-		c.emitIfBranchComprehension(negCondition, elseBodyIndent, inList && elseIsList, false, n.ElseList.Nodes)
+		c.emitIfBranchComprehension([]ast.Expr{negCondition}, elseBodyIndent, inList && elseIsList, false, n.ElseList.Nodes)
 	}
 
 	// Clean up declared variable.
@@ -3996,9 +4100,9 @@ func (c *converter) processWith(n *parse.WithNode) error {
 // withPipeToRawExpr extracts the raw CUE expression from a with pipe
 // for use in dot rebinding. The tracking of field references and context
 // objects is already handled by pipeToCUECondition.
-func (c *converter) withPipeToRawExpr(pipe *parse.PipeNode) (string, error) {
+func (c *converter) withPipeToRawExpr(pipe *parse.PipeNode) (ast.Expr, error) {
 	if len(pipe.Cmds) != 1 {
-		return "", fmt.Errorf("with: unsupported pipe shape: %s", pipe)
+		return nil, fmt.Errorf("with: unsupported pipe shape: %s", pipe)
 	}
 	cmd := pipe.Cmds[0]
 	// Multi-arg: function call (e.g. omit .Values.x "key").
@@ -4011,14 +4115,14 @@ func (c *converter) withPipeToRawExpr(pipe *parse.PipeNode) (string, error) {
 				}
 				expr, _, err := cf.convert(c, funcArgs)
 				if err != nil {
-					return "", fmt.Errorf("with: %w", err)
+					return nil, fmt.Errorf("with: %w", err)
 				}
 				return expr, nil
 			}
 		}
 	}
 	if len(cmd.Args) != 1 {
-		return "", fmt.Errorf("with: unsupported pipe shape: %s", pipe)
+		return nil, fmt.Errorf("with: unsupported pipe shape: %s", pipe)
 	}
 	saved := c.suppressRequired
 	c.suppressRequired = true
@@ -4027,7 +4131,7 @@ func (c *converter) withPipeToRawExpr(pipe *parse.PipeNode) (string, error) {
 	case *parse.PipeNode:
 		expr, _, err := c.convertSubPipe(a)
 		if err != nil {
-			return "", fmt.Errorf("with: %w", err)
+			return nil, fmt.Errorf("with: %w", err)
 		}
 		return expr, nil
 	case *parse.FieldNode:
@@ -4040,7 +4144,7 @@ func (c *converter) withPipeToRawExpr(pipe *parse.PipeNode) (string, error) {
 		}
 		if len(a.Ident) >= 2 && a.Ident[0] != "$" {
 			if localExpr, ok := c.localVars[a.Ident[0]]; ok {
-				return localExpr + "." + strings.Join(a.Ident[1:], "."), nil
+				return buildSelChain(localExpr, a.Ident[1:]), nil
 			}
 		}
 		if len(a.Ident) == 1 && a.Ident[0] != "$" {
@@ -4048,9 +4152,9 @@ func (c *converter) withPipeToRawExpr(pipe *parse.PipeNode) (string, error) {
 				return localExpr, nil
 			}
 		}
-		return "", fmt.Errorf("with: unsupported variable: %s", a)
+		return nil, fmt.Errorf("with: unsupported variable: %s", a)
 	default:
-		return "", fmt.Errorf("with: unsupported expression for dot rebinding: %s", pipe)
+		return nil, fmt.Errorf("with: unsupported expression for dot rebinding: %s", pipe)
 	}
 }
 
@@ -4137,11 +4241,11 @@ func (c *converter) processRange(n *parse.RangeNode) error {
 	if len(n.Pipe.Decl) == 2 {
 		keyName = fmt.Sprintf("_key%d", blockIdx)
 		valName = fmt.Sprintf("_val%d", blockIdx)
-		c.localVars[n.Pipe.Decl[0].Ident[0]] = keyName
-		c.localVars[n.Pipe.Decl[1].Ident[0]] = valName
+		c.localVars[n.Pipe.Decl[0].Ident[0]] = ast.NewIdent(keyName)
+		c.localVars[n.Pipe.Decl[1].Ident[0]] = ast.NewIdent(valName)
 	} else if len(n.Pipe.Decl) == 1 {
 		valName = fmt.Sprintf("_range%d", blockIdx)
-		c.localVars[n.Pipe.Decl[0].Ident[0]] = valName
+		c.localVars[n.Pipe.Decl[0].Ident[0]] = ast.NewIdent(valName)
 	} else {
 		valName = fmt.Sprintf("_range%d", blockIdx)
 	}
@@ -4209,15 +4313,14 @@ func (c *converter) processRange(n *parse.RangeNode) error {
 
 	// Build clauses: optional guard + for clause.
 	var clauses []ast.Clause
-	if helmObj != "" || strings.HasPrefix(overExpr, "#arg") {
+	if helmObj != "" || strings.HasPrefix(exprToText(overExpr), "#arg") {
 		c.hasConditions = true
-		guardExpr := fmt.Sprintf("(_nonzero & {#arg: %s, _})", overExpr)
-		clauses = append(clauses, &ast.IfClause{Condition: mustParseExpr(guardExpr)})
+		clauses = append(clauses, &ast.IfClause{Condition: nonzeroExpr(overExpr)})
 	}
 	clauses = append(clauses, &ast.ForClause{
 		Key:    ast.NewIdent(keyExpr),
 		Value:  ast.NewIdent(valName),
-		Source: mustParseExpr(overExpr),
+		Source: overExpr,
 	})
 
 	// Process body.
@@ -4572,24 +4675,25 @@ func hasListItemContinuation(nodes []parse.Node, itemContentIndent int) bool {
 	return false
 }
 
-func (c *converter) pipeToFieldExpr(pipe *parse.PipeNode) (string, string, []string, error) {
+func (c *converter) pipeToFieldExpr(pipe *parse.PipeNode) (ast.Expr, string, []string, error) {
 	// Handle "until N" — produces list.Range(0, N, 1).
 	if len(pipe.Cmds) == 1 && len(pipe.Cmds[0].Args) >= 2 {
 		if id, ok := pipe.Cmds[0].Args[0].(*parse.IdentifierNode); ok && id.Ident == "until" {
 			if len(pipe.Cmds[0].Args) != 2 {
-				return "", "", nil, fmt.Errorf("until: expected 1 argument, got %d", len(pipe.Cmds[0].Args)-1)
+				return nil, "", nil, fmt.Errorf("until: expected 1 argument, got %d", len(pipe.Cmds[0].Args)-1)
 			}
 			argExpr, _, err := c.nodeToExpr(pipe.Cmds[0].Args[1])
 			if err != nil {
-				return "", "", nil, fmt.Errorf("until: %w", err)
+				return nil, "", nil, fmt.Errorf("until: %w", err)
 			}
-			listRef := c.importRef("list")
-			return fmt.Sprintf("%s.Range(0, %s, 1)", listRef, argExpr), "", nil, nil
+			c.addImport("list")
+			return importCall("list", "Range", cueInt(0), argExpr, cueInt(1)), "", nil, nil
 		}
 	}
 
 	// Determine the base field expression and any pipeline functions.
-	var expr, helmObj string
+	var expr ast.Expr
+	var helmObj string
 	var fieldPath []string
 	var pipelineCmds []*parse.CommandNode
 
@@ -4598,53 +4702,53 @@ func (c *converter) pipeToFieldExpr(pipe *parse.PipeNode) (string, string, []str
 		// Function call as first command (e.g. mustUniq .Values.foo).
 		id, ok := cmd0.Args[0].(*parse.IdentifierNode)
 		if !ok {
-			return "", "", nil, fmt.Errorf("unsupported pipe: %s", pipe)
+			return nil, "", nil, fmt.Errorf("unsupported pipe: %s", pipe)
 		}
 		pf, ok := c.config.Funcs[id.Ident]
 		if !ok {
-			return "", "", nil, fmt.Errorf("unsupported pipe: %s", pipe)
+			return nil, "", nil, fmt.Errorf("unsupported pipe: %s", pipe)
 		}
 		// The last argument is the input expression; any middle
 		// arguments are extra function parameters.
 		var err error
 		expr, helmObj, fieldPath, err = c.singleNodeToFieldExpr(cmd0.Args[len(cmd0.Args)-1])
 		if err != nil {
-			return "", "", nil, err
+			return nil, "", nil, err
 		}
 		expr, err = c.applyRangePipelineFunc(pf, id.Ident, expr, helmObj, fieldPath, cmd0.Args[1:len(cmd0.Args)-1])
 		if err != nil {
-			return "", "", nil, err
+			return nil, "", nil, err
 		}
 		pipelineCmds = pipe.Cmds[1:]
 	} else if len(cmd0.Args) == 1 {
 		var err error
 		expr, helmObj, fieldPath, err = c.singleNodeToFieldExpr(cmd0.Args[0])
 		if err != nil {
-			return "", "", nil, err
+			return nil, "", nil, err
 		}
 		pipelineCmds = pipe.Cmds[1:]
 	} else {
-		return "", "", nil, fmt.Errorf("unsupported pipe: %s", pipe)
+		return nil, "", nil, fmt.Errorf("unsupported pipe: %s", pipe)
 	}
 
 	// Apply pipeline functions from remaining commands
 	// (e.g. .Values.foo | mustUniq).
 	for _, cmd := range pipelineCmds {
 		if len(cmd.Args) == 0 {
-			return "", "", nil, fmt.Errorf("empty command in range pipeline: %s", pipe)
+			return nil, "", nil, fmt.Errorf("empty command in range pipeline: %s", pipe)
 		}
 		id, ok := cmd.Args[0].(*parse.IdentifierNode)
 		if !ok {
-			return "", "", nil, fmt.Errorf("unsupported function in range pipeline: %s", cmd)
+			return nil, "", nil, fmt.Errorf("unsupported function in range pipeline: %s", cmd)
 		}
 		pf, ok := c.config.Funcs[id.Ident]
 		if !ok {
-			return "", "", nil, fmt.Errorf("unsupported function in range pipeline: %s", id.Ident)
+			return nil, "", nil, fmt.Errorf("unsupported function in range pipeline: %s", id.Ident)
 		}
 		var err error
 		expr, err = c.applyRangePipelineFunc(pf, id.Ident, expr, helmObj, fieldPath, cmd.Args[1:])
 		if err != nil {
-			return "", "", nil, err
+			return nil, "", nil, err
 		}
 	}
 
@@ -4653,7 +4757,7 @@ func (c *converter) pipeToFieldExpr(pipe *parse.PipeNode) (string, string, []str
 
 // singleNodeToFieldExpr converts a single parse node (field, variable,
 // or dot) to a CUE field expression for use as a range target.
-func (c *converter) singleNodeToFieldExpr(node parse.Node) (string, string, []string, error) {
+func (c *converter) singleNodeToFieldExpr(node parse.Node) (ast.Expr, string, []string, error) {
 	if f, ok := node.(*parse.FieldNode); ok {
 		expr, helmObj := c.fieldToCUEInContext(f.Ident)
 		if helmObj != "" {
@@ -4674,40 +4778,42 @@ func (c *converter) singleNodeToFieldExpr(node parse.Node) (string, string, []st
 		// Local variable (e.g. $paths := .Values.x).
 		if v.Ident[0] != "$" {
 			if localExpr, ok := c.localVars[v.Ident[0]]; ok {
-				localStr := localExpr
-				expr := localStr
+				var result ast.Expr
 				if len(v.Ident) >= 2 {
-					expr += "." + strings.Join(v.Ident[1:], ".")
+					result = buildSelChain(localExpr, v.Ident[1:])
+				} else {
+					result = localExpr
 				}
 				// Recover helmObj/fieldPath for range type inference.
+				localStr := exprToText(localExpr)
 				parts := strings.Split(localStr, ".")
 				for helmName, cueName := range c.config.ContextObjects {
 					if parts[0] == cueName {
 						fp := append([]string(nil), parts[1:]...)
 						fp = append(fp, v.Ident[1:]...)
 						if len(fp) > 0 {
-							return expr, helmName, fp, nil
+							return result, helmName, fp, nil
 						}
-						return expr, helmName, nil, nil
+						return result, helmName, nil, nil
 					}
 				}
-				return expr, "", nil, nil
+				return result, "", nil, nil
 			}
 		}
 	}
 	if _, ok := node.(*parse.DotNode); ok {
 		if len(c.rangeVarStack) > 0 {
-			return exprToText(c.rangeVarStack[len(c.rangeVarStack)-1].cueExpr), "", nil, nil
+			return c.rangeVarStack[len(c.rangeVarStack)-1].cueExpr, "", nil, nil
 		}
-		return "", "", nil, fmt.Errorf("{{ . }} outside range/with not supported")
+		return nil, "", nil, fmt.Errorf("{{ . }} outside range/with not supported")
 	}
-	return "", "", nil, fmt.Errorf("unsupported node: %s", node)
+	return nil, "", nil, fmt.Errorf("unsupported node: %s", node)
 }
 
 // applyRangePipelineFunc applies a registered pipeline function to a
 // range target expression. It handles imports, helpers, non-scalar
 // tracking, and the Convert call.
-func (c *converter) applyRangePipelineFunc(pf PipelineFunc, name, expr, helmObj string, fieldPath []string, extraArgs []parse.Node) (string, error) {
+func (c *converter) applyRangePipelineFunc(pf PipelineFunc, name string, expr ast.Expr, helmObj string, fieldPath []string, extraArgs []parse.Node) (ast.Expr, error) {
 	if pf.NonScalar {
 		c.trackNonScalarRef(helmObj, fieldPath)
 	}
@@ -4720,35 +4826,31 @@ func (c *converter) applyRangePipelineFunc(pf PipelineFunc, name, expr, helmObj 
 		}
 		return expr, nil
 	}
-	var args []string
+	var astArgs []ast.Expr
 	for _, a := range extraArgs {
 		argExpr, _, err := c.nodeToExpr(a)
 		if err != nil {
-			return "", fmt.Errorf("range function %s: %w", name, err)
+			return nil, fmt.Errorf("range function %s: %w", name, err)
 		}
-		args = append(args, argExpr)
+		astArgs = append(astArgs, argExpr)
 	}
-	astArgs := make([]ast.Expr, len(args))
-	for i, a := range args {
-		astArgs[i] = mustParseExpr(a)
-	}
-	result := pf.Convert(mustParseExpr(expr), astArgs)
+	result := pf.Convert(expr, astArgs)
 	if result == nil {
-		return "", fmt.Errorf("function %q has no CUE equivalent", name)
+		return nil, fmt.Errorf("function %q has no CUE equivalent", name)
 	}
-	return c.sentinelizeImports(exprToText(result), pf.Imports), nil
+	return mustParseExpr(c.sentinelizeImports(exprToText(result), pf.Imports)), nil
 }
 
-func (c *converter) pipeToCUECondition(pipe *parse.PipeNode) (string, string, error) {
+func (c *converter) pipeToCUECondition(pipe *parse.PipeNode) (ast.Expr, ast.Expr, error) {
 	pos, err := c.conditionPipeToExpr(pipe)
 	if err != nil {
-		return "", "", err
+		return nil, nil, err
 	}
-	neg := "!(" + pos + ")"
+	neg := negExpr(parenExpr(pos))
 	return pos, neg, nil
 }
 
-func (c *converter) conditionNodeToExpr(node parse.Node) (string, error) {
+func (c *converter) conditionNodeToExpr(node parse.Node) (ast.Expr, error) {
 	// Truthiness checks (_nonzero) work correctly with absent fields,
 	// so suppress required for field refs in this function. Other
 	// condition paths (eq, typeOf, kindIs, etc.) use conditionNodeToRawExpr
@@ -4766,7 +4868,7 @@ func (c *converter) conditionNodeToExpr(node parse.Node) (string, error) {
 				c.trackFieldRef(helmObj, n.Ident[1:])
 			}
 		}
-		return fmt.Sprintf("(_nonzero & {#arg: %s, _})", expr), nil
+		return nonzeroExpr(expr), nil
 	case *parse.VariableNode:
 		if len(n.Ident) >= 2 && n.Ident[0] == "$" {
 			expr, helmObj := fieldToCUE(c.config.ContextObjects, n.Ident[1:])
@@ -4776,50 +4878,48 @@ func (c *converter) conditionNodeToExpr(node parse.Node) (string, error) {
 					c.trackFieldRef(helmObj, n.Ident[2:])
 				}
 			}
-			return fmt.Sprintf("(_nonzero & {#arg: %s, _})", expr), nil
+			return nonzeroExpr(expr), nil
 		}
 		if len(n.Ident) >= 2 && n.Ident[0] != "$" {
 			if localExpr, ok := c.localVars[n.Ident[0]]; ok {
-				expr := localExpr + "." + strings.Join(n.Ident[1:], ".")
-				return fmt.Sprintf("(_nonzero & {#arg: %s, _})", expr), nil
+				return nonzeroExpr(buildSelChain(localExpr, n.Ident[1:])), nil
 			}
 		}
 		if len(n.Ident) == 1 && n.Ident[0] != "$" {
 			if localExpr, ok := c.localVars[n.Ident[0]]; ok {
-				return fmt.Sprintf("(_nonzero & {#arg: %s, _})", localExpr), nil
+				return nonzeroExpr(localExpr), nil
 			}
 		}
-		return "", fmt.Errorf("unsupported variable in condition: %s", n)
+		return nil, fmt.Errorf("unsupported variable in condition: %s", n)
 	case *parse.ChainNode:
 		pipe, ok := n.Node.(*parse.PipeNode)
 		if !ok {
-			return "", fmt.Errorf("unsupported chain base: %T", n.Node)
+			return nil, fmt.Errorf("unsupported chain base: %T", n.Node)
 		}
 		baseExpr, _, err := c.convertSubPipe(pipe)
 		if err != nil {
-			return "", err
+			return nil, err
 		}
 		for _, field := range n.Field {
-			baseExpr += "." + cueKey(field)
+			baseExpr = selExpr(baseExpr, cueKey(field))
 		}
-		return fmt.Sprintf("(_nonzero & {#arg: %s, _})", baseExpr), nil
+		return nonzeroExpr(baseExpr), nil
 	case *parse.DotNode:
 		if len(c.rangeVarStack) > 0 {
-			expr := exprToText(c.rangeVarStack[len(c.rangeVarStack)-1].cueExpr)
-			return fmt.Sprintf("(_nonzero & {#arg: %s, _})", expr), nil
+			return nonzeroExpr(c.rangeVarStack[len(c.rangeVarStack)-1].cueExpr), nil
 		}
 		if c.config.RootExpr != "" {
-			return fmt.Sprintf("(_nonzero & {#arg: %s, _})", c.config.RootExpr), nil
+			return nonzeroExpr(mustParseExpr(c.config.RootExpr)), nil
 		}
-		return "", fmt.Errorf("{{ . }} outside range/with not supported")
+		return nil, fmt.Errorf("{{ . }} outside range/with not supported")
 	case *parse.PipeNode:
 		return c.conditionPipeToExpr(n)
 	default:
-		return "", fmt.Errorf("unsupported condition node: %s", node)
+		return nil, fmt.Errorf("unsupported condition node: %s", node)
 	}
 }
 
-func (c *converter) conditionNodeToRawExpr(node parse.Node) (string, error) {
+func (c *converter) conditionNodeToRawExpr(node parse.Node) (ast.Expr, error) {
 	switch n := node.(type) {
 	case *parse.FieldNode:
 		expr, helmObj := c.fieldToCUEInContext(n.Ident)
@@ -4843,7 +4943,7 @@ func (c *converter) conditionNodeToRawExpr(node parse.Node) (string, error) {
 		}
 		if len(n.Ident) >= 2 && n.Ident[0] != "$" {
 			if localExpr, ok := c.localVars[n.Ident[0]]; ok {
-				return localExpr + "." + strings.Join(n.Ident[1:], "."), nil
+				return buildSelChain(localExpr, n.Ident[1:]), nil
 			}
 		}
 		if len(n.Ident) == 1 && n.Ident[0] != "$" {
@@ -4851,47 +4951,51 @@ func (c *converter) conditionNodeToRawExpr(node parse.Node) (string, error) {
 				return localExpr, nil
 			}
 		}
-		return "", fmt.Errorf("unsupported variable in condition: %s", n)
+		return nil, fmt.Errorf("unsupported variable in condition: %s", n)
 	case *parse.StringNode:
-		return strconv.Quote(n.Text), nil
+		return cueString(n.Text), nil
 	case *parse.NumberNode:
-		return n.Text, nil
+		kind := token.INT
+		if strings.ContainsAny(n.Text, ".eE") {
+			kind = token.FLOAT
+		}
+		return &ast.BasicLit{Kind: kind, Value: n.Text}, nil
 	case *parse.BoolNode:
 		if n.True {
-			return "true", nil
+			return ast.NewIdent("true"), nil
 		}
-		return "false", nil
+		return ast.NewIdent("false"), nil
 	case *parse.ChainNode:
 		pipe, ok := n.Node.(*parse.PipeNode)
 		if !ok {
-			return "", fmt.Errorf("unsupported chain base: %T", n.Node)
+			return nil, fmt.Errorf("unsupported chain base: %T", n.Node)
 		}
 		baseExpr, _, err := c.convertSubPipe(pipe)
 		if err != nil {
-			return "", err
+			return nil, err
 		}
 		for _, field := range n.Field {
-			baseExpr += "." + cueKey(field)
+			baseExpr = selExpr(baseExpr, cueKey(field))
 		}
 		return baseExpr, nil
 	case *parse.DotNode:
 		if len(c.rangeVarStack) > 0 {
-			return exprToText(c.rangeVarStack[len(c.rangeVarStack)-1].cueExpr), nil
+			return c.rangeVarStack[len(c.rangeVarStack)-1].cueExpr, nil
 		}
 		if c.config.RootExpr != "" {
-			return c.config.RootExpr, nil
+			return mustParseExpr(c.config.RootExpr), nil
 		}
-		return "", fmt.Errorf("{{ . }} outside range/with not supported")
+		return nil, fmt.Errorf("{{ . }} outside range/with not supported")
 	case *parse.PipeNode:
 		return c.conditionPipeToExpr(n)
 	default:
-		return "", fmt.Errorf("unsupported condition node: %s", node)
+		return nil, fmt.Errorf("unsupported condition node: %s", node)
 	}
 }
 
-func (c *converter) conditionPipeToExpr(pipe *parse.PipeNode) (string, error) {
+func (c *converter) conditionPipeToExpr(pipe *parse.PipeNode) (ast.Expr, error) {
 	if len(pipe.Cmds) == 0 {
-		return "", fmt.Errorf("empty condition pipe: %s", pipe)
+		return nil, fmt.Errorf("empty condition pipe: %s", pipe)
 	}
 
 	// Handle multi-command pipes like .Values.x | default false.
@@ -4901,7 +5005,7 @@ func (c *converter) conditionPipeToExpr(pipe *parse.PipeNode) (string, error) {
 
 	cmd := pipe.Cmds[0]
 	if len(cmd.Args) == 0 {
-		return "", fmt.Errorf("empty condition command: %s", pipe)
+		return nil, fmt.Errorf("empty condition command: %s", pipe)
 	}
 
 	if id, ok := cmd.Args[0].(*parse.IdentifierNode); ok {
@@ -4910,12 +5014,12 @@ func (c *converter) conditionPipeToExpr(pipe *parse.PipeNode) (string, error) {
 		// Table-driven condition functions (contains, hasPrefix, hasSuffix, etc.).
 		if cf, ok := conditionFuncs[id.Ident]; ok {
 			if !c.isCoreFunc(id.Ident) {
-				return "", fmt.Errorf("unsupported condition function: %s (not a text/template builtin)", id.Ident)
+				return nil, fmt.Errorf("unsupported condition function: %s (not a text/template builtin)", id.Ident)
 			}
 			if len(args) != cf.nargs {
-				return "", fmt.Errorf("%s requires %d arguments, got %d", id.Ident, cf.nargs, len(args))
+				return nil, fmt.Errorf("%s requires %d arguments, got %d", id.Ident, cf.nargs, len(args))
 			}
-			exprs := make([]any, cf.nargs)
+			exprs := make([]ast.Expr, cf.nargs)
 			order := cf.argOrder
 			if order == nil {
 				order = make([]int, cf.nargs)
@@ -4926,173 +5030,205 @@ func (c *converter) conditionPipeToExpr(pipe *parse.PipeNode) (string, error) {
 			for i, idx := range order {
 				e, err := c.conditionNodeToRawExpr(args[idx])
 				if err != nil {
-					return "", fmt.Errorf("%s argument %d: %w", id.Ident, idx, err)
+					return nil, fmt.Errorf("%s argument %d: %w", id.Ident, idx, err)
 				}
 				exprs[i] = e
 			}
-			result := fmt.Sprintf(cf.format, exprs...)
-			return c.sentinelizeImports(result, cf.imports), nil
+			// Build the import call directly from the format string pattern.
+			// conditionFuncs entries have format like "strings.Contains(%s, %s)".
+			// Parse the pattern to extract pkg.Fn and build an importCall.
+			parts := strings.SplitN(cf.format, ".", 2)
+			pkg := parts[0]
+			fnAndRest := parts[1]
+			fn := fnAndRest[:strings.Index(fnAndRest, "(")]
+			for _, imp := range cf.imports {
+				c.addImport(imp)
+			}
+			return importCall(pkg, fn, exprs...), nil
 		}
 
 		switch id.Ident {
 		case "not":
 			if len(args) != 1 {
-				return "", fmt.Errorf("not requires 1 argument, got %d", len(args))
+				return nil, fmt.Errorf("not requires 1 argument, got %d", len(args))
 			}
 			inner, err := c.conditionNodeToExpr(args[0])
 			if err != nil {
-				return "", err
+				return nil, err
 			}
-			return "!(" + inner + ")", nil
+			return negExpr(parenExpr(inner)), nil
 		case "and":
 			if len(args) < 2 {
-				return "", fmt.Errorf("and requires at least 2 arguments, got %d", len(args))
+				return nil, fmt.Errorf("and requires at least 2 arguments, got %d", len(args))
 			}
-			parts := make([]string, len(args))
+			exprs := make([]ast.Expr, len(args))
 			for i, arg := range args {
 				expr, err := c.conditionNodeToExpr(arg)
 				if err != nil {
-					return "", err
+					return nil, err
 				}
-				parts[i] = expr
+				exprs[i] = expr
 			}
-			return strings.Join(parts, " && "), nil
+			result := exprs[0]
+			for _, e := range exprs[1:] {
+				result = binOp(token.LAND, result, e)
+			}
+			return result, nil
 		case "or":
 			if len(args) < 2 {
-				return "", fmt.Errorf("or requires at least 2 arguments, got %d", len(args))
+				return nil, fmt.Errorf("or requires at least 2 arguments, got %d", len(args))
 			}
-			parts := make([]string, len(args))
+			exprs := make([]ast.Expr, len(args))
 			for i, arg := range args {
 				expr, err := c.conditionNodeToExpr(arg)
 				if err != nil {
-					return "", err
+					return nil, err
 				}
-				parts[i] = expr
+				exprs[i] = expr
 			}
-			return strings.Join(parts, " || "), nil
+			result := exprs[0]
+			for _, e := range exprs[1:] {
+				result = binOp(token.LOR, result, e)
+			}
+			return result, nil
 		case "eq", "ne", "lt", "gt", "le", "ge":
 			if len(args) != 2 {
-				return "", fmt.Errorf("%s requires 2 arguments, got %d", id.Ident, len(args))
+				return nil, fmt.Errorf("%s requires 2 arguments, got %d", id.Ident, len(args))
 			}
 			a, err := c.conditionNodeToRawExpr(args[0])
 			if err != nil {
-				return "", err
+				return nil, err
 			}
 			b, err := c.conditionNodeToRawExpr(args[1])
 			if err != nil {
-				return "", err
+				return nil, err
 			}
-			ops := map[string]string{"eq": "==", "ne": "!=", "lt": "<", "gt": ">", "le": "<=", "ge": ">="}
-			return a + " " + ops[id.Ident] + " " + b, nil
+			ops := map[string]token.Token{
+				"eq": token.EQL, "ne": token.NEQ,
+				"lt": token.LSS, "gt": token.GTR,
+				"le": token.LEQ, "ge": token.GEQ,
+			}
+			return binOp(ops[id.Ident], a, b), nil
 		case "empty":
 			if !c.isCoreFunc(id.Ident) {
-				return "", fmt.Errorf("unsupported condition function: %s (not a text/template builtin)", id.Ident)
+				return nil, fmt.Errorf("unsupported condition function: %s (not a text/template builtin)", id.Ident)
 			}
 			if len(args) != 1 {
-				return "", fmt.Errorf("empty requires 1 argument, got %d", len(args))
+				return nil, fmt.Errorf("empty requires 1 argument, got %d", len(args))
 			}
 			inner, err := c.conditionNodeToExpr(args[0])
 			if err != nil {
-				return "", err
+				return nil, err
 			}
-			return "!(" + inner + ")", nil
+			return negExpr(parenExpr(inner)), nil
 		case "hasKey":
 			if !c.isCoreFunc(id.Ident) {
-				return "", fmt.Errorf("unsupported condition function: %s (not a text/template builtin)", id.Ident)
+				return nil, fmt.Errorf("unsupported condition function: %s (not a text/template builtin)", id.Ident)
 			}
 			if len(args) != 2 {
-				return "", fmt.Errorf("hasKey requires 2 arguments, got %d", len(args))
+				return nil, fmt.Errorf("hasKey requires 2 arguments, got %d", len(args))
 			}
 			// The map argument to hasKey is non-scalar (a map/struct).
 			if f, ok := args[0].(*parse.FieldNode); ok {
 				expr, helmObj := c.fieldToCUEInContext(f.Ident)
 				if helmObj != "" && len(f.Ident) >= 2 {
 					c.trackNonScalarRef(helmObj, f.Ident[1:])
-				} else if c.helperArgNonScalarRefs != nil && strings.HasPrefix(expr, "#arg") {
+				} else if c.helperArgNonScalarRefs != nil && strings.HasPrefix(exprToText(expr), "#arg") {
 					c.helperArgNonScalarRefs = append(c.helperArgNonScalarRefs,
 						append([]string(nil), f.Ident...))
 				}
 			}
 			mapExpr, err := c.conditionNodeToRawExpr(args[0])
 			if err != nil {
-				return "", fmt.Errorf("hasKey map argument: %w", err)
+				return nil, fmt.Errorf("hasKey map argument: %w", err)
 			}
 			keyNode, ok := args[1].(*parse.StringNode)
 			if !ok {
-				return "", fmt.Errorf("hasKey key must be a string literal")
+				return nil, fmt.Errorf("hasKey key must be a string literal")
 			}
-			return fmt.Sprintf("(_nonzero & {#arg: %s.%s, _})", mapExpr, cueKey(keyNode.Text)), nil
+			return nonzeroExpr(selExpr(mapExpr, cueKey(keyNode.Text))), nil
 		case "coalesce":
 			if !c.isCoreFunc(id.Ident) {
-				return "", fmt.Errorf("unsupported condition function: %s (not a text/template builtin)", id.Ident)
+				return nil, fmt.Errorf("unsupported condition function: %s (not a text/template builtin)", id.Ident)
 			}
 			if len(args) < 1 {
-				return "", fmt.Errorf("coalesce requires at least 1 argument")
+				return nil, fmt.Errorf("coalesce requires at least 1 argument")
 			}
-			parts := make([]string, len(args))
+			exprs := make([]ast.Expr, len(args))
 			for i, arg := range args {
 				expr, err := c.conditionNodeToExpr(arg)
 				if err != nil {
-					return "", err
+					return nil, err
 				}
-				parts[i] = expr
+				exprs[i] = expr
 			}
-			return strings.Join(parts, " || "), nil
+			result := exprs[0]
+			for _, e := range exprs[1:] {
+				result = binOp(token.LOR, result, e)
+			}
+			return result, nil
 		case "include":
 			if !c.isCoreFunc(id.Ident) {
-				return "", fmt.Errorf("unsupported condition function: %s (not a text/template builtin)", id.Ident)
+				return nil, fmt.Errorf("unsupported condition function: %s (not a text/template builtin)", id.Ident)
 			}
 			if len(args) < 1 {
-				return "", fmt.Errorf("include requires at least 1 argument")
+				return nil, fmt.Errorf("include requires at least 1 argument")
 			}
-			var argExpr, ctxHelmObj string
+			var ctxArgExpr ast.Expr
+			var ctxHelmObj string
 			var ctxBasePath []string
 			var dictMap map[string]contextSource
 			if len(args) >= 2 {
 				var err error
-				argExpr, ctxHelmObj, ctxBasePath, dictMap, err = c.convertIncludeContext(args[1])
+				ctxArgExpr, ctxHelmObj, ctxBasePath, dictMap, err = c.convertIncludeContext(args[1])
 				if err != nil {
-					return "", err
+					return nil, err
 				}
 			}
-			var inclExpr string
+			var inclExpr ast.Expr
+			var inclName string
 			if nameNode, ok := args[0].(*parse.StringNode); ok {
 				var err error
-				inclExpr, _, err = c.handleInclude(nameNode.Text, nil)
+				inclName, _, err = c.handleInclude(nameNode.Text, nil)
 				if err != nil {
-					return "", err
+					return nil, err
 				}
+				inclExpr = mustParseExpr(inclName)
 			} else {
 				nameExpr, err := c.convertIncludeNameExpr(args[0])
 				if err != nil {
-					return "", err
+					return nil, err
 				}
 				c.hasDynamicInclude = true
-				inclExpr = fmt.Sprintf("_helpers[%s]", nameExpr)
+				inclName = fmt.Sprintf("_helpers[%s]", exprToText(nameExpr))
+				inclExpr = mustParseExpr(inclName)
 			}
 			if ctxHelmObj != "" {
-				c.propagateHelperArgRefs(inclExpr, ctxHelmObj, ctxBasePath)
+				c.propagateHelperArgRefs(inclName, ctxHelmObj, ctxBasePath)
 			} else if dictMap != nil {
-				c.propagateDictHelperArgRefs(inclExpr, dictMap)
+				c.propagateDictHelperArgRefs(inclName, dictMap)
 			}
-			if argExpr != "" {
-				inclExpr = inclExpr + " & {#arg: " + argExpr + ", _}"
+			if ctxArgExpr != nil {
+				inclExpr = binOp(token.AND, inclExpr, &ast.StructLit{Elts: []ast.Decl{
+					&ast.Field{Label: ast.NewIdent("#arg"), Value: ctxArgExpr},
+					&ast.EmbedDecl{Expr: ast.NewIdent("_")},
+				}})
 			}
-			return fmt.Sprintf("(_nonzero & {#arg: %s, _})", inclExpr), nil
+			return nonzeroExpr(inclExpr), nil
 		case "semverCompare":
 			if !c.isCoreFunc(id.Ident) {
-				return "", fmt.Errorf("unsupported condition function: %s (not a text/template builtin)", id.Ident)
+				return nil, fmt.Errorf("unsupported condition function: %s (not a text/template builtin)", id.Ident)
 			}
 			if len(args) != 2 {
-				return "", fmt.Errorf("semverCompare requires 2 arguments, got %d", len(args))
+				return nil, fmt.Errorf("semverCompare requires 2 arguments, got %d", len(args))
 			}
 			constraintNode, ok := args[0].(*parse.StringNode)
 			if !ok {
-				return "", fmt.Errorf("semverCompare constraint must be a string literal")
+				return nil, fmt.Errorf("semverCompare constraint must be a string literal")
 			}
 			verExpr, err := c.conditionNodeToRawExpr(args[1])
 			if err != nil {
-				return "", fmt.Errorf("semverCompare version argument: %w", err)
+				return nil, fmt.Errorf("semverCompare version argument: %w", err)
 			}
 			c.usedHelpers["_semverCompare"] = HelperDef{
 				Name:    "_semverCompare",
@@ -5101,40 +5237,41 @@ func (c *converter) conditionPipeToExpr(pipe *parse.PipeNode) (string, error) {
 			}
 			c.addImport("strings")
 			c.addImport("strconv")
-			return fmt.Sprintf(
-				"(_semverCompare & {#constraint: %s, #version: %s}).out",
-				strconv.Quote(constraintNode.Text), verExpr), nil
+			return helperOutExpr("_semverCompare",
+				&ast.Field{Label: ast.NewIdent("#constraint"), Value: cueString(constraintNode.Text)},
+				&ast.Field{Label: ast.NewIdent("#version"), Value: verExpr},
+			), nil
 		case "index":
 			if !c.isCoreFunc(id.Ident) {
-				return "", fmt.Errorf("unsupported condition function: %s (not a text/template builtin)", id.Ident)
+				return nil, fmt.Errorf("unsupported condition function: %s (not a text/template builtin)", id.Ident)
 			}
 			if len(args) < 2 {
-				return "", fmt.Errorf("index requires at least 2 arguments, got %d", len(args))
+				return nil, fmt.Errorf("index requires at least 2 arguments, got %d", len(args))
 			}
 			cf := coreFuncs[id.Ident]
 			funcArgs := make([]funcArg, len(args))
 			for i, a := range args {
 				funcArgs[i] = funcArg{node: a}
 			}
-			expr, _, err := cf.convert(c, funcArgs)
+			cfExpr, _, err := cf.convert(c, funcArgs)
 			if err != nil {
-				return "", err
+				return nil, err
 			}
-			return fmt.Sprintf("(_nonzero & {#arg: %s, _})", expr), nil
+			return nonzeroExpr(cfExpr), nil
 		case "kindIs":
 			if !c.isCoreFunc(id.Ident) {
-				return "", fmt.Errorf("unsupported condition function: %s (not a text/template builtin)", id.Ident)
+				return nil, fmt.Errorf("unsupported condition function: %s (not a text/template builtin)", id.Ident)
 			}
 			if len(args) != 2 {
-				return "", fmt.Errorf("kindIs requires 2 arguments, got %d", len(args))
+				return nil, fmt.Errorf("kindIs requires 2 arguments, got %d", len(args))
 			}
 			kindNode, ok := args[0].(*parse.StringNode)
 			if !ok {
-				return "", fmt.Errorf("kindIs kind must be a string literal")
+				return nil, fmt.Errorf("kindIs kind must be a string literal")
 			}
 			valExpr, err := c.conditionNodeToRawExpr(args[1])
 			if err != nil {
-				return "", fmt.Errorf("kindIs value argument: %w", err)
+				return nil, fmt.Errorf("kindIs value argument: %w", err)
 			}
 			kindMap := map[string]string{
 				"bool":   "bool",
@@ -5145,39 +5282,43 @@ func (c *converter) conditionPipeToExpr(pipe *parse.PipeNode) (string, error) {
 				"slice":  "[...]",
 			}
 			if kindNode.Text == "invalid" {
-				return fmt.Sprintf("%s == _|_", valExpr), nil
+				return mustParseExpr(fmt.Sprintf("%s == _|_", exprToText(valExpr))), nil
 			}
 			cueType, ok := kindMap[kindNode.Text]
 			if !ok {
-				return "", fmt.Errorf("unsupported kindIs kind: %q", kindNode.Text)
+				return nil, fmt.Errorf("unsupported kindIs kind: %q", kindNode.Text)
 			}
-			return fmt.Sprintf("(%s & %s) != _|_", valExpr, cueType), nil
+			return mustParseExpr(fmt.Sprintf("(%s & %s) != _|_", exprToText(valExpr), cueType)), nil
 		case "typeOf":
 			if !c.isCoreFunc(id.Ident) {
-				return "", fmt.Errorf("unsupported condition function: %s (not a text/template builtin)", id.Ident)
+				return nil, fmt.Errorf("unsupported condition function: %s (not a text/template builtin)", id.Ident)
 			}
 			if len(args) != 1 {
-				return "", fmt.Errorf("typeOf requires 1 argument, got %d", len(args))
+				return nil, fmt.Errorf("typeOf requires 1 argument, got %d", len(args))
 			}
 			valExpr, err := c.conditionNodeToRawExpr(args[0])
 			if err != nil {
-				return "", fmt.Errorf("typeOf argument: %w", err)
+				return nil, fmt.Errorf("typeOf argument: %w", err)
 			}
 			c.usedHelpers["_typeof"] = HelperDef{Name: "_typeof", Def: typeofDef}
-			return fmt.Sprintf("(_typeof & {#arg: %s, _})", valExpr), nil
+			return parenExpr(binOp(token.AND, ast.NewIdent("_typeof"),
+				&ast.StructLit{Elts: []ast.Decl{
+					&ast.Field{Label: ast.NewIdent("#arg"), Value: valExpr},
+					&ast.EmbedDecl{Expr: ast.NewIdent("_")},
+				}})), nil
 		default:
 			if cf, ok := coreFuncs[id.Ident]; ok && c.isCoreFunc(id.Ident) {
 				funcArgs := make([]funcArg, len(args))
 				for i, n := range args {
 					funcArgs[i] = funcArg{node: n}
 				}
-				expr, _, err := cf.convert(c, funcArgs)
+				cfExpr, _, err := cf.convert(c, funcArgs)
 				if err != nil {
-					return "", fmt.Errorf("%s: %w", id.Ident, err)
+					return nil, fmt.Errorf("%s: %w", id.Ident, err)
 				}
-				return fmt.Sprintf("(_nonzero & {#arg: %s, _})", expr), nil
+				return nonzeroExpr(cfExpr), nil
 			}
-			return "", fmt.Errorf("unsupported condition function: %s", id.Ident)
+			return nil, fmt.Errorf("unsupported condition function: %s", id.Ident)
 		}
 	}
 
@@ -5189,7 +5330,7 @@ func (c *converter) conditionPipeToExpr(pipe *parse.PipeNode) (string, error) {
 		if lastIdent == "Has" {
 			strArg, ok := cmd.Args[1].(*parse.StringNode)
 			if !ok {
-				return "", fmt.Errorf(".Has argument must be a string literal")
+				return nil, fmt.Errorf(".Has argument must be a string literal")
 			}
 			// Strip "Has" to get the list field path.
 			listIdent := f.Ident[:len(f.Ident)-1]
@@ -5201,67 +5342,69 @@ func (c *converter) conditionPipeToExpr(pipe *parse.PipeNode) (string, error) {
 					c.trackNonScalarRef(helmObj, listIdent[1:])
 				}
 			}
-			listRef := c.importRef("list")
-			return fmt.Sprintf("%s.Contains(%s, %s)", listRef, expr, strconv.Quote(strArg.Text)), nil
+			c.addImport("list")
+			return importCall("list", "Contains", expr, cueString(strArg.Text)), nil
 		}
 	}
 
 	if len(cmd.Args) == 1 {
 		return c.conditionNodeToExpr(cmd.Args[0])
 	}
-	return "", fmt.Errorf("unsupported condition: %s", cmd)
+	return nil, fmt.Errorf("unsupported condition: %s", cmd)
 }
 
 // conditionMultiCmdPipe handles multi-command pipes in conditions,
 // e.g. .Values.x | default false.
-func (c *converter) conditionMultiCmdPipe(pipe *parse.PipeNode) (string, error) {
+func (c *converter) conditionMultiCmdPipe(pipe *parse.PipeNode) (ast.Expr, error) {
 	// Process first command to get base expression (no _nonzero wrapping).
 	// The base field is optional here because | default provides a fallback.
 	first := pipe.Cmds[0]
 	if len(first.Args) != 1 {
-		return "", fmt.Errorf("unsupported multi-command condition: %s", pipe)
+		return nil, fmt.Errorf("unsupported multi-command condition: %s", pipe)
 	}
 	saved := c.suppressRequired
 	c.suppressRequired = true
 	expr, err := c.conditionNodeToRawExpr(first.Args[0])
 	c.suppressRequired = saved
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	// Handle subsequent pipeline commands.
 	for _, cmd := range pipe.Cmds[1:] {
 		if len(cmd.Args) == 0 {
-			return "", fmt.Errorf("empty command in condition pipeline: %s", pipe)
+			return nil, fmt.Errorf("empty command in condition pipeline: %s", pipe)
 		}
 		id, ok := cmd.Args[0].(*parse.IdentifierNode)
 		if !ok {
-			return "", fmt.Errorf("unsupported multi-command condition: %s", pipe)
+			return nil, fmt.Errorf("unsupported multi-command condition: %s", pipe)
 		}
 		switch id.Ident {
 		case "default":
 			if !c.isCoreFunc(id.Ident) {
-				return "", fmt.Errorf("unsupported condition function: %s (not a text/template builtin)", id.Ident)
+				return nil, fmt.Errorf("unsupported condition function: %s (not a text/template builtin)", id.Ident)
 			}
 			if len(cmd.Args) != 2 {
-				return "", fmt.Errorf("default in condition pipeline requires 1 argument")
+				return nil, fmt.Errorf("default in condition pipeline requires 1 argument")
 			}
-			defaultVal, litErr := nodeToCUELiteral(cmd.Args[1])
+			defaultValLit, litErr := nodeToCUELiteral(cmd.Args[1])
+			var defaultValExpr ast.Expr
 			if litErr != nil {
-				defaultExpr, _, exprErr := c.nodeToExpr(cmd.Args[1])
-				if exprErr != nil {
-					return "", fmt.Errorf("default value: %w", litErr)
+				defaultValExpr, _, litErr = c.nodeToExpr(cmd.Args[1])
+				if litErr != nil {
+					return nil, fmt.Errorf("default value: %w", litErr)
 				}
-				defaultVal = defaultExpr
+			} else {
+				defaultValExpr = defaultValLit
 			}
-			expr = fmt.Sprintf("*%s | %s", expr, defaultVal)
+			expr = defaultExpr(expr, defaultValExpr)
 		default:
-			return "", fmt.Errorf("unsupported function in condition pipeline: %s", id.Ident)
+			return nil, fmt.Errorf("unsupported function in condition pipeline: %s", id.Ident)
 		}
 	}
 
 	// Wrap in _nonzero truthiness check.
-	return fmt.Sprintf("(_nonzero & {#arg: %s, _})", expr), nil
+	return nonzeroExpr(expr), nil
 }
 
 func textContent(nodes []parse.Node) string {
@@ -5333,10 +5476,10 @@ func bodyHasMixedFieldsAndStrings(body string) bool {
 	return hasField && hasString
 }
 
-func (c *converter) actionToCUE(n *parse.ActionNode) (expr string, helmObj string, err error) {
+func (c *converter) actionToCUE(n *parse.ActionNode) (expr ast.Expr, helmObj string, err error) {
 	pipe := n.Pipe
 	if len(pipe.Cmds) == 0 {
-		return "", "", fmt.Errorf("empty pipe in action: %s", n)
+		return nil, "", fmt.Errorf("empty pipe in action: %s", n)
 	}
 
 	var fieldPath []string
@@ -5364,16 +5507,20 @@ func (c *converter) actionToCUE(n *parse.ActionNode) (expr string, helmObj strin
 	switch {
 	case len(first.Args) == 1:
 		if f, ok := first.Args[0].(*parse.FieldNode); ok {
-			expr, helmObj = c.fieldToCUEInContext(f.Ident)
+			fieldExpr, ho := c.fieldToCUEInContext(f.Ident)
+			expr = fieldExpr
+			helmObj = ho
 			if helmObj != "" {
 				fieldPath = f.Ident[1:]
 				c.trackFieldRef(helmObj, fieldPath)
-			} else if c.helperArgNonScalarRefs != nil && strings.HasPrefix(expr, "#arg") {
+			} else if c.helperArgNonScalarRefs != nil && strings.HasPrefix(exprToText(fieldExpr), "#arg") {
 				argFieldPath = append([]string(nil), f.Ident...)
 			}
 		} else if v, ok := first.Args[0].(*parse.VariableNode); ok {
 			if len(v.Ident) >= 2 && v.Ident[0] == "$" {
-				expr, helmObj = fieldToCUE(c.config.ContextObjects, v.Ident[1:])
+				fieldExpr, ho := fieldToCUE(c.config.ContextObjects, v.Ident[1:])
+				expr = fieldExpr
+				helmObj = ho
 				if helmObj != "" {
 					if len(v.Ident) >= 3 {
 						fieldPath = v.Ident[2:]
@@ -5382,7 +5529,7 @@ func (c *converter) actionToCUE(n *parse.ActionNode) (expr string, helmObj strin
 				}
 			} else if len(v.Ident) >= 2 && v.Ident[0] != "$" {
 				if localExpr, ok := c.localVars[v.Ident[0]]; ok {
-					expr = localExpr + "." + strings.Join(v.Ident[1:], ".")
+					expr = buildSelChain(localExpr, v.Ident[1:])
 				}
 			} else if len(v.Ident) == 1 && v.Ident[0] != "$" {
 				if localExpr, ok := c.localVars[v.Ident[0]]; ok {
@@ -5391,48 +5538,56 @@ func (c *converter) actionToCUE(n *parse.ActionNode) (expr string, helmObj strin
 			}
 		} else if _, ok := first.Args[0].(*parse.DotNode); ok {
 			if len(c.rangeVarStack) > 0 {
-				expr = exprToText(c.rangeVarStack[len(c.rangeVarStack)-1].cueExpr)
+				expr = c.rangeVarStack[len(c.rangeVarStack)-1].cueExpr
 			} else if c.config.RootExpr != "" {
-				expr = c.config.RootExpr
+				expr = mustParseExpr(c.config.RootExpr)
 			} else {
-				return "", "", fmt.Errorf("{{ . }} outside range/with not supported")
+				return nil, "", fmt.Errorf("{{ . }} outside range/with not supported")
 			}
 		} else if id, ok := first.Args[0].(*parse.IdentifierNode); ok {
 			if cf, ok := coreFuncs[id.Ident]; ok {
 				if !c.isCoreFunc(id.Ident) {
 					gatedFunc = id.Ident
 				} else {
-					expr, helmObj, err = cf.convert(c, nil)
-					if err != nil {
-						return "", "", err
+					cfExpr, cfObj, cfErr := cf.convert(c, nil)
+					if cfErr != nil {
+						return nil, "", cfErr
 					}
+					expr = cfExpr
+					helmObj = cfObj
 				}
 			}
 		} else if ch, ok := first.Args[0].(*parse.ChainNode); ok {
 			pipe, pipeOK := ch.Node.(*parse.PipeNode)
 			if pipeOK {
+				var subExpr ast.Expr
 				var subErr error
-				expr, helmObj, subErr = c.convertSubPipe(pipe)
+				subExpr, helmObj, subErr = c.convertSubPipe(pipe)
 				if subErr == nil {
+					expr = subExpr
 					for _, field := range ch.Field {
-						expr += "." + cueKey(field)
+						expr = selExpr(expr, cueKey(field))
 					}
 				}
 			}
 		} else if p, ok := first.Args[0].(*parse.PipeNode); ok {
 			expr, helmObj, err = c.convertSubPipe(p)
 			if err != nil {
-				return "", "", err
+				return nil, "", err
 			}
 		} else if s, ok := first.Args[0].(*parse.StringNode); ok {
-			expr = strconv.Quote(s.Text)
+			expr = cueString(s.Text)
 		} else if num, ok := first.Args[0].(*parse.NumberNode); ok {
-			expr = num.Text
+			kind := token.INT
+			if strings.ContainsAny(num.Text, ".eE") {
+				kind = token.FLOAT
+			}
+			expr = &ast.BasicLit{Kind: kind, Value: num.Text}
 		} else if b, ok := first.Args[0].(*parse.BoolNode); ok {
 			if b.True {
-				expr = "true"
+				expr = ast.NewIdent("true")
 			} else {
-				expr = "false"
+				expr = ast.NewIdent("false")
 			}
 		}
 	case len(first.Args) >= 2:
@@ -5449,10 +5604,12 @@ func (c *converter) actionToCUE(n *parse.ActionNode) (expr string, helmObj strin
 			for i, n := range first.Args[1:] {
 				args[i] = funcArg{node: n}
 			}
-			expr, helmObj, err = cf.convert(c, args)
-			if err != nil {
-				return "", "", err
+			cfExpr, cfObj, cfErr := cf.convert(c, args)
+			if cfErr != nil {
+				return nil, "", cfErr
 			}
+			expr = cfExpr
+			helmObj = cfObj
 			// Track fieldPath for pipeline default/required.
 			if last := first.Args[len(first.Args)-1]; helmObj != "" {
 				switch n := last.(type) {
@@ -5470,7 +5627,7 @@ func (c *converter) actionToCUE(n *parse.ActionNode) (expr string, helmObj strin
 			if pf.Passthrough && len(first.Args) == 2 {
 				expr, helmObj, err = c.nodeToExpr(first.Args[1])
 				if err != nil {
-					return "", "", fmt.Errorf("%s argument: %w", id.Ident, err)
+					return nil, "", fmt.Errorf("%s argument: %w", id.Ident, err)
 				}
 				if f, ok := first.Args[1].(*parse.FieldNode); ok {
 					if helmObj != "" && len(f.Ident) >= 2 {
@@ -5478,7 +5635,7 @@ func (c *converter) actionToCUE(n *parse.ActionNode) (expr string, helmObj strin
 						if pf.NonScalar {
 							c.trackNonScalarRef(helmObj, fieldPath)
 						}
-					} else if pf.NonScalar && c.helperArgNonScalarRefs != nil && strings.HasPrefix(expr, "#arg") {
+					} else if pf.NonScalar && c.helperArgNonScalarRefs != nil && strings.HasPrefix(exprToText(expr), "#arg") {
 						c.helperArgNonScalarRefs = append(c.helperArgNonScalarRefs,
 							append([]string(nil), f.Ident...))
 					}
@@ -5486,24 +5643,25 @@ func (c *converter) actionToCUE(n *parse.ActionNode) (expr string, helmObj strin
 			} else if pf.Convert != nil && len(first.Args) == pf.Nargs+2 {
 				// Function with explicit args in first-command position:
 				// {{ func arg1 ... argN pipedValue }}
-				var args []string
+				var pfArgs []ast.Expr
 				for _, a := range first.Args[1 : 1+pf.Nargs] {
 					lit, litErr := nodeToCUELiteral(a)
 					if litErr != nil {
-						var exprStr string
-						exprStr, _, litErr = c.nodeToExpr(a)
+						var argExpr ast.Expr
+						argExpr, _, litErr = c.nodeToExpr(a)
 						if litErr != nil {
-							return "", "", fmt.Errorf("%s argument: %w", id.Ident, litErr)
+							return nil, "", fmt.Errorf("%s argument: %w", id.Ident, litErr)
 						}
-						lit = exprStr
+						pfArgs = append(pfArgs, argExpr)
+					} else {
+						pfArgs = append(pfArgs, lit)
 					}
-					args = append(args, lit)
 				}
 				pipedNode := first.Args[pf.Nargs+1]
 				var pipedErr error
 				expr, helmObj, pipedErr = c.nodeToExpr(pipedNode)
 				if pipedErr != nil {
-					return "", "", fmt.Errorf("%s argument: %w", id.Ident, pipedErr)
+					return nil, "", fmt.Errorf("%s argument: %w", id.Ident, pipedErr)
 				}
 				if f, ok := pipedNode.(*parse.FieldNode); ok {
 					if helmObj != "" && len(f.Ident) >= 2 {
@@ -5511,20 +5669,16 @@ func (c *converter) actionToCUE(n *parse.ActionNode) (expr string, helmObj strin
 						if pf.NonScalar {
 							c.trackNonScalarRef(helmObj, fieldPath)
 						}
-					} else if pf.NonScalar && c.helperArgNonScalarRefs != nil && strings.HasPrefix(expr, "#arg") {
+					} else if pf.NonScalar && c.helperArgNonScalarRefs != nil && strings.HasPrefix(exprToText(expr), "#arg") {
 						c.helperArgNonScalarRefs = append(c.helperArgNonScalarRefs,
 							append([]string(nil), f.Ident...))
 					}
 				}
-				astArgs := make([]ast.Expr, len(args))
-				for ai, a := range args {
-					astArgs[ai] = mustParseExpr(a)
-				}
-				astResult := pf.Convert(mustParseExpr(expr), astArgs)
+				astResult := pf.Convert(expr, pfArgs)
 				if astResult != nil {
-					expr = c.sentinelizeImports(exprToText(astResult), pf.Imports)
+					expr = mustParseExpr(c.sentinelizeImports(exprToText(astResult), pf.Imports))
 				} else {
-					expr = ""
+					expr = nil
 				}
 				for _, h := range pf.Helpers {
 					c.usedHelpers[h.Name] = h
@@ -5532,32 +5686,34 @@ func (c *converter) actionToCUE(n *parse.ActionNode) (expr string, helmObj strin
 			}
 		}
 	}
-	if expr == "" {
+	if expr == nil {
 		if gatedFunc != "" {
-			return "", "", fmt.Errorf("unsupported pipeline function: %s (not a text/template builtin)", gatedFunc)
+			return nil, "", fmt.Errorf("unsupported pipeline function: %s (not a text/template builtin)", gatedFunc)
 		}
-		return "", "", fmt.Errorf("unsupported template action: %s", n)
+		return nil, "", fmt.Errorf("unsupported template action: %s", n)
 	}
 
 	for _, cmd := range pipe.Cmds[1:] {
 		if len(cmd.Args) == 0 {
-			return "", "", fmt.Errorf("empty command in pipeline: %s", n)
+			return nil, "", fmt.Errorf("empty command in pipeline: %s", n)
 		}
 		id, ok := cmd.Args[0].(*parse.IdentifierNode)
 		if !ok {
-			return "", "", fmt.Errorf("unsupported pipeline function: %s", cmd)
+			return nil, "", fmt.Errorf("unsupported pipeline function: %s", cmd)
 		}
 		if cf, ok := coreFuncs[id.Ident]; ok {
 			if !c.isCoreFunc(id.Ident) {
-				return "", "", fmt.Errorf("unsupported pipeline function: %s (not a text/template builtin)", id.Ident)
+				return nil, "", fmt.Errorf("unsupported pipeline function: %s (not a text/template builtin)", id.Ident)
 			}
 			piped := funcArg{expr: expr, obj: helmObj, field: fieldPath}
 			args := buildPipeArgs(cf, cmd.Args[1:], piped)
 			prevObj := helmObj
-			expr, helmObj, err = cf.convert(c, args)
-			if err != nil {
-				return "", "", err
+			cfExpr, cfObj, cfErr := cf.convert(c, args)
+			if cfErr != nil {
+				return nil, "", cfErr
 			}
+			expr = cfExpr
+			helmObj = cfObj
 			// Preserve helmObj from the piped value when the
 			// handler doesn't set one (e.g. ternary condition).
 			if helmObj == "" {
@@ -5576,41 +5732,37 @@ func (c *converter) actionToCUE(n *parse.ActionNode) (expr string, helmObj strin
 				// No-op function (e.g. nindent, indent, toYaml in pipeline).
 				continue
 			}
-			var args []string
+			var pfArgs []ast.Expr
 			if pf.Nargs > 0 {
 				var extractErr error
-				args, extractErr = c.extractPipelineArgs(cmd, pf.Nargs)
+				pfArgs, extractErr = c.extractPipelineArgs(cmd, pf.Nargs)
 				if extractErr != nil {
-					return "", "", extractErr
+					return nil, "", extractErr
 				}
 			}
-			astPipeArgs := make([]ast.Expr, len(args))
-			for ai, a := range args {
-				astPipeArgs[ai] = mustParseExpr(a)
-			}
-			result := pf.Convert(mustParseExpr(expr), astPipeArgs)
+			result := pf.Convert(expr, pfArgs)
 			if result == nil {
 				// Sentinel for unsupported functions (e.g. lookup, tpl).
-				return "", "", fmt.Errorf("function %q has no CUE equivalent and cannot be converted", id.Ident)
+				return nil, "", fmt.Errorf("function %q has no CUE equivalent and cannot be converted", id.Ident)
 			}
-			expr = c.sentinelizeImports(exprToText(result), pf.Imports)
+			expr = mustParseExpr(c.sentinelizeImports(exprToText(result), pf.Imports))
 			for _, h := range pf.Helpers {
 				c.usedHelpers[h.Name] = h
 			}
 		} else {
-			return "", "", fmt.Errorf("unsupported pipeline function: %s", id.Ident)
+			return nil, "", fmt.Errorf("unsupported pipeline function: %s", id.Ident)
 		}
 	}
 
 	return expr, helmObj, nil
 }
 
-func (c *converter) extractPipelineArgs(cmd *parse.CommandNode, n int) ([]string, error) {
+func (c *converter) extractPipelineArgs(cmd *parse.CommandNode, n int) ([]ast.Expr, error) {
 	if len(cmd.Args)-1 != n {
 		id := cmd.Args[0].(*parse.IdentifierNode)
 		return nil, fmt.Errorf("%s requires %d argument(s), got %d", id.Ident, n, len(cmd.Args)-1)
 	}
-	result := make([]string, n)
+	result := make([]ast.Expr, n)
 	for i := range n {
 		lit, err := nodeToCUELiteral(cmd.Args[i+1])
 		if err != nil {
@@ -5621,104 +5773,110 @@ func (c *converter) extractPipelineArgs(cmd *parse.CommandNode, n int) ([]string
 	return result, nil
 }
 
-func (c *converter) convertPrintf(args []parse.Node) (string, string, error) {
+func (c *converter) convertPrintf(args []parse.Node) (ast.Expr, string, error) {
 	if len(args) < 1 {
-		return "", "", fmt.Errorf("printf requires at least a format string")
+		return nil, "", fmt.Errorf("printf requires at least a format string")
 	}
 	fmtNode, ok := args[0].(*parse.StringNode)
 	if !ok {
-		return "", "", fmt.Errorf("printf format must be a string literal")
+		return nil, "", fmt.Errorf("printf format must be a string literal")
 	}
 
 	format := fmtNode.Text
 	valueArgs := args[1:]
 
 	var helmObj string
-	var out strings.Builder
-	out.WriteByte('"')
+	var parts []inlinePart
 
 	argIdx := 0
+	var textBuf strings.Builder
 	for i := 0; i < len(format); i++ {
 		if format[i] == '%' && i+1 < len(format) {
 			verb := format[i+1]
 			switch verb {
 			case 's', 'd', 'v':
 				if argIdx >= len(valueArgs) {
-					return "", "", fmt.Errorf("printf: not enough arguments for format string")
+					return nil, "", fmt.Errorf("printf: not enough arguments for format string")
 				}
 				argExpr, argObj, err := c.nodeToExpr(valueArgs[argIdx])
 				if err != nil {
-					return "", "", fmt.Errorf("printf argument %d: %w", argIdx+1, err)
+					return nil, "", fmt.Errorf("printf argument %d: %w", argIdx+1, err)
 				}
 				if argObj != "" {
 					helmObj = argObj
 				}
-				fmt.Fprintf(&out, `\(%s)`, argExpr)
+				// Flush accumulated text.
+				if textBuf.Len() > 0 {
+					parts = append(parts, inlinePart{text: textBuf.String()})
+					textBuf.Reset()
+				}
+				parts = append(parts, toInlinePart(argExpr))
 				argIdx++
 				i++
 			case '%':
-				out.WriteByte('%')
+				textBuf.WriteByte('%')
 				i++
 			default:
-				return "", "", fmt.Errorf("printf: unsupported format verb %%%c", verb)
+				return nil, "", fmt.Errorf("printf: unsupported format verb %%%c", verb)
 			}
 		} else {
 			switch format[i] {
 			case '\\':
-				out.WriteString(`\\`)
+				textBuf.WriteString(`\\`)
 			case '"':
-				out.WriteString(`\"`)
+				textBuf.WriteString(`\"`)
 			case '\n':
-				out.WriteString(`\n`)
+				textBuf.WriteString(`\n`)
 			case '\t':
-				out.WriteString(`\t`)
+				textBuf.WriteString(`\t`)
 			default:
-				out.WriteByte(format[i])
+				textBuf.WriteByte(format[i])
 			}
 		}
 	}
+	// Flush any remaining text.
+	if textBuf.Len() > 0 {
+		parts = append(parts, inlinePart{text: textBuf.String()})
+	}
 
-	out.WriteByte('"')
-	return out.String(), helmObj, nil
+	return partsToExpr(parts), helmObj, nil
 }
 
 // convertPrint converts a Go template `print` call (fmt.Sprint semantics:
 // concatenate args) to a CUE string interpolation expression.
-func (c *converter) convertPrint(args []parse.Node) (string, error) {
-	var out strings.Builder
-	out.WriteByte('"')
+func (c *converter) convertPrint(args []parse.Node) (ast.Expr, error) {
+	var parts []inlinePart
 	for _, arg := range args {
 		switch a := arg.(type) {
 		case *parse.StringNode:
-			out.WriteString(escapeCUEString(a.Text))
+			parts = append(parts, inlinePart{text: escapeCUEString(a.Text)})
 		default:
-			expr, _, err := c.nodeToExpr(a)
+			argExpr, _, err := c.nodeToExpr(a)
 			if err != nil {
-				return "", fmt.Errorf("print argument: %w", err)
+				return nil, fmt.Errorf("print argument: %w", err)
 			}
-			fmt.Fprintf(&out, `\(%s)`, expr)
+			parts = append(parts, toInlinePart(argExpr))
 		}
 	}
-	out.WriteByte('"')
-	return out.String(), nil
+	return partsToExpr(parts), nil
 }
 
 // convertIncludeNameExpr converts a non-literal include name expression to CUE.
-func (c *converter) convertIncludeNameExpr(node parse.Node) (string, error) {
+func (c *converter) convertIncludeNameExpr(node parse.Node) (ast.Expr, error) {
 	pipe, ok := node.(*parse.PipeNode)
 	if !ok {
-		return "", fmt.Errorf("include: unsupported dynamic template name: %s", node)
+		return nil, fmt.Errorf("include: unsupported dynamic template name: %s", node)
 	}
 	if len(pipe.Cmds) != 1 {
-		return "", fmt.Errorf("include: unsupported multi-command dynamic name: %s", pipe)
+		return nil, fmt.Errorf("include: unsupported multi-command dynamic name: %s", pipe)
 	}
 	cmd := pipe.Cmds[0]
 	if len(cmd.Args) < 1 {
-		return "", fmt.Errorf("include: empty dynamic name expression")
+		return nil, fmt.Errorf("include: empty dynamic name expression")
 	}
 	id, ok := cmd.Args[0].(*parse.IdentifierNode)
 	if !ok {
-		return "", fmt.Errorf("include: unsupported dynamic name expression: %s", pipe)
+		return nil, fmt.Errorf("include: unsupported dynamic name expression: %s", pipe)
 	}
 	switch id.Ident {
 	case "print":
@@ -5727,11 +5885,11 @@ func (c *converter) convertIncludeNameExpr(node parse.Node) (string, error) {
 		expr, _, err := c.convertPrintf(cmd.Args[1:])
 		return expr, err
 	default:
-		return "", fmt.Errorf("include: unsupported dynamic name function %q", id.Ident)
+		return nil, fmt.Errorf("include: unsupported dynamic name function %q", id.Ident)
 	}
 }
 
-func (c *converter) nodeToExpr(node parse.Node) (string, string, error) {
+func (c *converter) nodeToExpr(node parse.Node) (ast.Expr, string, error) {
 	switch n := node.(type) {
 	case *parse.FieldNode:
 		expr, helmObj := c.fieldToCUEInContext(n.Ident)
@@ -5751,7 +5909,7 @@ func (c *converter) nodeToExpr(node parse.Node) (string, string, error) {
 		}
 		if len(n.Ident) >= 2 && n.Ident[0] != "$" {
 			if localExpr, ok := c.localVars[n.Ident[0]]; ok {
-				return localExpr + "." + strings.Join(n.Ident[1:], "."), "", nil
+				return buildSelChain(localExpr, n.Ident[1:]), "", nil
 			}
 		}
 		if len(n.Ident) == 1 && n.Ident[0] != "$" {
@@ -5759,35 +5917,39 @@ func (c *converter) nodeToExpr(node parse.Node) (string, string, error) {
 				return localExpr, "", nil
 			}
 		}
-		return "", "", fmt.Errorf("unsupported variable: %s", n)
+		return nil, "", fmt.Errorf("unsupported variable: %s", n)
 	case *parse.StringNode:
-		return strconv.Quote(n.Text), "", nil
+		return cueString(n.Text), "", nil
 	case *parse.NumberNode:
-		return n.Text, "", nil
+		kind := token.INT
+		if strings.ContainsAny(n.Text, ".eE") {
+			kind = token.FLOAT
+		}
+		return &ast.BasicLit{Kind: kind, Value: n.Text}, "", nil
 	case *parse.BoolNode:
 		if n.True {
-			return "true", "", nil
+			return ast.NewIdent("true"), "", nil
 		}
-		return "false", "", nil
+		return ast.NewIdent("false"), "", nil
 	case *parse.DotNode:
 		if len(c.rangeVarStack) > 0 {
-			return exprToText(c.rangeVarStack[len(c.rangeVarStack)-1].cueExpr), "", nil
+			return c.rangeVarStack[len(c.rangeVarStack)-1].cueExpr, "", nil
 		}
 		if c.config.RootExpr != "" {
-			return c.config.RootExpr, "", nil
+			return mustParseExpr(c.config.RootExpr), "", nil
 		}
-		return "", "", fmt.Errorf("{{ . }} outside range/with not supported")
+		return nil, "", fmt.Errorf("{{ . }} outside range/with not supported")
 	case *parse.ChainNode:
 		pipe, ok := n.Node.(*parse.PipeNode)
 		if !ok {
-			return "", "", fmt.Errorf("unsupported chain base: %T", n.Node)
+			return nil, "", fmt.Errorf("unsupported chain base: %T", n.Node)
 		}
 		baseExpr, helmObj, err := c.convertSubPipe(pipe)
 		if err != nil {
-			return "", "", err
+			return nil, "", err
 		}
 		for _, field := range n.Field {
-			baseExpr += "." + cueKey(field)
+			baseExpr = selExpr(baseExpr, cueKey(field))
 		}
 		return baseExpr, helmObj, nil
 	case *parse.PipeNode:
@@ -5796,11 +5958,15 @@ func (c *converter) nodeToExpr(node parse.Node) (string, string, error) {
 		// Bare function name used as a value (e.g. "list" or "dict"
 		// in "default list .Values.x"). Treat as zero-arg call.
 		if cf, ok := coreFuncs[n.Ident]; ok && c.isCoreFunc(n.Ident) {
-			return cf.convert(c, nil)
+			cfExpr, cfObj, cfErr := cf.convert(c, nil)
+			if cfErr != nil {
+				return nil, "", cfErr
+			}
+			return cfExpr, cfObj, nil
 		}
-		return "", "", fmt.Errorf("unsupported identifier: %s", n.Ident)
+		return nil, "", fmt.Errorf("unsupported identifier: %s", n.Ident)
 	default:
-		return "", "", fmt.Errorf("unsupported node type: %s", node)
+		return nil, "", fmt.Errorf("unsupported node type: %s", node)
 	}
 }
 
@@ -5812,13 +5978,14 @@ func (c *converter) nodeToExpr(node parse.Node) (string, string, error) {
 //   - simple values piped through functions: .Values.port | int
 //   - function calls piped through functions: default .Values.x .Values.y | int
 //   - function calls wrapping sub-expressions: int (default .Values.x .Values.y)
-func (c *converter) convertSubPipe(pipe *parse.PipeNode) (string, string, error) {
+func (c *converter) convertSubPipe(pipe *parse.PipeNode) (ast.Expr, string, error) {
 	if len(pipe.Cmds) == 0 {
-		return "", "", fmt.Errorf("unsupported pipe node: %s", pipe)
+		return nil, "", fmt.Errorf("unsupported pipe node: %s", pipe)
 	}
 
 	first := pipe.Cmds[0]
-	var expr, helmObj string
+	var expr ast.Expr
+	var helmObj string
 
 	// Check if any subsequent command is "default" — if so, the field
 	// has a fallback and should not be marked required.
@@ -5837,7 +6004,11 @@ func (c *converter) convertSubPipe(pipe *parse.PipeNode) (string, string, error)
 		// Check for zero-arg core funcs like list or dict.
 		if id, ok := first.Args[0].(*parse.IdentifierNode); ok {
 			if cf, ok := coreFuncs[id.Ident]; ok && c.isCoreFunc(id.Ident) {
-				return cf.convert(c, nil)
+				cfExpr, cfObj, cfErr := cf.convert(c, nil)
+				if cfErr != nil {
+					return nil, "", cfErr
+				}
+				return cfExpr, cfObj, nil
 			}
 		}
 		if pipedDefault {
@@ -5847,30 +6018,33 @@ func (c *converter) convertSubPipe(pipe *parse.PipeNode) (string, string, error)
 			expr, helmObj, err = c.nodeToExpr(first.Args[0])
 			c.suppressRequired = saved
 			if err != nil {
-				return "", "", fmt.Errorf("unsupported pipe node: %s", pipe)
+				return nil, "", fmt.Errorf("unsupported pipe node: %s", pipe)
 			}
 		} else {
 			var err error
 			expr, helmObj, err = c.nodeToExpr(first.Args[0])
 			if err != nil {
-				return "", "", fmt.Errorf("unsupported pipe node: %s", pipe)
+				return nil, "", fmt.Errorf("unsupported pipe node: %s", pipe)
 			}
 		}
 	} else if len(first.Args) >= 2 {
 		id, ok := first.Args[0].(*parse.IdentifierNode)
 		if !ok {
-			return "", "", fmt.Errorf("unsupported pipe node: %s", pipe)
+			return nil, "", fmt.Errorf("unsupported pipe node: %s", pipe)
 		}
 		switch {
 		case id.Ident == "default" && c.isCoreFunc(id.Ident) && len(first.Args) == 3:
 			// In sub-pipe context, default produces *expr | defaultVal
 			// inline rather than recording a schema-level default.
-			defaultVal, litErr := nodeToCUELiteral(first.Args[1])
+			defaultValLit, litErr := nodeToCUELiteral(first.Args[1])
+			var defaultValExpr ast.Expr
 			if litErr != nil {
-				defaultVal, _, litErr = c.nodeToExpr(first.Args[1])
+				defaultValExpr, _, litErr = c.nodeToExpr(first.Args[1])
 				if litErr != nil {
-					return "", "", fmt.Errorf("default value: %w", litErr)
+					return nil, "", fmt.Errorf("default value: %w", litErr)
 				}
+			} else {
+				defaultValExpr = defaultValLit
 			}
 			saved := c.suppressRequired
 			c.suppressRequired = true
@@ -5878,94 +6052,97 @@ func (c *converter) convertSubPipe(pipe *parse.PipeNode) (string, string, error)
 			expr, helmObj, err = c.nodeToExpr(first.Args[2])
 			c.suppressRequired = saved
 			if err != nil {
-				return "", "", fmt.Errorf("default field: %w", err)
+				return nil, "", fmt.Errorf("default field: %w", err)
 			}
-			expr = fmt.Sprintf("*%s | %s", expr, defaultVal)
+			expr = defaultExpr(expr, defaultValExpr)
 		default:
 			if cf, ok := coreFuncs[id.Ident]; ok && c.isCoreFunc(id.Ident) {
 				args := make([]funcArg, len(first.Args)-1)
 				for i, n := range first.Args[1:] {
 					args[i] = funcArg{node: n}
 				}
-				var err error
-				expr, helmObj, err = cf.convert(c, args)
-				if err != nil {
-					return "", "", err
+				cfExpr, cfObj, cfErr := cf.convert(c, args)
+				if cfErr != nil {
+					return nil, "", cfErr
 				}
+				expr = cfExpr
+				helmObj = cfObj
 			} else if pf, ok := c.config.Funcs[id.Ident]; ok {
 				lastArg := first.Args[len(first.Args)-1]
 				var err error
 				expr, helmObj, err = c.nodeToExpr(lastArg)
 				if err != nil {
-					return "", "", fmt.Errorf("%s argument: %w", id.Ident, err)
+					return nil, "", fmt.Errorf("%s argument: %w", id.Ident, err)
 				}
 				if pf.Convert != nil {
-					var args []string
+					var pfArgs []ast.Expr
 					for _, a := range first.Args[1 : len(first.Args)-1] {
 						lit, litErr := nodeToCUELiteral(a)
 						if litErr != nil {
-							lit, _, litErr = c.nodeToExpr(a)
-							if litErr != nil {
-								return "", "", fmt.Errorf("%s argument: %w", id.Ident, litErr)
+							litExpr, _, litExprErr := c.nodeToExpr(a)
+							if litExprErr != nil {
+								return nil, "", fmt.Errorf("%s argument: %w", id.Ident, litErr)
 							}
+							pfArgs = append(pfArgs, litExpr)
+						} else {
+							pfArgs = append(pfArgs, lit)
 						}
-						args = append(args, lit)
 					}
-					astSubArgs := make([]ast.Expr, len(args))
-					for ai, a := range args {
-						astSubArgs[ai] = mustParseExpr(a)
-					}
-					subResult := pf.Convert(mustParseExpr(expr), astSubArgs)
+					subResult := pf.Convert(expr, pfArgs)
 					if subResult != nil {
-						expr = c.sentinelizeImports(exprToText(subResult), pf.Imports)
+						expr = mustParseExpr(c.sentinelizeImports(exprToText(subResult), pf.Imports))
 					} else {
-						expr = ""
+						expr = nil
 					}
 					for _, h := range pf.Helpers {
 						c.usedHelpers[h.Name] = h
 					}
 				}
 			} else {
-				return "", "", fmt.Errorf("unsupported pipe node: %s", pipe)
+				return nil, "", fmt.Errorf("unsupported pipe node: %s", pipe)
 			}
 		}
 	}
 
-	if expr == "" {
-		return "", "", fmt.Errorf("unsupported pipe node: %s", pipe)
+	if expr == nil {
+		return nil, "", fmt.Errorf("unsupported pipe node: %s", pipe)
 	}
 
 	// Apply remaining pipe commands.
 	for _, cmd := range pipe.Cmds[1:] {
 		if len(cmd.Args) == 0 {
-			return "", "", fmt.Errorf("unsupported pipe node: %s", pipe)
+			return nil, "", fmt.Errorf("unsupported pipe node: %s", pipe)
 		}
 		id, ok := cmd.Args[0].(*parse.IdentifierNode)
 		if !ok {
-			return "", "", fmt.Errorf("unsupported pipe node: %s", pipe)
+			return nil, "", fmt.Errorf("unsupported pipe node: %s", pipe)
 		}
 		if id.Ident == "default" && c.isCoreFunc(id.Ident) {
 			// In sub-pipe context, default wraps inline.
 			if len(cmd.Args) != 2 {
-				return "", "", fmt.Errorf("default in pipeline requires 1 argument")
+				return nil, "", fmt.Errorf("default in pipeline requires 1 argument")
 			}
-			defaultVal, litErr := nodeToCUELiteral(cmd.Args[1])
+			defaultValLit, litErr := nodeToCUELiteral(cmd.Args[1])
+			var defaultValExpr ast.Expr
 			if litErr != nil {
-				defaultVal, _, litErr = c.nodeToExpr(cmd.Args[1])
+				defaultValExpr, _, litErr = c.nodeToExpr(cmd.Args[1])
 				if litErr != nil {
-					return "", "", fmt.Errorf("default value: %w", litErr)
+					return nil, "", fmt.Errorf("default value: %w", litErr)
 				}
+			} else {
+				defaultValExpr = defaultValLit
 			}
-			expr = fmt.Sprintf("*%s | %s", expr, defaultVal)
+			expr = defaultExpr(expr, defaultValExpr)
 		} else if cf, ok := coreFuncs[id.Ident]; ok && c.isCoreFunc(id.Ident) {
 			piped := funcArg{expr: expr, obj: helmObj}
 			args := buildPipeArgs(cf, cmd.Args[1:], piped)
 			prevObj := helmObj
-			var err error
-			expr, helmObj, err = cf.convert(c, args)
-			if err != nil {
-				return "", "", err
+			cfExpr, cfObj, cfErr := cf.convert(c, args)
+			if cfErr != nil {
+				return nil, "", cfErr
 			}
+			expr = cfExpr
+			helmObj = cfObj
 			if helmObj == "" {
 				helmObj = prevObj
 			}
@@ -5973,45 +6150,43 @@ func (c *converter) convertSubPipe(pipe *parse.PipeNode) (string, string, error)
 			if pf.Convert == nil {
 				continue // No-op/passthrough function.
 			}
-			var args []string
+			var pfArgs []ast.Expr
 			for _, a := range cmd.Args[1:] {
 				lit, litErr := nodeToCUELiteral(a)
 				if litErr != nil {
-					lit, _, litErr = c.nodeToExpr(a)
-					if litErr != nil {
-						return "", "", fmt.Errorf("%s argument: %w", id.Ident, litErr)
+					litExpr, _, litExprErr := c.nodeToExpr(a)
+					if litExprErr != nil {
+						return nil, "", fmt.Errorf("%s argument: %w", id.Ident, litErr)
 					}
+					pfArgs = append(pfArgs, litExpr)
+				} else {
+					pfArgs = append(pfArgs, lit)
 				}
-				args = append(args, lit)
 			}
-			astSubPipeArgs := make([]ast.Expr, len(args))
-			for ai, a := range args {
-				astSubPipeArgs[ai] = mustParseExpr(a)
-			}
-			result := pf.Convert(mustParseExpr(expr), astSubPipeArgs)
+			result := pf.Convert(expr, pfArgs)
 			if result == nil {
-				return "", "", fmt.Errorf("unsupported pipe node: %s", pipe)
+				return nil, "", fmt.Errorf("unsupported pipe node: %s", pipe)
 			}
-			expr = c.sentinelizeImports(exprToText(result), pf.Imports)
+			expr = mustParseExpr(c.sentinelizeImports(exprToText(result), pf.Imports))
 			for _, h := range pf.Helpers {
 				c.usedHelpers[h.Name] = h
 			}
 		} else {
-			return "", "", fmt.Errorf("unsupported pipe node: %s", pipe)
+			return nil, "", fmt.Errorf("unsupported pipe node: %s", pipe)
 		}
 	}
 
 	return expr, helmObj, nil
 }
 
-func (c *converter) convertTplArg(node parse.Node) (string, string, error) {
+func (c *converter) convertTplArg(node parse.Node) (ast.Expr, string, error) {
 	pn, ok := node.(*parse.PipeNode)
 	if !ok {
 		return c.nodeToExpr(node)
 	}
 
 	if len(pn.Cmds) == 0 {
-		return "", "", fmt.Errorf("tpl: empty pipeline")
+		return nil, "", fmt.Errorf("tpl: empty pipeline")
 	}
 
 	// Look for toYaml in the pipeline.
@@ -6024,7 +6199,7 @@ func (c *converter) convertTplArg(node parse.Node) (string, string, error) {
 			if id.Ident == "toYaml" {
 				hasToYaml = true
 				if len(first.Args) < 2 {
-					return "", "", fmt.Errorf("tpl: toYaml requires an argument")
+					return nil, "", fmt.Errorf("tpl: toYaml requires an argument")
 				}
 				valueNode = first.Args[1]
 			} else {
@@ -6045,26 +6220,26 @@ func (c *converter) convertTplArg(node parse.Node) (string, string, error) {
 	}
 
 	if valueNode == nil {
-		return "", "", fmt.Errorf("tpl: could not determine value expression")
+		return nil, "", fmt.Errorf("tpl: could not determine value expression")
 	}
 
 	expr, helmObj, err := c.nodeToExpr(valueNode)
 	if err != nil {
-		return "", "", err
+		return nil, "", err
 	}
 
 	if hasToYaml {
-		yamlRef := c.importRef("encoding/yaml")
 		// Mark the field as non-scalar since it's being serialized.
 		if f, ok := valueNode.(*parse.FieldNode); ok {
 			if helmObj != "" && len(f.Ident) >= 2 {
 				c.trackNonScalarRef(helmObj, f.Ident[1:])
-			} else if c.helperArgNonScalarRefs != nil && strings.HasPrefix(expr, "#arg") {
+			} else if c.helperArgNonScalarRefs != nil && strings.HasPrefix(exprToText(expr), "#arg") {
 				c.helperArgNonScalarRefs = append(c.helperArgNonScalarRefs,
 					append([]string(nil), f.Ident...))
 			}
 		}
-		expr = fmt.Sprintf("%s.Marshal(%s)", yamlRef, expr)
+		c.addImport("encoding/yaml")
+		expr = importCall("encoding/yaml", "Marshal", expr)
 	}
 
 	return expr, helmObj, nil
@@ -6104,39 +6279,30 @@ func (c *converter) tplContextDef() HelperDef {
 	}
 }
 
-func nodeToCUELiteral(node parse.Node) (string, error) {
-	var val any
+func nodeToCUELiteral(node parse.Node) (ast.Expr, error) {
 	switch n := node.(type) {
 	case *parse.StringNode:
-		// Use strconv.Quote to ensure single-line escaped strings.
-		// The CUE encoder may choose multi-line string literals for
-		// strings containing newlines, which breaks when embedded
-		// in string interpolations.
-		return strconv.Quote(n.Text), nil
+		return cueString(n.Text), nil
 	case *parse.NumberNode:
 		if n.IsInt {
-			val = n.Int64
+			return cueInt(int(n.Int64)), nil
 		} else if n.IsUint {
-			val = n.Uint64
+			return &ast.BasicLit{Kind: token.INT, Value: strconv.FormatUint(n.Uint64, 10)}, nil
 		} else if n.IsFloat {
-			val = n.Float64
-		} else {
-			return "", fmt.Errorf("unsupported number node: %s", node)
+			return cueFloat(n.Float64), nil
 		}
+		return nil, fmt.Errorf("unsupported number node: %s", node)
 	case *parse.BoolNode:
-		val = n.True
+		if n.True {
+			return ast.NewIdent("true"), nil
+		}
+		return ast.NewIdent("false"), nil
 	default:
-		return "", fmt.Errorf("unsupported literal node: %s", node)
+		return nil, fmt.Errorf("unsupported literal node: %s", node)
 	}
-	v := sharedCueCtx.Encode(val)
-	b, err := format.Node(v.Syntax())
-	if err != nil {
-		return "", fmt.Errorf("formatting CUE literal: %w", err)
-	}
-	return strings.TrimSpace(string(b)), nil
 }
 
-func fieldToCUE(contextObjects map[string]string, ident []string) (string, string) {
+func fieldToCUE(contextObjects map[string]string, ident []string) (ast.Expr, string) {
 	var helmObj string
 	if len(ident) > 0 {
 		if mapped, ok := contextObjects[ident[0]]; ok {
@@ -6144,10 +6310,14 @@ func fieldToCUE(contextObjects map[string]string, ident []string) (string, strin
 			ident = append([]string{mapped}, ident[1:]...)
 		}
 	}
-	return strings.Join(ident, "."), helmObj
+	var e ast.Expr = ast.NewIdent(ident[0])
+	for _, p := range ident[1:] {
+		e = selExpr(e, p)
+	}
+	return e, helmObj
 }
 
-func (c *converter) fieldToCUEInContext(ident []string) (string, string) {
+func (c *converter) fieldToCUEInContext(ident []string) (ast.Expr, string) {
 	if len(ident) > 0 {
 		if _, ok := c.config.ContextObjects[ident[0]]; ok {
 			return fieldToCUE(c.config.ContextObjects, ident)
@@ -6179,10 +6349,7 @@ func (c *converter) fieldToCUEInContext(ident []string) (string, string) {
 			c.trackFieldRef(top.helmObj, fullPath)
 			c.usedContextObjects[top.helmObj] = true
 		}
-		if len(ident) > 0 {
-			return exprToText(top.cueExpr) + "." + strings.Join(ident, "."), ""
-		}
-		return exprToText(top.cueExpr), ""
+		return buildSelChain(top.cueExpr, ident), ""
 	}
 	return fieldToCUE(c.config.ContextObjects, ident)
 }
@@ -6543,6 +6710,12 @@ var helperExprDefRe = regexp.MustCompile(`(#[a-zA-Z][a-zA-Z0-9_]*)`)
 
 // helperExprLetRe matches let-bound identifiers in CUE expressions.
 var helperExprLetRe = regexp.MustCompile(`\blet\s+(_[a-zA-Z][a-zA-Z0-9_]*)\s*=`)
+
+// nonzeroArgUndoRe matches the _args: field declaration inside _nonzero
+// struct patterns, handling both inline ({_args:) and multi-line
+// ({\n<whitespace>_args:) formats. The replacement restores #arg: as
+// the field key while leaving other _args references unchanged.
+var nonzeroArgUndoRe = regexp.MustCompile(`(\{\s*)_args:`)
 
 // validateHelperExpr checks whether a helper body expression is valid CUE
 // by stubbing out all referenced identifiers and definitions.

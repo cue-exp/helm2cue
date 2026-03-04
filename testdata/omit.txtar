@@ -20,7 +20,10 @@ import "list"
 
 output: [
 	{
-		spec: (_omit & {#arg: #values.pdb, #omit: ["enabled"]})
+		spec: (_omit & {
+			#arg: #values.pdb
+			#omit: ["enabled"]
+		})
 	},
 ]
 _omit: {

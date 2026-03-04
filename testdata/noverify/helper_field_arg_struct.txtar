@@ -32,6 +32,9 @@ _myapp_labels: {
 
 output: [
 	{
-		metadata: labels: _myapp_labels & {#arg: #values.meta, _}
+		metadata: labels: _myapp_labels & {
+			#arg: #values.meta
+			_
+		}
 	},
 ]

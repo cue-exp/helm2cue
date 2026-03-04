@@ -28,8 +28,17 @@ import (
 output: [
 	{
 		metadata: {
-			if (_nonzero & {#arg: (_omit & {#arg: #values.annotations, #omit: ["enabled"]}), _}) {
-				annotations: (_omit & {#arg: #values.annotations, #omit: ["enabled"]})
+			if (_nonzero & {
+				#arg: (_omit & {
+					#arg: #values.annotations
+					#omit: ["enabled"]
+				})
+				_
+			}) {
+				annotations: (_omit & {
+					#arg: #values.annotations
+					#omit: ["enabled"]
+				})
 			}
 		}
 	},

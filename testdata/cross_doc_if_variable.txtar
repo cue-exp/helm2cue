@@ -45,7 +45,10 @@ import "struct"
 }
 
 output: [
-	if (_nonzero & {#arg: #values.enabled, _}) {
+	if (_nonzero & {
+		#arg: #values.enabled
+		_
+	}) {
 		{
 			apiVersion: "v1"
 			kind:       "ConfigMap"
@@ -54,7 +57,10 @@ output: [
 		}
 	},
 	{
-		if (_nonzero & {#arg: #values.enabled, _}) {
+		if (_nonzero & {
+			#arg: #values.enabled
+			_
+		}) {
 			apiVersion: "v1", kind: "ConfigMap", metadata: name: "\(#values.name)-two", data: key: "two"
 		}
 	},

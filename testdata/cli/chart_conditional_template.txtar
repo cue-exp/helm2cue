@@ -40,7 +40,10 @@ converted 2/2 templates from test-app
 package test_app
 
 hpa: [
-	if (_nonzero & {#arg: #values.autoscaling.enabled, _}) {
+	if (_nonzero & {
+		#arg: #values.autoscaling.enabled
+		_
+	}) {
 		{
 			apiVersion: "autoscaling/v2"
 			kind:       "HorizontalPodAutoscaler"
