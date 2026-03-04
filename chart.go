@@ -26,6 +26,7 @@ import (
 	"text/template/parse"
 
 	"cuelang.org/go/cue"
+	"cuelang.org/go/cue/ast"
 	"cuelang.org/go/cue/cuecontext"
 	cueerrors "cuelang.org/go/cue/errors"
 	"cuelang.org/go/cue/format"
@@ -430,11 +431,6 @@ func writeCUEFile(path string, data []byte) error {
 
 // writeHelpersCUE writes helpers.cue with helper definitions.
 func writeHelpersCUE(outDir, pkgName string, r *convertResult, needsNonzero bool, usedHelpers map[string]HelperDef, hasDynamicInclude bool) error {
-	var buf bytes.Buffer
-	buf.WriteString(generatedHeader)
-	fmt.Fprintf(&buf, "package %s\n\n", pkgName)
-
-	// Collect all imports for resolveImportsAndFormat.
 	allImports := make(map[string]bool)
 	if needsNonzero {
 		allImports["struct"] = true
@@ -448,10 +444,17 @@ func writeHelpersCUE(outDir, pkgName string, r *convertResult, needsNonzero bool
 		allImports[pkg] = true
 	}
 
+	var allDecls []ast.Decl
+
+	// Helper definitions: _nonzero, _trunc, etc. Build as single text
+	// block with blank line separators so the parser preserves spacing.
+	var defsBuf bytes.Buffer
 	if needsNonzero {
 		def := sentinelizeImportsRaw(nonzeroDef, []string{"struct"}, nil)
-		buf.WriteString(def)
-		buf.WriteString("\n")
+		if defsBuf.Len() > 0 {
+			defsBuf.WriteByte('\n')
+		}
+		defsBuf.WriteString(def)
 	}
 
 	var helperNames []string
@@ -462,21 +465,32 @@ func writeHelpersCUE(outDir, pkgName string, r *convertResult, needsNonzero bool
 	for _, name := range helperNames {
 		h := usedHelpers[name]
 		def := sentinelizeImportsRaw(h.Def, h.Imports, nil)
-		buf.WriteString(def)
-		buf.WriteString("\n")
+		if defsBuf.Len() > 0 {
+			defsBuf.WriteByte('\n')
+		}
+		defsBuf.WriteString(def)
 	}
 
+	if defsBuf.Len() > 0 {
+		defsDecls, err := bodyToDecls(defsBuf.String())
+		if err != nil {
+			return fmt.Errorf("parsing helper defs: %w", err)
+		}
+		allDecls = append(allDecls, defsDecls...)
+	}
+
+	// Helper expressions (template name → CUE expression).
+	var exprBuf bytes.Buffer
 	for _, name := range r.helperOrder {
 		cueName := r.helperExprs[name]
 		if cueExpr, ok := r.helpers[cueName]; ok {
-			// Validate this helper in isolation before including it.
 			if err := validateHelperExpr(cueExpr, r.imports); err != nil {
-				fmt.Fprintf(&buf, "%s: _\n", cueName)
+				fmt.Fprintf(&exprBuf, "%s: _\n", cueName)
 			} else {
-				fmt.Fprintf(&buf, "%s: %s\n", cueName, cueExpr)
+				fmt.Fprintf(&exprBuf, "%s: %s\n", cueName, cueExpr)
 			}
 		} else {
-			fmt.Fprintf(&buf, "%s: _\n", cueName)
+			fmt.Fprintf(&exprBuf, "%s: _\n", cueName)
 		}
 	}
 
@@ -489,7 +503,7 @@ func writeHelpersCUE(outDir, pkgName string, r *convertResult, needsNonzero bool
 		}
 		slices.Sort(undefs)
 		for _, cueName := range undefs {
-			fmt.Fprintf(&buf, "%s: _\n", cueName)
+			fmt.Fprintf(&exprBuf, "%s: _\n", cueName)
 		}
 	}
 
@@ -509,18 +523,29 @@ func writeHelpersCUE(outDir, pkgName string, r *convertResult, needsNonzero bool
 		slices.SortFunc(entries, func(a, b helperEntry) int {
 			return strings.Compare(a.origName, b.origName)
 		})
-		buf.WriteString("_helpers: {\n")
+		exprBuf.WriteString("_helpers: {\n")
 		for _, e := range entries {
-			fmt.Fprintf(&buf, "\t%s: %s\n", strconv.Quote(e.origName), e.cueName)
+			fmt.Fprintf(&exprBuf, "\t%s: %s\n", strconv.Quote(e.origName), e.cueName)
 		}
-		buf.WriteString("}\n")
+		exprBuf.WriteString("}\n")
 	}
 
-	formatted, err := resolveImportsAndFormat(buf.Bytes(), allImports)
+	if exprBuf.Len() > 0 {
+		exprDecls, err := bodyToDecls(exprBuf.String())
+		if err != nil {
+			return fmt.Errorf("parsing helper expressions: %w", err)
+		}
+		allDecls = appendSectionDecls(allDecls, exprDecls)
+	}
+
+	f := &ast.File{
+		Decls: append([]ast.Decl{&ast.Package{Name: ast.NewIdent(pkgName)}}, allDecls...),
+	}
+	formatted, err := formatResolvedFile(f, allImports)
 	if err != nil {
 		return fmt.Errorf("formatting helpers.cue: %w", err)
 	}
-	return os.WriteFile(filepath.Join(outDir, "helpers.cue"), formatted, 0o644)
+	return os.WriteFile(filepath.Join(outDir, "helpers.cue"), append([]byte(generatedHeader), formatted...), 0o644)
 }
 
 // buildValuesSchemaCUE generates the #values schema block (without a package
@@ -641,22 +666,28 @@ func writeDataCUE(outDir, pkgName string) error {
 // into a single list. Each template produces a list, so results concatenates
 // them using list.FlattenN.
 func writeResultsCUE(outDir, pkgName string, results []templateResult) error {
-	var buf bytes.Buffer
-	buf.WriteString(generatedHeader)
-	fmt.Fprintf(&buf, "package %s\n\n", pkgName)
 	listSentinel := importSentinel("list")
-	fmt.Fprintf(&buf, "results: %s.FlattenN([\n", listSentinel)
+	var resultsText bytes.Buffer
+	fmt.Fprintf(&resultsText, "results: %s.FlattenN([\n", listSentinel)
 	for _, tr := range results {
-		fmt.Fprintf(&buf, "\t%s,\n", tr.fieldName)
+		fmt.Fprintf(&resultsText, "\t%s,\n", tr.fieldName)
 	}
-	buf.WriteString("], 1)\n")
+	resultsText.WriteString("], 1)")
 
+	resultsDecls, err := bodyToDecls(resultsText.String())
+	if err != nil {
+		return fmt.Errorf("parsing results body: %w", err)
+	}
+
+	f := &ast.File{
+		Decls: append([]ast.Decl{&ast.Package{Name: ast.NewIdent(pkgName)}}, resultsDecls...),
+	}
 	allImports := map[string]bool{"list": true}
-	formatted, err := resolveImportsAndFormat(buf.Bytes(), allImports)
+	formatted, err := formatResolvedFile(f, allImports)
 	if err != nil {
 		return fmt.Errorf("formatting results.cue: %w", err)
 	}
-	return os.WriteFile(filepath.Join(outDir, "results.cue"), formatted, 0o644)
+	return os.WriteFile(filepath.Join(outDir, "results.cue"), append([]byte(generatedHeader), formatted...), 0o644)
 }
 
 // writeContextCUE writes context.cue with definitions for used context objects.
@@ -758,18 +789,21 @@ func writeTemplateCUE(outDir, pkgName, fieldName string, r *convertResult) error
 		return nil
 	}
 
-	var buf bytes.Buffer
-	buf.WriteString(generatedHeader)
-	fmt.Fprintf(&buf, "package %s\n\n", pkgName)
+	// Parse the field assignment into AST declarations.
+	fieldText := fmt.Sprintf("%s: %s", fieldName, body)
+	fieldDecls, err := bodyToDecls(fieldText)
+	if err != nil {
+		return fmt.Errorf("parsing %s body: %w", fieldName, err)
+	}
 
-	// The body from mergeChartDocResults is already the list contents.
-	fmt.Fprintf(&buf, "%s: %s\n", fieldName, body)
-
-	formatted, err := resolveImportsAndFormat(buf.Bytes(), r.imports)
+	f := &ast.File{
+		Decls: append([]ast.Decl{&ast.Package{Name: ast.NewIdent(pkgName)}}, fieldDecls...),
+	}
+	formatted, err := formatResolvedFile(f, r.imports)
 	if err != nil {
 		return fmt.Errorf("formatting %s.cue: %w", fieldName, err)
 	}
-	return os.WriteFile(filepath.Join(outDir, fieldName+".cue"), formatted, 0o644)
+	return os.WriteFile(filepath.Join(outDir, fieldName+".cue"), append([]byte(generatedHeader), formatted...), 0o644)
 }
 
 // validateTemplateBody checks that a template body is syntactically valid CUE.
