@@ -1,0 +1,36 @@
+# When a template ranges over a .Values field via a variable, the
+# inferred schema should place the isRange flag on the correct node.
+# Currently the range target resolves through the variable but the
+# field tree marks the wrong ancestor as the range target, causing
+# values.yaml validation to fail.
+# https://github.com/cue-exp/helm2cue/issues/79
+! exec helm2cue chart chartdir outdir
+cmp stderr stderr.golden
+
+-- chartdir/Chart.yaml --
+apiVersion: v2
+name: test-app
+version: 0.1.0
+-- chartdir/values.yaml --
+server:
+  enabled: true
+  paths:
+    - /foo
+    - /bar
+-- chartdir/templates/test.yaml --
+{{- if .Values.server.enabled -}}
+{{- $srv := .Values.server -}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test
+data:
+  paths:
+    {{- range $p := $srv.paths }}
+    - {{ $p }}
+    {{- end }}
+{{- end }}
+-- stderr.golden --
+error: values.yaml does not satisfy inferred schema: #values.server: conflicting values [...{enabled?:(bool|number|string|null),...}] and {enabled:true,paths:["/foo","/bar"]} (mismatched types list and struct)
+converted 1/1 templates from test-app
+helm2cue: values schema validation failed
