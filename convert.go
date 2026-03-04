@@ -4567,6 +4567,12 @@ func (c *converter) processRange(n *parse.RangeNode) error {
 		listLit:    bodyList,
 	})
 
+	// Snapshot localVars before body so we can detect accumulators.
+	preRangeVars := make(map[string]ast.Expr, len(c.localVars))
+	for k, v := range c.localVars {
+		preRangeVars[k] = v
+	}
+
 	savedRangeBody := c.inRangeBody
 	savedRangeDepth := c.rangeBodyStackDepth
 	c.inRangeBody = true
@@ -4589,18 +4595,81 @@ func (c *converter) processRange(n *parse.RangeNode) error {
 	}
 	c.state = savedState
 
-	compValue := c.buildComprehensionValue(bodyStruct, bodyList)
-	comp := &ast.Comprehension{
-		Clauses: clauses,
-		Value:   compValue,
+	// Detect accumulator pattern: variables that were updated via
+	// append inside the range body. Replace with list comprehensions
+	// so the range variable stays in scope.
+	for varName, preExpr := range preRangeVars {
+		curExpr := c.localVars[varName]
+		if curExpr == preExpr { // pointer equality — unchanged
+			continue
+		}
+		elem, ok := decomposeAppend(curExpr, preExpr)
+		if !ok {
+			continue
+		}
+		listComp := &ast.ListLit{Elts: []ast.Expr{
+			&ast.Comprehension{
+				Clauses: clauses,
+				Value: &ast.StructLit{Elts: []ast.Decl{
+					&ast.EmbedDecl{Expr: elem},
+				}},
+			},
+		}}
+		if isEmptyList(preExpr) {
+			c.localVars[varName] = listComp
+		} else {
+			c.localVars[varName] = binOp(token.ADD, preExpr, listComp)
+		}
 	}
-	c.appendToParent(comp)
+
+	// Emit the comprehension only if the body produced CUE output
+	// (not just accumulator assignments).
+	hasBody := len(bodyStruct.Elts) > 0 ||
+		(bodyList != nil && len(bodyList.Elts) > 0)
+	if hasBody {
+		compValue := c.buildComprehensionValue(bodyStruct, bodyList)
+		comp := &ast.Comprehension{
+			Clauses: clauses,
+			Value:   compValue,
+		}
+		c.appendToParent(comp)
+	}
 
 	c.rangeVarStack = c.rangeVarStack[:len(c.rangeVarStack)-1]
 	for _, decl := range n.Pipe.Decl {
 		delete(c.localVars, decl.Ident[0])
 	}
 	return nil
+}
+
+// decomposeAppend checks if expr is an append operation on preExpr,
+// i.e. binOp(ADD) with preExpr on one side and a single-element ListLit
+// on the other. Returns the appended element expression.
+// Handles both argument orderings:
+//   - piped form (list | append elem): preExpr + [elem]
+//   - first-command form (append list elem): elem + [preExpr]
+func decomposeAppend(expr, preExpr ast.Expr) (ast.Expr, bool) {
+	bin, ok := expr.(*ast.BinaryExpr)
+	if !ok || bin.Op != token.ADD {
+		return nil, false
+	}
+	// Case 1: preExpr + [elem] (piped form).
+	if bin.X == preExpr {
+		if list, ok := bin.Y.(*ast.ListLit); ok && len(list.Elts) == 1 {
+			return list.Elts[0], true
+		}
+	}
+	// Case 2: elem + [preExpr] (first-command form, swapped args).
+	if list, ok := bin.Y.(*ast.ListLit); ok && len(list.Elts) == 1 && list.Elts[0] == preExpr {
+		return bin.X, true
+	}
+	return nil, false
+}
+
+// isEmptyList reports whether expr is an ast.ListLit with no elements.
+func isEmptyList(expr ast.Expr) bool {
+	list, ok := expr.(*ast.ListLit)
+	return ok && len(list.Elts) == 0
 }
 
 func isListBody(nodes []parse.Node) bool {
