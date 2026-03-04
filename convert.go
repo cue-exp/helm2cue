@@ -292,8 +292,8 @@ type converter struct {
 	helperArgFieldRangeRefs     map[string][][]string // CUE helper name → range refs on #arg
 	helperArgFieldNonScalarRefs map[string][][]string // CUE helper name → nonScalar refs on #arg
 	localVars                   map[string]ast.Expr   // $varName → CUE expression
-	topLevelGuards              []string              // CUE conditions wrapping entire output
-	topLevelRange               string                // e.g. "for _, _range0 in #values.items"
+	topLevelGuards              []ast.Expr            // CUE conditions wrapping entire output
+	topLevelRange               []ast.Clause          // range clauses for top-level range
 	topLevelRangeBody           []ast.Decl            // body inside the range
 	topLevelRangeIsList         bool                  // true when range body emits YAML list items
 	imports                     map[string]bool
@@ -478,6 +478,22 @@ func buildSelChain(base ast.Expr, fields []string) ast.Expr {
 	return e
 }
 
+// exprStartsWithArg reports whether the root identifier of expr is #arg.
+func exprStartsWithArg(e ast.Expr) bool {
+	for {
+		switch x := e.(type) {
+		case *ast.Ident:
+			return x.Name == "#arg"
+		case *ast.SelectorExpr:
+			e = x.X
+		case *ast.IndexExpr:
+			e = x.X
+		default:
+			return false
+		}
+	}
+}
+
 // exprToText formats an ast.Expr to CUE text. Used as a bridge
 // for text-based contexts (block scalars, flow collections, etc.).
 func exprToText(e ast.Expr) string {
@@ -486,6 +502,24 @@ func exprToText(e ast.Expr) string {
 		panic(fmt.Sprintf("exprToText: %v", err))
 	}
 	return string(b)
+}
+
+// clausesToText formats a slice of ast.Clause to CUE text for comparison.
+func clausesToText(clauses []ast.Clause) string {
+	if len(clauses) == 0 {
+		return ""
+	}
+	var parts []string
+	for _, cl := range clauses {
+		switch c := cl.(type) {
+		case *ast.ForClause:
+			parts = append(parts, fmt.Sprintf("for %s, %s in %s",
+				exprToText(c.Key), exprToText(c.Value), exprToText(c.Source)))
+		case *ast.IfClause:
+			parts = append(parts, fmt.Sprintf("if %s", exprToText(c.Condition)))
+		}
+	}
+	return strings.Join(parts, " ")
 }
 
 // exprToGuardText formats an ast.Expr to CUE text while replacing
@@ -774,19 +808,9 @@ func declsToText(decls []ast.Decl) string {
 	return strings.TrimSpace(string(b))
 }
 
-// parseRangeClauses parses a range header string like
-// "for _, x in y" or "if guard for _, x in y" into ast.Clause slice.
-func parseRangeClauses(s string) []ast.Clause {
-	src := "[" + s + " {0}]"
-	expr := mustParseExpr(src)
-	list := expr.(*ast.ListLit)
-	comp := list.Elts[0].(*ast.Comprehension)
-	return comp.Clauses
-}
-
 // wrapInGuards wraps an expression in nested if-comprehensions for
 // use in list context.
-func wrapInGuards(expr ast.Expr, guards []string) ast.Expr {
+func wrapInGuards(expr ast.Expr, guards []ast.Expr) ast.Expr {
 	for i := len(guards) - 1; i >= 0; i-- {
 		// Comprehensions implement both ast.Decl and ast.Expr.
 		// Add them directly as decls to avoid wrapping in EmbedDecl,
@@ -800,7 +824,7 @@ func wrapInGuards(expr ast.Expr, guards []string) ast.Expr {
 		}
 		expr = &ast.Comprehension{
 			Clauses: []ast.Clause{
-				&ast.IfClause{Condition: mustParseExpr(guards[i])},
+				&ast.IfClause{Condition: guards[i]},
 			},
 			Value: &ast.StructLit{
 				Elts: []ast.Decl{elt},
@@ -887,10 +911,10 @@ type convertResult struct {
 	requiredRefs       map[string][][]string
 	rangeRefs          map[string][][]string
 	nonScalarRefs      map[string][][]string
-	topLevelGuards     []string
-	topLevelRange      string     // e.g. "for _, _range0 in #values.items"
-	topLevelRangeBody  []ast.Decl // body inside the range (no for wrapper)
-	body               []ast.Decl // template body only (no declarations)
+	topLevelGuards     []ast.Expr
+	topLevelRange      []ast.Clause // range clauses for top-level range
+	topLevelRangeBody  []ast.Decl   // body inside the range (no for wrapper)
+	body               []ast.Decl   // template body only (no declarations)
 }
 
 // parseHelpers parses helper template files into a shared tree set.
@@ -1310,7 +1334,7 @@ func mergeConvertResults(results []*convertResult) *convertResult {
 	// Check if any result has a range.
 	hasRange := false
 	for _, r := range results {
-		if r.topLevelRange != "" {
+		if len(r.topLevelRange) > 0 {
 			hasRange = true
 			break
 		}
@@ -1326,11 +1350,12 @@ func mergeConvertResults(results []*convertResult) *convertResult {
 		i := 0
 		for i < len(results) {
 			r := results[i]
-			if r.topLevelRange != "" {
+			if len(r.topLevelRange) > 0 {
 				// Group consecutive results with the same range.
-				rangeHeader := r.topLevelRange
+				rangeClauses := r.topLevelRange
+				rangeText := clausesToText(rangeClauses)
 				j := i
-				for j < len(results) && results[j].topLevelRange == rangeHeader {
+				for j < len(results) && clausesToText(results[j].topLevelRange) == rangeText {
 					j++
 				}
 				innerList := &ast.ListLit{}
@@ -1346,7 +1371,7 @@ func mergeConvertResults(results []*convertResult) *convertResult {
 				}
 				expandList(innerList)
 				comp := &ast.Comprehension{
-					Clauses: parseRangeClauses(rangeHeader),
+					Clauses: rangeClauses,
 					Value: &ast.StructLit{
 						Elts: []ast.Decl{&ast.EmbedDecl{Expr: innerList}},
 					},
@@ -1379,7 +1404,7 @@ func mergeConvertResults(results []*convertResult) *convertResult {
 		}
 		expandList(innerList)
 		comp := &ast.Comprehension{
-			Clauses: parseRangeClauses(r.topLevelRange),
+			Clauses: r.topLevelRange,
 			Value: &ast.StructLit{
 				Elts: []ast.Decl{&ast.EmbedDecl{Expr: innerList}},
 			},
@@ -1502,12 +1527,18 @@ func (c *converter) convertHelperBody(nodes []parse.Node) (string, *helperArgInf
 	// for comprehension so it doesn't get lost in helper output.
 	// List-producing ranges use a CUE list comprehension [for ...{...}]
 	// so the helper evaluates to a list, not a struct.
-	if sub.topLevelRange != "" {
+	if len(sub.topLevelRange) > 0 {
 		rangeBody := body
 		if len(sub.topLevelRangeBody) > 0 {
 			rangeBody = strings.TrimSpace(declsToText(sub.topLevelRangeBody))
 		}
-		inner := sub.topLevelRange + " {\n" + indentBlock(rangeBody, "\t") + "\n}"
+		// Sentinelize import-tagged idents before formatting to text
+		// so they survive the text roundtrip in helper body composition.
+		for _, cl := range sub.topLevelRange {
+			sentinelizeTaggedImports(cl, func(pkg string) { c.addImport(pkg) })
+		}
+		rangeText := clausesToText(sub.topLevelRange)
+		inner := rangeText + " {\n" + indentBlock(rangeBody, "\t") + "\n}"
 		if sub.topLevelRangeIsList {
 			body = "[" + inner + "]"
 			// The _nonzero guard {#arg: #arg.field, _} shadows the
@@ -1549,14 +1580,18 @@ func (c *converter) convertHelperBody(nodes []parse.Node) (string, *helperArgInf
 		// so the helper evaluates to "" when the condition is false,
 		// matching Helm's include behavior.
 		if strings.HasPrefix(body, `"`) && strings.HasSuffix(body, `"`) {
-			guard := strings.Join(sub.topLevelGuards, " && ")
+			guardTexts := make([]string, len(sub.topLevelGuards))
+			for i, g := range sub.topLevelGuards {
+				guardTexts[i] = c.exprToGuardText(g)
+			}
+			guard := strings.Join(guardTexts, " && ")
 			body = fmt.Sprintf("[if %s {\n\t%s\n}, \"\"][0]", guard, body)
 		} else {
 			var wrapped bytes.Buffer
 			indent := 0
 			for _, guard := range sub.topLevelGuards {
 				writeIndent(&wrapped, indent)
-				fmt.Fprintf(&wrapped, "if %s {\n", guard)
+				fmt.Fprintf(&wrapped, "if %s {\n", c.exprToGuardText(guard))
 				indent++
 			}
 			for _, line := range strings.Split(body, "\n") {
@@ -2812,13 +2847,17 @@ func (c *converter) processNodes(nodes []parse.Node) error {
 		if keyName != "" {
 			keyExpr = keyName
 		}
-		overExprStr := c.exprToGuardText(overExpr)
-		guard := ""
-		if helmObj != "" || strings.HasPrefix(overExprStr, "#arg") {
+		var clauses []ast.Clause
+		if helmObj != "" || exprStartsWithArg(overExpr) {
 			c.hasConditions = true
-			guard = fmt.Sprintf("if %s ", c.exprToGuardText(nonzeroExpr(overExpr)))
+			clauses = append(clauses, &ast.IfClause{Condition: nonzeroExpr(overExpr)})
 		}
-		c.topLevelRange = fmt.Sprintf("%sfor %s, %s in %s", guard, keyExpr, valName, overExprStr)
+		clauses = append(clauses, &ast.ForClause{
+			Key:    ast.NewIdent(keyExpr),
+			Value:  ast.NewIdent(valName),
+			Source: overExpr,
+		})
+		c.topLevelRange = clauses
 		c.topLevelRangeIsList = isListBody(rangeNode.List.Nodes)
 
 		savedRangeBody := c.inRangeBody
@@ -2877,19 +2916,19 @@ func (c *converter) processTopLevelIf(ifNode *parse.IfNode) (bool, error) {
 
 	// Simple if without else — use the guard optimization directly.
 	if ifNode.ElseList == nil {
-		c.topLevelGuards = append(c.topLevelGuards, c.exprToGuardText(condition))
+		c.topLevelGuards = append(c.topLevelGuards, condition)
 		return true, c.processNodes(ifNode.List.Nodes)
 	}
 
 	// Walk the else-if chain to collect branches with their guards.
 	type branch struct {
-		guards []string
+		guards []ast.Expr
 		nodes  []parse.Node
 	}
 	var branches []branch
-	negChain := []string{c.exprToGuardText(negCondition)}
+	negChain := []ast.Expr{negCondition}
 	branches = append(branches, branch{
-		guards: []string{c.exprToGuardText(condition)},
+		guards: []ast.Expr{condition},
 		nodes:  ifNode.List.Nodes,
 	})
 
@@ -2901,20 +2940,20 @@ func (c *converter) processTopLevelIf(ifNode *parse.IfNode) (bool, error) {
 				if err != nil {
 					return false, fmt.Errorf("top-level else-if condition: %w", err)
 				}
-				guards := make([]string, len(negChain)+1)
+				guards := make([]ast.Expr, len(negChain)+1)
 				copy(guards, negChain)
-				guards[len(negChain)] = c.exprToGuardText(innerCond)
+				guards[len(negChain)] = innerCond
 				branches = append(branches, branch{
 					guards: guards,
 					nodes:  innerIf.List.Nodes,
 				})
-				negChain = append(negChain, c.exprToGuardText(innerNeg))
+				negChain = append(negChain, innerNeg)
 				elseList = innerIf.ElseList
 				continue
 			}
 		}
 		// Plain else.
-		guards := make([]string, len(negChain))
+		guards := make([]ast.Expr, len(negChain))
 		copy(guards, negChain)
 		branches = append(branches, branch{
 			guards: guards,

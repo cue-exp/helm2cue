@@ -828,7 +828,7 @@ func validateTemplateBody(r *convertResult) error {
 	if len(r.topLevelGuards) > 0 {
 		for _, guard := range r.topLevelGuards {
 			writeIndent(&src, indent)
-			fmt.Fprintf(&src, "if %s {\n", guard)
+			fmt.Fprintf(&src, "if %s {\n", exprToText(guard))
 			indent++
 		}
 	}
@@ -1182,7 +1182,7 @@ func mergeChartDocResults(results []*convertResult) *convertResult {
 			return merged
 		}
 
-		if r.topLevelRange != "" {
+		if len(r.topLevelRange) > 0 {
 			// Single doc with top-level range.
 			merged.imports["list"] = true
 			rb := r.topLevelRangeBody
@@ -1194,7 +1194,7 @@ func mergeChartDocResults(results []*convertResult) *convertResult {
 			}
 			expandList(innerList)
 			comp := &ast.Comprehension{
-				Clauses: parseRangeClauses(r.topLevelRange),
+				Clauses: r.topLevelRange,
 				Value: &ast.StructLit{
 					Elts: []ast.Decl{&ast.EmbedDecl{Expr: innerList}},
 				},
@@ -1218,7 +1218,7 @@ func mergeChartDocResults(results []*convertResult) *convertResult {
 		// Multiple documents — group by range blocks.
 		hasRange := false
 		for _, r := range results {
-			if r.topLevelRange != "" {
+			if len(r.topLevelRange) > 0 {
 				hasRange = true
 				break
 			}
@@ -1232,10 +1232,11 @@ func mergeChartDocResults(results []*convertResult) *convertResult {
 			i := 0
 			for i < len(results) {
 				r := results[i]
-				if r.topLevelRange != "" {
-					rangeHeader := r.topLevelRange
+				if len(r.topLevelRange) > 0 {
+					rangeClauses := r.topLevelRange
+					rangeText := clausesToText(rangeClauses)
 					j := i
-					for j < len(results) && results[j].topLevelRange == rangeHeader {
+					for j < len(results) && clausesToText(results[j].topLevelRange) == rangeText {
 						j++
 					}
 					innerList := &ast.ListLit{}
@@ -1251,7 +1252,7 @@ func mergeChartDocResults(results []*convertResult) *convertResult {
 					}
 					expandList(innerList)
 					comp := &ast.Comprehension{
-						Clauses: parseRangeClauses(rangeHeader),
+						Clauses: rangeClauses,
 						Value: &ast.StructLit{
 							Elts: []ast.Decl{&ast.EmbedDecl{Expr: innerList}},
 						},
