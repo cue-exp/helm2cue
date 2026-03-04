@@ -14,7 +14,10 @@
 
 package main
 
-import "fmt"
+import (
+	"cuelang.org/go/cue/ast"
+	"cuelang.org/go/cue/token"
+)
 
 // lastDef is the CUE definition for extracting the last element of a list.
 const lastDef = `// _last extracts the last element of a list.
@@ -163,79 +166,87 @@ func HelmConfig() *Config {
 
 			// Sprig string functions.
 			"quote": {
-				Convert: func(expr string, _ []string) string {
-					return fmt.Sprintf(`"\(%s)"`, expr)
+				Convert: func(expr ast.Expr, _ []ast.Expr) ast.Expr {
+					return &ast.Interpolation{Elts: []ast.Expr{
+						&ast.BasicLit{Kind: token.STRING, Value: `"\(`},
+						expr,
+						&ast.BasicLit{Kind: token.STRING, Value: `)"`},
+					}}
 				},
 			},
 			"squote": {
-				Convert: func(expr string, _ []string) string {
-					return fmt.Sprintf(`"'\(%s)'"`, expr)
+				Convert: func(expr ast.Expr, _ []ast.Expr) ast.Expr {
+					return &ast.Interpolation{Elts: []ast.Expr{
+						&ast.BasicLit{Kind: token.STRING, Value: `"'\(`},
+						expr,
+						&ast.BasicLit{Kind: token.STRING, Value: `)'"`},
+					}}
 				},
 			},
 			"upper": {
 				Imports: []string{"strings"},
-				Convert: func(expr string, _ []string) string {
-					return fmt.Sprintf("strings.ToUpper(%s)", expr)
+				Convert: func(expr ast.Expr, _ []ast.Expr) ast.Expr {
+					return importCall("strings", "ToUpper", expr)
 				},
 			},
 			"lower": {
 				Imports: []string{"strings"},
-				Convert: func(expr string, _ []string) string {
-					return fmt.Sprintf("strings.ToLower(%s)", expr)
+				Convert: func(expr ast.Expr, _ []ast.Expr) ast.Expr {
+					return importCall("strings", "ToLower", expr)
 				},
 			},
 			"title": {
 				Imports: []string{"strings"},
-				Convert: func(expr string, _ []string) string {
-					return fmt.Sprintf("strings.ToTitle(%s)", expr)
+				Convert: func(expr ast.Expr, _ []ast.Expr) ast.Expr {
+					return importCall("strings", "ToTitle", expr)
 				},
 			},
 			"trim": {
 				Imports: []string{"strings"},
-				Convert: func(expr string, _ []string) string {
-					return fmt.Sprintf("strings.TrimSpace(%s)", expr)
+				Convert: func(expr ast.Expr, _ []ast.Expr) ast.Expr {
+					return importCall("strings", "TrimSpace", expr)
 				},
 			},
 			"trimPrefix": {
 				Nargs:   1,
 				Imports: []string{"strings"},
-				Convert: func(expr string, args []string) string {
-					return fmt.Sprintf("strings.TrimPrefix(%s, %s)", expr, args[0])
+				Convert: func(expr ast.Expr, args []ast.Expr) ast.Expr {
+					return importCall("strings", "TrimPrefix", expr, args[0])
 				},
 			},
 			"trimSuffix": {
 				Nargs:   1,
 				Imports: []string{"strings"},
-				Convert: func(expr string, args []string) string {
-					return fmt.Sprintf("strings.TrimSuffix(%s, %s)", expr, args[0])
+				Convert: func(expr ast.Expr, args []ast.Expr) ast.Expr {
+					return importCall("strings", "TrimSuffix", expr, args[0])
 				},
 			},
 			"contains": {
 				Nargs:   1,
 				Imports: []string{"strings"},
-				Convert: func(expr string, args []string) string {
-					return fmt.Sprintf("strings.Contains(%s, %s)", expr, args[0])
+				Convert: func(expr ast.Expr, args []ast.Expr) ast.Expr {
+					return importCall("strings", "Contains", expr, args[0])
 				},
 			},
 			"hasPrefix": {
 				Nargs:   1,
 				Imports: []string{"strings"},
-				Convert: func(expr string, args []string) string {
-					return fmt.Sprintf("strings.HasPrefix(%s, %s)", expr, args[0])
+				Convert: func(expr ast.Expr, args []ast.Expr) ast.Expr {
+					return importCall("strings", "HasPrefix", expr, args[0])
 				},
 			},
 			"hasSuffix": {
 				Nargs:   1,
 				Imports: []string{"strings"},
-				Convert: func(expr string, args []string) string {
-					return fmt.Sprintf("strings.HasSuffix(%s, %s)", expr, args[0])
+				Convert: func(expr ast.Expr, args []ast.Expr) ast.Expr {
+					return importCall("strings", "HasSuffix", expr, args[0])
 				},
 			},
 			"replace": {
 				Nargs:   2,
 				Imports: []string{"strings"},
-				Convert: func(expr string, args []string) string {
-					return fmt.Sprintf("strings.Replace(%s, %s, %s, -1)", expr, args[0], args[1])
+				Convert: func(expr ast.Expr, args []ast.Expr) ast.Expr {
+					return importCall("strings", "Replace", expr, args[0], args[1], cueInt(-1))
 				},
 			},
 			"trunc": {
@@ -246,176 +257,180 @@ func HelmConfig() *Config {
 					Def:     truncDef,
 					Imports: []string{"strings"},
 				}},
-				Convert: func(expr string, args []string) string {
-					return fmt.Sprintf("(_trunc & {#in: %s, #n: %s}).out", expr, args[0])
+				Convert: func(expr ast.Expr, args []ast.Expr) ast.Expr {
+					return helperOutExpr("_trunc",
+						&ast.Field{Label: ast.NewIdent("#in"), Value: expr},
+						&ast.Field{Label: ast.NewIdent("#n"), Value: args[0]},
+					)
 				},
 			},
 			"b64enc": {
 				Imports: []string{"encoding/base64"},
-				Convert: func(expr string, _ []string) string {
-					return fmt.Sprintf("base64.Encode(null, %s)", expr)
+				Convert: func(expr ast.Expr, _ []ast.Expr) ast.Expr {
+					return importCall("encoding/base64", "Encode", ast.NewIdent("null"), expr)
 				},
 			},
 			"b64dec": {
 				Imports: []string{"encoding/base64"},
-				Convert: func(expr string, _ []string) string {
-					return fmt.Sprintf("base64.Decode(null, %s)", expr)
+				Convert: func(expr ast.Expr, _ []ast.Expr) ast.Expr {
+					return importCall("encoding/base64", "Decode", ast.NewIdent("null"), expr)
 				},
 			},
 			"int": {
-				Convert: func(expr string, _ []string) string {
-					return fmt.Sprintf("int & %s", expr)
+				Convert: func(expr ast.Expr, _ []ast.Expr) ast.Expr {
+					return binOp(token.AND, ast.NewIdent("int"), expr)
 				},
 			},
 			"int64": {
-				Convert: func(expr string, _ []string) string {
-					return fmt.Sprintf("int & %s", expr)
+				Convert: func(expr ast.Expr, _ []ast.Expr) ast.Expr {
+					return binOp(token.AND, ast.NewIdent("int"), expr)
 				},
 			},
 			"float64": {
-				Convert: func(expr string, _ []string) string {
-					return fmt.Sprintf("number & %s", expr)
+				Convert: func(expr ast.Expr, _ []ast.Expr) ast.Expr {
+					return binOp(token.AND, ast.NewIdent("number"), expr)
 				},
 			},
 			"atoi": {
 				Imports: []string{"strconv"},
-				Convert: func(expr string, _ []string) string {
-					return fmt.Sprintf("strconv.Atoi(%s)", expr)
+				Convert: func(expr ast.Expr, _ []ast.Expr) ast.Expr {
+					return importCall("strconv", "Atoi", expr)
 				},
 			},
 			"ceil": {
 				Imports: []string{"math"},
-				Convert: func(expr string, _ []string) string {
-					return fmt.Sprintf("math.Ceil(%s)", expr)
+				Convert: func(expr ast.Expr, _ []ast.Expr) ast.Expr {
+					return importCall("math", "Ceil", expr)
 				},
 			},
 			"floor": {
 				Imports: []string{"math"},
-				Convert: func(expr string, _ []string) string {
-					return fmt.Sprintf("math.Floor(%s)", expr)
+				Convert: func(expr ast.Expr, _ []ast.Expr) ast.Expr {
+					return importCall("math", "Floor", expr)
 				},
 			},
 			"round": {
 				Imports: []string{"math"},
-				Convert: func(expr string, _ []string) string {
-					return fmt.Sprintf("math.Round(%s)", expr)
+				Convert: func(expr ast.Expr, _ []ast.Expr) ast.Expr {
+					return importCall("math", "Round", expr)
 				},
 			},
 			"add": {
 				Nargs: 1,
-				Convert: func(expr string, args []string) string {
-					return fmt.Sprintf("(%s + %s)", expr, args[0])
+				Convert: func(expr ast.Expr, args []ast.Expr) ast.Expr {
+					return binOp(token.ADD, expr, args[0])
 				},
 			},
 			"sub": {
 				Nargs: 1,
-				Convert: func(expr string, args []string) string {
-					return fmt.Sprintf("(%s - %s)", args[0], expr)
+				Convert: func(expr ast.Expr, args []ast.Expr) ast.Expr {
+					return binOp(token.SUB, args[0], expr)
 				},
 			},
 			"mul": {
 				Nargs: 1,
-				Convert: func(expr string, args []string) string {
-					return fmt.Sprintf("(%s * %s)", expr, args[0])
+				Convert: func(expr ast.Expr, args []ast.Expr) ast.Expr {
+					return binOp(token.MUL, expr, args[0])
 				},
 			},
 			"div": {
 				Nargs: 1,
-				Convert: func(expr string, args []string) string {
-					return fmt.Sprintf("div(%s, %s)", args[0], expr)
+				Convert: func(expr ast.Expr, args []ast.Expr) ast.Expr {
+					return callExpr("div", args[0], expr)
 				},
 			},
 			"mod": {
 				Nargs: 1,
-				Convert: func(expr string, args []string) string {
-					return fmt.Sprintf("mod(%s, %s)", args[0], expr)
+				Convert: func(expr ast.Expr, args []ast.Expr) ast.Expr {
+					return callExpr("mod", args[0], expr)
 				},
 			},
 			"join": {
 				Nargs:     1,
 				NonScalar: true,
 				Imports:   []string{"strings"},
-				Convert: func(expr string, args []string) string {
-					return fmt.Sprintf("strings.Join(%s, %s)", expr, args[0])
+				Convert: func(expr ast.Expr, args []ast.Expr) ast.Expr {
+					return importCall("strings", "Join", expr, args[0])
 				},
 			},
 			"splitList": {
 				Nargs:   1,
 				Imports: []string{"strings"},
-				Convert: func(expr string, args []string) string {
-					return fmt.Sprintf("strings.Split(%s, %s)", expr, args[0])
+				Convert: func(expr ast.Expr, args []ast.Expr) ast.Expr {
+					return importCall("strings", "Split", expr, args[0])
 				},
 			},
 			"sortAlpha": {
 				NonScalar: true,
 				Imports:   []string{"list"},
-				Convert: func(expr string, _ []string) string {
-					return fmt.Sprintf("list.SortStrings(%s)", expr)
+				Convert: func(expr ast.Expr, _ []ast.Expr) ast.Expr {
+					return importCall("list", "SortStrings", expr)
 				},
 			},
 			"concat": {
 				NonScalar: true,
 				Imports:   []string{"list"},
-				Convert: func(expr string, _ []string) string {
-					return fmt.Sprintf("list.Concat(%s)", expr)
+				Convert: func(expr ast.Expr, _ []ast.Expr) ast.Expr {
+					return importCall("list", "Concat", expr)
 				},
 			},
 			"first": {
 				NonScalar: true,
-				Convert: func(expr string, _ []string) string {
-					return fmt.Sprintf("%s[0]", expr)
+				Convert: func(expr ast.Expr, _ []ast.Expr) ast.Expr {
+					return indexExpr(expr, cueInt(0))
 				},
 			},
 			"append": {
 				Nargs:     1,
 				NonScalar: true,
-				Convert: func(expr string, args []string) string {
-					return fmt.Sprintf("%s + [%s]", expr, args[0])
+				Convert: func(expr ast.Expr, args []ast.Expr) ast.Expr {
+					return binOp(token.ADD, expr, &ast.ListLit{Elts: []ast.Expr{args[0]}})
 				},
 			},
 			"regexMatch": {
 				Nargs:   1,
 				Imports: []string{"regexp"},
-				Convert: func(expr string, args []string) string {
-					return fmt.Sprintf("regexp.Match(%s, %s)", args[0], expr)
+				Convert: func(expr ast.Expr, args []ast.Expr) ast.Expr {
+					return importCall("regexp", "Match", args[0], expr)
 				},
 			},
 			"regexReplaceAll": {
 				Nargs:   2,
 				Imports: []string{"regexp"},
-				Convert: func(expr string, args []string) string {
-					return fmt.Sprintf("regexp.ReplaceAll(%s, %s, %s)", args[0], expr, args[1])
+				Convert: func(expr ast.Expr, args []ast.Expr) ast.Expr {
+					return importCall("regexp", "ReplaceAll", args[0], expr, args[1])
 				},
 			},
 			"regexFind": {
 				Nargs:   1,
 				Imports: []string{"regexp"},
-				Convert: func(expr string, args []string) string {
-					return fmt.Sprintf("regexp.Find(%s, %s)", args[0], expr)
+				Convert: func(expr ast.Expr, args []ast.Expr) ast.Expr {
+					return importCall("regexp", "Find", args[0], expr)
 				},
 			},
 			"base": {
 				Imports: []string{"path"},
-				Convert: func(expr string, _ []string) string {
-					return fmt.Sprintf("path.Base(%s, path.Unix)", expr)
+				Convert: func(expr ast.Expr, _ []ast.Expr) ast.Expr {
+					return importCall("path", "Base", expr, importSel("path", "Unix"))
 				},
 			},
 			"dir": {
 				Imports: []string{"path"},
-				Convert: func(expr string, _ []string) string {
-					return fmt.Sprintf("path.Dir(%s, path.Unix)", expr)
+				Convert: func(expr ast.Expr, _ []ast.Expr) ast.Expr {
+					return importCall("path", "Dir", expr, importSel("path", "Unix"))
 				},
 			},
 			"ext": {
 				Imports: []string{"path"},
-				Convert: func(expr string, _ []string) string {
-					return fmt.Sprintf("path.Ext(%s, path.Unix)", expr)
+				Convert: func(expr ast.Expr, _ []ast.Expr) ast.Expr {
+					return importCall("path", "Ext", expr, importSel("path", "Unix"))
 				},
 			},
 			"sha256sum": {
 				Imports: []string{"crypto/sha256", "encoding/hex"},
-				Convert: func(expr string, _ []string) string {
-					return fmt.Sprintf("hex.Encode(sha256.Sum256(%s))", expr)
+				Convert: func(expr ast.Expr, _ []ast.Expr) ast.Expr {
+					return importCall("encoding/hex", "Encode",
+						importCall("crypto/sha256", "Sum256", expr))
 				},
 			},
 			"last": {
@@ -424,8 +439,10 @@ func HelmConfig() *Config {
 					Name: "_last",
 					Def:  lastDef,
 				}},
-				Convert: func(expr string, _ []string) string {
-					return fmt.Sprintf("(_last & {#in: %s}).out", expr)
+				Convert: func(expr ast.Expr, _ []ast.Expr) ast.Expr {
+					return helperOutExpr("_last",
+						&ast.Field{Label: ast.NewIdent("#in"), Value: expr},
+					)
 				},
 			},
 			"compact": {
@@ -434,8 +451,10 @@ func HelmConfig() *Config {
 					Name: "_compact",
 					Def:  compactDef,
 				}},
-				Convert: func(expr string, _ []string) string {
-					return fmt.Sprintf("(_compact & {#in: %s}).out", expr)
+				Convert: func(expr ast.Expr, _ []ast.Expr) ast.Expr {
+					return helperOutExpr("_compact",
+						&ast.Field{Label: ast.NewIdent("#in"), Value: expr},
+					)
 				},
 			},
 			"uniq": {
@@ -446,8 +465,10 @@ func HelmConfig() *Config {
 					Def:     uniqDef,
 					Imports: []string{"list"},
 				}},
-				Convert: func(expr string, _ []string) string {
-					return fmt.Sprintf("(_uniq & {#in: %s}).out", expr)
+				Convert: func(expr ast.Expr, _ []ast.Expr) ast.Expr {
+					return helperOutExpr("_uniq",
+						&ast.Field{Label: ast.NewIdent("#in"), Value: expr},
+					)
 				},
 			},
 			"mustUniq": {
@@ -458,30 +479,58 @@ func HelmConfig() *Config {
 					Def:     uniqDef,
 					Imports: []string{"list"},
 				}},
-				Convert: func(expr string, _ []string) string {
-					return fmt.Sprintf("(_uniq & {#in: %s}).out", expr)
+				Convert: func(expr ast.Expr, _ []ast.Expr) ast.Expr {
+					return helperOutExpr("_uniq",
+						&ast.Field{Label: ast.NewIdent("#in"), Value: expr},
+					)
 				},
 			},
 			"keys": {
 				NonScalar: true,
-				Convert: func(expr string, _ []string) string {
-					return fmt.Sprintf("[ for k, _ in %s {k}]", expr)
+				Convert: func(expr ast.Expr, _ []ast.Expr) ast.Expr {
+					return &ast.ListLit{Elts: []ast.Expr{
+						&ast.Comprehension{
+							Clauses: []ast.Clause{
+								&ast.ForClause{
+									Key:    ast.NewIdent("k"),
+									Value:  ast.NewIdent("_"),
+									Source: expr,
+								},
+							},
+							Value: &ast.StructLit{Elts: []ast.Decl{
+								&ast.EmbedDecl{Expr: ast.NewIdent("k")},
+							}},
+						},
+					}}
 				},
 			},
 			"values": {
 				NonScalar: true,
-				Convert: func(expr string, _ []string) string {
-					return fmt.Sprintf("[ for _, v in %s {v}]", expr)
+				Convert: func(expr ast.Expr, _ []ast.Expr) ast.Expr {
+					return &ast.ListLit{Elts: []ast.Expr{
+						&ast.Comprehension{
+							Clauses: []ast.Clause{
+								&ast.ForClause{
+									Key:    ast.NewIdent("_"),
+									Value:  ast.NewIdent("v"),
+									Source: expr,
+								},
+							},
+							Value: &ast.StructLit{Elts: []ast.Decl{
+								&ast.EmbedDecl{Expr: ast.NewIdent("v")},
+							}},
+						},
+					}}
 				},
 			},
 			"set": {
-				Convert: func(_ string, _ []string) string {
-					return "" // sentinel: handled specially as unsupported
+				Convert: func(_ ast.Expr, _ []ast.Expr) ast.Expr {
+					return nil // sentinel: handled specially as unsupported
 				},
 			},
 			"lookup": {
-				Convert: func(_ string, _ []string) string {
-					return "" // sentinel: handled specially as unsupported
+				Convert: func(_ ast.Expr, _ []ast.Expr) ast.Expr {
+					return nil // sentinel: handled specially as unsupported
 				},
 			},
 		},

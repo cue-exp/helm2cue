@@ -32,6 +32,6 @@ output: [
 		apiVersion: "v1"
 		kind:       "ConfigMap"
 		metadata: name: "test"
-		data: port:     "\(int & *#values.metrics.port | #values.containerPorts.http)"
+		data: port:     "\(int & (*#values.metrics.port | #values.containerPorts.http))"
 	},
 ]

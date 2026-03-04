@@ -26,8 +26,12 @@ output: [
 		kind:       "ConfigMap"
 		metadata: name: "test"
 		data: {
-			allkeys: [for k, _ in #values.labels {k}]
-			allvals: [for _, v in #values.labels {v}]
+			allkeys: [for k, _ in #values.labels {
+				k
+			}]
+			allvals: [for _, v in #values.labels {
+				v
+			}]
 		}
 	},
 ]

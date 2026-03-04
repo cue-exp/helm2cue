@@ -46,7 +46,7 @@ type PipelineFunc struct {
 
 	// Convert transforms (pipedExpr, args) → CUE expression.
 	// If nil, the function is a no-op (expr passes through unchanged).
-	Convert func(expr string, args []string) string
+	Convert func(expr ast.Expr, args []ast.Expr) ast.Expr
 
 	// Passthrough means the function also acts as a no-op when used in
 	// first-command position with a single argument: {{ func expr }}.
@@ -247,7 +247,7 @@ const (
 // but might need to become a block if deeper content follows.
 type pendingResolution struct {
 	key     string
-	value   string
+	value   ast.Expr
 	comment string
 	indent  int  // YAML indent of the key
 	rawKey  bool // true for dynamic keys like (expr) — don't run through cueKey()
@@ -255,7 +255,7 @@ type pendingResolution struct {
 
 // rangeContext tracks what dot (.) refers to inside a with or range block.
 type rangeContext struct {
-	cueExpr     string   // CUE expression for dot rebinding (e.g. "#values.tls")
+	cueExpr     ast.Expr // CUE expression for dot rebinding (e.g. #values.tls)
 	helmObj     string   // context object name (e.g. "Values"); empty if not context-derived
 	basePath    []string // field path prefix within context object (e.g. ["tls"])
 	argBasePath []string // when non-nil, range target is #arg-based; sub-field accesses track back to #arg
@@ -313,33 +313,33 @@ type converter struct {
 	remainingNodes      []parse.Node       // sibling nodes not yet processed (set by processBodyNodes)
 
 	// Deferred action: action expression waiting to see if next text starts with ": " (dynamic key).
-	pendingActionExpr    string
+	pendingActionExpr    ast.Expr
 	pendingActionComment string
 	nextActionYamlIndent int // YAML indent hint from trailing whitespace line
 
 	// Deferred list item: bare "- " followed by an action, waiting
 	// to see if more content follows on the same line.
-	pendingListItemExpr    string
+	pendingListItemExpr    ast.Expr
 	pendingListItemComment string
 
 	// Inline interpolation state: when text and actions are interleaved
 	// on a single YAML line, accumulate fragments for CUE string
 	// interpolation (e.g. "- --{{ $key }}={{ $value }}" → "--\(_key0)=\(_val0)").
-	inlineParts      []string // non-nil when inline mode is active
-	inlineSuffix     string   // appended after closing quote (e.g. "," for list items)
-	inlineKey        string   // field key for inline value (empty for bare/list)
-	inlineRawKey     bool     // true for dynamic keys (parenthesized)
-	nextNodeIsInline bool     // true when next sibling is an action/text node (not a control structure)
-	skipCount        int      // nodes to skip in body/top-level processing loops (consumed by processInlineIf)
+	inlineParts      []inlinePart // non-nil when inline mode is active
+	inlineSuffix     string       // appended after closing quote (e.g. "," for list items)
+	inlineKey        string       // field key for inline value (empty for bare/list)
+	inlineRawKey     bool         // true for dynamic keys (parenthesized)
+	nextNodeIsInline bool         // true when next sibling is an action/text node (not a control structure)
+	skipCount        int          // nodes to skip in body/top-level processing loops (consumed by processInlineIf)
 
 	// Flow collection accumulation: when a YAML flow mapping/sequence
 	// spans multiple AST nodes (template actions inside), accumulate
 	// text with sentinel placeholders until the collection is complete.
-	flowParts  []string // non-nil when flow accumulation is active
-	flowExprs  []string // CUE expressions for sentinels
-	flowDepth  int      // current bracket nesting depth
-	flowSuffix string   // appended after CUE result (",\n" or "\n")
-	flowKey    string   // field key for flow value (empty for bare/list)
+	flowParts  []string   // non-nil when flow accumulation is active
+	flowExprs  []ast.Expr // CUE expressions for sentinels
+	flowDepth  int        // current bracket nesting depth
+	flowSuffix string     // appended after CUE result (",\n" or "\n")
+	flowKey    string     // field key for flow value (empty for bare/list)
 
 	// Block scalar accumulation state (for "- |", "key: |", etc.).
 	blockScalarLines       []string // non-nil when accumulating block scalar content
@@ -369,6 +369,172 @@ func mustParseExpr(s string) ast.Expr {
 		panic(fmt.Sprintf("mustParseExpr(%q): %v", s, err))
 	}
 	return expr
+}
+
+// --- AST builder helpers ---
+
+// importTaggedIdent creates an identifier tagged with an import spec.
+// astutil.Sanitize uses the tag to insert the import statement.
+func importTaggedIdent(pkg string) *ast.Ident {
+	short := pkg
+	if idx := strings.LastIndex(pkg, "/"); idx >= 0 {
+		short = pkg[idx+1:]
+	}
+	ident := ast.NewIdent(short)
+	ident.Node = ast.NewImport(nil, pkg)
+	return ident
+}
+
+// importCall builds pkg.Fn(args...) with an import-tagged receiver.
+func importCall(pkg, fn string, args ...ast.Expr) *ast.CallExpr {
+	return &ast.CallExpr{
+		Fun: &ast.SelectorExpr{
+			X:   importTaggedIdent(pkg),
+			Sel: ast.NewIdent(fn),
+		},
+		Args: args,
+	}
+}
+
+// importSel builds pkg.Field (a selector, not a call).
+func importSel(pkg, field string) *ast.SelectorExpr {
+	return &ast.SelectorExpr{
+		X:   importTaggedIdent(pkg),
+		Sel: ast.NewIdent(field),
+	}
+}
+
+// binOp builds x op y.
+func binOp(op token.Token, x, y ast.Expr) *ast.BinaryExpr {
+	return &ast.BinaryExpr{Op: op, X: x, Y: y}
+}
+
+// indexExpr builds x[idx].
+func indexExpr(x ast.Expr, idx ast.Expr) *ast.IndexExpr {
+	return &ast.IndexExpr{X: x, Index: idx}
+}
+
+// selExpr builds x.sel (non-import selector).
+func selExpr(x ast.Expr, sel string) *ast.SelectorExpr {
+	return &ast.SelectorExpr{X: x, Sel: ast.NewIdent(sel)}
+}
+
+// callExpr builds fn(args...) for CUE builtins (div, mod, len, error).
+func callExpr(fn string, args ...ast.Expr) *ast.CallExpr {
+	return &ast.CallExpr{Fun: ast.NewIdent(fn), Args: args}
+}
+
+// cueInt builds a *ast.BasicLit integer.
+func cueInt(n int) *ast.BasicLit {
+	return &ast.BasicLit{Kind: token.INT, Value: strconv.Itoa(n)}
+}
+
+// exprToText formats an ast.Expr to CUE text. Used as a bridge
+// for text-based contexts (block scalars, flow collections, etc.).
+func exprToText(e ast.Expr) string {
+	b, err := format.Node(e, format.Simplify())
+	if err != nil {
+		panic(fmt.Sprintf("exprToText: %v", err))
+	}
+	return string(b)
+}
+
+// helperOutExpr builds (helper & {#in: expr}).out.
+func helperOutExpr(helper string, fields ...ast.Decl) ast.Expr {
+	return selExpr(
+		binOp(token.AND,
+			ast.NewIdent(helper),
+			&ast.StructLit{Elts: fields},
+		),
+		"out",
+	)
+}
+
+// inlinePart represents a fragment of an inline string interpolation.
+// Either text (literal string content) or expr (CUE expression for \(...)).
+type inlinePart struct {
+	text string   // literal text fragment (when expr == nil)
+	expr ast.Expr // expression for interpolation (when non-nil)
+}
+
+// toInlinePart converts an ast.Expr to an inlinePart. If the expression
+// is a string literal, its content is inlined as text.
+func toInlinePart(e ast.Expr) inlinePart {
+	if lit, ok := e.(*ast.BasicLit); ok && lit.Kind == token.STRING {
+		s, err := strconv.Unquote(lit.Value)
+		if err == nil {
+			return inlinePart{text: escapeCUEString(s)}
+		}
+	}
+	return inlinePart{expr: e}
+}
+
+// partsToExpr builds an ast.Expr from inline parts. If all parts are text,
+// returns a BasicLit string. Otherwise builds an ast.Interpolation.
+func partsToExpr(parts []inlinePart) ast.Expr {
+	hasExpr := false
+	for _, p := range parts {
+		if p.expr != nil {
+			hasExpr = true
+			break
+		}
+	}
+	if !hasExpr {
+		var sb strings.Builder
+		sb.WriteByte('"')
+		for _, p := range parts {
+			sb.WriteString(p.text)
+		}
+		sb.WriteByte('"')
+		return &ast.BasicLit{Kind: token.STRING, Value: sb.String()}
+	}
+	// Build interpolation: alternating text and expression elements.
+	// CUE's AST embeds interpolation markers in the BasicLit values:
+	// the text before an expression ends with \( and the text after
+	// starts with ).
+	//
+	// When an expression part is itself an ast.Interpolation, flatten
+	// it: merge its inner text/expression elements into the outer
+	// interpolation rather than nesting "\(inner)" inside "\(outer)".
+	var elts []ast.Expr
+	var textBuf strings.Builder
+	textBuf.WriteByte('"')
+	for _, p := range parts {
+		if p.expr == nil {
+			textBuf.WriteString(p.text)
+		} else if interp, ok := p.expr.(*ast.Interpolation); ok {
+			// Flatten nested interpolation by merging its elements.
+			// Inner BasicLit values include the outer quotes ("...") and
+			// interpolation markers (\( and )). Strip the leading " from
+			// the first element and trailing " from the last, then merge
+			// everything into our textBuf/elts.
+			for i, elt := range interp.Elts {
+				if lit, ok := elt.(*ast.BasicLit); ok && lit.Kind == token.STRING {
+					val := lit.Value
+					if i == 0 {
+						val = strings.TrimPrefix(val, `"`)
+					}
+					if i == len(interp.Elts)-1 {
+						val = strings.TrimSuffix(val, `"`)
+					}
+					textBuf.WriteString(val)
+				} else {
+					elts = append(elts, &ast.BasicLit{Kind: token.STRING, Value: textBuf.String()})
+					textBuf.Reset()
+					elts = append(elts, elt)
+				}
+			}
+		} else {
+			textBuf.WriteString(`\(`)
+			elts = append(elts, &ast.BasicLit{Kind: token.STRING, Value: textBuf.String()})
+			textBuf.Reset()
+			elts = append(elts, p.expr)
+			textBuf.WriteByte(')')
+		}
+	}
+	textBuf.WriteByte('"')
+	elts = append(elts, &ast.BasicLit{Kind: token.STRING, Value: textBuf.String()})
+	return &ast.Interpolation{Elts: elts}
 }
 
 // flushComments attaches any pending comments to the given declaration.
@@ -1217,7 +1383,7 @@ func (c *converter) convertHelperBody(nodes []parse.Node) (string, *helperArgInf
 	// track field accesses for schema generation.
 	useArg := sub.config.RootExpr == ""
 	if useArg {
-		sub.rangeVarStack = []rangeContext{{cueExpr: "#arg"}}
+		sub.rangeVarStack = []rangeContext{{cueExpr: ast.NewIdent("#arg")}}
 		sub.helperArgRefs = [][]string{}
 		sub.helperArgRequiredRefs = [][]string{}
 		sub.helperArgRangeRefs = [][]string{}
@@ -1665,31 +1831,30 @@ func (c *converter) closeOneFrame() {
 
 // flushPendingListItem emits any deferred list item action as a standalone list element.
 func (c *converter) flushPendingListItem() {
-	if c.pendingListItemExpr == "" {
+	if c.pendingListItemExpr == nil {
 		return
 	}
-	expr := c.pendingListItemExpr
-	c.pendingListItemExpr = ""
+	e := c.pendingListItemExpr
+	c.pendingListItemExpr = nil
 	c.pendingListItemComment = ""
 
-	e := mustParseExpr(expr)
 	c.appendListExpr(e)
 }
 
 // flushPendingAction emits any deferred action expression as a standalone expression.
 func (c *converter) flushPendingAction() {
 	c.flushPendingListItem()
-	if c.pendingActionExpr == "" {
+	if c.pendingActionExpr == nil {
 		return
 	}
 	expr := c.pendingActionExpr
-	c.pendingActionExpr = ""
+	c.pendingActionExpr = nil
 	c.pendingActionComment = ""
 
 	if c.inListContext() {
-		c.appendListExpr(mustParseExpr(expr))
+		c.appendListExpr(expr)
 	} else {
-		c.emitEmbed(expr)
+		c.emitEmbed(exprToText(expr))
 	}
 }
 
@@ -1701,9 +1866,9 @@ func (c *converter) flushDeferred() {
 	d := c.deferredKV
 	c.deferredKV = nil
 	if d.rawKey {
-		c.emitRawField(d.key, d.value)
+		c.emitRawField(d.key, exprToText(d.value))
 	} else {
-		c.emitField(d.key, d.value)
+		c.emitField(d.key, exprToText(d.value))
 	}
 }
 
@@ -1713,7 +1878,7 @@ func (c *converter) finalizeInline() {
 	if c.inlineParts == nil {
 		return
 	}
-	result := `"` + strings.Join(c.inlineParts, "") + `"`
+	result := exprToText(partsToExpr(c.inlineParts))
 	key := c.inlineKey
 	rawKey := c.inlineRawKey
 	suffix := c.inlineSuffix
@@ -1834,7 +1999,7 @@ func (c *converter) finalizeFlow() {
 	for i, expr := range exprs {
 		sentinel := fmt.Sprintf("__h2c_%d__", i)
 		quoted := fmt.Sprintf("%q", sentinel)
-		cueStr = strings.Replace(cueStr, quoted, expr, 1)
+		cueStr = strings.Replace(cueStr, quoted, exprToText(expr), 1)
 	}
 
 	if key != "" {
@@ -1928,7 +2093,7 @@ func (c *converter) resolveDeferredAsBlock(childYamlIndent int) {
 	// Create struct body with the deferred value as an embed.
 	bodyStruct := &ast.StructLit{
 		Elts: []ast.Decl{
-			&ast.EmbedDecl{Expr: mustParseExpr(d.value)},
+			&ast.EmbedDecl{Expr: d.value},
 		},
 	}
 
@@ -1956,12 +2121,12 @@ func (c *converter) emitTextNode(text []byte) {
 	}
 
 	// Check if text starts as a continuation of a deferred list item action.
-	if c.pendingListItemExpr != "" {
+	if c.pendingListItemExpr != nil {
 		if s[0] != '\n' {
-			c.inlineParts = []string{inlineExpr(c.pendingListItemExpr)}
+			c.inlineParts = []inlinePart{toInlinePart(c.pendingListItemExpr)}
 			c.inlineSuffix = ","
 			c.inlineKey = ""
-			c.pendingListItemExpr = ""
+			c.pendingListItemExpr = nil
 			c.pendingListItemComment = ""
 		} else {
 			c.flushPendingListItem()
@@ -1979,26 +2144,26 @@ func (c *converter) emitTextNode(text []byte) {
 			c.inlineKey = d.key
 			c.inlineRawKey = false
 		}
-		c.inlineParts = []string{inlineExpr(d.value)}
+		c.inlineParts = []inlinePart{toInlinePart(d.value)}
 	}
 
 	// Handle inline continuation.
 	if c.inlineParts != nil {
-		if c.pendingActionExpr != "" {
-			c.inlineParts = append(c.inlineParts, inlineExpr(c.pendingActionExpr))
-			c.pendingActionExpr = ""
+		if c.pendingActionExpr != nil {
+			c.inlineParts = append(c.inlineParts, toInlinePart(c.pendingActionExpr))
+			c.pendingActionExpr = nil
 			c.pendingActionComment = ""
 		}
 		idx := strings.IndexByte(s, '\n')
 		if idx < 0 {
-			c.inlineParts = append(c.inlineParts, escapeCUEString(s))
+			c.inlineParts = append(c.inlineParts, inlinePart{text: escapeCUEString(s)})
 			if len(c.remainingNodes) > 0 && nodeHasNindent(c.remainingNodes[0]) {
 				c.finalizeInline()
 			}
 			return
 		}
 		if idx > 0 {
-			c.inlineParts = append(c.inlineParts, escapeCUEString(s[:idx]))
+			c.inlineParts = append(c.inlineParts, inlinePart{text: escapeCUEString(s[:idx])})
 		}
 		c.finalizeInline()
 		s = s[idx:]
@@ -2087,12 +2252,12 @@ func (c *converter) emitTextNode(text []byte) {
 		}
 
 		// Check if pending action should be resolved as dynamic key.
-		if c.pendingActionExpr != "" {
+		if c.pendingActionExpr != nil {
 			if strings.HasPrefix(content, ": ") || content == ":" {
 				c.state = statePendingKey
-				c.pendingKey = "(" + c.pendingActionExpr + ")"
+				c.pendingKey = "(" + exprToText(c.pendingActionExpr) + ")"
 				c.pendingKeyInd = c.nextActionYamlIndent
-				c.pendingActionExpr = ""
+				c.pendingActionExpr = nil
 				c.pendingActionComment = ""
 				if content == ":" {
 					continue
@@ -2183,7 +2348,7 @@ func (c *converter) emitTextNode(text []byte) {
 			} else if continuesInline && val != "" {
 				c.inlineKey = key
 				c.inlineRawKey = false
-				c.inlineParts = []string{escapeCUEString(val)}
+				c.inlineParts = []inlinePart{{text: escapeCUEString(val)}}
 			} else {
 				c.emitField(key, yamlToCUE(val, 0))
 			}
@@ -2195,7 +2360,7 @@ func (c *converter) emitTextNode(text []byte) {
 		} else if continuesInline {
 			c.inlineKey = ""
 			c.inlineRawKey = false
-			c.inlineParts = []string{escapeCUEString(trimmed)}
+			c.inlineParts = []inlinePart{{text: escapeCUEString(trimmed)}}
 			if c.inListContext() {
 				c.inlineSuffix = ","
 			}
@@ -2305,7 +2470,7 @@ func (c *converter) processListItem(trimmed string, yamlIndent int, isLastLine, 
 				isListItem: true,
 			})
 			c.inlineKey = key
-			c.inlineParts = []string{escapeCUEString(val)}
+			c.inlineParts = []inlinePart{{text: escapeCUEString(val)}}
 		} else {
 			// Open struct, emit first field.
 			itemStruct := &ast.StructLit{}
@@ -2346,7 +2511,7 @@ func (c *converter) processListItem(trimmed string, yamlIndent int, isLastLine, 
 	} else if continuesInline {
 		// Scalar list item continues into next AST node — start inline.
 		c.inlineKey = ""
-		c.inlineParts = []string{escapeCUEString(strings.TrimSpace(content))}
+		c.inlineParts = []inlinePart{{text: escapeCUEString(strings.TrimSpace(content))}}
 		c.inlineSuffix = ","
 	} else {
 		// Simple scalar list item.
@@ -2377,7 +2542,7 @@ func (c *converter) processRangeListItem(content string, yamlIndent int, isLastL
 		} else if continuesInline && val != "" {
 			// Value continues into next AST node — start inline.
 			c.inlineKey = key
-			c.inlineParts = []string{escapeCUEString(val)}
+			c.inlineParts = []inlinePart{{text: escapeCUEString(val)}}
 		} else {
 			c.emitField(key, yamlToCUE(val, 0))
 		}
@@ -2394,7 +2559,7 @@ func (c *converter) processRangeListItem(content string, yamlIndent int, isLastL
 	} else if continuesInline {
 		// Scalar value continues into next AST node — start inline.
 		c.inlineKey = ""
-		c.inlineParts = []string{escapeCUEString(strings.TrimSpace(content))}
+		c.inlineParts = []inlinePart{{text: escapeCUEString(strings.TrimSpace(content))}}
 	} else {
 		// Simple scalar value — emit directly.
 		c.emitEmbed(strconv.Quote(strings.TrimSpace(content)))
@@ -2494,7 +2659,7 @@ func (c *converter) processNodes(nodes []parse.Node) error {
 			valName = fmt.Sprintf("_range%d", blockIdx)
 		}
 
-		ctx := rangeContext{cueExpr: valName}
+		ctx := rangeContext{cueExpr: ast.NewIdent(valName)}
 		if helmObj != "" && fieldPath != nil {
 			ctx.helmObj = helmObj
 			ctx.basePath = fieldPath
@@ -2874,13 +3039,13 @@ func (c *converter) emitActionExpr(expr string, comment string) {
 	if c.flowParts != nil {
 		sentinel := fmt.Sprintf("__h2c_%d__", len(c.flowExprs))
 		c.flowParts = append(c.flowParts, sentinel)
-		c.flowExprs = append(c.flowExprs, expr)
+		c.flowExprs = append(c.flowExprs, mustParseExpr(expr))
 		return
 	}
 
 	// If inline accumulation is active, append the expression.
 	if c.inlineParts != nil {
-		c.inlineParts = append(c.inlineParts, inlineExpr(expr))
+		c.inlineParts = append(c.inlineParts, toInlinePart(mustParseExpr(expr)))
 		return
 	}
 
@@ -2898,14 +3063,14 @@ func (c *converter) emitActionExpr(expr string, comment string) {
 
 	// If a list item action is pending and another action follows,
 	// the item is a concatenation — start inline accumulation.
-	if c.pendingListItemExpr != "" {
+	if c.pendingListItemExpr != nil {
 		c.inlineKey = ""
-		c.inlineParts = []string{inlineExpr(c.pendingListItemExpr)}
+		c.inlineParts = []inlinePart{toInlinePart(c.pendingListItemExpr)}
 		c.inlineSuffix = ","
-		c.pendingListItemExpr = ""
+		c.pendingListItemExpr = nil
 		c.pendingListItemComment = ""
 		// Append current action to inline parts and return.
-		c.inlineParts = append(c.inlineParts, inlineExpr(expr))
+		c.inlineParts = append(c.inlineParts, toInlinePart(mustParseExpr(expr)))
 		return
 	}
 
@@ -2916,14 +3081,14 @@ func (c *converter) emitActionExpr(expr string, comment string) {
 	if c.state == statePendingKey {
 		if c.pendingKey == "" {
 			// Defer list item — more content may follow on this line.
-			c.pendingListItemExpr = expr
+			c.pendingListItemExpr = mustParseExpr(expr)
 			c.pendingListItemComment = comment
 			c.state = stateNormal
 		} else {
 			// Defer the resolution — deeper content may follow.
 			c.deferredKV = &pendingResolution{
 				key:     c.pendingKey,
-				value:   expr,
+				value:   mustParseExpr(expr),
 				comment: comment,
 				indent:  c.pendingKeyInd,
 				rawKey:  strings.HasPrefix(c.pendingKey, "("),
@@ -2933,7 +3098,7 @@ func (c *converter) emitActionExpr(expr string, comment string) {
 		}
 	} else {
 		// Standalone expression — defer in case next text starts with ": " (dynamic key).
-		c.pendingActionExpr = expr
+		c.pendingActionExpr = mustParseExpr(expr)
 		c.pendingActionComment = comment
 	}
 }
@@ -3280,8 +3445,8 @@ func (c *converter) processIfMultiListItems(
 // parts that follow an inline IfNode on the same YAML line (up to the first
 // newline or non-inline node). Returns the collected parts and how many
 // sibling nodes were consumed.
-func (c *converter) collectInlineSuffix() ([]string, int, error) {
-	var parts []string
+func (c *converter) collectInlineSuffix() ([]inlinePart, int, error) {
+	var parts []inlinePart
 	consumed := 0
 	for _, sib := range c.remainingNodes {
 		switch t := sib.(type) {
@@ -3289,12 +3454,12 @@ func (c *converter) collectInlineSuffix() ([]string, int, error) {
 			s := string(t.Text)
 			idx := strings.IndexByte(s, '\n')
 			if idx < 0 {
-				parts = append(parts, escapeCUEString(s))
+				parts = append(parts, inlinePart{text: escapeCUEString(s)})
 				consumed++
 				continue
 			}
 			if idx > 0 {
-				parts = append(parts, escapeCUEString(s[:idx]))
+				parts = append(parts, inlinePart{text: escapeCUEString(s[:idx])})
 			}
 			// Trim the consumed prefix so the post-newline
 			// remainder (next line's content) is processed
@@ -3309,7 +3474,7 @@ func (c *converter) collectInlineSuffix() ([]string, int, error) {
 			if helmObj != "" {
 				c.usedContextObjects[helmObj] = true
 			}
-			parts = append(parts, inlineExpr(expr))
+			parts = append(parts, toInlinePart(mustParseExpr(expr)))
 			consumed++
 		case *parse.TemplateNode:
 			cueName, helmObj, err := c.handleInclude(t.Name, t.Pipe)
@@ -3319,14 +3484,14 @@ func (c *converter) collectInlineSuffix() ([]string, int, error) {
 			if helmObj != "" {
 				c.usedContextObjects[helmObj] = true
 			}
-			parts = append(parts, inlineExpr(cueName))
+			parts = append(parts, toInlinePart(mustParseExpr(cueName)))
 			consumed++
 		case *parse.RangeNode:
 			joinExpr, err := c.rangeToInlineExpr(t)
 			if err != nil {
 				return nil, 0, err
 			}
-			parts = append(parts, inlineExpr(joinExpr))
+			parts = append(parts, toInlinePart(mustParseExpr(joinExpr)))
 			consumed++
 		default:
 			return parts, consumed, nil
@@ -3337,12 +3502,12 @@ func (c *converter) collectInlineSuffix() ([]string, int, error) {
 
 // branchToInlineParts converts an IfNode branch's body nodes into inline
 // string parts suitable for embedding in a CUE string interpolation.
-func (c *converter) branchToInlineParts(nodes []parse.Node) ([]string, error) {
-	var parts []string
+func (c *converter) branchToInlineParts(nodes []parse.Node) ([]inlinePart, error) {
+	var parts []inlinePart
 	for _, node := range nodes {
 		switch t := node.(type) {
 		case *parse.TextNode:
-			parts = append(parts, escapeCUEString(string(t.Text)))
+			parts = append(parts, inlinePart{text: escapeCUEString(string(t.Text))})
 		case *parse.ActionNode:
 			expr, helmObj, err := c.actionToCUE(t)
 			if err != nil {
@@ -3351,7 +3516,7 @@ func (c *converter) branchToInlineParts(nodes []parse.Node) ([]string, error) {
 			if helmObj != "" {
 				c.usedContextObjects[helmObj] = true
 			}
-			parts = append(parts, inlineExpr(expr))
+			parts = append(parts, toInlinePart(mustParseExpr(expr)))
 		case *parse.TemplateNode:
 			cueName, helmObj, err := c.handleInclude(t.Name, t.Pipe)
 			if err != nil {
@@ -3360,7 +3525,7 @@ func (c *converter) branchToInlineParts(nodes []parse.Node) ([]string, error) {
 			if helmObj != "" {
 				c.usedContextObjects[helmObj] = true
 			}
-			parts = append(parts, inlineExpr(cueName))
+			parts = append(parts, toInlinePart(mustParseExpr(cueName)))
 		}
 	}
 	return parts, nil
@@ -3383,9 +3548,9 @@ func (c *converter) processInlineIf(n *parse.IfNode) error {
 	c.inlineRawKey = false
 
 	// Flush any pending action into prefix.
-	if c.pendingActionExpr != "" {
-		prefix = append(prefix, inlineExpr(c.pendingActionExpr))
-		c.pendingActionExpr = ""
+	if c.pendingActionExpr != nil {
+		prefix = append(prefix, toInlinePart(c.pendingActionExpr))
+		c.pendingActionExpr = nil
 		c.pendingActionComment = ""
 	}
 
@@ -3409,11 +3574,11 @@ func (c *converter) processInlineIf(n *parse.IfNode) error {
 	}
 
 	// Build if-branch value.
-	allParts := make([]string, 0, len(prefix)+len(ifParts)+len(suffixParts))
+	allParts := make([]inlinePart, 0, len(prefix)+len(ifParts)+len(suffixParts))
 	allParts = append(allParts, prefix...)
 	allParts = append(allParts, ifParts...)
 	allParts = append(allParts, suffixParts...)
-	ifValue := `"` + strings.Join(allParts, "") + `"`
+	ifValue := exprToText(partsToExpr(allParts))
 
 	// Emit if comprehension.
 	c.emitInlineComprehension(condition, key, rawKey, ifValue)
@@ -3428,7 +3593,7 @@ func (c *converter) processInlineIf(n *parse.IfNode) error {
 		allParts = append(allParts, prefix...)
 		allParts = append(allParts, elseParts...)
 		allParts = append(allParts, suffixParts...)
-		elseValue := `"` + strings.Join(allParts, "") + `"`
+		elseValue := exprToText(partsToExpr(allParts))
 
 		c.emitInlineComprehension(negCondition, key, rawKey, elseValue)
 	}
@@ -3473,7 +3638,7 @@ func (c *converter) rangeToInlineExpr(n *parse.RangeNode) (string, error) {
 	}
 
 	// Push range context so branchToInlineParts resolves {{ . }} correctly.
-	ctx := rangeContext{cueExpr: valName}
+	ctx := rangeContext{cueExpr: ast.NewIdent(valName)}
 	c.rangeVarStack = append(c.rangeVarStack, ctx)
 
 	// Convert body to inline parts.
@@ -3488,7 +3653,14 @@ func (c *converter) rangeToInlineExpr(n *parse.RangeNode) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	bodyStr := strings.Join(bodyParts, "")
+	// Format body parts as the inner content of a CUE string literal.
+	// partsToExpr produces a quoted string like `"text\(expr)text"`;
+	// we extract the inner content (without outer quotes) for embedding.
+	bodyExprStr := exprToText(partsToExpr(bodyParts))
+	// Strip the outer quotes to get the raw interpolation body.
+	if len(bodyExprStr) >= 2 && bodyExprStr[0] == '"' && bodyExprStr[len(bodyExprStr)-1] == '"' {
+		bodyExprStr = bodyExprStr[1 : len(bodyExprStr)-1]
+	}
 
 	// Build strings.Join expression.
 	stringsRef := c.importRef("strings")
@@ -3498,7 +3670,7 @@ func (c *converter) rangeToInlineExpr(n *parse.RangeNode) (string, error) {
 	}
 	return fmt.Sprintf(
 		`%s.Join([for %s, %s in %s {"%s"}], "")`,
-		stringsRef, keyExpr, valName, overExpr, bodyStr,
+		stringsRef, keyExpr, valName, overExpr, bodyExprStr,
 	), nil
 }
 
@@ -3514,9 +3686,9 @@ func (c *converter) processInlineRange(n *parse.RangeNode) error {
 	c.inlineRawKey = false
 
 	// Flush any pending action into prefix.
-	if c.pendingActionExpr != "" {
-		prefix = append(prefix, inlineExpr(c.pendingActionExpr))
-		c.pendingActionExpr = ""
+	if c.pendingActionExpr != nil {
+		prefix = append(prefix, toInlinePart(c.pendingActionExpr))
+		c.pendingActionExpr = nil
 		c.pendingActionComment = ""
 	}
 
@@ -3526,7 +3698,7 @@ func (c *converter) processInlineRange(n *parse.RangeNode) error {
 	}
 
 	// Append as interpolation to prefix.
-	prefix = append(prefix, inlineExpr(joinExpr))
+	prefix = append(prefix, toInlinePart(mustParseExpr(joinExpr)))
 
 	// Collect remaining suffix from sibling nodes.
 	suffixParts, consumed, err := c.collectInlineSuffix()
@@ -3536,11 +3708,11 @@ func (c *converter) processInlineRange(n *parse.RangeNode) error {
 	c.skipCount = consumed
 
 	// Emit the complete string value.
-	allParts := make([]string, 0, len(prefix)+len(suffixParts))
+	allParts := make([]inlinePart, 0, len(prefix)+len(suffixParts))
 	allParts = append(allParts, prefix...)
 	allParts = append(allParts, suffixParts...)
 
-	value := `"` + strings.Join(allParts, "") + `"`
+	value := exprToText(partsToExpr(allParts))
 	if key != "" {
 		if rawKey {
 			c.emitRawField(key, value)
@@ -3795,7 +3967,7 @@ func (c *converter) processWith(n *parse.WithNode) error {
 	// Push context for dot rebinding inside the with body.
 	helmObj, basePath := c.withPipeContext(n.Pipe)
 	c.rangeVarStack = append(c.rangeVarStack, rangeContext{
-		cueExpr:  rawExpr,
+		cueExpr:  mustParseExpr(rawExpr),
 		helmObj:  helmObj,
 		basePath: basePath,
 	})
@@ -4013,7 +4185,7 @@ func (c *converter) processRange(n *parse.RangeNode) error {
 
 	inList := len(c.stack) > 0 && c.stack[len(c.stack)-1].isList
 
-	ctx := rangeContext{cueExpr: valName}
+	ctx := rangeContext{cueExpr: ast.NewIdent(valName)}
 	if isList && helmObj != "" && fieldPath != nil {
 		ctx.helmObj = helmObj
 		ctx.basePath = fieldPath
@@ -4502,12 +4674,13 @@ func (c *converter) singleNodeToFieldExpr(node parse.Node) (string, string, []st
 		// Local variable (e.g. $paths := .Values.x).
 		if v.Ident[0] != "$" {
 			if localExpr, ok := c.localVars[v.Ident[0]]; ok {
-				expr := localExpr
+				localStr := localExpr
+				expr := localStr
 				if len(v.Ident) >= 2 {
 					expr += "." + strings.Join(v.Ident[1:], ".")
 				}
 				// Recover helmObj/fieldPath for range type inference.
-				parts := strings.Split(localExpr, ".")
+				parts := strings.Split(localStr, ".")
 				for helmName, cueName := range c.config.ContextObjects {
 					if parts[0] == cueName {
 						fp := append([]string(nil), parts[1:]...)
@@ -4524,7 +4697,7 @@ func (c *converter) singleNodeToFieldExpr(node parse.Node) (string, string, []st
 	}
 	if _, ok := node.(*parse.DotNode); ok {
 		if len(c.rangeVarStack) > 0 {
-			return c.rangeVarStack[len(c.rangeVarStack)-1].cueExpr, "", nil, nil
+			return exprToText(c.rangeVarStack[len(c.rangeVarStack)-1].cueExpr), "", nil, nil
 		}
 		return "", "", nil, fmt.Errorf("{{ . }} outside range/with not supported")
 	}
@@ -4555,12 +4728,15 @@ func (c *converter) applyRangePipelineFunc(pf PipelineFunc, name, expr, helmObj 
 		}
 		args = append(args, argExpr)
 	}
-	result := pf.Convert(expr, args)
-	result = c.sentinelizeImports(result, pf.Imports)
-	if result == "" {
+	astArgs := make([]ast.Expr, len(args))
+	for i, a := range args {
+		astArgs[i] = mustParseExpr(a)
+	}
+	result := pf.Convert(mustParseExpr(expr), astArgs)
+	if result == nil {
 		return "", fmt.Errorf("function %q has no CUE equivalent", name)
 	}
-	return result, nil
+	return c.sentinelizeImports(exprToText(result), pf.Imports), nil
 }
 
 func (c *converter) pipeToCUECondition(pipe *parse.PipeNode) (string, string, error) {
@@ -4629,7 +4805,7 @@ func (c *converter) conditionNodeToExpr(node parse.Node) (string, error) {
 		return fmt.Sprintf("(_nonzero & {#arg: %s, _})", baseExpr), nil
 	case *parse.DotNode:
 		if len(c.rangeVarStack) > 0 {
-			expr := c.rangeVarStack[len(c.rangeVarStack)-1].cueExpr
+			expr := exprToText(c.rangeVarStack[len(c.rangeVarStack)-1].cueExpr)
 			return fmt.Sprintf("(_nonzero & {#arg: %s, _})", expr), nil
 		}
 		if c.config.RootExpr != "" {
@@ -4700,7 +4876,7 @@ func (c *converter) conditionNodeToRawExpr(node parse.Node) (string, error) {
 		return baseExpr, nil
 	case *parse.DotNode:
 		if len(c.rangeVarStack) > 0 {
-			return c.rangeVarStack[len(c.rangeVarStack)-1].cueExpr, nil
+			return exprToText(c.rangeVarStack[len(c.rangeVarStack)-1].cueExpr), nil
 		}
 		if c.config.RootExpr != "" {
 			return c.config.RootExpr, nil
@@ -5215,7 +5391,7 @@ func (c *converter) actionToCUE(n *parse.ActionNode) (expr string, helmObj strin
 			}
 		} else if _, ok := first.Args[0].(*parse.DotNode); ok {
 			if len(c.rangeVarStack) > 0 {
-				expr = c.rangeVarStack[len(c.rangeVarStack)-1].cueExpr
+				expr = exprToText(c.rangeVarStack[len(c.rangeVarStack)-1].cueExpr)
 			} else if c.config.RootExpr != "" {
 				expr = c.config.RootExpr
 			} else {
@@ -5340,8 +5516,16 @@ func (c *converter) actionToCUE(n *parse.ActionNode) (expr string, helmObj strin
 							append([]string(nil), f.Ident...))
 					}
 				}
-				expr = pf.Convert(expr, args)
-				expr = c.sentinelizeImports(expr, pf.Imports)
+				astArgs := make([]ast.Expr, len(args))
+				for ai, a := range args {
+					astArgs[ai] = mustParseExpr(a)
+				}
+				astResult := pf.Convert(mustParseExpr(expr), astArgs)
+				if astResult != nil {
+					expr = c.sentinelizeImports(exprToText(astResult), pf.Imports)
+				} else {
+					expr = ""
+				}
 				for _, h := range pf.Helpers {
 					c.usedHelpers[h.Name] = h
 				}
@@ -5400,12 +5584,16 @@ func (c *converter) actionToCUE(n *parse.ActionNode) (expr string, helmObj strin
 					return "", "", extractErr
 				}
 			}
-			result := pf.Convert(expr, args)
-			if result == "" {
+			astPipeArgs := make([]ast.Expr, len(args))
+			for ai, a := range args {
+				astPipeArgs[ai] = mustParseExpr(a)
+			}
+			result := pf.Convert(mustParseExpr(expr), astPipeArgs)
+			if result == nil {
 				// Sentinel for unsupported functions (e.g. lookup, tpl).
 				return "", "", fmt.Errorf("function %q has no CUE equivalent and cannot be converted", id.Ident)
 			}
-			expr = c.sentinelizeImports(result, pf.Imports)
+			expr = c.sentinelizeImports(exprToText(result), pf.Imports)
 			for _, h := range pf.Helpers {
 				c.usedHelpers[h.Name] = h
 			}
@@ -5583,7 +5771,7 @@ func (c *converter) nodeToExpr(node parse.Node) (string, string, error) {
 		return "false", "", nil
 	case *parse.DotNode:
 		if len(c.rangeVarStack) > 0 {
-			return c.rangeVarStack[len(c.rangeVarStack)-1].cueExpr, "", nil
+			return exprToText(c.rangeVarStack[len(c.rangeVarStack)-1].cueExpr), "", nil
 		}
 		if c.config.RootExpr != "" {
 			return c.config.RootExpr, "", nil
@@ -5723,8 +5911,16 @@ func (c *converter) convertSubPipe(pipe *parse.PipeNode) (string, string, error)
 						}
 						args = append(args, lit)
 					}
-					expr = pf.Convert(expr, args)
-					expr = c.sentinelizeImports(expr, pf.Imports)
+					astSubArgs := make([]ast.Expr, len(args))
+					for ai, a := range args {
+						astSubArgs[ai] = mustParseExpr(a)
+					}
+					subResult := pf.Convert(mustParseExpr(expr), astSubArgs)
+					if subResult != nil {
+						expr = c.sentinelizeImports(exprToText(subResult), pf.Imports)
+					} else {
+						expr = ""
+					}
 					for _, h := range pf.Helpers {
 						c.usedHelpers[h.Name] = h
 					}
@@ -5788,11 +5984,15 @@ func (c *converter) convertSubPipe(pipe *parse.PipeNode) (string, string, error)
 				}
 				args = append(args, lit)
 			}
-			result := pf.Convert(expr, args)
-			if result == "" {
+			astSubPipeArgs := make([]ast.Expr, len(args))
+			for ai, a := range args {
+				astSubPipeArgs[ai] = mustParseExpr(a)
+			}
+			result := pf.Convert(mustParseExpr(expr), astSubPipeArgs)
+			if result == nil {
 				return "", "", fmt.Errorf("unsupported pipe node: %s", pipe)
 			}
-			expr = c.sentinelizeImports(result, pf.Imports)
+			expr = c.sentinelizeImports(exprToText(result), pf.Imports)
 			for _, h := range pf.Helpers {
 				c.usedHelpers[h.Name] = h
 			}
@@ -5955,7 +6155,7 @@ func (c *converter) fieldToCUEInContext(ident []string) (string, string) {
 	}
 	if len(c.rangeVarStack) > 0 {
 		top := c.rangeVarStack[len(c.rangeVarStack)-1]
-		if top.cueExpr == "#arg" && c.helperArgRefs != nil {
+		if exprToText(top.cueExpr) == "#arg" && c.helperArgRefs != nil {
 			ref := append([]string(nil), ident...)
 			c.helperArgRefs = append(c.helperArgRefs, ref)
 			if !c.suppressRequired {
@@ -5979,8 +6179,10 @@ func (c *converter) fieldToCUEInContext(ident []string) (string, string) {
 			c.trackFieldRef(top.helmObj, fullPath)
 			c.usedContextObjects[top.helmObj] = true
 		}
-		prefixed := append([]string{top.cueExpr}, ident...)
-		return strings.Join(prefixed, "."), ""
+		if len(ident) > 0 {
+			return exprToText(top.cueExpr) + "." + strings.Join(ident, "."), ""
+		}
+		return exprToText(top.cueExpr), ""
 	}
 	return fieldToCUE(c.config.ContextObjects, ident)
 }

@@ -27,7 +27,9 @@ output: [
 		apiVersion: "v1"
 		kind:       "ConfigMap"
 		metadata: name: "test"
-		data: filtered: (_compact & {#in: #values.items}).out
+		data: filtered: (_compact & {
+			#in: #values.items
+		}).out
 	},
 ]
 _compact: {
