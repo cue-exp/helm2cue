@@ -36,24 +36,16 @@ package test_app
 
 import (
 	"encoding/yaml"
-	text_template "text/template"
+	template_9 "text/template"
 )
 
 deployment: [{
 	apiVersion: "apps/v1"
 	kind:       "Deployment"
-	metadata: {
-		name: "test"
-	}
-	spec: {
-		template: {
-			spec: {
-				volumes: [
-					{
-						name: "\(yaml.Unmarshal(text_template.Execute(#values.configMapName, _tplContext)))"
-					},
-				]
-			}
-		}
-	}
+	metadata: name: "test"
+	spec: template: spec: volumes: [
+		{
+			name: "\(yaml.Unmarshal(template_9.Execute(#values.configMapName, _tplContext)))"
+		},
+	]
 }]

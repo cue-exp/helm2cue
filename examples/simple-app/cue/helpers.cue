@@ -3,8 +3,8 @@
 package simple_app
 
 import (
-	"strings"
 	"struct"
+	"strings"
 )
 
 // _nonzero tests whether a value is "truthy" (non-zero,

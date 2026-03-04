@@ -40,13 +40,11 @@ test: [{
 		rules: [
 			{
 				host: "\(#values.hostPrefix)-\(#values.hostDomain)"
-				http: {
-					paths: [
-						{
-							path: "/"
-						},
-					]
-				}
+				http: paths: [
+					{
+						path: "/"
+					},
+				]
 			},
 		]
 		tls: [

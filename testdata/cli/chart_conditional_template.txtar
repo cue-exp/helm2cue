@@ -44,9 +44,7 @@ hpa: [
 		{
 			apiVersion: "autoscaling/v2"
 			kind:       "HorizontalPodAutoscaler"
-			metadata: {
-				name: "test"
-			}
+			metadata: name: "test"
 			spec: {
 				minReplicas: 1
 				maxReplicas: 10

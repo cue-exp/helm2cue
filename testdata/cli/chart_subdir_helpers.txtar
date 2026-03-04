@@ -90,25 +90,15 @@ deployment: [{
 	}
 	spec: {
 		replicas: *#values.replicaCount | 1
-		selector: {
-			matchLabels: {
-				app: _subdir_helpers_name
-			}
-		}
+		selector: matchLabels: app: _subdir_helpers_name
 		template: {
-			metadata: {
-				labels: {
-					app: _subdir_helpers_name
-				}
-			}
-			spec: {
-				containers: [
-					{
-						name:  _subdir_helpers_name
-						image: "nginx:latest"
-					},
-				]
-			}
+			metadata: labels: app: _subdir_helpers_name
+			spec: containers: [
+				{
+					name:  _subdir_helpers_name
+					image: "nginx:latest"
+				},
+			]
 		}
 	}
 }]

@@ -44,32 +44,28 @@ package test_app
 test: [{
 	apiVersion: "v1"
 	kind:       "Pod"
-	metadata: {
-		name: "test"
-	}
-	spec: {
-		containers: [
-			{
-				name: "test"
-				args: [
-					if (_nonzero & {#arg: #values.tls, _}) {
-						if (_nonzero & {#arg: #values.x, _}) {
-							"\"a=1\""
-						}
-						if !(_nonzero & {#arg: #values.x, _}) {
-							"\"a=2\""
-						}
-					},
-					if (_nonzero & {#arg: #values.tls, _}) {
-						if (_nonzero & {#arg: #values.x, _}) {
-							"\"b=3\""
-						}
-						if !(_nonzero & {#arg: #values.x, _}) {
-							"\"b=4\""
-						}
-					},
-				]
-			},
-		]
-	}
+	metadata: name: "test"
+	spec: containers: [
+		{
+			name: "test"
+			args: [
+				if (_nonzero & {#arg: #values.tls, _}) {
+					if (_nonzero & {#arg: #values.x, _}) {
+						"\"a=1\""
+					}
+					if !(_nonzero & {#arg: #values.x, _}) {
+						"\"a=2\""
+					}
+				},
+				if (_nonzero & {#arg: #values.tls, _}) {
+					if (_nonzero & {#arg: #values.x, _}) {
+						"\"b=3\""
+					}
+					if !(_nonzero & {#arg: #values.x, _}) {
+						"\"b=4\""
+					}
+				},
+			]
+		},
+	]
 }]

@@ -98,15 +98,11 @@ deployment: [{
 	}
 	spec: {
 		replicas: #values.replicaCount
-		template: {
-			spec: {
-				containers: [
-					{
-						name:  _dup_helpers_name
-						image: #values.image
-					},
-				]
-			}
-		}
+		template: spec: containers: [
+			{
+				name:  _dup_helpers_name
+				image: #values.image
+			},
+		]
 	}
 }]

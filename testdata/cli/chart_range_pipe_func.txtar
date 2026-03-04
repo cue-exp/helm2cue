@@ -40,14 +40,10 @@ package test_app
 test: [{
 	apiVersion: "v1"
 	kind:       "ConfigMap"
-	metadata: {
-		name: "test"
-	}
-	data: {
-		namespaces: [
-			if (_nonzero & {#arg: (_uniq & {#in: #values.denyNamespaces}).out, _}) for _, _range0 in (_uniq & {#in: #values.denyNamespaces}).out {
-				_range0
-			},
-		]
-	}
+	metadata: name: "test"
+	data: namespaces: [
+		if (_nonzero & {#arg: (_uniq & {#in: #values.denyNamespaces}).out, _}) for _, _range0 in (_uniq & {#in: #values.denyNamespaces}).out {
+			_range0
+		},
+	]
 }]
