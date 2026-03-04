@@ -841,7 +841,7 @@ func makeFlattenNCall(listSentinel string, listExpr ast.Expr) ast.Expr {
 			X:   ast.NewIdent(listSentinel),
 			Sel: ast.NewIdent("FlattenN"),
 		},
-		Args: []ast.Expr{listExpr, mustParseExpr("-1")},
+		Args: []ast.Expr{listExpr, &ast.UnaryExpr{Op: token.SUB, X: cueInt(1)}},
 	}
 }
 
@@ -3176,7 +3176,7 @@ func (c *converter) processNode(node parse.Node) error {
 		if helmObj != "" {
 			c.usedContextObjects[helmObj] = true
 		}
-		var expr ast.Expr = mustParseExpr(cueName)
+		var expr ast.Expr = ast.NewIdent(cueName)
 		if n.Pipe != nil && len(n.Pipe.Cmds) == 1 && len(n.Pipe.Cmds[0].Args) == 1 {
 			ctxArgExpr, ctxHelmObj, ctxBasePath, dictMap, ctxErr := c.convertIncludeContext(n.Pipe.Cmds[0].Args[0])
 			if ctxErr != nil {
@@ -3664,7 +3664,7 @@ func (c *converter) collectInlineSuffix() ([]inlinePart, int, error) {
 			if helmObj != "" {
 				c.usedContextObjects[helmObj] = true
 			}
-			parts = append(parts, toInlinePart(mustParseExpr(cueName)))
+			parts = append(parts, toInlinePart(ast.NewIdent(cueName)))
 			consumed++
 		case *parse.RangeNode:
 			joinExpr, err := c.rangeToInlineExpr(t)
@@ -3705,7 +3705,7 @@ func (c *converter) branchToInlineParts(nodes []parse.Node) ([]inlinePart, error
 			if helmObj != "" {
 				c.usedContextObjects[helmObj] = true
 			}
-			parts = append(parts, toInlinePart(mustParseExpr(cueName)))
+			parts = append(parts, toInlinePart(ast.NewIdent(cueName)))
 		}
 	}
 	return parts, nil
@@ -5274,7 +5274,7 @@ func (c *converter) conditionPipeToExpr(pipe *parse.PipeNode) (ast.Expr, error) 
 				if err != nil {
 					return nil, err
 				}
-				inclExpr = mustParseExpr(inclName)
+				inclExpr = ast.NewIdent(inclName)
 			} else {
 				nameExpr, err := c.convertIncludeNameExpr(args[0])
 				if err != nil {
@@ -5282,7 +5282,7 @@ func (c *converter) conditionPipeToExpr(pipe *parse.PipeNode) (ast.Expr, error) 
 				}
 				c.hasDynamicInclude = true
 				inclName = fmt.Sprintf("_helpers[%s]", exprToText(nameExpr))
-				inclExpr = mustParseExpr(inclName)
+				inclExpr = indexExpr(ast.NewIdent("_helpers"), nameExpr)
 			}
 			if ctxHelmObj != "" {
 				c.propagateHelperArgRefs(inclName, ctxHelmObj, ctxBasePath)
@@ -5363,13 +5363,26 @@ func (c *converter) conditionPipeToExpr(pipe *parse.PipeNode) (ast.Expr, error) 
 				"slice":  "[...]",
 			}
 			if kindNode.Text == "invalid" {
-				return mustParseExpr(fmt.Sprintf("%s == _|_", exprToText(valExpr))), nil
+				return binOp(token.EQL, valExpr, &ast.BottomLit{}), nil
 			}
 			cueType, ok := kindMap[kindNode.Text]
 			if !ok {
 				return nil, fmt.Errorf("unsupported kindIs kind: %q", kindNode.Text)
 			}
-			return mustParseExpr(fmt.Sprintf("(%s & %s) != _|_", exprToText(valExpr), cueType)), nil
+			var typeExpr ast.Expr
+			switch cueType {
+			case "{...}":
+				typeExpr = &ast.StructLit{
+					Elts: []ast.Decl{&ast.Ellipsis{}},
+				}
+			case "[...]":
+				typeExpr = &ast.ListLit{
+					Elts: []ast.Expr{&ast.Ellipsis{}},
+				}
+			default:
+				typeExpr = ast.NewIdent(cueType)
+			}
+			return binOp(token.NEQ, parenExpr(binOp(token.AND, valExpr, typeExpr)), &ast.BottomLit{}), nil
 		case "typeOf":
 			if !c.isCoreFunc(id.Ident) {
 				return nil, fmt.Errorf("unsupported condition function: %s (not a text/template builtin)", id.Ident)
