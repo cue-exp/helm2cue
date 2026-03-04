@@ -6,145 +6,105 @@ converted 14/21 templates from nginx
 ConvertChart error: values schema validation failed
 -- cue vet --
 exit status 1
-_nginx_cloneStaticSiteFromGit_image.#arg.global: 4 errors in empty disjunction:
-_nginx_cloneStaticSiteFromGit_image.#arg.global: conflicting values {imageRegistry:"",imagePullSecrets:[],security:{allowInsecureImages:false},compatibility:{openshift:{adaptSecurityContext:"auto"}}} and bool (mismatched types struct and bool):
-    ./helpers.cue:446:12
-    ./helpers.cue:1222:38
-    ./helpers.cue:1224:2
-    ./helpers.cue:1225:67
-_nginx_cloneStaticSiteFromGit_image.#arg.global: conflicting values {imageRegistry:"",imagePullSecrets:[],security:{allowInsecureImages:false},compatibility:{openshift:{adaptSecurityContext:"auto"}}} and null (mismatched types struct and null):
-    ./helpers.cue:446:37
-    ./helpers.cue:1222:38
-    ./helpers.cue:1224:2
-    ./helpers.cue:1225:67
-_nginx_cloneStaticSiteFromGit_image.#arg.global: conflicting values {imageRegistry:"",imagePullSecrets:[],security:{allowInsecureImages:false},compatibility:{openshift:{adaptSecurityContext:"auto"}}} and number (mismatched types struct and number):
-    ./helpers.cue:446:19
-    ./helpers.cue:1222:38
-    ./helpers.cue:1224:2
-    ./helpers.cue:1225:67
-_nginx_cloneStaticSiteFromGit_image.#arg.global: conflicting values {imageRegistry:"",imagePullSecrets:[],security:{allowInsecureImages:false},compatibility:{openshift:{adaptSecurityContext:"auto"}}} and string (mismatched types struct and string):
-    ./helpers.cue:446:28
-    ./helpers.cue:1222:38
-    ./helpers.cue:1224:2
-    ./helpers.cue:1225:67
-_nginx_image.#arg.global: 4 errors in empty disjunction:
-_nginx_image.#arg.global: conflicting values {imageRegistry:"",imagePullSecrets:[],security:{allowInsecureImages:false},compatibility:{openshift:{adaptSecurityContext:"auto"}}} and bool (mismatched types struct and bool):
-    ./helpers.cue:446:12
-    ./helpers.cue:1229:15
-    ./helpers.cue:1231:2
-    ./helpers.cue:1232:44
-_nginx_image.#arg.global: conflicting values {imageRegistry:"",imagePullSecrets:[],security:{allowInsecureImages:false},compatibility:{openshift:{adaptSecurityContext:"auto"}}} and null (mismatched types struct and null):
-    ./helpers.cue:446:37
-    ./helpers.cue:1229:15
-    ./helpers.cue:1231:2
-    ./helpers.cue:1232:44
-_nginx_image.#arg.global: conflicting values {imageRegistry:"",imagePullSecrets:[],security:{allowInsecureImages:false},compatibility:{openshift:{adaptSecurityContext:"auto"}}} and number (mismatched types struct and number):
-    ./helpers.cue:446:19
-    ./helpers.cue:1229:15
-    ./helpers.cue:1231:2
-    ./helpers.cue:1232:44
-_nginx_image.#arg.global: conflicting values {imageRegistry:"",imagePullSecrets:[],security:{allowInsecureImages:false},compatibility:{openshift:{adaptSecurityContext:"auto"}}} and string (mismatched types struct and string):
-    ./helpers.cue:446:28
-    ./helpers.cue:1229:15
-    ./helpers.cue:1231:2
-    ./helpers.cue:1232:44
-_nginx_metrics_image.#arg.global: 4 errors in empty disjunction:
-_nginx_metrics_image.#arg.global: conflicting values {imageRegistry:"",imagePullSecrets:[],security:{allowInsecureImages:false},compatibility:{openshift:{adaptSecurityContext:"auto"}}} and bool (mismatched types struct and bool):
-    ./helpers.cue:446:12
-    ./helpers.cue:1237:23
-    ./helpers.cue:1239:2
-    ./helpers.cue:1240:52
-_nginx_metrics_image.#arg.global: conflicting values {imageRegistry:"",imagePullSecrets:[],security:{allowInsecureImages:false},compatibility:{openshift:{adaptSecurityContext:"auto"}}} and null (mismatched types struct and null):
-    ./helpers.cue:446:37
-    ./helpers.cue:1237:23
-    ./helpers.cue:1239:2
-    ./helpers.cue:1240:52
-_nginx_metrics_image.#arg.global: conflicting values {imageRegistry:"",imagePullSecrets:[],security:{allowInsecureImages:false},compatibility:{openshift:{adaptSecurityContext:"auto"}}} and number (mismatched types struct and number):
-    ./helpers.cue:446:19
-    ./helpers.cue:1237:23
-    ./helpers.cue:1239:2
-    ./helpers.cue:1240:52
-_nginx_metrics_image.#arg.global: conflicting values {imageRegistry:"",imagePullSecrets:[],security:{allowInsecureImages:false},compatibility:{openshift:{adaptSecurityContext:"auto"}}} and string (mismatched types struct and string):
-    ./helpers.cue:446:28
-    ./helpers.cue:1237:23
-    ./helpers.cue:1239:2
-    ./helpers.cue:1240:52
-_common_fips_enabled: undefined field: Annotations:
-    ./helpers.cue:416:22
-_common_warnings_resources: cannot combine regular field "WARNING" with "+info https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/":
-    ./helpers.cue:1218:12
-    ./helpers.cue:1218:227
-results: error in call to list.FlattenN: 4 errors in empty disjunction::
-    ./results.cue:7:10
+_common_affinities_pods_hard.requiredDuringSchedulingIgnoredDuringExecution.labelSelector.#arg: reference "component" not found:
+    ./helpers.cue:235:13
+_common_affinities_pods_hard.requiredDuringSchedulingIgnoredDuringExecution.labelSelector: reference "component" not found:
+    ./helpers.cue:238:39
+_common_affinities_pods_hard.requiredDuringSchedulingIgnoredDuringExecution.labelSelector: reference "extraMatchLabels" not found:
+    ./helpers.cue:240:26
+_common_affinities_pods_hard.requiredDuringSchedulingIgnoredDuringExecution.#arg: reference "extraNamespaces" not found:
+    ./helpers.cue:245:12
+_common_affinities_pods_hard.requiredDuringSchedulingIgnoredDuringExecution.namespaces.#arg: reference "extraNamespaces" not found:
+    ./helpers.cue:250:14
+_common_affinities_pods_hard.requiredDuringSchedulingIgnoredDuringExecution: reference "extraPodAffinityTerms" not found:
+    ./helpers.cue:261:25
+_common_affinities_pods_hard.requiredDuringSchedulingIgnoredDuringExecution.for[].labelSelector.#arg: reference "component" not found:
+    ./helpers.cue:268:13
+_common_affinities_pods_hard.requiredDuringSchedulingIgnoredDuringExecution.for[].labelSelector: reference "component" not found:
+    ./helpers.cue:271:39
+_common_affinities_pods_hard.requiredDuringSchedulingIgnoredDuringExecution.for[].namespaces: reference "context" not found:
+    ./helpers.cue:282:6
+_common_affinities_pods_soft.preferredDuringSchedulingIgnoredDuringExecution.podAffinityTerm.labelSelector.#arg: reference "component" not found:
+    ./helpers.cue:321:14
+_common_affinities_pods_soft.preferredDuringSchedulingIgnoredDuringExecution.podAffinityTerm.labelSelector: reference "component" not found:
+    ./helpers.cue:324:40
+_common_affinities_pods_soft.preferredDuringSchedulingIgnoredDuringExecution.podAffinityTerm.labelSelector: reference "extraMatchLabels" not found:
+    ./helpers.cue:326:27
+_common_affinities_pods_soft.preferredDuringSchedulingIgnoredDuringExecution.podAffinityTerm.#arg: reference "extraNamespaces" not found:
+    ./helpers.cue:331:13
+_common_affinities_pods_soft.preferredDuringSchedulingIgnoredDuringExecution.podAffinityTerm.namespaces.#arg: reference "extraNamespaces" not found:
+    ./helpers.cue:336:15
+_common_affinities_pods_soft.preferredDuringSchedulingIgnoredDuringExecution: reference "extraPodAffinityTerms" not found:
+    ./helpers.cue:349:25
+_common_affinities_pods_soft.preferredDuringSchedulingIgnoredDuringExecution.for[].podAffinityTerm.labelSelector.#arg: reference "component" not found:
+    ./helpers.cue:357:14
+_common_affinities_pods_soft.preferredDuringSchedulingIgnoredDuringExecution.for[].podAffinityTerm.labelSelector: reference "component" not found:
+    ./helpers.cue:360:40
+_common_affinities_pods_soft.preferredDuringSchedulingIgnoredDuringExecution.for[].podAffinityTerm.namespaces: reference "context" not found:
+    ./helpers.cue:371:7
+_common_names_dependency_fullname: reference "chartValues" not found:
+    ./helpers.cue:1124:51
+_common_names_dependency_fullname: reference "chartValues" not found:
+    ./helpers.cue:1130:53
+_common_names_dependency_fullname.#in: reference "chartValues" not found:
+    ./helpers.cue:1132:43
+_common_utils_getValueFromKey.for[].#arg: reference "context" not found:
+    ./helpers.cue:1472:10
+_common_utils_getValueFromKey.for[]: reference "key" not found:
+    ./helpers.cue:1475:47
+_common_utils_getValueFromKey: reference "context" not found:
+    ./helpers.cue:1478:6
+_common_utils_getValueFromKey: reference "_range1" not found:
+    ./helpers.cue:1478:21
 -- cue export --
 exit status 1
-_nginx_cloneStaticSiteFromGit_image.#arg.global: 4 errors in empty disjunction:
-_nginx_cloneStaticSiteFromGit_image.#arg.global: conflicting values {imageRegistry:"",imagePullSecrets:[],security:{allowInsecureImages:false},compatibility:{openshift:{adaptSecurityContext:"auto"}}} and bool (mismatched types struct and bool):
-    ./helpers.cue:446:12
-    ./helpers.cue:1222:38
-    ./helpers.cue:1224:2
-    ./helpers.cue:1225:67
-_nginx_cloneStaticSiteFromGit_image.#arg.global: conflicting values {imageRegistry:"",imagePullSecrets:[],security:{allowInsecureImages:false},compatibility:{openshift:{adaptSecurityContext:"auto"}}} and null (mismatched types struct and null):
-    ./helpers.cue:446:37
-    ./helpers.cue:1222:38
-    ./helpers.cue:1224:2
-    ./helpers.cue:1225:67
-_nginx_cloneStaticSiteFromGit_image.#arg.global: conflicting values {imageRegistry:"",imagePullSecrets:[],security:{allowInsecureImages:false},compatibility:{openshift:{adaptSecurityContext:"auto"}}} and number (mismatched types struct and number):
-    ./helpers.cue:446:19
-    ./helpers.cue:1222:38
-    ./helpers.cue:1224:2
-    ./helpers.cue:1225:67
-_nginx_cloneStaticSiteFromGit_image.#arg.global: conflicting values {imageRegistry:"",imagePullSecrets:[],security:{allowInsecureImages:false},compatibility:{openshift:{adaptSecurityContext:"auto"}}} and string (mismatched types struct and string):
-    ./helpers.cue:446:28
-    ./helpers.cue:1222:38
-    ./helpers.cue:1224:2
-    ./helpers.cue:1225:67
-_nginx_image.#arg.global: 4 errors in empty disjunction:
-_nginx_image.#arg.global: conflicting values {imageRegistry:"",imagePullSecrets:[],security:{allowInsecureImages:false},compatibility:{openshift:{adaptSecurityContext:"auto"}}} and bool (mismatched types struct and bool):
-    ./helpers.cue:446:12
-    ./helpers.cue:1229:15
-    ./helpers.cue:1231:2
-    ./helpers.cue:1232:44
-_nginx_image.#arg.global: conflicting values {imageRegistry:"",imagePullSecrets:[],security:{allowInsecureImages:false},compatibility:{openshift:{adaptSecurityContext:"auto"}}} and null (mismatched types struct and null):
-    ./helpers.cue:446:37
-    ./helpers.cue:1229:15
-    ./helpers.cue:1231:2
-    ./helpers.cue:1232:44
-_nginx_image.#arg.global: conflicting values {imageRegistry:"",imagePullSecrets:[],security:{allowInsecureImages:false},compatibility:{openshift:{adaptSecurityContext:"auto"}}} and number (mismatched types struct and number):
-    ./helpers.cue:446:19
-    ./helpers.cue:1229:15
-    ./helpers.cue:1231:2
-    ./helpers.cue:1232:44
-_nginx_image.#arg.global: conflicting values {imageRegistry:"",imagePullSecrets:[],security:{allowInsecureImages:false},compatibility:{openshift:{adaptSecurityContext:"auto"}}} and string (mismatched types struct and string):
-    ./helpers.cue:446:28
-    ./helpers.cue:1229:15
-    ./helpers.cue:1231:2
-    ./helpers.cue:1232:44
-_nginx_metrics_image.#arg.global: 4 errors in empty disjunction:
-_nginx_metrics_image.#arg.global: conflicting values {imageRegistry:"",imagePullSecrets:[],security:{allowInsecureImages:false},compatibility:{openshift:{adaptSecurityContext:"auto"}}} and bool (mismatched types struct and bool):
-    ./helpers.cue:446:12
-    ./helpers.cue:1237:23
-    ./helpers.cue:1239:2
-    ./helpers.cue:1240:52
-_nginx_metrics_image.#arg.global: conflicting values {imageRegistry:"",imagePullSecrets:[],security:{allowInsecureImages:false},compatibility:{openshift:{adaptSecurityContext:"auto"}}} and null (mismatched types struct and null):
-    ./helpers.cue:446:37
-    ./helpers.cue:1237:23
-    ./helpers.cue:1239:2
-    ./helpers.cue:1240:52
-_nginx_metrics_image.#arg.global: conflicting values {imageRegistry:"",imagePullSecrets:[],security:{allowInsecureImages:false},compatibility:{openshift:{adaptSecurityContext:"auto"}}} and number (mismatched types struct and number):
-    ./helpers.cue:446:19
-    ./helpers.cue:1237:23
-    ./helpers.cue:1239:2
-    ./helpers.cue:1240:52
-_nginx_metrics_image.#arg.global: conflicting values {imageRegistry:"",imagePullSecrets:[],security:{allowInsecureImages:false},compatibility:{openshift:{adaptSecurityContext:"auto"}}} and string (mismatched types struct and string):
-    ./helpers.cue:446:28
-    ./helpers.cue:1237:23
-    ./helpers.cue:1239:2
-    ./helpers.cue:1240:52
-_common_fips_enabled: undefined field: Annotations:
-    ./helpers.cue:416:22
-_common_warnings_resources: cannot combine regular field "WARNING" with "+info https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/":
-    ./helpers.cue:1218:12
-    ./helpers.cue:1218:227
-results: error in call to list.FlattenN: 4 errors in empty disjunction::
-    ./results.cue:7:10
+_common_affinities_pods_hard.requiredDuringSchedulingIgnoredDuringExecution.labelSelector.#arg: reference "component" not found:
+    ./helpers.cue:235:13
+_common_affinities_pods_hard.requiredDuringSchedulingIgnoredDuringExecution.labelSelector: reference "component" not found:
+    ./helpers.cue:238:39
+_common_affinities_pods_hard.requiredDuringSchedulingIgnoredDuringExecution.labelSelector: reference "extraMatchLabels" not found:
+    ./helpers.cue:240:26
+_common_affinities_pods_hard.requiredDuringSchedulingIgnoredDuringExecution.#arg: reference "extraNamespaces" not found:
+    ./helpers.cue:245:12
+_common_affinities_pods_hard.requiredDuringSchedulingIgnoredDuringExecution.namespaces.#arg: reference "extraNamespaces" not found:
+    ./helpers.cue:250:14
+_common_affinities_pods_hard.requiredDuringSchedulingIgnoredDuringExecution: reference "extraPodAffinityTerms" not found:
+    ./helpers.cue:261:25
+_common_affinities_pods_hard.requiredDuringSchedulingIgnoredDuringExecution.for[].labelSelector.#arg: reference "component" not found:
+    ./helpers.cue:268:13
+_common_affinities_pods_hard.requiredDuringSchedulingIgnoredDuringExecution.for[].labelSelector: reference "component" not found:
+    ./helpers.cue:271:39
+_common_affinities_pods_hard.requiredDuringSchedulingIgnoredDuringExecution.for[].namespaces: reference "context" not found:
+    ./helpers.cue:282:6
+_common_affinities_pods_soft.preferredDuringSchedulingIgnoredDuringExecution.podAffinityTerm.labelSelector.#arg: reference "component" not found:
+    ./helpers.cue:321:14
+_common_affinities_pods_soft.preferredDuringSchedulingIgnoredDuringExecution.podAffinityTerm.labelSelector: reference "component" not found:
+    ./helpers.cue:324:40
+_common_affinities_pods_soft.preferredDuringSchedulingIgnoredDuringExecution.podAffinityTerm.labelSelector: reference "extraMatchLabels" not found:
+    ./helpers.cue:326:27
+_common_affinities_pods_soft.preferredDuringSchedulingIgnoredDuringExecution.podAffinityTerm.#arg: reference "extraNamespaces" not found:
+    ./helpers.cue:331:13
+_common_affinities_pods_soft.preferredDuringSchedulingIgnoredDuringExecution.podAffinityTerm.namespaces.#arg: reference "extraNamespaces" not found:
+    ./helpers.cue:336:15
+_common_affinities_pods_soft.preferredDuringSchedulingIgnoredDuringExecution: reference "extraPodAffinityTerms" not found:
+    ./helpers.cue:349:25
+_common_affinities_pods_soft.preferredDuringSchedulingIgnoredDuringExecution.for[].podAffinityTerm.labelSelector.#arg: reference "component" not found:
+    ./helpers.cue:357:14
+_common_affinities_pods_soft.preferredDuringSchedulingIgnoredDuringExecution.for[].podAffinityTerm.labelSelector: reference "component" not found:
+    ./helpers.cue:360:40
+_common_affinities_pods_soft.preferredDuringSchedulingIgnoredDuringExecution.for[].podAffinityTerm.namespaces: reference "context" not found:
+    ./helpers.cue:371:7
+_common_names_dependency_fullname: reference "chartValues" not found:
+    ./helpers.cue:1124:51
+_common_names_dependency_fullname: reference "chartValues" not found:
+    ./helpers.cue:1130:53
+_common_names_dependency_fullname.#in: reference "chartValues" not found:
+    ./helpers.cue:1132:43
+_common_utils_getValueFromKey.for[].#arg: reference "context" not found:
+    ./helpers.cue:1472:10
+_common_utils_getValueFromKey.for[]: reference "key" not found:
+    ./helpers.cue:1475:47
+_common_utils_getValueFromKey: reference "context" not found:
+    ./helpers.cue:1478:6
+_common_utils_getValueFromKey: reference "_range1" not found:
+    ./helpers.cue:1478:21

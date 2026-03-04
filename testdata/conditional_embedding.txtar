@@ -34,7 +34,9 @@ import "struct"
 	enabled?: bool | number | string | null
 	...
 }
-_myapp_annotations: "checksum/config": "abc123"
+_myapp_annotations: {
+	"checksum/config": "abc123"
+}
 
 output: [
 	{

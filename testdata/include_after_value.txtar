@@ -37,7 +37,9 @@ data:
 	name!: bool | number | string | null
 	...
 }
-_test_labels: chart: "test-app"
+_test_labels: {
+	chart: "test-app"
+}
 _test_name: #values.name
 
 output: [

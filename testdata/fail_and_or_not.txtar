@@ -39,7 +39,6 @@ import "struct"
 	...
 }
 _myapp_checkFolder: {
-	#arg: _
 	if !((_nonzero & {
 		#arg: #values.folder
 		_

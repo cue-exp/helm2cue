@@ -120,6 +120,10 @@ grafana_configmaps_datasources.0.data.datasources.0.uid: conflicting values "ale
     ./grafana_configmaps_datasources.cue:91:13
     ./values.cue:774:46
     values.yaml:1457:14
+prometheus_operator_admission_webhooks_mutatingWebhookConfiguration.0.metadata.annotations: cannot use {} (type struct) as string in argument 1 to strings.TrimSpace:
+    ./helpers.cue:837:65
+prometheus_operator_admission_webhooks_validatingWebhookConfiguration.0.metadata.annotations: cannot use {} (type struct) as string in argument 1 to strings.TrimSpace:
+    ./helpers.cue:837:65
 prometheus_operator_admission_webhooks_validatingWebhookConfiguration.0.path: conflicting values "/admission-alertmanagerconfigs/validate" and "/admission-prometheusrules/validate":
     ./prometheus_operator_admission_webhooks_validatingWebhookConfiguration.cue:14:5
     ./prometheus_operator_admission_webhooks_validatingWebhookConfiguration.cue:15:3
@@ -145,6 +149,12 @@ results: error in call to list.FlattenN: invalid interpolation: cannot use {glob
     ./values.cue:697:18
 -- cue export --
 exit status 1
+_kube_prometheus_stack_operator_admission_webhook_dnsNames: conflicting values "test-operator" and ".default.svc":
+    ./helpers.cue:779:61
+    ./helpers.cue:780:2
+    ./helpers.cue:782:2
+    ./helpers.cue:816:2
+    ./helpers.cue:820:3
 grafana_configmaps_datasources.0.data.datasources.0.name: conflicting values "\"Alertmanager\"" and "\"Prometheus\"":
     ./grafana_configmaps_datasources.cue:22:5
     ./grafana_configmaps_datasources.cue:23:3
@@ -203,6 +213,10 @@ grafana_configmaps_datasources.0.data.datasources.0.url: conflicting values "htt
     ./grafana_configmaps_datasources.cue:88:6
     ./grafana_configmaps_datasources.cue:98:7
     ./grafana_configmaps_datasources.cue:102:13
+prometheus_operator_admission_webhooks_mutatingWebhookConfiguration.0.metadata.annotations: cannot use {} (type struct) as string in argument 1 to strings.TrimSpace:
+    ./helpers.cue:837:65
+prometheus_operator_admission_webhooks_validatingWebhookConfiguration.0.metadata.annotations: cannot use {} (type struct) as string in argument 1 to strings.TrimSpace:
+    ./helpers.cue:837:65
 prometheus_operator_admission_webhooks_validatingWebhookConfiguration.0.path: conflicting values "/admission-alertmanagerconfigs/validate" and "/admission-prometheusrules/validate":
     ./prometheus_operator_admission_webhooks_validatingWebhookConfiguration.cue:14:5
     ./prometheus_operator_admission_webhooks_validatingWebhookConfiguration.cue:15:3
@@ -222,6 +236,13 @@ extra_objects.1: cannot range over *#values.extraManifests | [] (found null, wan
     ./extra_objects.cue:18:21
 _vMajor: error in call to strconv.Atoi: strconv.Atoi: parsing "": invalid syntax:
     ./helpers.cue:107:11
+_kube_prometheus_stack_operator_admission_webhook_dnsNames: invalid interpolation: conflicting values "test-operator" and ".default.svc":
+    ./prometheus_operator_admission_webhooks_job_patch_job_createSecret.cue:89:10
+    ./helpers.cue:779:61
+    ./helpers.cue:780:2
+    ./helpers.cue:782:2
+    ./helpers.cue:816:2
+    ./helpers.cue:820:3
 results: error in call to list.FlattenN: invalid interpolation: cannot use {global:{resolve_timeout:"5m"},inhibit_rules:[{source_matchers:["severity = critical"],target_matchers:["severity =~ warning|info"],equal:["namespace","alertname"]},{source_matchers:["severity = warning"],target_matchers:["severity = info"],equal:["namespace","alertname"]},{source_matchers:["alertname = InfoInhibitor"],target_matchers:["severity = info"],equal:["namespace"]},{target_matchers:["alertname = InfoInhibitor"]}],route:{group_by:["namespace"],group_wait:"30s",group_interval:"5m",repeat_interval:"12h",receiver:"null",routes:[{receiver:"null",matchers:["alertname = \"Watchdog\""]}]},receivers:[{name:"null"}],templates:["/etc/alertmanager/config/*.tmpl"]} (type struct) as (string|bytes) in argument 2 to "encoding/base64".Encode:
     ./results.cue:7:10
     ./alertmanager_secret.cue:70:27

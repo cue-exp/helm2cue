@@ -479,18 +479,17 @@ func writeHelpersCUE(outDir, pkgName string, r *convertResult, needsNonzero bool
 	}
 
 	// Helper expressions (template name → CUE expression).
-	var exprBuf bytes.Buffer
+	var helperDecls []ast.Decl
 	for _, name := range r.helperOrder {
 		cueName := r.helperExprs[name]
+		value := ast.Expr(ast.NewIdent("_"))
 		if cueExpr, ok := r.helpers[cueName]; ok {
-			if err := validateHelperExpr(cueExpr, r.imports); err != nil {
-				fmt.Fprintf(&exprBuf, "%s: _\n", cueName)
-			} else {
-				fmt.Fprintf(&exprBuf, "%s: %s\n", cueName, cueExpr)
-			}
-		} else {
-			fmt.Fprintf(&exprBuf, "%s: _\n", cueName)
+			value = cueExpr
 		}
+		helperDecls = append(helperDecls, &ast.Field{
+			Label: ast.NewIdent(cueName),
+			Value: value,
+		})
 	}
 
 	if len(r.undefinedHelpers) > 0 {
@@ -502,7 +501,10 @@ func writeHelpersCUE(outDir, pkgName string, r *convertResult, needsNonzero bool
 		}
 		slices.Sort(undefs)
 		for _, cueName := range undefs {
-			fmt.Fprintf(&exprBuf, "%s: _\n", cueName)
+			helperDecls = append(helperDecls, &ast.Field{
+				Label: ast.NewIdent(cueName),
+				Value: ast.NewIdent("_"),
+			})
 		}
 	}
 
@@ -522,20 +524,20 @@ func writeHelpersCUE(outDir, pkgName string, r *convertResult, needsNonzero bool
 		slices.SortFunc(entries, func(a, b helperEntry) int {
 			return strings.Compare(a.origName, b.origName)
 		})
-		exprBuf.WriteString("_helpers: {\n")
+		var mapFields []ast.Decl
 		for _, e := range entries {
-			fmt.Fprintf(&exprBuf, "\t%s: %s\n", strconv.Quote(e.origName), e.cueName)
+			mapFields = append(mapFields, &ast.Field{
+				Label: cueString(e.origName),
+				Value: ast.NewIdent(e.cueName),
+			})
 		}
-		exprBuf.WriteString("}\n")
+		helperDecls = append(helperDecls, &ast.Field{
+			Label: ast.NewIdent("_helpers"),
+			Value: &ast.StructLit{Elts: mapFields},
+		})
 	}
 
-	if exprBuf.Len() > 0 {
-		exprDecls, err := bodyToDecls(exprBuf.String())
-		if err != nil {
-			return fmt.Errorf("parsing helper expressions: %w", err)
-		}
-		allDecls = appendSectionDecls(allDecls, exprDecls)
-	}
+	allDecls = appendSectionDecls(allDecls, helperDecls)
 
 	f := &ast.File{
 		Decls: append([]ast.Decl{&ast.Package{Name: ast.NewIdent(pkgName)}}, allDecls...),

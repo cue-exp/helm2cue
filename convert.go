@@ -354,11 +354,11 @@ type converter struct {
 
 	// Helper template state (shared across main and sub-converters).
 	treeSet           map[string]*parse.Tree
-	helperExprs       map[string]string // template name → CUE hidden field name
-	helperCUE         map[string]string // CUE field name → CUE expression
-	helperOrder       []string          // deterministic emission order
-	undefinedHelpers  map[string]string // original template name → CUE name (referenced but not defined)
-	hasDynamicInclude bool              // true if any include uses a computed template name
+	helperExprs       map[string]string   // template name → CUE hidden field name
+	helperCUE         map[string]ast.Expr // CUE field name → CUE expression
+	helperOrder       []string            // deterministic emission order
+	undefinedHelpers  map[string]string   // original template name → CUE name (referenced but not defined)
+	hasDynamicInclude bool                // true if any include uses a computed template name
 }
 
 // mustParseExpr parses a CUE expression string. Panics on error since
@@ -646,26 +646,6 @@ func clausesEqual(a, b []ast.Clause) bool {
 		}
 	}
 	return true
-}
-
-// clausesToText formats a slice of ast.Clause to CUE text.
-// Used only where clause text is needed for text-based composition
-// (helper body wrapping).
-func clausesToText(clauses []ast.Clause) string {
-	if len(clauses) == 0 {
-		return ""
-	}
-	var parts []string
-	for _, cl := range clauses {
-		switch c := cl.(type) {
-		case *ast.ForClause:
-			parts = append(parts, fmt.Sprintf("for %s, %s in %s",
-				exprToText(c.Key), exprToText(c.Value), exprToText(c.Source)))
-		case *ast.IfClause:
-			parts = append(parts, fmt.Sprintf("if %s", exprToText(c.Condition)))
-		}
-	}
-	return strings.Join(parts, " ")
 }
 
 // exprToGuardText formats an ast.Expr to CUE text while replacing
@@ -1047,10 +1027,10 @@ type convertResult struct {
 	imports            map[string]bool
 	needsNonzero       bool
 	usedHelpers        map[string]HelperDef
-	helpers            map[string]string // CUE name → CUE expression
-	helperOrder        []string          // original template names, sorted
-	helperExprs        map[string]string // original name → CUE name
-	undefinedHelpers   map[string]string // original name → CUE name
+	helpers            map[string]ast.Expr // CUE name → CUE expression
+	helperOrder        []string            // original template names, sorted
+	helperExprs        map[string]string   // original name → CUE name
+	undefinedHelpers   map[string]string   // original name → CUE name
 	hasDynamicInclude  bool
 	usedContextObjects map[string]bool
 	fieldRefs          map[string][][]string
@@ -1144,7 +1124,7 @@ func convertStructured(cfg *Config, input []byte, templateName string, treeSet m
 		comments:                    make(map[ast.Expr]string),
 		treeSet:                     treeSet,
 		helperExprs:                 make(map[string]string),
-		helperCUE:                   make(map[string]string),
+		helperCUE:                   make(map[string]ast.Expr),
 		undefinedHelpers:            make(map[string]string),
 		helperArgFieldRefs:          make(map[string][][]string),
 		helperArgFieldRangeRefs:     make(map[string][][]string),
@@ -1280,22 +1260,14 @@ func assembleSingleFile(cfg *Config, r *convertResult) ([]byte, error) {
 
 		for _, name := range r.helperOrder {
 			cueName := r.helperExprs[name]
+			value := ast.Expr(ast.NewIdent("_"))
 			if cueExpr, ok := r.helpers[cueName]; ok {
-				exprDecls, err := bodyToDecls(fmt.Sprintf("%s: %s", cueName, cueExpr))
-				if err != nil {
-					allDecls = append(allDecls, &ast.Field{
-						Label: ast.NewIdent(cueName),
-						Value: ast.NewIdent("_"),
-					})
-				} else {
-					allDecls = append(allDecls, exprDecls...)
-				}
-			} else {
-				allDecls = append(allDecls, &ast.Field{
-					Label: ast.NewIdent(cueName),
-					Value: ast.NewIdent("_"),
-				})
+				value = cueExpr
 			}
+			allDecls = append(allDecls, &ast.Field{
+				Label: ast.NewIdent(cueName),
+				Value: value,
+			})
 		}
 
 		if len(r.undefinedHelpers) > 0 {
@@ -1330,17 +1302,17 @@ func assembleSingleFile(cfg *Config, r *convertResult) ([]byte, error) {
 			slices.SortFunc(entries, func(a, b helperEntry) int {
 				return strings.Compare(a.origName, b.origName)
 			})
-			var helpersText bytes.Buffer
-			helpersText.WriteString("_helpers: {\n")
+			var mapFields []ast.Decl
 			for _, e := range entries {
-				fmt.Fprintf(&helpersText, "\t%s: %s\n", strconv.Quote(e.origName), e.cueName)
+				mapFields = append(mapFields, &ast.Field{
+					Label: cueString(e.origName),
+					Value: ast.NewIdent(e.cueName),
+				})
 			}
-			helpersText.WriteString("}")
-			helpersDecls, err := bodyToDecls(helpersText.String())
-			if err != nil {
-				return nil, fmt.Errorf("parsing _helpers: %w", err)
-			}
-			allDecls = append(allDecls, helpersDecls...)
+			allDecls = append(allDecls, &ast.Field{
+				Label: ast.NewIdent("_helpers"),
+				Value: &ast.StructLit{Elts: mapFields},
+			})
 		}
 	}
 
@@ -1599,15 +1571,15 @@ func helperToCUEName(name string) string {
 }
 
 // convertHelperBody converts the body nodes of a {{ define }} block to a CUE expression.
-func (c *converter) convertHelperBody(nodes []parse.Node) (string, *helperArgInfo, error) {
+func (c *converter) convertHelperBody(nodes []parse.Node) (ast.Expr, *helperArgInfo, error) {
 	// Check if the body is a raw string (non-YAML content without key: value patterns).
 	if isStringHelperBody(nodes) {
 		text := strings.TrimSpace(textContent(nodes))
 		if text == "" {
-			return `""`, nil, nil
+			return cueString(""), nil, nil
 		}
 		// Normalize whitespace: join lines with single space.
-		return strconv.Quote(strings.Join(strings.Fields(text), " ")), nil, nil
+		return cueString(strings.Join(strings.Fields(text), " ")), nil, nil
 	}
 
 	sub := &converter{
@@ -1646,22 +1618,14 @@ func (c *converter) convertHelperBody(nodes []parse.Node) (string, *helperArgInf
 	}
 
 	if err := sub.processNodes(nodes); err != nil {
-		return "", nil, err
+		return nil, nil, err
 	}
 	sub.finalizeInline()
 	sub.flushPendingAction()
 	sub.flushDeferred()
 	sub.closeBlocksTo(-1)
 
-	// Convert import-tagged idents to sentinel forms before serializing
-	// to text. The helper body goes through a text round-trip (declsToText →
-	// bodyToDecls) that strips import tags; sentinels survive this round-trip
-	// and are resolved back to import-tagged idents by resolveImportSentinels
-	// during final formatting.
-	for _, d := range sub.rootDecls {
-		sentinelizeTaggedImports(d, func(pkg string) { c.addImport(pkg) })
-	}
-	body := strings.TrimSpace(declsToText(sub.rootDecls))
+	bodyDecls := sub.rootDecls
 
 	// Propagate hasConditions so _nonzero is emitted by the parent.
 	if sub.hasConditions {
@@ -1673,33 +1637,35 @@ func (c *converter) convertHelperBody(nodes []parse.Node) (string, *helperArgInf
 	// List-producing ranges use a CUE list comprehension [for ...{...}]
 	// so the helper evaluates to a list, not a struct.
 	if len(sub.topLevelRange) > 0 {
-		rangeBody := body
+		rangeBodyDecls := bodyDecls
 		if len(sub.topLevelRangeBody) > 0 {
-			rangeBody = strings.TrimSpace(declsToText(sub.topLevelRangeBody))
+			rangeBodyDecls = sub.topLevelRangeBody
 		}
-		// Sentinelize import-tagged idents before formatting to text
-		// so they survive the text roundtrip in helper body composition.
-		for _, cl := range sub.topLevelRange {
-			sentinelizeTaggedImports(cl, func(pkg string) { c.addImport(pkg) })
+		comp := &ast.Comprehension{
+			Clauses: sub.topLevelRange,
+			Value:   &ast.StructLit{Elts: rangeBodyDecls},
 		}
-		rangeText := clausesToText(sub.topLevelRange)
-		inner := rangeText + " {\n" + indentBlock(rangeBody, "\t") + "\n}"
 		if sub.topLevelRangeIsList {
-			body = "[" + inner + "]"
+			listExpr := &ast.ListLit{Elts: []ast.Expr{comp}}
 			// The _nonzero guard {#arg: #arg.field, _} shadows the
 			// outer #arg with the inner struct's field declaration.
 			// Use a let binding to capture #arg before the inner
-			// struct introduces its own #arg field.
-			if strings.Contains(body, "#arg") {
-				fixed := strings.ReplaceAll(body, "#arg", "_args")
-				// Undo the #arg -> _args rename inside _nonzero struct
-				// fields, which use #arg as a field key. Handle both
-				// inline ({_args:) and multi-line formats ({\n\t_args:).
-				fixed = nonzeroArgUndoRe.ReplaceAllString(fixed, "${1}#arg:")
-				body = "let _args = #arg\n" + fixed
+			// struct introduces its own #arg field. Check the entire
+			// list expression (including for clauses) for #arg refs.
+			if declsReferenceIdent([]ast.Decl{&ast.EmbedDecl{Expr: listExpr}}, "#arg") {
+				renameArgIdents(listExpr)
+				bodyDecls = []ast.Decl{
+					&ast.LetClause{
+						Ident: ast.NewIdent("_args"),
+						Expr:  ast.NewIdent("#arg"),
+					},
+					&ast.EmbedDecl{Expr: listExpr},
+				}
+			} else {
+				bodyDecls = []ast.Decl{&ast.EmbedDecl{Expr: listExpr}}
 			}
 		} else {
-			body = inner
+			bodyDecls = []ast.Decl{comp}
 		}
 	}
 
@@ -1708,10 +1674,12 @@ func (c *converter) convertHelperBody(nodes []parse.Node) (string, *helperArgInf
 	// body looks like "component: errorKey\n    message text"), collapse it
 	// to a single quoted string. This must happen before topLevelGuards
 	// wrapping so the string gets wrapped in the if comprehension.
-	if bodyHasMixedFieldsAndStrings(body) {
+	if declsHaveMixedFieldsAndStrings(bodyDecls) {
 		rawText := strings.TrimSpace(deepTextContent(nodes))
 		if rawText != "" {
-			body = strconv.Quote(strings.Join(strings.Fields(rawText), " "))
+			bodyDecls = []ast.Decl{
+				&ast.EmbedDecl{Expr: cueString(strings.Join(strings.Fields(rawText), " "))},
+			}
 		}
 	}
 
@@ -1721,113 +1689,95 @@ func (c *converter) convertHelperBody(nodes []parse.Node) (string, *helperArgInf
 	if len(sub.topLevelGuards) > 0 {
 		c.hasConditions = true
 
-		// When the body is a string expression, use a list conditional
-		// so the helper evaluates to "" when the condition is false,
-		// matching Helm's include behavior.
-		if strings.HasPrefix(body, `"`) && strings.HasSuffix(body, `"`) {
-			guardTexts := make([]string, len(sub.topLevelGuards))
-			for i, g := range sub.topLevelGuards {
-				guardTexts[i] = c.exprToGuardText(g)
-			}
-			guard := strings.Join(guardTexts, " && ")
-			body = fmt.Sprintf("[if %s {\n\t%s\n}, \"\"][0]", guard, body)
-		} else {
-			var wrapped bytes.Buffer
-			indent := 0
-			for _, guard := range sub.topLevelGuards {
-				writeIndent(&wrapped, indent)
-				fmt.Fprintf(&wrapped, "if %s {\n", c.exprToGuardText(guard))
-				indent++
-			}
-			for _, line := range strings.Split(body, "\n") {
-				if line != "" {
-					writeIndent(&wrapped, indent)
+		// Check if the body is a single string expression.
+		isStringBody := false
+		if len(bodyDecls) == 1 {
+			if embed, ok := bodyDecls[0].(*ast.EmbedDecl); ok {
+				if lit, ok := embed.Expr.(*ast.BasicLit); ok && lit.Kind == token.STRING {
+					isStringBody = true
 				}
-				wrapped.WriteString(line)
-				wrapped.WriteByte('\n')
 			}
-			for i := len(sub.topLevelGuards) - 1; i >= 0; i-- {
-				writeIndent(&wrapped, i)
-				wrapped.WriteString("}\n")
-			}
-			body = strings.TrimSpace(wrapped.String())
 		}
+
+		if isStringBody {
+			// When the body is a string expression, use a list conditional
+			// so the helper evaluates to "" when the condition is false,
+			// matching Helm's include behavior.
+			// Combine guards with &&.
+			var combined ast.Expr
+			for _, g := range sub.topLevelGuards {
+				if combined == nil {
+					combined = g
+				} else {
+					combined = binOp(token.LAND, combined, g)
+				}
+			}
+			bodyExpr := bodyDecls[0].(*ast.EmbedDecl).Expr
+			comp := &ast.Comprehension{
+				Clauses: []ast.Clause{&ast.IfClause{Condition: combined}},
+				Value:   &ast.StructLit{Elts: []ast.Decl{&ast.EmbedDecl{Expr: bodyExpr}}},
+			}
+			result := &ast.IndexExpr{
+				X:     &ast.ListLit{Elts: []ast.Expr{comp, cueString("")}},
+				Index: cueInt(0),
+			}
+			return result, nil, nil
+		}
+
+		// Struct body: nest comprehensions from inside out, one per guard.
+		wrapped := bodyDecls
+		for i := len(sub.topLevelGuards) - 1; i >= 0; i-- {
+			wrapped = []ast.Decl{
+				&ast.Comprehension{
+					Clauses: []ast.Clause{&ast.IfClause{Condition: sub.topLevelGuards[i]}},
+					Value:   &ast.StructLit{Elts: wrapped},
+				},
+			}
+		}
+		bodyDecls = wrapped
 	}
 
-	if body == "" {
-		return `""`, nil, nil
+	if len(bodyDecls) == 0 {
+		return cueString(""), nil, nil
 	}
 
-	// Check if it looks like struct fields.
-	lines := strings.Split(body, "\n")
-	hasFields := false
-	for _, line := range lines {
-		trimmed := strings.TrimSpace(line)
-		if trimmed == "" || trimmed == "}" || trimmed == "{" {
-			continue
-		}
-		// Skip comprehension guards — a ": " inside an if/for condition
-		// is part of the expression, not a field definition.
-		if strings.HasPrefix(trimmed, "if ") || strings.HasPrefix(trimmed, "for ") {
-			continue
-		}
-		if colonIdx := strings.Index(trimmed, ": "); colonIdx > 0 {
-			hasFields = true
-			break
-		}
-		if strings.HasSuffix(trimmed, ": {") {
-			hasFields = true
-			break
-		}
-	}
+	hasFields := declsHaveFields(bodyDecls)
 
 	// If #arg is referenced in the body, wrap with an #arg schema.
-	// Exclude false positives from the _nonzero condition pattern
-	// ({#arg: value, _}) which uses #arg as a struct field name.
-	bodyForArgCheck := strings.ReplaceAll(body, "{#arg:", "{_:")
-	if useArg && strings.Contains(bodyForArgCheck, "#arg") {
+	if useArg && declsReferenceIdent(bodyDecls, "#arg") {
 		argRefs := sub.helperArgRefs
-		schema := buildArgSchema(argRefs, sub.helperArgRequiredRefs,
+		schemaExpr := buildArgSchemaExpr(argRefs, sub.helperArgRequiredRefs,
 			sub.helperArgRangeRefs, sub.helperArgNonScalarRefs)
 		info := &helperArgInfo{
 			fieldRefs:     argRefs,
 			rangeRefs:     sub.helperArgRangeRefs,
 			nonScalarRefs: sub.helperArgNonScalarRefs,
 		}
-		if hasFields {
-			result := "{\n\t#arg: " + schema + "\n" + indentBlock(body, "\t") + "\n}"
-			if err := validateHelperExpr(result, c.imports); err != nil {
-				return "", nil, fmt.Errorf("helper body produced invalid CUE: %w", err)
-			}
-			return result, info, nil
+		elts := []ast.Decl{
+			&ast.Field{Label: ast.NewIdent("#arg"), Value: schemaExpr},
 		}
-		result := "{\n\t#arg: " + schema + "\n\t" + body + "\n}"
-		if err := validateHelperExpr(result, c.imports); err != nil {
-			return "", nil, fmt.Errorf("helper body produced invalid CUE: %w", err)
-		}
-		return result, info, nil
+		elts = append(elts, bodyDecls...)
+		return &ast.StructLit{Elts: elts}, info, nil
 	}
 
 	if hasFields {
-		result := "{\n" + indentBlock(body, "\t") + "\n}"
-		if err := validateHelperExpr(result, c.imports); err != nil {
-			return "", nil, fmt.Errorf("helper body produced invalid CUE: %w", err)
-		}
-		return result, nil, nil
+		return &ast.StructLit{Elts: bodyDecls}, nil, nil
 	}
 
 	// Comprehension bodies need struct wrapping — CUE's if/for are
 	// field comprehensions, not value expressions. When the condition
 	// is false the result is {} which _nonzero treats as zero.
-	if strings.HasPrefix(body, "if ") || strings.HasPrefix(body, "for ") {
-		result := "{\n" + indentBlock(body, "\t") + "\n}"
-		if err := validateHelperExpr(result, c.imports); err != nil {
-			return "", nil, fmt.Errorf("helper body produced invalid CUE: %w", err)
-		}
-		return result, nil, nil
+	if declsStartWithComprehension(bodyDecls) {
+		return &ast.StructLit{Elts: bodyDecls}, nil, nil
 	}
 
-	return body, nil, nil
+	// Bare expression: extract from single EmbedDecl if possible.
+	if len(bodyDecls) == 1 {
+		if embed, ok := bodyDecls[0].(*ast.EmbedDecl); ok {
+			return embed.Expr, nil, nil
+		}
+	}
+	return &ast.StructLit{Elts: bodyDecls}, nil, nil
 }
 
 // isStringHelperBody checks if a helper body contains non-YAML content (raw strings).
@@ -1852,16 +1802,6 @@ func isStringHelperBody(nodes []parse.Node) bool {
 		}
 	}
 	return true
-}
-
-func indentBlock(s, prefix string) string {
-	lines := strings.Split(s, "\n")
-	for i, line := range lines {
-		if line != "" {
-			lines[i] = prefix + line
-		}
-	}
-	return strings.Join(lines, "\n")
 }
 
 // escapeCUEString escapes a string for embedding in a CUE quoted string.
@@ -5759,28 +5699,106 @@ func deepTextContent(nodes []parse.Node) string {
 	return buf.String()
 }
 
-// bodyHasMixedFieldsAndStrings reports whether a CUE body contains both
-// field assignments (lines with ": ") and bare quoted strings (lines that
-// are just "..."). This detects invalid output from helpers whose body
-// looks like YAML (e.g. "component: errorKey\n    message text").
-func bodyHasMixedFieldsAndStrings(body string) bool {
+// declsHaveFields reports whether any declaration in decls is an
+// ast.Field or ast.LetClause (i.e. the decl list represents struct content).
+func declsHaveFields(decls []ast.Decl) bool {
+	for _, d := range decls {
+		switch d.(type) {
+		case *ast.Field, *ast.LetClause:
+			return true
+		}
+	}
+	return false
+}
+
+// declsStartWithComprehension reports whether the first declaration
+// is an ast.Comprehension.
+func declsStartWithComprehension(decls []ast.Decl) bool {
+	if len(decls) == 0 {
+		return false
+	}
+	_, ok := decls[0].(*ast.Comprehension)
+	return ok
+}
+
+// declsReferenceIdent reports whether name appears as a value-position
+// identifier anywhere in decls. Field labels are skipped.
+func declsReferenceIdent(decls []ast.Decl, name string) bool {
+	found := false
+	for _, d := range decls {
+		ast.Walk(d, func(n ast.Node) bool {
+			if found {
+				return false
+			}
+			// Skip field labels.
+			if f, ok := n.(*ast.Field); ok {
+				// Walk only the value, not the label.
+				ast.Walk(f.Value, func(n2 ast.Node) bool {
+					if found {
+						return false
+					}
+					if id, ok := n2.(*ast.Ident); ok && id.Name == name {
+						found = true
+						return false
+					}
+					return true
+				}, nil)
+				return false
+			}
+			if id, ok := n.(*ast.Ident); ok && id.Name == name {
+				found = true
+				return false
+			}
+			return true
+		}, nil)
+	}
+	return found
+}
+
+// declsHaveMixedFieldsAndStrings reports whether decls contain both
+// ast.Field declarations and ast.EmbedDecl with a string literal value.
+func declsHaveMixedFieldsAndStrings(decls []ast.Decl) bool {
 	hasField := false
 	hasString := false
-	for _, line := range strings.Split(body, "\n") {
-		trimmed := strings.TrimSpace(line)
-		if trimmed == "" || trimmed == "{" || trimmed == "}" {
-			continue
-		}
-		if strings.HasPrefix(trimmed, "if ") || strings.HasPrefix(trimmed, "for ") {
-			continue
-		}
-		if strings.Contains(trimmed, ": ") || strings.HasSuffix(trimmed, ": {") {
+	for _, d := range decls {
+		switch d := d.(type) {
+		case *ast.Field:
 			hasField = true
-		} else if strings.HasPrefix(trimmed, "\"") && strings.HasSuffix(trimmed, "\"") {
-			hasString = true
+		case *ast.Comprehension:
+			// skip
+		case *ast.EmbedDecl:
+			if lit, ok := d.Expr.(*ast.BasicLit); ok && lit.Kind == token.STRING {
+				hasString = true
+			}
 		}
 	}
 	return hasField && hasString
+}
+
+// renameArgIdents walks the AST and renames all #arg value-position
+// identifiers to _args. Field labels named #arg are left unchanged.
+// Returns true if any rename was performed.
+func renameArgIdents(node ast.Node) bool {
+	renamed := false
+	ast.Walk(node, func(n ast.Node) bool {
+		// For fields, skip the label and only walk the value.
+		if f, ok := n.(*ast.Field); ok {
+			ast.Walk(f.Value, func(n2 ast.Node) bool {
+				if id, ok := n2.(*ast.Ident); ok && id.Name == "#arg" {
+					id.Name = "_args"
+					renamed = true
+				}
+				return true
+			}, nil)
+			return false
+		}
+		if id, ok := n.(*ast.Ident); ok && id.Name == "#arg" {
+			id.Name = "_args"
+			renamed = true
+		}
+		return true
+	}, nil)
+	return renamed
 }
 
 func (c *converter) actionToCUE(n *parse.ActionNode) (expr ast.Expr, helmObj string, err error) {
@@ -6977,101 +6995,14 @@ func buildFieldTree(refs [][]string, requiredRefs [][]string, rangeRefs [][]stri
 // buildArgSchema builds a CUE schema expression for #arg based on
 // collected field references. Returns "_" when no field refs exist
 // (bare {{ . }} only), otherwise a CUE struct with optional fields.
-func buildArgSchema(refs, requiredRefs, rangeRefs, nonScalarRefs [][]string) string {
+func buildArgSchemaExpr(refs, requiredRefs, rangeRefs, nonScalarRefs [][]string) ast.Expr {
 	if len(refs) == 0 {
-		return "_"
+		return ast.NewIdent("_")
 	}
 	root := buildFieldTree(refs, requiredRefs, rangeRefs, nonScalarRefs)
 	childDecls := fieldNodesToDecls(root.children)
 	childDecls = append(childDecls, &ast.Ellipsis{})
-	structLit := &ast.StructLit{Elts: childDecls}
-	b, err := format.Node(structLit, format.Simplify())
-	if err != nil {
-		return "_"
-	}
-	return string(b)
-}
-
-// helperExprIdentRe matches hidden identifiers like _foo_bar in CUE expressions.
-var helperExprIdentRe = regexp.MustCompile(`\b(_[a-zA-Z][a-zA-Z0-9_]*)\b`)
-
-// helperExprDefRe matches definition references like #foo in CUE expressions.
-var helperExprDefRe = regexp.MustCompile(`(#[a-zA-Z][a-zA-Z0-9_]*)`)
-
-// helperExprLetRe matches let-bound identifiers in CUE expressions.
-var helperExprLetRe = regexp.MustCompile(`\blet\s+(_[a-zA-Z][a-zA-Z0-9_]*)\s*=`)
-
-// nonzeroArgUndoRe matches the _args: field declaration inside _nonzero
-// struct patterns, handling both inline ({_args:) and multi-line
-// ({\n<whitespace>_args:) formats. The replacement restores #arg: as
-// the field key while leaving other _args references unchanged.
-var nonzeroArgUndoRe = regexp.MustCompile(`(\{\s*)_args:`)
-
-// validateHelperExpr checks whether a helper body expression is valid CUE
-// by stubbing out all referenced identifiers and definitions.
-func validateHelperExpr(expr string, imports map[string]bool) error {
-	refs := make(map[string]bool)
-	for _, m := range helperExprIdentRe.FindAllString(expr, -1) {
-		refs[m] = true
-	}
-	for _, m := range helperExprDefRe.FindAllString(expr, -1) {
-		refs[m] = true
-	}
-	// Exclude let-bound identifiers — declaring them as top-level
-	// fields would conflict with the let binding inside the expression.
-	for _, m := range helperExprLetRe.FindAllStringSubmatch(expr, -1) {
-		delete(refs, m[1])
-	}
-
-	var buf bytes.Buffer
-
-	// Include imports needed by the expression. Sentinel identifiers
-	// (e.g. _h2c_strings_) are used in the expression; map them back
-	// to the real import path for the validation CUE file.
-	if len(imports) > 0 {
-		var pkgs []string
-		for pkg := range imports {
-			sentinel := importSentinel(pkg)
-			if strings.Contains(expr, sentinel+".") {
-				pkgs = append(pkgs, pkg)
-				// Remove sentinels from refs — they are import
-				// identifiers, not field references.
-				delete(refs, sentinel)
-			}
-		}
-		slices.Sort(pkgs)
-		if len(pkgs) == 1 {
-			fmt.Fprintf(&buf, "import %q\n", pkgs[0])
-		} else if len(pkgs) > 1 {
-			buf.WriteString("import (\n")
-			for _, pkg := range pkgs {
-				fmt.Fprintf(&buf, "\t%q\n", pkg)
-			}
-			buf.WriteString(")\n")
-		}
-		// Replace sentinels with real short names for validation.
-		for _, pkg := range pkgs {
-			sentinel := importSentinel(pkg)
-			shortName := pkg
-			if idx := strings.LastIndex(pkg, "/"); idx >= 0 {
-				shortName = pkg[idx+1:]
-			}
-			expr = strings.ReplaceAll(expr, sentinel+".", shortName+".")
-		}
-	}
-
-	for ref := range refs {
-		fmt.Fprintf(&buf, "%s: _\n", ref)
-	}
-	fmt.Fprintf(&buf, "_test: %s\n", expr)
-
-	return validateCUE(buf.Bytes())
-}
-
-func validateCUE(src []byte) error {
-	ctx := cuecontext.New()
-	v := ctx.CompileBytes(src)
-	return v.Err()
+	return &ast.StructLit{Elts: childDecls}
 }
 
 func cueKey(s string) string {
@@ -7079,12 +7010,6 @@ func cueKey(s string) string {
 		return s
 	}
 	return strconv.Quote(s)
-}
-
-func writeIndent(w *bytes.Buffer, level int) {
-	for range level {
-		w.WriteByte('\t')
-	}
 }
 
 // stripCUEComments removes leading CUE comment lines (starting with "//")

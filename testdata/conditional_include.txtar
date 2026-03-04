@@ -32,7 +32,6 @@ import "struct"
 	...
 }
 _myapp_enabled: {
-	#arg: _
 	if (_nonzero & {
 		#arg: #values.enabled
 		_
