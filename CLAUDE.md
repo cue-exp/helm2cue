@@ -372,6 +372,29 @@ When a fix does **not** change the integration golden file, use
 `HELM2CUE_DEBUG=1` on the full chart to check whether the template
 has additional issues beyond what was fixed.
 
+### AST construction conventions
+
+The converter builds CUE output as `ast.Expr` / `ast.Decl` trees. Prefer
+constructing AST directly over building text strings and parsing them:
+
+- **Build expressions as AST.** Use helpers like `binOp`, `selExpr`,
+  `callExpr`, `cueInt`, `cueString`, `ast.NewIdent`, `&ast.BottomLit{}`
+  etc. instead of `fmt.Sprintf` + `mustParseExpr`.
+- **Compare expressions structurally.** Use `exprEqual`, `clausesEqual`,
+  `exprStartsWithArg`, `isArgIdent`, or `decomposeSelChain` instead of
+  formatting to text with `exprToText` and comparing strings.
+- **Store expressions as AST.** Prefer `ast.Expr` or `[]ast.Clause` in
+  struct fields and maps over formatted text strings.
+- **`exprToText` is for genuinely text-based contexts only.** Legitimate
+  uses: block scalar line accumulation, flow collection sentinel
+  substitution, dynamic key construction, helper body text composition,
+  and comment message text. Do not use it for comparison, map keying,
+  or AST inspection.
+- **`mustParseExpr` is for inherently text-based inputs.** Legitimate
+  uses: raw user key labels, dict literal text, flow collection sentinel
+  substitution, block scalar content, `config.RootExpr` (a string in
+  the public API). All other CUE expressions should be built as AST.
+
 ### Template parse tree model
 
 The Go template parser splits templates into node types. Understanding
