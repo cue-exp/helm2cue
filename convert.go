@@ -283,6 +283,7 @@ type converter struct {
 	rangeRefs                   map[string][][]string // helmObj → field paths used as range targets
 	nonScalarRefs               map[string][][]string // helmObj → field paths known non-scalar (hasKey, toYaml) but not range
 	suppressRequired            bool                  // true during condition processing
+	guardedPaths                map[string]bool       // field paths guarded by enclosing if-conditions (helmObj + "\x00" + path)
 	rangeVarStack               []rangeContext        // stack of dot-rebinding contexts for nested range/with
 	helperArgRefs               [][]string            // field paths accessed on #arg in helper bodies
 	helperArgRequiredRefs       [][]string            // required (value-accessed) field paths on #arg
@@ -1004,11 +1005,87 @@ func (c *converter) isCoreFunc(name string) bool {
 }
 
 // trackFieldRef records a field reference and, unless suppressRequired
-// is set, also records it as a required (value-accessed) reference.
+// is set or the path is guarded by an enclosing if-condition, also
+// records it as a required (value-accessed) reference.
 func (c *converter) trackFieldRef(helmObj string, path []string) {
 	c.fieldRefs[helmObj] = append(c.fieldRefs[helmObj], path)
-	if !c.suppressRequired {
+	if !c.suppressRequired && !c.isGuardedPath(helmObj, path) {
 		c.requiredRefs[helmObj] = append(c.requiredRefs[helmObj], path)
+	}
+}
+
+// guardedPathKey returns the key for a guarded path entry.
+func guardedPathKey(helmObj string, path []string) string {
+	return helmObj + "\x00" + strings.Join(path, "\x00")
+}
+
+// isGuardedPath reports whether the given field path is guarded by an
+// enclosing if-condition that checks the same field.
+func (c *converter) isGuardedPath(helmObj string, path []string) bool {
+	if len(c.guardedPaths) == 0 {
+		return false
+	}
+	// Check the exact path and all parent paths. If .Values.x is guarded,
+	// then .Values.x.y inside the body is also guarded.
+	for i := len(path); i >= 1; i-- {
+		if c.guardedPaths[guardedPathKey(helmObj, path[:i])] {
+			return true
+		}
+	}
+	return false
+}
+
+// extractGuardedPaths extracts field paths from a condition pipe that
+// represent simple truthiness checks. For {{ if .Values.x }}, this
+// returns the path ["x"] with helmObj "Values". For compound conditions
+// (and, not), it extracts paths from all truthiness sub-expressions.
+// Only paths checked via conditionNodeToExpr (truthiness / _nonzero)
+// are extracted; paths in comparison functions (eq, ne, etc.) are not
+// because those require the field to exist.
+func (c *converter) extractGuardedPaths(pipe *parse.PipeNode) map[string]bool {
+	if len(pipe.Cmds) != 1 {
+		return nil
+	}
+	cmd := pipe.Cmds[0]
+	if len(cmd.Args) == 0 {
+		return nil
+	}
+	paths := make(map[string]bool)
+	c.collectGuardedPaths(cmd.Args[0], cmd.Args[1:], paths)
+	if len(paths) == 0 {
+		return nil
+	}
+	return paths
+}
+
+// collectGuardedPaths recursively collects field paths from truthiness
+// condition nodes. It handles simple field refs, and/not/or combinators,
+// and skips comparison functions (eq, ne, etc.) whose fields are required.
+func (c *converter) collectGuardedPaths(node parse.Node, args []parse.Node, paths map[string]bool) {
+	switch n := node.(type) {
+	case *parse.FieldNode:
+		_, helmObj := c.fieldToCUEInContext(n.Ident)
+		if helmObj != "" && len(n.Ident) >= 2 {
+			paths[guardedPathKey(helmObj, n.Ident[1:])] = true
+		}
+	case *parse.VariableNode:
+		if len(n.Ident) >= 2 && n.Ident[0] == "$" {
+			_, helmObj := fieldToCUE(c.config.ContextObjects, n.Ident[1:])
+			if helmObj != "" && len(n.Ident) >= 3 {
+				paths[guardedPathKey(helmObj, n.Ident[2:])] = true
+			}
+		}
+	case *parse.IdentifierNode:
+		switch n.Ident {
+		case "and", "or":
+			for _, arg := range args {
+				c.collectGuardedPaths(arg, nil, paths)
+			}
+		case "not":
+			if len(args) == 1 {
+				c.collectGuardedPaths(args[0], nil, paths)
+			}
+		}
 	}
 }
 
@@ -4078,8 +4155,25 @@ func (c *converter) processIf(n *parse.IfNode) error {
 		}
 	}
 
+	// Extract field paths guarded by this condition so that references
+	// to the same field inside the if-body are not marked as required.
+	guardedPaths := c.extractGuardedPaths(n.Pipe)
+	savedGuarded := c.guardedPaths
+	if guardedPaths != nil {
+		if c.guardedPaths == nil {
+			c.guardedPaths = make(map[string]bool)
+		}
+		for k := range guardedPaths {
+			c.guardedPaths[k] = true
+		}
+	}
+
 	// Process the if body and emit as comprehension.
 	c.emitIfBranchComprehension([]ast.Expr{condition}, bodyIndent, inList && isList && !preOpenedListItem, preOpenedListItem, n.List.Nodes)
+
+	// Restore guarded paths before processing else branches — the
+	// condition's field is not guaranteed present in the else body.
+	c.guardedPaths = savedGuarded
 
 	// Walk else/else-if chain, flattening into CUE multi-clause
 	// comprehensions: if !condA if condB { ... }.

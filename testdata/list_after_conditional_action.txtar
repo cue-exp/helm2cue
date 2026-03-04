@@ -28,7 +28,7 @@ data:
 import "struct"
 
 #values: {
-	extra!: _
+	extra?: _
 	...
 }
 
