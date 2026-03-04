@@ -39,6 +39,8 @@ data:
 package test_app
 
 #values: {
-	volumes?: [...] | {[string]: _}
+	volumes?: [...] | {
+		[string]: _
+	}
 	...
 }

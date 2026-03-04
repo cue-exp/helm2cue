@@ -40,7 +40,9 @@ package test_app
 #values: {
 	server!: {
 		enabled?: bool | number | string | null
-		paths?: [...] | {[string]: _}
+		paths?: [...] | {
+			[string]: _
+		}
 		...
 	}
 	...

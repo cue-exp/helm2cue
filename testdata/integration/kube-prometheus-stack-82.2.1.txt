@@ -104,21 +104,21 @@ grafana_configmaps_datasources.0.data.datasources.0.uid: conflicting values "ale
     ./grafana_configmaps_datasources.cue:23:3
     ./grafana_configmaps_datasources.cue:88:6
     ./grafana_configmaps_datasources.cue:91:13
-    ./values.cue:668:39
+    ./values.cue:774:39
     values.yaml:1457:14
 grafana_configmaps_datasources.0.data.datasources.0.uid: conflicting values "alertmanager" and null (mismatched types string and null):
     ./grafana_configmaps_datasources.cue:22:5
     ./grafana_configmaps_datasources.cue:23:3
     ./grafana_configmaps_datasources.cue:88:6
     ./grafana_configmaps_datasources.cue:91:13
-    ./values.cue:668:64
+    ./values.cue:774:64
     values.yaml:1457:14
 grafana_configmaps_datasources.0.data.datasources.0.uid: conflicting values "alertmanager" and number (mismatched types string and number):
     ./grafana_configmaps_datasources.cue:22:5
     ./grafana_configmaps_datasources.cue:23:3
     ./grafana_configmaps_datasources.cue:88:6
     ./grafana_configmaps_datasources.cue:91:13
-    ./values.cue:668:46
+    ./values.cue:774:46
     values.yaml:1457:14
 prometheus_operator_admission_webhooks_validatingWebhookConfiguration.0.path: conflicting values "/admission-alertmanagerconfigs/validate" and "/admission-prometheusrules/validate":
     ./prometheus_operator_admission_webhooks_validatingWebhookConfiguration.cue:14:5
@@ -134,7 +134,7 @@ prometheus_operator_servicemonitor.0.spec.endpoints.0.tlsConfig.ca.secret.key: c
     ./prometheus_operator_servicemonitor.cue:60:12
 alertmanager_secret.0.data."alertmanager.yaml": invalid interpolation: cannot use {global:{resolve_timeout:"5m"},inhibit_rules:[{source_matchers:["severity = critical"],target_matchers:["severity =~ warning|info"],equal:["namespace","alertname"]},{source_matchers:["severity = warning"],target_matchers:["severity = info"],equal:["namespace","alertname"]},{source_matchers:["alertname = InfoInhibitor"],target_matchers:["severity = info"],equal:["namespace"]},{target_matchers:["alertname = InfoInhibitor"]}],route:{group_by:["namespace"],group_wait:"30s",group_interval:"5m",repeat_interval:"12h",receiver:"null",routes:[{receiver:"null",matchers:["alertname = \"Watchdog\""]}]},receivers:[{name:"null"}],templates:["/etc/alertmanager/config/*.tmpl"]} (type struct) as (string|bytes) in argument 2 to "encoding/base64".Encode:
     ./alertmanager_secret.cue:70:27
-    ./values.cue:599:18
+    ./values.cue:697:18
 extra_objects.1: cannot range over *#values.extraManifests | [] (found null, want list or struct):
     ./extra_objects.cue:18:21
 _vMajor: error in call to strconv.Atoi: strconv.Atoi: parsing "": invalid syntax:
@@ -142,7 +142,7 @@ _vMajor: error in call to strconv.Atoi: strconv.Atoi: parsing "": invalid syntax
 results: error in call to list.FlattenN: invalid interpolation: cannot use {global:{resolve_timeout:"5m"},inhibit_rules:[{source_matchers:["severity = critical"],target_matchers:["severity =~ warning|info"],equal:["namespace","alertname"]},{source_matchers:["severity = warning"],target_matchers:["severity = info"],equal:["namespace","alertname"]},{source_matchers:["alertname = InfoInhibitor"],target_matchers:["severity = info"],equal:["namespace"]},{target_matchers:["alertname = InfoInhibitor"]}],route:{group_by:["namespace"],group_wait:"30s",group_interval:"5m",repeat_interval:"12h",receiver:"null",routes:[{receiver:"null",matchers:["alertname = \"Watchdog\""]}]},receivers:[{name:"null"}],templates:["/etc/alertmanager/config/*.tmpl"]} (type struct) as (string|bytes) in argument 2 to "encoding/base64".Encode:
     ./results.cue:7:10
     ./alertmanager_secret.cue:70:27
-    ./values.cue:599:18
+    ./values.cue:697:18
 -- cue export --
 exit status 1
 grafana_configmaps_datasources.0.data.datasources.0.name: conflicting values "\"Alertmanager\"" and "\"Prometheus\"":
@@ -177,21 +177,21 @@ grafana_configmaps_datasources.0.data.datasources.0.uid: conflicting values "ale
     ./grafana_configmaps_datasources.cue:23:3
     ./grafana_configmaps_datasources.cue:88:6
     ./grafana_configmaps_datasources.cue:91:13
-    ./values.cue:668:39
+    ./values.cue:774:39
     values.yaml:1457:14
 grafana_configmaps_datasources.0.data.datasources.0.uid: conflicting values "alertmanager" and null (mismatched types string and null):
     ./grafana_configmaps_datasources.cue:22:5
     ./grafana_configmaps_datasources.cue:23:3
     ./grafana_configmaps_datasources.cue:88:6
     ./grafana_configmaps_datasources.cue:91:13
-    ./values.cue:668:64
+    ./values.cue:774:64
     values.yaml:1457:14
 grafana_configmaps_datasources.0.data.datasources.0.uid: conflicting values "alertmanager" and number (mismatched types string and number):
     ./grafana_configmaps_datasources.cue:22:5
     ./grafana_configmaps_datasources.cue:23:3
     ./grafana_configmaps_datasources.cue:88:6
     ./grafana_configmaps_datasources.cue:91:13
-    ./values.cue:668:46
+    ./values.cue:774:46
     values.yaml:1457:14
 grafana_configmaps_datasources.0.data.datasources.0.url: conflicting values "http://test-alertmanager.default:9093/" and "http://test-prometheus.default:9090/":
     ./grafana_configmaps_datasources.cue:22:5
@@ -217,7 +217,7 @@ prometheus_operator_servicemonitor.0.spec.endpoints.0.tlsConfig.ca.secret.key: c
     ./prometheus_operator_servicemonitor.cue:60:12
 alertmanager_secret.0.data."alertmanager.yaml": invalid interpolation: cannot use {global:{resolve_timeout:"5m"},inhibit_rules:[{source_matchers:["severity = critical"],target_matchers:["severity =~ warning|info"],equal:["namespace","alertname"]},{source_matchers:["severity = warning"],target_matchers:["severity = info"],equal:["namespace","alertname"]},{source_matchers:["alertname = InfoInhibitor"],target_matchers:["severity = info"],equal:["namespace"]},{target_matchers:["alertname = InfoInhibitor"]}],route:{group_by:["namespace"],group_wait:"30s",group_interval:"5m",repeat_interval:"12h",receiver:"null",routes:[{receiver:"null",matchers:["alertname = \"Watchdog\""]}]},receivers:[{name:"null"}],templates:["/etc/alertmanager/config/*.tmpl"]} (type struct) as (string|bytes) in argument 2 to "encoding/base64".Encode:
     ./alertmanager_secret.cue:70:27
-    ./values.cue:599:18
+    ./values.cue:697:18
 extra_objects.1: cannot range over *#values.extraManifests | [] (found null, want list or struct):
     ./extra_objects.cue:18:21
 _vMajor: error in call to strconv.Atoi: strconv.Atoi: parsing "": invalid syntax:
@@ -225,4 +225,4 @@ _vMajor: error in call to strconv.Atoi: strconv.Atoi: parsing "": invalid syntax
 results: error in call to list.FlattenN: invalid interpolation: cannot use {global:{resolve_timeout:"5m"},inhibit_rules:[{source_matchers:["severity = critical"],target_matchers:["severity =~ warning|info"],equal:["namespace","alertname"]},{source_matchers:["severity = warning"],target_matchers:["severity = info"],equal:["namespace","alertname"]},{source_matchers:["alertname = InfoInhibitor"],target_matchers:["severity = info"],equal:["namespace"]},{target_matchers:["alertname = InfoInhibitor"]}],route:{group_by:["namespace"],group_wait:"30s",group_interval:"5m",repeat_interval:"12h",receiver:"null",routes:[{receiver:"null",matchers:["alertname = \"Watchdog\""]}]},receivers:[{name:"null"}],templates:["/etc/alertmanager/config/*.tmpl"]} (type struct) as (string|bytes) in argument 2 to "encoding/base64".Encode:
     ./results.cue:7:10
     ./alertmanager_secret.cue:70:27
-    ./values.cue:599:18
+    ./values.cue:697:18
