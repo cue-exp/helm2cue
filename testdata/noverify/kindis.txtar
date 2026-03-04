@@ -23,7 +23,9 @@ output: [
 		if (#values.config & bool) != _|_ {
 			boolVal: true
 		}
-		if !((#values.config & bool) != _|_) if (#values.config & {...}) != _|_ {
+		if !((#values.config & bool) != _|_) if (#values.config & {
+			...
+		}) != _|_ {
 			mapVal: true
 		}
 	},

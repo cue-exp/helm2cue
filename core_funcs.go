@@ -290,12 +290,14 @@ func convertInclude(c *converter, args []funcArg) (ast.Expr, string, error) {
 
 	var cueName string
 	var helmObj string
+	var expr ast.Expr
 	if nameNode, ok := nameArg.node.(*parse.StringNode); ok {
 		var err error
 		cueName, helmObj, err = c.handleInclude(nameNode.Text, nil)
 		if err != nil {
 			return nil, "", err
 		}
+		expr = ast.NewIdent(cueName)
 	} else {
 		nameExpr, nameErr := c.convertIncludeNameExpr(nameArg.node)
 		if nameErr != nil {
@@ -303,9 +305,9 @@ func convertInclude(c *converter, args []funcArg) (ast.Expr, string, error) {
 		}
 		c.hasDynamicInclude = true
 		cueName = fmt.Sprintf("_helpers[%s]", exprToText(nameExpr))
+		expr = indexExpr(ast.NewIdent("_helpers"), nameExpr)
 	}
 
-	var expr ast.Expr = mustParseExpr(cueName)
 	if ctxHelmObj != "" {
 		c.propagateHelperArgRefs(cueName, ctxHelmObj, ctxBasePath)
 	} else if dictMap != nil {
