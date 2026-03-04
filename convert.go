@@ -1483,6 +1483,14 @@ func (c *converter) convertHelperBody(nodes []parse.Node) (string, *helperArgInf
 	sub.flushDeferred()
 	sub.closeBlocksTo(-1)
 
+	// Convert import-tagged idents to sentinel forms before serializing
+	// to text. The helper body goes through a text round-trip (declsToText →
+	// bodyToDecls) that strips import tags; sentinels survive this round-trip
+	// and are resolved back to import-tagged idents by resolveImportSentinels
+	// during final formatting.
+	for _, d := range sub.rootDecls {
+		sentinelizeTaggedImports(d, func(pkg string) { c.addImport(pkg) })
+	}
 	body := strings.TrimSpace(declsToText(sub.rootDecls))
 
 	// Propagate hasConditions so _nonzero is emitted by the parent.
@@ -2119,11 +2127,14 @@ func (c *converter) embedRangeInBlockScalar(n *parse.RangeNode) error {
 	if err != nil {
 		return err
 	}
+	// Use exprToGuardText to preserve import-tagged idents as sentinels
+	// for the block scalar text round-trip.
+	joinText := inlineExpr(c.exprToGuardText(joinExpr))
 	if len(c.blockScalarLines) > 0 {
 		last := len(c.blockScalarLines) - 1
-		c.blockScalarLines[last] += inlineExpr(joinExpr)
+		c.blockScalarLines[last] += joinText
 	} else {
-		c.blockScalarLines = append(c.blockScalarLines, inlineExpr(joinExpr))
+		c.blockScalarLines = append(c.blockScalarLines, joinText)
 	}
 	c.blockScalarPartialLine = true
 	return nil
@@ -3155,8 +3166,10 @@ func (c *converter) emitActionExpr(expr ast.Expr, comment string) {
 	}
 
 	// If block scalar accumulation is active, embed as interpolation.
+	// Use exprToGuardText to preserve import-tagged idents as sentinels
+	// so they survive the text round-trip through block scalar lines.
 	if c.blockScalarLines != nil {
-		exprStr := exprToText(expr)
+		exprStr := c.exprToGuardText(expr)
 		if len(c.blockScalarLines) > 0 {
 			last := len(c.blockScalarLines) - 1
 			c.blockScalarLines[last] += inlineExpr(exprStr)
@@ -3597,7 +3610,7 @@ func (c *converter) collectInlineSuffix() ([]inlinePart, int, error) {
 			if err != nil {
 				return nil, 0, err
 			}
-			parts = append(parts, toInlinePart(mustParseExpr(joinExpr)))
+			parts = append(parts, toInlinePart(joinExpr))
 			consumed++
 		default:
 			return parts, consumed, nil
@@ -3712,14 +3725,14 @@ func (c *converter) processInlineIf(n *parse.IfNode) error {
 // within the enclosing string value.
 // rangeToInlineExpr converts a RangeNode into a strings.Join CUE expression
 // suitable for embedding in a string interpolation.
-func (c *converter) rangeToInlineExpr(n *parse.RangeNode) (string, error) {
+func (c *converter) rangeToInlineExpr(n *parse.RangeNode) (ast.Expr, error) {
 	// Resolve range expression.
 	saved := c.suppressRequired
 	c.suppressRequired = true
 	overExpr, helmObj, fieldPath, err := c.pipeToFieldExpr(n.Pipe)
 	c.suppressRequired = saved
 	if err != nil {
-		return "", fmt.Errorf("inline range: %w", err)
+		return nil, fmt.Errorf("inline range: %w", err)
 	}
 	if helmObj != "" {
 		c.usedContextObjects[helmObj] = true
@@ -3757,27 +3770,31 @@ func (c *converter) rangeToInlineExpr(n *parse.RangeNode) (string, error) {
 	}
 
 	if err != nil {
-		return "", err
-	}
-	// Format body parts as the inner content of a CUE string literal.
-	// partsToExpr produces a quoted string like `"text\(expr)text"`;
-	// we extract the inner content (without outer quotes) for embedding.
-	bodyExprStr := exprToText(partsToExpr(bodyParts))
-	// Strip the outer quotes to get the raw interpolation body.
-	if len(bodyExprStr) >= 2 && bodyExprStr[0] == '"' && bodyExprStr[len(bodyExprStr)-1] == '"' {
-		bodyExprStr = bodyExprStr[1 : len(bodyExprStr)-1]
+		return nil, err
 	}
 
-	// Build strings.Join expression.
-	stringsRef := c.importRef("strings")
+	// Build strings.Join([for key, val in overExpr {bodyExpr}], "").
+	c.addImport("strings")
+	bodyExpr := partsToExpr(bodyParts)
 	keyExpr := "_"
 	if keyName != "" {
 		keyExpr = keyName
 	}
-	return fmt.Sprintf(
-		`%s.Join([for %s, %s in %s {"%s"}], "")`,
-		stringsRef, keyExpr, valName, exprToText(overExpr), bodyExprStr,
-	), nil
+	listComp := &ast.ListLit{Elts: []ast.Expr{
+		&ast.Comprehension{
+			Clauses: []ast.Clause{
+				&ast.ForClause{
+					Key:    ast.NewIdent(keyExpr),
+					Value:  ast.NewIdent(valName),
+					Source: overExpr,
+				},
+			},
+			Value: &ast.StructLit{Elts: []ast.Decl{
+				&ast.EmbedDecl{Expr: bodyExpr},
+			}},
+		},
+	}}
+	return importCall("strings", "Join", listComp, cueString("")), nil
 }
 
 func (c *converter) processInlineRange(n *parse.RangeNode) error {
@@ -3804,7 +3821,7 @@ func (c *converter) processInlineRange(n *parse.RangeNode) error {
 	}
 
 	// Append as interpolation to prefix.
-	prefix = append(prefix, toInlinePart(mustParseExpr(joinExpr)))
+	prefix = append(prefix, toInlinePart(joinExpr))
 
 	// Collect remaining suffix from sibling nodes.
 	suffixParts, consumed, err := c.collectInlineSuffix()
@@ -4838,7 +4855,10 @@ func (c *converter) applyRangePipelineFunc(pf PipelineFunc, name string, expr as
 	if result == nil {
 		return nil, fmt.Errorf("function %q has no CUE equivalent", name)
 	}
-	return mustParseExpr(c.sentinelizeImports(exprToText(result), pf.Imports)), nil
+	for _, pkg := range pf.Imports {
+		c.addImport(pkg)
+	}
+	return result, nil
 }
 
 func (c *converter) pipeToCUECondition(pipe *parse.PipeNode) (ast.Expr, ast.Expr, error) {
@@ -5676,7 +5696,10 @@ func (c *converter) actionToCUE(n *parse.ActionNode) (expr ast.Expr, helmObj str
 				}
 				astResult := pf.Convert(expr, pfArgs)
 				if astResult != nil {
-					expr = mustParseExpr(c.sentinelizeImports(exprToText(astResult), pf.Imports))
+					for _, pkg := range pf.Imports {
+						c.addImport(pkg)
+					}
+					expr = astResult
 				} else {
 					expr = nil
 				}
@@ -5745,7 +5768,10 @@ func (c *converter) actionToCUE(n *parse.ActionNode) (expr ast.Expr, helmObj str
 				// Sentinel for unsupported functions (e.g. lookup, tpl).
 				return nil, "", fmt.Errorf("function %q has no CUE equivalent and cannot be converted", id.Ident)
 			}
-			expr = mustParseExpr(c.sentinelizeImports(exprToText(result), pf.Imports))
+			for _, pkg := range pf.Imports {
+				c.addImport(pkg)
+			}
+			expr = result
 			for _, h := range pf.Helpers {
 				c.usedHelpers[h.Name] = h
 			}
@@ -6090,7 +6116,10 @@ func (c *converter) convertSubPipe(pipe *parse.PipeNode) (ast.Expr, string, erro
 					}
 					subResult := pf.Convert(expr, pfArgs)
 					if subResult != nil {
-						expr = mustParseExpr(c.sentinelizeImports(exprToText(subResult), pf.Imports))
+						for _, pkg := range pf.Imports {
+							c.addImport(pkg)
+						}
+						expr = subResult
 					} else {
 						expr = nil
 					}
@@ -6167,7 +6196,10 @@ func (c *converter) convertSubPipe(pipe *parse.PipeNode) (ast.Expr, string, erro
 			if result == nil {
 				return nil, "", fmt.Errorf("unsupported pipe node: %s", pipe)
 			}
-			expr = mustParseExpr(c.sentinelizeImports(exprToText(result), pf.Imports))
+			for _, pkg := range pf.Imports {
+				c.addImport(pkg)
+			}
+			expr = result
 			for _, h := range pf.Helpers {
 				c.usedHelpers[h.Name] = h
 			}
@@ -6366,20 +6398,6 @@ func (c *converter) addImport(pkg string) {
 func importSentinel(pkg string) string {
 	s := strings.NewReplacer("/", "_", ".", "_").Replace(pkg)
 	return "_h2c_" + s + "_"
-}
-
-// importRef records an import and returns its sentinel identifier.
-func (c *converter) importRef(pkg string) string {
-	c.addImport(pkg)
-	return importSentinel(pkg)
-}
-
-// sentinelizeImports replaces known import short names with their
-// sentinel forms in s, and records the imports. This is used for
-// post-processing PipelineFunc.Convert return values and constant
-// helper definition strings that contain hardcoded package references.
-func (c *converter) sentinelizeImports(s string, imports []string) string {
-	return sentinelizeImportsRaw(s, imports, func(pkg string) { c.addImport(pkg) })
 }
 
 // sentinelizeImportsRaw replaces known import short names with their
