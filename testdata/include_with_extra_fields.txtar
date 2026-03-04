@@ -27,7 +27,9 @@ metadata:
 data:
   key: value
 -- output.cue --
-_myapp_labels: app: "myapp"
+_myapp_labels: {
+	app: "myapp"
+}
 
 output: [
 	{
