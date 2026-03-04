@@ -8,8 +8,8 @@ ConvertChart error: values schema validation failed
 -- cue vet --
 exit status 1
 prometheus_operator_deployment.spec.template.spec.containers.args.#in: reference "_range1" not found:
-    ./prometheus_operator_deployment.cue:86:88
+    ./prometheus_operator_deployment.cue:71:89
 -- cue export --
 exit status 1
 prometheus_operator_deployment.spec.template.spec.containers.args.#in: reference "_range1" not found:
-    ./prometheus_operator_deployment.cue:86:88
+    ./prometheus_operator_deployment.cue:71:89

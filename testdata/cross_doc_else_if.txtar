@@ -65,7 +65,7 @@ output: [
 			apiVersion: "v1"
 			kind:       "ConfigMap"
 			metadata: name: "\(#values.name)-a1"
-			data: key: "a1"
+			data: key:      "a1"
 		}
 	},
 	if #values.mode == "a" {
@@ -73,7 +73,7 @@ output: [
 			apiVersion: "v1"
 			kind:       "ConfigMap"
 			metadata: name: "\(#values.name)-a2"
-			data: key: "a2"
+			data: key:      "a2"
 		}
 	},
 	if !(#values.mode == "a") {
@@ -82,7 +82,7 @@ output: [
 				apiVersion: "v1"
 				kind:       "ConfigMap"
 				metadata: name: "\(#values.name)-b1"
-				data: key: "b1"
+				data: key:      "b1"
 			}
 		}
 	},
@@ -92,7 +92,7 @@ output: [
 				apiVersion: "v1"
 				kind:       "ConfigMap"
 				metadata: name: "\(#values.name)-b2"
-				data: key: "b2"
+				data: key:      "b2"
 			}
 		}
 	},

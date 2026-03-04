@@ -36,13 +36,12 @@ package test_app
 
 import "list"
 
-test: [{
-	items: [
-		for _key0, _val0 in list.Range(0, int & #values.replicas, 1) {
+test: [
+	{
+		items: [for _key0, _val0 in list.Range(0, int & #values.replicas, 1) {
 			spec: rules: [
 				{
-					host: "host-\(_key0).example.com"
-					http: paths: [
+					host: "host-\(_key0).example.com", http: paths: [
 						{
 							path: "/foo"
 						},
@@ -50,5 +49,6 @@ test: [{
 				},
 			]
 		},
-	]
-}]
+		]
+	},
+]

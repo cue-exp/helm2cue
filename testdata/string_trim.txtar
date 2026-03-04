@@ -29,6 +29,6 @@ output: [
 		apiVersion: "v1"
 		kind:       "ConfigMap"
 		metadata: name: "test"
-		data: trimmed: strings.TrimSpace(#values.name)
+		data: trimmed:  strings.TrimSpace(#values.name)
 	},
 ]

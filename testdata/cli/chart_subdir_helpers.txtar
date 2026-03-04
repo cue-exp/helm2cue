@@ -81,24 +81,26 @@ _subdir_helpers_operator_labels: {
 
 package subdir_helpers
 
-deployment: [{
-	apiVersion: "apps/v1"
-	kind:       "Deployment"
-	metadata: {
-		name:   _subdir_helpers_fullname
-		labels: _subdir_helpers_operator_labels
-	}
-	spec: {
-		replicas: *#values.replicaCount | 1
-		selector: matchLabels: app: _subdir_helpers_name
-		template: {
-			metadata: labels: app: _subdir_helpers_name
-			spec: containers: [
-				{
-					name:  _subdir_helpers_name
-					image: "nginx:latest"
-				},
-			]
+deployment: [
+	{
+		apiVersion: "apps/v1"
+		kind:       "Deployment"
+		metadata: {
+			name:   _subdir_helpers_fullname
+			labels: _subdir_helpers_operator_labels
 		}
-	}
-}]
+		spec: {
+			replicas: *#values.replicaCount | 1
+			selector: matchLabels: app: _subdir_helpers_name
+			template: {
+				metadata: labels: app: _subdir_helpers_name
+				spec: containers: [
+					{
+						name:  _subdir_helpers_name
+						image: "nginx:latest"
+					},
+				]
+			}
+		}
+	},
+]

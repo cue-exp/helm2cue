@@ -24,7 +24,7 @@ output: [
 	{
 		apiVersion: "v1"
 		kind:       "ConfigMap"
-		metadata: name: "my-config"
+		metadata: name:      "my-config"
 		data: "config.conf": _myconfig
 	},
 ]

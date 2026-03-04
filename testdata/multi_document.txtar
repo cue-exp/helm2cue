@@ -43,12 +43,12 @@ output: [
 		apiVersion: "v1"
 		kind:       "ConfigMap"
 		metadata: name: #values.name
-		data: key: "one"
+		data: key:      "one"
 	},
 	{
 		apiVersion: "v1"
 		kind:       "ConfigMap"
 		metadata: name: #values.name
-		data: key: "two"
+		data: key:      "two"
 	},
 ]

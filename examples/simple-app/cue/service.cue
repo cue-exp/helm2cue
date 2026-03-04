@@ -2,23 +2,25 @@
 
 package simple_app
 
-service: [{
-	apiVersion: "v1"
-	kind:       "Service"
-	metadata: {
-		name:   _simple_app_fullname
-		labels: _simple_app_labels
-	}
-	spec: {
-		type: *#values.service.type | "ClusterIP"
-		ports: [
-			{
-				port:       *#values.service.port | 80
-				targetPort: "http"
-				protocol:   "TCP"
-				name:       "http"
-			},
-		]
-		selector: _simple_app_selectorLabels
-	}
-}]
+service: [
+	{
+		apiVersion: "v1"
+		kind:       "Service"
+		metadata: {
+			name:   _simple_app_fullname
+			labels: _simple_app_labels
+		}
+		spec: {
+			type: *#values.service.type | "ClusterIP"
+			ports: [
+				{
+					port:       *#values.service.port | 80
+					targetPort: "http"
+					protocol:   "TCP"
+					name:       "http"
+				},
+			]
+			selector: _simple_app_selectorLabels
+		}
+	},
+]

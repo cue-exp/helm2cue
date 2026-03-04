@@ -45,11 +45,10 @@ output: [
 		apiVersion: "v1"
 		kind:       "Service"
 		metadata: name: "test"
-		spec: ports: [
-			if (_nonzero & {#arg: #values.ports, _}) for _, _range0 in #values.ports {
-				name: _range0.name
-				port: _range0.port
-			},
+		spec: ports: [if (_nonzero & {#arg: #values.ports, _}) for _, _range0 in #values.ports {
+			name: _range0.name
+			port: _range0.port
+		},
 		]
 	},
 ]

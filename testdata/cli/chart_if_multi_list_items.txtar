@@ -39,21 +39,21 @@ converted 2/2 templates from test
 
 package test
 
-test: [{
-	apiVersion: "v1"
-	kind:       "Pod"
-	metadata: name: "test"
-	spec: containers: [
-		{
-			name: "test"
-			args: [
-				if (_nonzero & {#arg: #values.tls, _}) {
+test: [
+	{
+		apiVersion: "v1"
+		kind:       "Pod"
+		metadata: name: "test"
+		spec: containers: [
+			{
+				name: "test"
+				args: [if (_nonzero & {#arg: #values.tls, _}) {
 					"a"
-				},
-				if (_nonzero & {#arg: #values.tls, _}) {
+				}, if (_nonzero & {#arg: #values.tls, _}) {
 					"b"
 				},
-			]
-		},
-	]
-}]
+				]
+			},
+		]
+	},
+]
