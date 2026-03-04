@@ -553,33 +553,36 @@ func writeHelpersCUE(outDir, pkgName string, r *convertResult, needsNonzero bool
 // marked as unconstrained (_) only when they are leaf nodes (no child field
 // accesses in templates), to avoid conflicting with the scalar default type.
 func buildValuesSchemaCUE(refs [][]string, requiredRefs [][]string, rangeRefs [][]string, nonScalarRefs [][]string, structRefs [][]string) []byte {
-	var buf bytes.Buffer
 	if len(refs) == 0 {
-		buf.WriteString("#values: _\n")
-	} else {
-		buf.WriteString("#values: {\n")
-		root := buildFieldTree(refs, requiredRefs, rangeRefs, nonScalarRefs)
-		// Mark struct-valued leaf nodes as non-scalar. Non-leaf nodes
-		// already emit struct type from their children.
-		for _, ref := range structRefs {
-			node := root
-			for _, elem := range ref {
-				child, ok := node.childMap[elem]
-				if !ok {
-					break
-				}
-				node = child
-			}
-			if node != root && len(node.children) == 0 {
-				node.isNonScalar = true
-			}
-		}
-		emitFieldNodes(&buf, root.children, 1)
-		writeIndent(&buf, 1)
-		buf.WriteString("...\n")
-		buf.WriteString("}\n")
+		return []byte("#values: _\n")
 	}
-	return buf.Bytes()
+	root := buildFieldTree(refs, requiredRefs, rangeRefs, nonScalarRefs)
+	// Mark struct-valued leaf nodes as non-scalar. Non-leaf nodes
+	// already emit struct type from their children.
+	for _, ref := range structRefs {
+		node := root
+		for _, elem := range ref {
+			child, ok := node.childMap[elem]
+			if !ok {
+				break
+			}
+			node = child
+		}
+		if node != root && len(node.children) == 0 {
+			node.isNonScalar = true
+		}
+	}
+	childDecls := fieldNodesToDecls(root.children)
+	childDecls = append(childDecls, &ast.Ellipsis{})
+	field := &ast.Field{
+		Label: ast.NewIdent("#values"),
+		Value: &ast.StructLit{Elts: childDecls},
+	}
+	b, err := format.Node(field)
+	if err != nil {
+		return []byte("#values: _\n")
+	}
+	return append(b, '\n')
 }
 
 // writeValuesCUE writes values.cue with the #values schema.
