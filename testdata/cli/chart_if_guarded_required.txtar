@@ -1,0 +1,25 @@
+# Value references inside an if-guard for the same field should not be
+# inferred as required. Regression test for
+# https://github.com/cue-exp/helm2cue/issues/80
+! exec helm2cue chart chartdir outdir
+cmp stderr stderr.golden
+
+-- chartdir/Chart.yaml --
+apiVersion: v2
+name: test-app
+version: 0.1.0
+-- chartdir/values.yaml --
+name: myapp
+-- chartdir/templates/deploy.yaml --
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test
+data:
+{{- if .Values.x }}
+  key: {{ .Values.x }}
+{{- end }}
+-- stderr.golden --
+error: values.yaml does not satisfy inferred schema: #values.x: field is required but not present
+converted 1/1 templates from test-app
+helm2cue: values schema validation failed
