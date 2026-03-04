@@ -67,10 +67,16 @@ _trunc: {
 }
 
 _subdir_helpers_fullname: {
-	strings.TrimSuffix((_trunc & {#in: "\(#release.Name)-\(#chart.Name)", #n: 63}).out, "-")
+	strings.TrimSuffix((_trunc & {
+		#in: "\(#release.Name)-\(#chart.Name)"
+		#n:  63
+	}).out, "-")
 }
 _subdir_helpers_name: {
-	strings.TrimSuffix((_trunc & {#in: #chart.Name, #n: 63}).out, "-")
+	strings.TrimSuffix((_trunc & {
+		#in: #chart.Name
+		#n:  63
+	}).out, "-")
 }
 _subdir_helpers_operator_labels: {
 	"app.kubernetes.io/component": "operator"
