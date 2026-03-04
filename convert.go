@@ -6848,7 +6848,6 @@ func cueScalarTypeExpr() ast.Expr {
 }
 
 // fieldNodesToDecls converts a slice of fieldNodes into AST declarations.
-// This is the AST equivalent of emitFieldNodes.
 func fieldNodesToDecls(nodes []*fieldNode) []ast.Decl {
 	var decls []ast.Decl
 	for _, n := range nodes {
@@ -6915,10 +6914,6 @@ func fieldNodesToDecls(nodes []*fieldNode) []ast.Decl {
 	return decls
 }
 
-// cueScalarType is the CUE type for leaf fields that are known to be
-// YAML scalars (accessed via interpolation, not range).
-const cueScalarType = "bool | number | string | null"
-
 func buildFieldTree(refs [][]string, requiredRefs [][]string, rangeRefs [][]string, nonScalarRefs [][]string) *fieldNode {
 	root := &fieldNode{childMap: make(map[string]*fieldNode)}
 	for _, ref := range refs {
@@ -6979,50 +6974,6 @@ func buildFieldTree(refs [][]string, requiredRefs [][]string, rangeRefs [][]stri
 	return root
 }
 
-func emitFieldNodes(w *bytes.Buffer, nodes []*fieldNode, indent int) {
-	for _, n := range nodes {
-		writeIndent(w, indent)
-		if len(n.children) > 0 {
-			marker := "?"
-			if n.required {
-				marker = "!"
-			}
-			if n.isRange {
-				fmt.Fprintf(w, "%s%s: [...{\n", cueKey(n.name), marker)
-				emitFieldNodes(w, n.children, indent+1)
-				writeIndent(w, indent+1)
-				w.WriteString("...\n")
-				writeIndent(w, indent)
-				w.WriteString("}] | {[string]: {\n")
-				emitFieldNodes(w, n.children, indent+1)
-				writeIndent(w, indent+1)
-				w.WriteString("...\n")
-				writeIndent(w, indent)
-				w.WriteString("}}\n")
-			} else {
-				fmt.Fprintf(w, "%s%s: {\n", cueKey(n.name), marker)
-				emitFieldNodes(w, n.children, indent+1)
-				writeIndent(w, indent+1)
-				w.WriteString("...\n")
-				writeIndent(w, indent)
-				w.WriteString("}\n")
-			}
-		} else {
-			marker := "?"
-			if n.required {
-				marker = "!"
-			}
-			leafType := cueScalarType
-			if n.isRange {
-				leafType = "[...] | {[string]: _}"
-			} else if n.isNonScalar {
-				leafType = "_"
-			}
-			fmt.Fprintf(w, "%s%s: %s\n", cueKey(n.name), marker, leafType)
-		}
-	}
-}
-
 // buildArgSchema builds a CUE schema expression for #arg based on
 // collected field references. Returns "_" when no field refs exist
 // (bare {{ . }} only), otherwise a CUE struct with optional fields.
@@ -7031,13 +6982,14 @@ func buildArgSchema(refs, requiredRefs, rangeRefs, nonScalarRefs [][]string) str
 		return "_"
 	}
 	root := buildFieldTree(refs, requiredRefs, rangeRefs, nonScalarRefs)
-	var buf bytes.Buffer
-	buf.WriteString("{\n")
-	emitFieldNodes(&buf, root.children, 2)
-	writeIndent(&buf, 2)
-	buf.WriteString("...\n")
-	buf.WriteString("\t}")
-	return buf.String()
+	childDecls := fieldNodesToDecls(root.children)
+	childDecls = append(childDecls, &ast.Ellipsis{})
+	structLit := &ast.StructLit{Elts: childDecls}
+	b, err := format.Node(structLit, format.Simplify())
+	if err != nil {
+		return "_"
+	}
+	return string(b)
 }
 
 // helperExprIdentRe matches hidden identifiers like _foo_bar in CUE expressions.

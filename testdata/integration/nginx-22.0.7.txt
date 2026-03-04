@@ -9,71 +9,71 @@ exit status 1
 _nginx_cloneStaticSiteFromGit_image.#arg.global: 4 errors in empty disjunction:
 _nginx_cloneStaticSiteFromGit_image.#arg.global: conflicting values {imageRegistry:"",imagePullSecrets:[],security:{allowInsecureImages:false},compatibility:{openshift:{adaptSecurityContext:"auto"}}} and bool (mismatched types struct and bool):
     ./helpers.cue:446:12
-    ./helpers.cue:1218:38
-    ./helpers.cue:1220:2
-    ./helpers.cue:1221:67
+    ./helpers.cue:1222:38
+    ./helpers.cue:1224:2
+    ./helpers.cue:1225:67
 _nginx_cloneStaticSiteFromGit_image.#arg.global: conflicting values {imageRegistry:"",imagePullSecrets:[],security:{allowInsecureImages:false},compatibility:{openshift:{adaptSecurityContext:"auto"}}} and null (mismatched types struct and null):
     ./helpers.cue:446:37
-    ./helpers.cue:1218:38
-    ./helpers.cue:1220:2
-    ./helpers.cue:1221:67
+    ./helpers.cue:1222:38
+    ./helpers.cue:1224:2
+    ./helpers.cue:1225:67
 _nginx_cloneStaticSiteFromGit_image.#arg.global: conflicting values {imageRegistry:"",imagePullSecrets:[],security:{allowInsecureImages:false},compatibility:{openshift:{adaptSecurityContext:"auto"}}} and number (mismatched types struct and number):
     ./helpers.cue:446:19
-    ./helpers.cue:1218:38
-    ./helpers.cue:1220:2
-    ./helpers.cue:1221:67
+    ./helpers.cue:1222:38
+    ./helpers.cue:1224:2
+    ./helpers.cue:1225:67
 _nginx_cloneStaticSiteFromGit_image.#arg.global: conflicting values {imageRegistry:"",imagePullSecrets:[],security:{allowInsecureImages:false},compatibility:{openshift:{adaptSecurityContext:"auto"}}} and string (mismatched types struct and string):
     ./helpers.cue:446:28
-    ./helpers.cue:1218:38
-    ./helpers.cue:1220:2
-    ./helpers.cue:1221:67
+    ./helpers.cue:1222:38
+    ./helpers.cue:1224:2
+    ./helpers.cue:1225:67
 _nginx_image.#arg.global: 4 errors in empty disjunction:
 _nginx_image.#arg.global: conflicting values {imageRegistry:"",imagePullSecrets:[],security:{allowInsecureImages:false},compatibility:{openshift:{adaptSecurityContext:"auto"}}} and bool (mismatched types struct and bool):
     ./helpers.cue:446:12
-    ./helpers.cue:1225:15
-    ./helpers.cue:1227:2
-    ./helpers.cue:1228:44
+    ./helpers.cue:1229:15
+    ./helpers.cue:1231:2
+    ./helpers.cue:1232:44
 _nginx_image.#arg.global: conflicting values {imageRegistry:"",imagePullSecrets:[],security:{allowInsecureImages:false},compatibility:{openshift:{adaptSecurityContext:"auto"}}} and null (mismatched types struct and null):
     ./helpers.cue:446:37
-    ./helpers.cue:1225:15
-    ./helpers.cue:1227:2
-    ./helpers.cue:1228:44
+    ./helpers.cue:1229:15
+    ./helpers.cue:1231:2
+    ./helpers.cue:1232:44
 _nginx_image.#arg.global: conflicting values {imageRegistry:"",imagePullSecrets:[],security:{allowInsecureImages:false},compatibility:{openshift:{adaptSecurityContext:"auto"}}} and number (mismatched types struct and number):
     ./helpers.cue:446:19
-    ./helpers.cue:1225:15
-    ./helpers.cue:1227:2
-    ./helpers.cue:1228:44
+    ./helpers.cue:1229:15
+    ./helpers.cue:1231:2
+    ./helpers.cue:1232:44
 _nginx_image.#arg.global: conflicting values {imageRegistry:"",imagePullSecrets:[],security:{allowInsecureImages:false},compatibility:{openshift:{adaptSecurityContext:"auto"}}} and string (mismatched types struct and string):
     ./helpers.cue:446:28
-    ./helpers.cue:1225:15
-    ./helpers.cue:1227:2
-    ./helpers.cue:1228:44
+    ./helpers.cue:1229:15
+    ./helpers.cue:1231:2
+    ./helpers.cue:1232:44
 _nginx_metrics_image.#arg.global: 4 errors in empty disjunction:
 _nginx_metrics_image.#arg.global: conflicting values {imageRegistry:"",imagePullSecrets:[],security:{allowInsecureImages:false},compatibility:{openshift:{adaptSecurityContext:"auto"}}} and bool (mismatched types struct and bool):
     ./helpers.cue:446:12
-    ./helpers.cue:1233:23
-    ./helpers.cue:1235:2
-    ./helpers.cue:1236:52
+    ./helpers.cue:1237:23
+    ./helpers.cue:1239:2
+    ./helpers.cue:1240:52
 _nginx_metrics_image.#arg.global: conflicting values {imageRegistry:"",imagePullSecrets:[],security:{allowInsecureImages:false},compatibility:{openshift:{adaptSecurityContext:"auto"}}} and null (mismatched types struct and null):
     ./helpers.cue:446:37
-    ./helpers.cue:1233:23
-    ./helpers.cue:1235:2
-    ./helpers.cue:1236:52
+    ./helpers.cue:1237:23
+    ./helpers.cue:1239:2
+    ./helpers.cue:1240:52
 _nginx_metrics_image.#arg.global: conflicting values {imageRegistry:"",imagePullSecrets:[],security:{allowInsecureImages:false},compatibility:{openshift:{adaptSecurityContext:"auto"}}} and number (mismatched types struct and number):
     ./helpers.cue:446:19
-    ./helpers.cue:1233:23
-    ./helpers.cue:1235:2
-    ./helpers.cue:1236:52
+    ./helpers.cue:1237:23
+    ./helpers.cue:1239:2
+    ./helpers.cue:1240:52
 _nginx_metrics_image.#arg.global: conflicting values {imageRegistry:"",imagePullSecrets:[],security:{allowInsecureImages:false},compatibility:{openshift:{adaptSecurityContext:"auto"}}} and string (mismatched types struct and string):
     ./helpers.cue:446:28
-    ./helpers.cue:1233:23
-    ./helpers.cue:1235:2
-    ./helpers.cue:1236:52
+    ./helpers.cue:1237:23
+    ./helpers.cue:1239:2
+    ./helpers.cue:1240:52
 _common_fips_enabled: undefined field: Annotations:
     ./helpers.cue:416:22
 _common_warnings_resources: cannot combine regular field "WARNING" with "+info https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/":
-    ./helpers.cue:1214:12
-    ./helpers.cue:1214:227
+    ./helpers.cue:1218:12
+    ./helpers.cue:1218:227
 results: error in call to list.FlattenN: 4 errors in empty disjunction::
     ./results.cue:7:10
 -- cue export --
@@ -81,70 +81,70 @@ exit status 1
 _nginx_cloneStaticSiteFromGit_image.#arg.global: 4 errors in empty disjunction:
 _nginx_cloneStaticSiteFromGit_image.#arg.global: conflicting values {imageRegistry:"",imagePullSecrets:[],security:{allowInsecureImages:false},compatibility:{openshift:{adaptSecurityContext:"auto"}}} and bool (mismatched types struct and bool):
     ./helpers.cue:446:12
-    ./helpers.cue:1218:38
-    ./helpers.cue:1220:2
-    ./helpers.cue:1221:67
+    ./helpers.cue:1222:38
+    ./helpers.cue:1224:2
+    ./helpers.cue:1225:67
 _nginx_cloneStaticSiteFromGit_image.#arg.global: conflicting values {imageRegistry:"",imagePullSecrets:[],security:{allowInsecureImages:false},compatibility:{openshift:{adaptSecurityContext:"auto"}}} and null (mismatched types struct and null):
     ./helpers.cue:446:37
-    ./helpers.cue:1218:38
-    ./helpers.cue:1220:2
-    ./helpers.cue:1221:67
+    ./helpers.cue:1222:38
+    ./helpers.cue:1224:2
+    ./helpers.cue:1225:67
 _nginx_cloneStaticSiteFromGit_image.#arg.global: conflicting values {imageRegistry:"",imagePullSecrets:[],security:{allowInsecureImages:false},compatibility:{openshift:{adaptSecurityContext:"auto"}}} and number (mismatched types struct and number):
     ./helpers.cue:446:19
-    ./helpers.cue:1218:38
-    ./helpers.cue:1220:2
-    ./helpers.cue:1221:67
+    ./helpers.cue:1222:38
+    ./helpers.cue:1224:2
+    ./helpers.cue:1225:67
 _nginx_cloneStaticSiteFromGit_image.#arg.global: conflicting values {imageRegistry:"",imagePullSecrets:[],security:{allowInsecureImages:false},compatibility:{openshift:{adaptSecurityContext:"auto"}}} and string (mismatched types struct and string):
     ./helpers.cue:446:28
-    ./helpers.cue:1218:38
-    ./helpers.cue:1220:2
-    ./helpers.cue:1221:67
+    ./helpers.cue:1222:38
+    ./helpers.cue:1224:2
+    ./helpers.cue:1225:67
 _nginx_image.#arg.global: 4 errors in empty disjunction:
 _nginx_image.#arg.global: conflicting values {imageRegistry:"",imagePullSecrets:[],security:{allowInsecureImages:false},compatibility:{openshift:{adaptSecurityContext:"auto"}}} and bool (mismatched types struct and bool):
     ./helpers.cue:446:12
-    ./helpers.cue:1225:15
-    ./helpers.cue:1227:2
-    ./helpers.cue:1228:44
+    ./helpers.cue:1229:15
+    ./helpers.cue:1231:2
+    ./helpers.cue:1232:44
 _nginx_image.#arg.global: conflicting values {imageRegistry:"",imagePullSecrets:[],security:{allowInsecureImages:false},compatibility:{openshift:{adaptSecurityContext:"auto"}}} and null (mismatched types struct and null):
     ./helpers.cue:446:37
-    ./helpers.cue:1225:15
-    ./helpers.cue:1227:2
-    ./helpers.cue:1228:44
+    ./helpers.cue:1229:15
+    ./helpers.cue:1231:2
+    ./helpers.cue:1232:44
 _nginx_image.#arg.global: conflicting values {imageRegistry:"",imagePullSecrets:[],security:{allowInsecureImages:false},compatibility:{openshift:{adaptSecurityContext:"auto"}}} and number (mismatched types struct and number):
     ./helpers.cue:446:19
-    ./helpers.cue:1225:15
-    ./helpers.cue:1227:2
-    ./helpers.cue:1228:44
+    ./helpers.cue:1229:15
+    ./helpers.cue:1231:2
+    ./helpers.cue:1232:44
 _nginx_image.#arg.global: conflicting values {imageRegistry:"",imagePullSecrets:[],security:{allowInsecureImages:false},compatibility:{openshift:{adaptSecurityContext:"auto"}}} and string (mismatched types struct and string):
     ./helpers.cue:446:28
-    ./helpers.cue:1225:15
-    ./helpers.cue:1227:2
-    ./helpers.cue:1228:44
+    ./helpers.cue:1229:15
+    ./helpers.cue:1231:2
+    ./helpers.cue:1232:44
 _nginx_metrics_image.#arg.global: 4 errors in empty disjunction:
 _nginx_metrics_image.#arg.global: conflicting values {imageRegistry:"",imagePullSecrets:[],security:{allowInsecureImages:false},compatibility:{openshift:{adaptSecurityContext:"auto"}}} and bool (mismatched types struct and bool):
     ./helpers.cue:446:12
-    ./helpers.cue:1233:23
-    ./helpers.cue:1235:2
-    ./helpers.cue:1236:52
+    ./helpers.cue:1237:23
+    ./helpers.cue:1239:2
+    ./helpers.cue:1240:52
 _nginx_metrics_image.#arg.global: conflicting values {imageRegistry:"",imagePullSecrets:[],security:{allowInsecureImages:false},compatibility:{openshift:{adaptSecurityContext:"auto"}}} and null (mismatched types struct and null):
     ./helpers.cue:446:37
-    ./helpers.cue:1233:23
-    ./helpers.cue:1235:2
-    ./helpers.cue:1236:52
+    ./helpers.cue:1237:23
+    ./helpers.cue:1239:2
+    ./helpers.cue:1240:52
 _nginx_metrics_image.#arg.global: conflicting values {imageRegistry:"",imagePullSecrets:[],security:{allowInsecureImages:false},compatibility:{openshift:{adaptSecurityContext:"auto"}}} and number (mismatched types struct and number):
     ./helpers.cue:446:19
-    ./helpers.cue:1233:23
-    ./helpers.cue:1235:2
-    ./helpers.cue:1236:52
+    ./helpers.cue:1237:23
+    ./helpers.cue:1239:2
+    ./helpers.cue:1240:52
 _nginx_metrics_image.#arg.global: conflicting values {imageRegistry:"",imagePullSecrets:[],security:{allowInsecureImages:false},compatibility:{openshift:{adaptSecurityContext:"auto"}}} and string (mismatched types struct and string):
     ./helpers.cue:446:28
-    ./helpers.cue:1233:23
-    ./helpers.cue:1235:2
-    ./helpers.cue:1236:52
+    ./helpers.cue:1237:23
+    ./helpers.cue:1239:2
+    ./helpers.cue:1240:52
 _common_fips_enabled: undefined field: Annotations:
     ./helpers.cue:416:22
 _common_warnings_resources: cannot combine regular field "WARNING" with "+info https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/":
-    ./helpers.cue:1214:12
-    ./helpers.cue:1214:227
+    ./helpers.cue:1218:12
+    ./helpers.cue:1218:227
 results: error in call to list.FlattenN: 4 errors in empty disjunction::
     ./results.cue:7:10
