@@ -39,13 +39,15 @@ import (
 	template_9 "text/template"
 )
 
-deployment: [{
-	apiVersion: "apps/v1"
-	kind:       "Deployment"
-	metadata: name: "test"
-	spec: template: spec: volumes: [
-		{
-			name: "\(yaml.Unmarshal(template_9.Execute(#values.configMapName, _tplContext)))"
-		},
-	]
-}]
+deployment: [
+	{
+		apiVersion: "apps/v1"
+		kind:       "Deployment"
+		metadata: name: "test"
+		spec: template: spec: volumes: [
+			{
+				name: "\(yaml.Unmarshal(template_9.Execute(#values.configMapName, _tplContext)))"
+			},
+		]
+	},
+]

@@ -226,12 +226,13 @@ type fieldNode struct {
 	isNonScalar bool // true if known non-scalar (hasKey, toYaml) but not necessarily a list
 }
 
-// frame tracks a YAML block context level for direct CUE emission.
+// frame tracks a YAML block context level for AST construction.
 type frame struct {
-	yamlIndent int  // content inside this block is at this YAML indent
-	cueIndent  int  // CUE indent level for content inside this block
-	isList     bool // true = sequence ([]), false = mapping ({})
-	isListItem bool // struct wrapping a list item; close with "},\n"
+	yamlIndent int            // content inside this block is at this YAML indent
+	structLit  *ast.StructLit // non-nil: content goes into this struct
+	isList     bool           // true = sequence ([]), false = mapping ({})
+	isListItem bool           // struct wrapping a list item
+	listLit    *ast.ListLit   // non-nil when isList
 }
 
 // emitState tracks pending state between text and action nodes.
@@ -249,7 +250,6 @@ type pendingResolution struct {
 	value   string
 	comment string
 	indent  int  // YAML indent of the key
-	cueInd  int  // CUE indent when the key was seen
 	rawKey  bool // true for dynamic keys like (expr) — don't run through cueKey()
 }
 
@@ -294,14 +294,14 @@ type converter struct {
 	localVars                   map[string]string     // $varName → CUE expression
 	topLevelGuards              []string              // CUE conditions wrapping entire output
 	topLevelRange               string                // e.g. "for _, _range0 in #values.items"
-	topLevelRangeBody           string                // body inside the range
+	topLevelRangeBody           []ast.Decl            // body inside the range
 	topLevelRangeIsList         bool                  // true when range body emits YAML list items
 	imports                     map[string]bool
 	hasConditions               bool                 // true if any if blocks or top-level guards exist
 	usedHelpers                 map[string]HelperDef // collected during conversion
 
-	// Direct CUE emission state.
-	out                 bytes.Buffer
+	// AST construction state.
+	rootDecls           []ast.Decl // top-level declarations built during conversion
 	stack               []frame
 	state               emitState
 	pendingKey          string             // the key name when in statePendingKey
@@ -315,21 +315,20 @@ type converter struct {
 	// Deferred action: action expression waiting to see if next text starts with ": " (dynamic key).
 	pendingActionExpr    string
 	pendingActionComment string
-	pendingActionCUEInd  int // CUE indent when the action was deferred
 	nextActionYamlIndent int // YAML indent hint from trailing whitespace line
 
 	// Deferred list item: bare "- " followed by an action, waiting
 	// to see if more content follows on the same line.
 	pendingListItemExpr    string
 	pendingListItemComment string
-	pendingListItemCUEInd  int
 
 	// Inline interpolation state: when text and actions are interleaved
 	// on a single YAML line, accumulate fragments for CUE string
 	// interpolation (e.g. "- --{{ $key }}={{ $value }}" → "--\(_key0)=\(_val0)").
 	inlineParts      []string // non-nil when inline mode is active
 	inlineSuffix     string   // appended after closing quote (e.g. "," for list items)
-	inlineStartPos   int      // c.out.Len() when inline mode started (for buffer truncation)
+	inlineKey        string   // field key for inline value (empty for bare/list)
+	inlineRawKey     bool     // true for dynamic keys (parenthesized)
 	nextNodeIsInline bool     // true when next sibling is an action/text node (not a control structure)
 	skipCount        int      // nodes to skip in body/top-level processing loops (consumed by processInlineIf)
 
@@ -339,19 +338,19 @@ type converter struct {
 	flowParts  []string // non-nil when flow accumulation is active
 	flowExprs  []string // CUE expressions for sentinels
 	flowDepth  int      // current bracket nesting depth
-	flowCueInd int      // CUE indent for formatting
 	flowSuffix string   // appended after CUE result (",\n" or "\n")
+	flowKey    string   // field key for flow value (empty for bare/list)
 
 	// Block scalar accumulation state (for "- |", "key: |", etc.).
 	blockScalarLines       []string // non-nil when accumulating block scalar content
 	blockScalarBaseIndent  int      // YAML indent of content lines (-1 until first content line)
-	blockScalarCUEInd      int      // CUE indent for emission
 	blockScalarFolded      bool     // true for > and >- (fold newlines to spaces)
 	blockScalarStrip       bool     // true for |- and >- (strip trailing newline)
 	blockScalarPartialLine bool     // last block scalar line is incomplete (action mid-line)
 	blockScalarKey         string   // non-empty for "key: |" block scalars
 
-	stripListDash bool // strip "- " prefix from next list item line
+	stripListDash   bool           // strip "- " prefix from next list item line
+	pendingComments []*ast.Comment // buffered comments to attach to next declaration
 
 	// Helper template state (shared across main and sub-converters).
 	treeSet           map[string]*parse.Tree
@@ -360,6 +359,236 @@ type converter struct {
 	helperOrder       []string          // deterministic emission order
 	undefinedHelpers  map[string]string // original template name → CUE name (referenced but not defined)
 	hasDynamicInclude bool              // true if any include uses a computed template name
+}
+
+// mustParseExpr parses a CUE expression string. Panics on error since
+// expression strings are produced by the converter itself.
+func mustParseExpr(s string) ast.Expr {
+	expr, err := parser.ParseExpr("", []byte(s), parser.ParseComments)
+	if err != nil {
+		panic(fmt.Sprintf("mustParseExpr(%q): %v", s, err))
+	}
+	return expr
+}
+
+// flushComments attaches any pending comments to the given declaration.
+func (c *converter) flushComments(d ast.Node) {
+	if len(c.pendingComments) == 0 {
+		return
+	}
+	cg := &ast.CommentGroup{
+		Doc:  true,
+		List: c.pendingComments,
+	}
+	ast.AddComment(d, cg)
+	c.pendingComments = nil
+}
+
+// appendToParent adds a declaration to the current scope.
+// If the stack is empty, appends to rootDecls.
+// Otherwise appends to the current frame's struct or list.
+func (c *converter) appendToParent(d ast.Decl) {
+	c.flushComments(d)
+	if len(c.stack) == 0 {
+		c.rootDecls = append(c.rootDecls, d)
+		return
+	}
+	top := &c.stack[len(c.stack)-1]
+	if top.structLit != nil {
+		top.structLit.Elts = append(top.structLit.Elts, d)
+	} else if top.listLit != nil {
+		switch v := d.(type) {
+		case *ast.Comprehension:
+			top.listLit.Elts = append(top.listLit.Elts, v)
+		case *ast.EmbedDecl:
+			// Struct literals in lists need Lbrace for expanded formatting.
+			if s, ok := v.Expr.(*ast.StructLit); ok && s.Lbrace == token.NoPos {
+				s.Lbrace = newlinePos()
+			}
+			top.listLit.Elts = append(top.listLit.Elts, v.Expr)
+		}
+	}
+}
+
+// appendListExpr adds an expression to the current list.
+func (c *converter) appendListExpr(e ast.Expr) {
+	if len(c.stack) == 0 {
+		return
+	}
+	// Struct literals in lists need Lbrace for expanded formatting.
+	if s, ok := e.(*ast.StructLit); ok && s.Lbrace == token.NoPos {
+		s.Lbrace = newlinePos()
+	} else {
+		ast.SetRelPos(e, token.Newline)
+	}
+	top := &c.stack[len(c.stack)-1]
+	if top.listLit != nil {
+		top.listLit.Elts = append(top.listLit.Elts, e)
+	}
+}
+
+// emitField creates an ast.Field and appends it to the current scope.
+func (c *converter) emitField(key, value string) {
+	label := cueKeyLabel(key)
+	c.appendToParent(&ast.Field{
+		Label: label,
+		Value: mustParseExpr(value),
+	})
+}
+
+// emitRawField creates an ast.Field with a raw key expression and appends it.
+func (c *converter) emitRawField(rawKey, value string) {
+	c.appendToParent(&ast.Field{
+		Label: mustParseExpr(rawKey).(ast.Label),
+		Value: mustParseExpr(value),
+	})
+}
+
+// emitEmbed creates an ast.EmbedDecl and appends it to the current scope.
+func (c *converter) emitEmbed(expr string) {
+	c.appendToParent(&ast.EmbedDecl{Expr: mustParseExpr(expr)})
+}
+
+// buildComprehensionValue builds the struct literal value for an
+// ast.Comprehension from the body struct and optional list.
+// When isList is true (bodyList non-nil) and the body struct collected
+// list elements, the list is embedded in the struct.
+func (c *converter) buildComprehensionValue(bodyStruct *ast.StructLit, bodyList *ast.ListLit) *ast.StructLit {
+	if bodyList != nil && len(bodyList.Elts) > 0 {
+		// List body: embed the list elements into the body struct.
+		for _, e := range bodyList.Elts {
+			bodyStruct.Elts = append(bodyStruct.Elts, &ast.EmbedDecl{Expr: e})
+		}
+	}
+	return bodyStruct
+}
+
+// emitInlineComprehension emits a conditional comprehension for an inline
+// value. Used by processInlineIf to emit each branch as a separate
+// if comprehension that produces the complete field/list/embed value.
+func (c *converter) emitInlineComprehension(condition, key string, rawKey bool, value string) {
+	bodyStruct := &ast.StructLit{}
+	var bodyDecl ast.Decl
+	if key != "" {
+		var label ast.Label
+		if rawKey {
+			label = mustParseExpr(key).(ast.Label)
+		} else {
+			label = cueKeyLabel(key)
+		}
+		bodyDecl = &ast.Field{Label: label, Value: mustParseExpr(value)}
+	} else if c.inListContext() {
+		bodyDecl = &ast.EmbedDecl{Expr: mustParseExpr(value)}
+	} else {
+		bodyDecl = &ast.EmbedDecl{Expr: mustParseExpr(value)}
+	}
+	bodyStruct.Elts = []ast.Decl{bodyDecl}
+	comp := &ast.Comprehension{
+		Clauses: []ast.Clause{&ast.IfClause{Condition: mustParseExpr(condition)}},
+		Value:   bodyStruct,
+	}
+	c.appendToParent(comp)
+}
+
+// emitComment buffers a CUE comment to be attached to the next declaration.
+func (c *converter) emitComment(text string) {
+	var ct string
+	if text == "" {
+		ct = "//"
+	} else {
+		ct = "// " + text
+	}
+	c.pendingComments = append(c.pendingComments, &ast.Comment{Text: ct})
+}
+
+// declsToText formats AST declarations to CUE text.
+// Each declaration is placed on its own line to match file-level formatting.
+func declsToText(decls []ast.Decl) string {
+	if len(decls) == 0 {
+		return ""
+	}
+	// Ensure each decl starts on a new line. Nodes produced by
+	// mustParseExpr have relpos "nospace" which causes the formatter
+	// to compact everything onto one line.
+	for i, d := range decls {
+		if i > 0 {
+			ast.SetRelPos(d, token.Newline)
+		}
+	}
+	f := &ast.File{Decls: decls}
+	b, err := format.Node(f, format.Simplify())
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(string(b))
+}
+
+// parseRangeClauses parses a range header string like
+// "for _, x in y" or "if guard for _, x in y" into ast.Clause slice.
+func parseRangeClauses(s string) []ast.Clause {
+	src := "[" + s + " {0}]"
+	expr := mustParseExpr(src)
+	list := expr.(*ast.ListLit)
+	comp := list.Elts[0].(*ast.Comprehension)
+	return comp.Clauses
+}
+
+// wrapInGuards wraps an expression in nested if-comprehensions for
+// use in list context.
+func wrapInGuards(expr ast.Expr, guards []string) ast.Expr {
+	for i := len(guards) - 1; i >= 0; i-- {
+		// Comprehensions implement both ast.Decl and ast.Expr.
+		// Add them directly as decls to avoid wrapping in EmbedDecl,
+		// which the CUE formatter cannot handle (it doesn't support
+		// *ast.Comprehension in exprRaw).
+		var elt ast.Decl
+		if comp, ok := expr.(*ast.Comprehension); ok {
+			elt = comp
+		} else {
+			elt = &ast.EmbedDecl{Expr: expr}
+		}
+		expr = &ast.Comprehension{
+			Clauses: []ast.Clause{
+				&ast.IfClause{Condition: mustParseExpr(guards[i])},
+			},
+			Value: &ast.StructLit{
+				Elts: []ast.Decl{elt},
+			},
+		}
+	}
+	return expr
+}
+
+// makeFlattenNCall creates list.FlattenN(listExpr, -1).
+func makeFlattenNCall(listSentinel string, listExpr ast.Expr) ast.Expr {
+	return &ast.CallExpr{
+		Fun: &ast.SelectorExpr{
+			X:   ast.NewIdent(listSentinel),
+			Sel: ast.NewIdent("FlattenN"),
+		},
+		Args: []ast.Expr{listExpr, mustParseExpr("-1")},
+	}
+}
+
+// newlinePos returns a synthetic token.Pos with token.Newline relative
+// positioning. Used to force expanded formatting on AST nodes.
+var newlinePos = func() func() token.Pos {
+	f := token.NewFile("", -1, 1)
+	p := f.Pos(0, token.Newline)
+	return func() token.Pos { return p }
+}()
+
+// expandList sets Rbrack and element Lbrace positions on a list literal
+// to force expanded formatting (one element per line, trailing commas).
+func expandList(list *ast.ListLit) {
+	list.Rbrack = newlinePos()
+	for _, e := range list.Elts {
+		if s, ok := e.(*ast.StructLit); ok {
+			s.Lbrace = newlinePos()
+		} else {
+			ast.SetRelPos(e, token.Newline)
+		}
+	}
 }
 
 // isCoreFunc reports whether the named core-handled function is enabled
@@ -408,9 +637,9 @@ type convertResult struct {
 	rangeRefs          map[string][][]string
 	nonScalarRefs      map[string][][]string
 	topLevelGuards     []string
-	topLevelRange      string // e.g. "for _, _range0 in #values.items"
-	topLevelRangeBody  string // body inside the range (no for wrapper)
-	body               string // template body only (no declarations)
+	topLevelRange      string     // e.g. "for _, _range0 in #values.items"
+	topLevelRangeBody  []ast.Decl // body inside the range (no for wrapper)
+	body               []ast.Decl // template body only (no declarations)
 }
 
 // parseHelpers parses helper template files into a shared tree set.
@@ -567,7 +796,7 @@ func convertStructured(cfg *Config, input []byte, templateName string, treeSet m
 		topLevelGuards:     c.topLevelGuards,
 		topLevelRange:      c.topLevelRange,
 		topLevelRangeBody:  c.topLevelRangeBody,
-		body:               c.out.String(),
+		body:               c.rootDecls,
 	}, nil
 }
 
@@ -695,12 +924,8 @@ func assembleSingleFile(cfg *Config, r *convertResult) ([]byte, error) {
 	}
 
 	// Body.
-	body := strings.TrimRight(r.body, "\n")
-	if body != "" {
-		bodyDecls, err := bodyToDecls(body)
-		if err != nil {
-			return nil, fmt.Errorf("parsing body: %w", err)
-		}
+	if len(r.body) > 0 {
+		bodyDecls := r.body
 		if len(allDecls) > 0 && len(bodyDecls) > 0 {
 			ast.SetRelPos(bodyDecls[0], token.NewSection)
 		}
@@ -830,7 +1055,6 @@ func mergeConvertResults(results []*convertResult) *convertResult {
 	}
 
 	// Build list body: output: [...]
-	var body bytes.Buffer
 
 	// Check if any result has a range.
 	hasRange := false
@@ -842,14 +1066,15 @@ func mergeConvertResults(results []*convertResult) *convertResult {
 	}
 
 	listSentinel := importSentinel("list")
+	var outputValue ast.Expr
+
 	if hasRange && len(results) > 1 {
 		// Multi-doc with range: use list.FlattenN.
 		merged.imports["list"] = true
-		fmt.Fprintf(&body, "output: %s.FlattenN([\n", listSentinel)
+		outerList := &ast.ListLit{}
 		i := 0
 		for i < len(results) {
 			r := results[i]
-			docBody := strings.TrimRight(r.body, "\n")
 			if r.topLevelRange != "" {
 				// Group consecutive results with the same range.
 				rangeHeader := r.topLevelRange
@@ -857,119 +1082,84 @@ func mergeConvertResults(results []*convertResult) *convertResult {
 				for j < len(results) && results[j].topLevelRange == rangeHeader {
 					j++
 				}
-				body.WriteString("\t")
-				body.WriteString(rangeHeader)
-				body.WriteString(" {[\n")
+				innerList := &ast.ListLit{}
 				for k := i; k < j; k++ {
-					rb := strings.TrimRight(results[k].topLevelRangeBody, "\n")
-					if rb == "" {
-						rb = strings.TrimRight(results[k].body, "\n")
+					rb := results[k].topLevelRangeBody
+					if len(rb) == 0 {
+						rb = results[k].body
 					}
-					if rb == "" {
+					if len(rb) == 0 {
 						continue
 					}
-					body.WriteString("\t\t{\n")
-					for _, line := range strings.Split(rb, "\n") {
-						body.WriteString("\t\t\t")
-						body.WriteString(line)
-						body.WriteByte('\n')
-					}
-					body.WriteString("\t\t},\n")
+					innerList.Elts = append(innerList.Elts, &ast.StructLit{Elts: rb})
 				}
-				body.WriteString("\t]},\n")
+				expandList(innerList)
+				comp := &ast.Comprehension{
+					Clauses: parseRangeClauses(rangeHeader),
+					Value: &ast.StructLit{
+						Elts: []ast.Decl{&ast.EmbedDecl{Expr: innerList}},
+					},
+				}
+				outerList.Elts = append(outerList.Elts, comp)
 				i = j
-			} else if len(r.topLevelGuards) > 0 {
-				indent := 1
-				for _, guard := range r.topLevelGuards {
-					writeIndent(&body, indent)
-					fmt.Fprintf(&body, "if %s {\n", guard)
-					indent++
-				}
-				writeIndent(&body, indent)
-				body.WriteString("{\n")
-				for _, line := range strings.Split(docBody, "\n") {
-					writeIndent(&body, indent+1)
-					body.WriteString(line)
-					body.WriteByte('\n')
-				}
-				writeIndent(&body, indent)
-				body.WriteString("},\n")
-				for g := len(r.topLevelGuards) - 1; g >= 0; g-- {
-					writeIndent(&body, g+1)
-					body.WriteString("}\n")
-				}
+			} else if len(r.topLevelGuards) > 0 && len(r.body) > 0 {
+				outerList.Elts = append(outerList.Elts,
+					wrapInGuards(&ast.StructLit{Elts: r.body}, r.topLevelGuards))
 				i++
 			} else {
-				body.WriteString("\t{\n")
-				for _, line := range strings.Split(docBody, "\n") {
-					body.WriteString("\t\t")
-					body.WriteString(line)
-					body.WriteByte('\n')
+				if len(r.body) > 0 {
+					outerList.Elts = append(outerList.Elts, &ast.StructLit{Elts: r.body})
 				}
-				body.WriteString("\t},\n")
 				i++
 			}
 		}
-		body.WriteString("], -1)")
+		expandList(outerList)
+		outputValue = makeFlattenNCall(listSentinel, outerList)
 	} else if hasRange && len(results) == 1 {
 		// Single doc with top-level range.
 		r := results[0]
 		merged.imports["list"] = true
-		rb := strings.TrimRight(r.topLevelRangeBody, "\n")
-		if rb == "" {
-			rb = strings.TrimRight(r.body, "\n")
+		rb := r.topLevelRangeBody
+		if len(rb) == 0 {
+			rb = r.body
 		}
-		fmt.Fprintf(&body, "output: %s.FlattenN([", listSentinel)
-		body.WriteString(r.topLevelRange)
-		body.WriteString(" {[\n\t{\n")
-		for _, line := range strings.Split(rb, "\n") {
-			body.WriteString("\t\t")
-			body.WriteString(line)
-			body.WriteByte('\n')
+		innerList := &ast.ListLit{
+			Elts: []ast.Expr{&ast.StructLit{Elts: rb}},
 		}
-		body.WriteString("\t},\n]}], -1)")
+		expandList(innerList)
+		comp := &ast.Comprehension{
+			Clauses: parseRangeClauses(r.topLevelRange),
+			Value: &ast.StructLit{
+				Elts: []ast.Decl{&ast.EmbedDecl{Expr: innerList}},
+			},
+		}
+		outerList := &ast.ListLit{Elts: []ast.Expr{comp}}
+		expandList(outerList)
+		outputValue = makeFlattenNCall(listSentinel, outerList)
 	} else {
 		// No range — plain list with optional if guards.
-		body.WriteString("output: [\n")
+		listLit := &ast.ListLit{}
 		for _, r := range results {
-			docBody := strings.TrimRight(r.body, "\n")
-			if docBody == "" {
+			if len(r.body) == 0 {
 				continue
 			}
+			bodyStruct := &ast.StructLit{Elts: r.body}
 			if len(r.topLevelGuards) > 0 {
-				indent := 1
-				for _, guard := range r.topLevelGuards {
-					writeIndent(&body, indent)
-					fmt.Fprintf(&body, "if %s {\n", guard)
-					indent++
-				}
-				writeIndent(&body, indent)
-				body.WriteString("{\n")
-				for _, line := range strings.Split(docBody, "\n") {
-					writeIndent(&body, indent+1)
-					body.WriteString(line)
-					body.WriteByte('\n')
-				}
-				writeIndent(&body, indent)
-				body.WriteString("},\n")
-				for g := len(r.topLevelGuards) - 1; g >= 0; g-- {
-					writeIndent(&body, g+1)
-					body.WriteString("}\n")
-				}
+				listLit.Elts = append(listLit.Elts, wrapInGuards(bodyStruct, r.topLevelGuards))
 			} else {
-				body.WriteString("\t{\n")
-				for _, line := range strings.Split(docBody, "\n") {
-					body.WriteString("\t\t")
-					body.WriteString(line)
-					body.WriteByte('\n')
-				}
-				body.WriteString("\t},\n")
+				listLit.Elts = append(listLit.Elts, bodyStruct)
 			}
 		}
-		body.WriteString("]")
+		expandList(listLit)
+		outputValue = listLit
 	}
 
-	merged.body = body.String()
+	merged.body = []ast.Decl{
+		&ast.Field{
+			Label: ast.NewIdent("output"),
+			Value: outputValue,
+		},
+	}
 	return merged
 }
 
@@ -1042,7 +1232,7 @@ func (c *converter) convertHelperBody(nodes []parse.Node) (string, *helperArgInf
 	sub.flushDeferred()
 	sub.closeBlocksTo(-1)
 
-	body := strings.TrimSpace(sub.out.String())
+	body := strings.TrimSpace(declsToText(sub.rootDecls))
 
 	// Propagate hasConditions so _nonzero is emitted by the parent.
 	if sub.hasConditions {
@@ -1055,8 +1245,8 @@ func (c *converter) convertHelperBody(nodes []parse.Node) (string, *helperArgInf
 	// so the helper evaluates to a list, not a struct.
 	if sub.topLevelRange != "" {
 		rangeBody := body
-		if sub.topLevelRangeBody != "" {
-			rangeBody = strings.TrimSpace(sub.topLevelRangeBody)
+		if len(sub.topLevelRangeBody) > 0 {
+			rangeBody = strings.TrimSpace(declsToText(sub.topLevelRangeBody))
 		}
 		inner := sub.topLevelRange + " {\n" + indentBlock(rangeBody, "\t") + "\n}"
 		if sub.topLevelRangeIsList {
@@ -1439,12 +1629,12 @@ func (c *converter) trackContextNode(node parse.Node) {
 	}
 }
 
-// currentCUEIndent returns the current CUE indentation level.
-func (c *converter) currentCUEIndent() int {
+// inListContext reports whether the current frame is a list context.
+func (c *converter) inListContext() bool {
 	if len(c.stack) == 0 {
-		return 0
+		return false
 	}
-	return c.stack[len(c.stack)-1].cueIndent
+	return c.stack[len(c.stack)-1].isList
 }
 
 // closeBlocksTo closes all stack frames whose yamlIndent > indent.
@@ -1459,25 +1649,18 @@ func (c *converter) closeBlocksTo(indent int) {
 	}
 }
 
-// closeOneFrame pops and closes the topmost frame.
+// closeOneFrame pops the topmost frame. AST nodes are already connected
+// to their parents when frames are opened, so no output is needed.
 func (c *converter) closeOneFrame() {
 	if len(c.stack) == 0 {
 		return
 	}
 	top := c.stack[len(c.stack)-1]
+	// Set Rbrack on list literals for expanded formatting.
+	if top.listLit != nil && top.listLit.Rbrack == token.NoPos {
+		top.listLit.Rbrack = newlinePos()
+	}
 	c.stack = c.stack[:len(c.stack)-1]
-	closeIndent := top.cueIndent - 1
-	if closeIndent < 0 {
-		closeIndent = 0
-	}
-	writeIndent(&c.out, closeIndent)
-	if top.isList {
-		c.out.WriteString("]\n")
-	} else if top.isListItem {
-		c.out.WriteString("},\n")
-	} else {
-		c.out.WriteString("}\n")
-	}
 }
 
 // flushPendingListItem emits any deferred list item action as a standalone list element.
@@ -1486,18 +1669,11 @@ func (c *converter) flushPendingListItem() {
 		return
 	}
 	expr := c.pendingListItemExpr
-	comment := c.pendingListItemComment
-	cueInd := c.pendingListItemCUEInd
 	c.pendingListItemExpr = ""
 	c.pendingListItemComment = ""
 
-	writeIndent(&c.out, cueInd)
-	c.out.WriteString(expr)
-	c.out.WriteByte(',')
-	if comment != "" {
-		fmt.Fprintf(&c.out, " %s", comment)
-	}
-	c.out.WriteByte('\n')
+	e := mustParseExpr(expr)
+	c.appendListExpr(e)
 }
 
 // flushPendingAction emits any deferred action expression as a standalone expression.
@@ -1507,20 +1683,14 @@ func (c *converter) flushPendingAction() {
 		return
 	}
 	expr := c.pendingActionExpr
-	comment := c.pendingActionComment
-	cueInd := c.pendingActionCUEInd
 	c.pendingActionExpr = ""
 	c.pendingActionComment = ""
 
-	writeIndent(&c.out, cueInd)
-	c.out.WriteString(expr)
-	if len(c.stack) > 0 && c.stack[len(c.stack)-1].isList {
-		c.out.WriteByte(',')
+	if c.inListContext() {
+		c.appendListExpr(mustParseExpr(expr))
+	} else {
+		c.emitEmbed(expr)
 	}
-	if comment != "" {
-		fmt.Fprintf(&c.out, " %s", comment)
-	}
-	c.out.WriteByte('\n')
 }
 
 // flushDeferred emits any deferred key-value as a simple field.
@@ -1530,16 +1700,11 @@ func (c *converter) flushDeferred() {
 	}
 	d := c.deferredKV
 	c.deferredKV = nil
-	writeIndent(&c.out, d.cueInd)
-	key := cueKey(d.key)
 	if d.rawKey {
-		key = d.key
+		c.emitRawField(d.key, d.value)
+	} else {
+		c.emitField(d.key, d.value)
 	}
-	fmt.Fprintf(&c.out, "%s: %s", key, d.value)
-	if d.comment != "" {
-		fmt.Fprintf(&c.out, " %s", d.comment)
-	}
-	c.out.WriteByte('\n')
 }
 
 // finalizeInline completes an in-progress inline interpolation by joining
@@ -1548,11 +1713,27 @@ func (c *converter) finalizeInline() {
 	if c.inlineParts == nil {
 		return
 	}
-	result := `"` + strings.Join(c.inlineParts, "") + `"` + c.inlineSuffix
+	result := `"` + strings.Join(c.inlineParts, "") + `"`
+	key := c.inlineKey
+	rawKey := c.inlineRawKey
+	suffix := c.inlineSuffix
 	c.inlineParts = nil
 	c.inlineSuffix = ""
-	c.out.WriteString(result)
-	c.out.WriteByte('\n')
+	c.inlineKey = ""
+	c.inlineRawKey = false
+
+	_ = suffix // suffix is handled structurally by AST context
+	if key != "" {
+		if rawKey {
+			c.emitRawField(key, result)
+		} else {
+			c.emitField(key, result)
+		}
+	} else if c.inListContext() {
+		c.appendListExpr(mustParseExpr(result))
+	} else {
+		c.emitEmbed(result)
+	}
 }
 
 // inlineExpr wraps a CUE expression for embedding in a string interpolation.
@@ -1624,43 +1805,45 @@ func flowBracketDepth(s string, depth int) (endPos int, finalDepth int) {
 
 // startFlowAccum initialises flow accumulation mode with the given
 // starting text fragment.
-func (c *converter) startFlowAccum(text string, cueInd int, suffix string) {
+func (c *converter) startFlowAccum(text, key, suffix string) {
 	c.flowParts = []string{text}
 	c.flowExprs = nil
 	_, c.flowDepth = flowBracketDepth(text, 0)
-	c.flowCueInd = cueInd
 	c.flowSuffix = suffix
+	c.flowKey = key
 }
 
 // finalizeFlow joins the accumulated flow parts, converts the YAML
 // flow collection to CUE, replaces sentinel strings with actual CUE
-// expressions, and writes the result.
+// expressions, and emits the result.
 func (c *converter) finalizeFlow() {
 	if c.flowParts == nil {
 		return
 	}
 	joined := strings.Join(c.flowParts, "")
 	exprs := c.flowExprs
-	cueInd := c.flowCueInd
-	suffix := c.flowSuffix
+	key := c.flowKey
 	c.flowParts = nil
 	c.flowExprs = nil
 	c.flowDepth = 0
+	c.flowKey = ""
 
-	cueStr := yamlToCUE(joined, cueInd)
+	cueStr := yamlToCUE(joined, 0)
 
 	// Replace quoted sentinels with CUE expressions.
 	for i, expr := range exprs {
 		sentinel := fmt.Sprintf("__h2c_%d__", i)
-		// yamlToCUE will have turned the sentinel into a quoted
-		// CUE string: "__h2c_0__". Replace that with the raw expr.
 		quoted := fmt.Sprintf("%q", sentinel)
 		cueStr = strings.Replace(cueStr, quoted, expr, 1)
 	}
 
-	writeIndent(&c.out, cueInd)
-	c.out.WriteString(cueStr)
-	c.out.WriteString(suffix)
+	if key != "" {
+		c.emitField(key, cueStr)
+	} else if c.inListContext() {
+		c.appendListExpr(mustParseExpr(cueStr))
+	} else {
+		c.emitEmbed(cueStr)
+	}
 }
 
 // embedRangeInBlockScalar converts an inline-safe range to a string
@@ -1697,57 +1880,40 @@ func (c *converter) finalizeBlockScalar() {
 		lines = lines[:len(lines)-1]
 	}
 
-	ind := c.blockScalarCUEInd
 	key := c.blockScalarKey
 	c.blockScalarKey = ""
 
-	// Key-value block scalars emit "key: value\n"; list-item block
-	// scalars emit "value,\n".
-	suffix := ","
-	if key != "" {
-		suffix = ""
-	}
-
-	keyPrefix := ""
-	if key != "" {
-		keyPrefix = cueKey(key) + ": "
-	}
-
+	var value string
 	if len(lines) == 0 {
-		writeIndent(&c.out, ind)
-		fmt.Fprintf(&c.out, "%s\"\"%s\n", keyPrefix, suffix)
-		return
-	}
-
-	if c.blockScalarFolded {
-		// Folded: join lines with spaces.
+		value = `""`
+	} else if c.blockScalarFolded {
 		text := strings.Join(lines, " ")
 		if !c.blockScalarStrip {
 			text += "\n"
 		}
-		writeIndent(&c.out, ind)
-		fmt.Fprintf(&c.out, "%s%s%s\n", keyPrefix, strconv.Quote(text), suffix)
+		value = strconv.Quote(text)
 	} else {
-		// Literal: CUE multi-line string. Content lines and the
-		// closing """ are indented one level deeper than the opener
-		// so that cue fmt preserves the blank trailing-newline line.
-		writeIndent(&c.out, ind)
-		c.out.WriteString(keyPrefix + "\"\"\"\n")
+		// Literal: CUE multi-line string.
+		var sb strings.Builder
+		sb.WriteString("\"\"\"\n")
 		for _, line := range lines {
-			writeIndent(&c.out, ind+1)
-			c.out.WriteString(line)
-			c.out.WriteByte('\n')
+			sb.WriteString("\t")
+			sb.WriteString(line)
+			sb.WriteByte('\n')
 		}
 		if !c.blockScalarStrip {
-			// Non-strip (| or >): add a whitespace-only line at
-			// the content indent level so that CUE's multi-line
-			// string includes a trailing newline.  The indent
-			// must match the closing """ to survive cue fmt.
-			writeIndent(&c.out, ind+1)
-			c.out.WriteByte('\n')
+			sb.WriteString("\t\n")
 		}
-		writeIndent(&c.out, ind+1)
-		fmt.Fprintf(&c.out, "\"\"\"%s\n", suffix)
+		sb.WriteString("\t\"\"\"")
+		value = sb.String()
+	}
+
+	if key != "" {
+		c.emitField(key, value)
+	} else if c.inListContext() {
+		c.appendListExpr(mustParseExpr(value))
+	} else {
+		c.emitEmbed(value)
 	}
 }
 
@@ -1758,23 +1924,31 @@ func (c *converter) resolveDeferredAsBlock(childYamlIndent int) {
 	}
 	d := c.deferredKV
 	c.deferredKV = nil
-	key := cueKey(d.key)
-	if d.rawKey {
-		key = d.key
+
+	// Create struct body with the deferred value as an embed.
+	bodyStruct := &ast.StructLit{
+		Elts: []ast.Decl{
+			&ast.EmbedDecl{Expr: mustParseExpr(d.value)},
+		},
 	}
-	writeIndent(&c.out, d.cueInd)
-	fmt.Fprintf(&c.out, "%s: {\n", key)
-	writeIndent(&c.out, d.cueInd+1)
-	c.out.WriteString(d.value)
-	c.out.WriteByte('\n')
+
+	var label ast.Label
+	if d.rawKey {
+		label = mustParseExpr(d.key).(ast.Label)
+	} else {
+		label = cueKeyLabel(d.key)
+	}
+	c.appendToParent(&ast.Field{
+		Label: label,
+		Value: bodyStruct,
+	})
 	c.stack = append(c.stack, frame{
 		yamlIndent: childYamlIndent,
-		cueIndent:  d.cueInd + 1,
-		isList:     false,
+		structLit:  bodyStruct,
 	})
 }
 
-// emitTextNode processes a YAML text fragment line-by-line, emitting CUE directly.
+// emitTextNode processes a YAML text fragment line-by-line, building AST nodes.
 func (c *converter) emitTextNode(text []byte) {
 	s := string(text)
 	if s == "" {
@@ -1782,47 +1956,34 @@ func (c *converter) emitTextNode(text []byte) {
 	}
 
 	// Check if text starts as a continuation of a deferred list item action.
-	// This handles "- {{ action }}suffix" patterns where the suffix
-	// text is part of the same list element value.
 	if c.pendingListItemExpr != "" {
 		if s[0] != '\n' {
-			// Text continues on the same line — start inline accumulation.
-			c.inlineStartPos = c.out.Len()
-			writeIndent(&c.out, c.pendingListItemCUEInd)
 			c.inlineParts = []string{inlineExpr(c.pendingListItemExpr)}
 			c.inlineSuffix = ","
+			c.inlineKey = ""
 			c.pendingListItemExpr = ""
 			c.pendingListItemComment = ""
-			// Fall through to inline handler below.
 		} else {
 			c.flushPendingListItem()
 		}
 	}
 
 	// Check if text starts as a continuation of a deferred key-value.
-	// This handles "key: {{ action }}suffix" patterns where the suffix
-	// text is part of the same YAML value.
 	if c.deferredKV != nil && s[0] != '\n' {
 		d := c.deferredKV
 		c.deferredKV = nil
-		c.inlineStartPos = c.out.Len()
-		writeIndent(&c.out, d.cueInd)
-		key := cueKey(d.key)
 		if d.rawKey {
-			key = d.key
+			c.inlineKey = d.key
+			c.inlineRawKey = true
+		} else {
+			c.inlineKey = d.key
+			c.inlineRawKey = false
 		}
-		fmt.Fprintf(&c.out, "%s: ", key)
 		c.inlineParts = []string{inlineExpr(d.value)}
-		if d.comment != "" {
-			c.inlineSuffix = " " + d.comment
-		}
-		// Fall through to inline handler below.
 	}
 
-	// Handle inline continuation: if inline accumulation is active,
-	// append text up to the first newline, then finalize.
+	// Handle inline continuation.
 	if c.inlineParts != nil {
-		// Flush any pending action into the inline parts (safety net).
 		if c.pendingActionExpr != "" {
 			c.inlineParts = append(c.inlineParts, inlineExpr(c.pendingActionExpr))
 			c.pendingActionExpr = ""
@@ -1830,34 +1991,26 @@ func (c *converter) emitTextNode(text []byte) {
 		}
 		idx := strings.IndexByte(s, '\n')
 		if idx < 0 {
-			// Entire text is inline continuation.
 			c.inlineParts = append(c.inlineParts, escapeCUEString(s))
-			// If the next node produces indented multi-line output
-			// (nindent/indent), finalize the inline now so the next
-			// node is emitted standalone rather than merged into the
-			// string interpolation.
 			if len(c.remainingNodes) > 0 && nodeHasNindent(c.remainingNodes[0]) {
 				c.finalizeInline()
 			}
 			return
 		}
-		// Append the tail up to the first newline, then finalize.
 		if idx > 0 {
 			c.inlineParts = append(c.inlineParts, escapeCUEString(s[:idx]))
 		}
 		c.finalizeInline()
-		s = s[idx:] // continue with remaining text (starts with \n)
+		s = s[idx:]
 		if strings.TrimSpace(s) == "" {
 			return
 		}
 	}
 
-	// Handle flow collection continuation: if flow accumulation is active,
-	// scan for where the collection ends.
+	// Handle flow collection continuation.
 	if c.flowParts != nil {
 		endPos, depth := flowBracketDepth(s, c.flowDepth)
 		if endPos >= 0 {
-			// Flow collection ends within this text.
 			c.flowParts = append(c.flowParts, s[:endPos])
 			c.flowDepth = 0
 			c.finalizeFlow()
@@ -1867,23 +2020,15 @@ func (c *converter) emitTextNode(text []byte) {
 			}
 			return
 		}
-		// Flow still open — append all text, update depth.
 		c.flowParts = append(c.flowParts, s)
 		c.flowDepth = depth
 		return
 	}
 
-	// Whether the last line continues into the next AST node:
-	// text does not end with a newline AND the next sibling is an
-	// action/text node (not a control structure like {{- end }}).
-	// Also consider inline-safe IfNodes (if/else with text-only branches).
 	textEndsNoNewline := len(s) > 0 && s[len(s)-1] != '\n'
 	nextIsInlineOrIf := c.nextNodeIsInline ||
 		(textEndsNoNewline && len(c.remainingNodes) > 0 && isInlineNodeOrControl(c.remainingNodes[0]))
 	textContinuesInline := textEndsNoNewline && nextIsInlineOrIf
-	// Override: if the next node is an action with nindent/indent, it
-	// produces multi-line indented output and must not be merged into an
-	// inline interpolation.
 	if textContinuesInline && len(c.remainingNodes) > 0 && nodeHasNindent(c.remainingNodes[0]) {
 		textContinuesInline = false
 	}
@@ -1893,16 +2038,13 @@ func (c *converter) emitTextNode(text []byte) {
 	for i, rawLine := range lines {
 		isLastLine := (i == len(lines)-1)
 
-		// Block scalar accumulation: collect indented lines for the
-		// multi-line string started by "- |" etc.
+		// Block scalar accumulation.
 		if c.blockScalarLines != nil {
 			if c.blockScalarPartialLine {
 				c.blockScalarPartialLine = false
 				if rawLine == "" {
-					// \n terminating the partial line — not an empty content line.
 					continue
 				}
-				// Text continues on the same line as the action.
 				if len(c.blockScalarLines) > 0 {
 					last := len(c.blockScalarLines) - 1
 					c.blockScalarLines[last] += rawLine
@@ -1911,9 +2053,8 @@ func (c *converter) emitTextNode(text []byte) {
 			}
 			trimLine := strings.TrimSpace(rawLine)
 			if c.blockScalarBaseIndent < 0 {
-				// Haven't seen first content line yet.
 				if trimLine == "" {
-					continue // Skip empty lines before first content.
+					continue
 				}
 				c.blockScalarBaseIndent = len(rawLine) - len(strings.TrimLeft(rawLine, " "))
 			}
@@ -1926,12 +2067,10 @@ func (c *converter) emitTextNode(text []byte) {
 				c.blockScalarLines = append(c.blockScalarLines, rawLine[c.blockScalarBaseIndent:])
 				continue
 			}
-			// Shallower line — finalize block scalar, then fall through.
 			c.finalizeBlockScalar()
 		}
 
 		if strings.TrimSpace(rawLine) == "" {
-			// Record indent hint from trailing whitespace-only line.
 			if isLastLine && rawLine != "" {
 				c.nextActionYamlIndent = len(rawLine) - len(strings.TrimLeft(rawLine, " "))
 			}
@@ -1939,10 +2078,8 @@ func (c *converter) emitTextNode(text []byte) {
 		}
 
 		yamlIndent := len(rawLine) - len(strings.TrimLeft(rawLine, " "))
-		// Use left-trimmed content to preserve trailing spaces (important for "- ").
 		content := rawLine[yamlIndent:]
 
-		// Strip "- " prefix when a pre-opened list item struct absorbed the dash.
 		if c.stripListDash && strings.HasPrefix(content, "- ") {
 			c.stripListDash = false
 			content = content[2:]
@@ -1952,7 +2089,6 @@ func (c *converter) emitTextNode(text []byte) {
 		// Check if pending action should be resolved as dynamic key.
 		if c.pendingActionExpr != "" {
 			if strings.HasPrefix(content, ": ") || content == ":" {
-				// Dynamic key: previous action is the key expression.
 				c.state = statePendingKey
 				c.pendingKey = "(" + c.pendingActionExpr + ")"
 				c.pendingKeyInd = c.nextActionYamlIndent
@@ -1963,12 +2099,9 @@ func (c *converter) emitTextNode(text []byte) {
 				}
 				val := strings.TrimRight(content[2:], " \t")
 				if val == "" {
-					continue // Empty value, next action provides it
+					continue
 				}
-				// ": value" — emit key: value directly.
-				cueInd := c.currentCUEIndent()
-				writeIndent(&c.out, cueInd)
-				fmt.Fprintf(&c.out, "%s: %s\n", c.pendingKey, yamlToCUE(val, 0))
+				c.emitRawField(c.pendingKey, yamlToCUE(val, 0))
 				c.state = stateNormal
 				c.pendingKey = ""
 				continue
@@ -1976,7 +2109,6 @@ func (c *converter) emitTextNode(text []byte) {
 			c.flushPendingAction()
 		}
 
-		// Check deferred key-value: if deeper content follows, convert to block.
 		if c.deferredKV != nil {
 			if yamlIndent > c.deferredKV.indent {
 				c.resolveDeferredAsBlock(yamlIndent)
@@ -1985,12 +2117,8 @@ func (c *converter) emitTextNode(text []byte) {
 			}
 		}
 
-		// Close blocks whose content is deeper than this line.
 		c.closeBlocksTo(yamlIndent)
 
-		// If the top frame is a list at the same indent and the line
-		// is not a list item, the list is complete and this line is a
-		// sibling key in the parent struct.
 		if len(c.stack) > 0 {
 			top := c.stack[len(c.stack)-1]
 			if top.isList && top.yamlIndent == yamlIndent && !strings.HasPrefix(content, "- ") {
@@ -1998,7 +2126,6 @@ func (c *converter) emitTextNode(text []byte) {
 			}
 		}
 
-		// If we had a pending key from previous text and this line is deeper, resolve it.
 		if c.state == statePendingKey {
 			if strings.HasPrefix(content, "- ") {
 				c.openPendingAsList(yamlIndent)
@@ -2007,7 +2134,6 @@ func (c *converter) emitTextNode(text []byte) {
 			}
 		}
 
-		cueInd := c.currentCUEIndent()
 		trimmed := strings.TrimSpace(content)
 		continuesInline := isLastLine && textContinuesInline
 
@@ -2015,35 +2141,26 @@ func (c *converter) emitTextNode(text []byte) {
 		if strings.HasPrefix(trimmed, "#") {
 			commentText := strings.TrimPrefix(trimmed, "#")
 			commentText = strings.TrimPrefix(commentText, " ")
-			writeIndent(&c.out, cueInd)
-			if commentText == "" {
-				fmt.Fprintf(&c.out, "//\n")
-			} else {
-				fmt.Fprintf(&c.out, "// %s\n", commentText)
-			}
+			c.emitComment(commentText)
 			continue
 		}
 
 		// Parse the line.
 		if strings.HasPrefix(content, "- ") {
-			c.processListItem(content, yamlIndent, cueInd, isLastLine, continuesInline)
+			c.processListItem(content, yamlIndent, isLastLine, continuesInline)
 		} else if isFlowCollection(trimmed) {
-			writeIndent(&c.out, cueInd)
-			fmt.Fprintf(&c.out, "%s\n", yamlToCUE(trimmed, cueInd))
+			cueVal := yamlToCUE(trimmed, 0)
+			if c.inListContext() {
+				c.appendListExpr(mustParseExpr(cueVal))
+			} else {
+				c.emitEmbed(cueVal)
+			}
 		} else if continuesInline && startsIncompleteFlow(trimmed) {
-			// Flow collection starts here but isn't complete — actions
-			// inside the flow will provide the rest. Use content (not
-			// trimmed) to preserve trailing space for YAML flow parsing.
-			writeIndent(&c.out, cueInd)
-			c.startFlowAccum(content, cueInd, "\n")
+			c.startFlowAccum(content, "", "\n")
 		} else if colonIdx := strings.Index(content, ": "); colonIdx > 0 {
 			key := content[:colonIdx]
 			val := strings.TrimRight(content[colonIdx+2:], " \t")
-			// Check for YAML block scalar indicators.
 			if val == "|-" || val == "|" || val == ">-" || val == ">" {
-				// If the next node is an nindent/indent action, fall
-				// back to the pending key mechanism so the nindent
-				// special handling applies.
 				nextIsNindent := len(c.remainingNodes) > 0 && nodeHasNindent(c.remainingNodes[0])
 				if nextIsNindent {
 					c.state = statePendingKey
@@ -2052,33 +2169,23 @@ func (c *converter) emitTextNode(text []byte) {
 				} else {
 					c.blockScalarLines = []string{}
 					c.blockScalarBaseIndent = -1
-					c.blockScalarCUEInd = cueInd
 					c.blockScalarFolded = val[0] == '>'
 					c.blockScalarStrip = strings.HasSuffix(val, "-")
 					c.blockScalarPartialLine = false
 					c.blockScalarKey = key
 				}
 			} else if val == "" && isLastLine {
-				// Trailing "key: " — value comes from next node.
 				c.state = statePendingKey
 				c.pendingKey = key
 				c.pendingKeyInd = yamlIndent
 			} else if continuesInline && val != "" && startsIncompleteFlow(val) {
-				// Value is an incomplete flow collection. Use the raw
-				// value (not TrimRight) to preserve trailing space for
-				// YAML flow parsing.
-				writeIndent(&c.out, cueInd)
-				fmt.Fprintf(&c.out, "%s: ", cueKey(key))
-				c.startFlowAccum(content[colonIdx+2:], cueInd, "\n")
+				c.startFlowAccum(content[colonIdx+2:], key, "\n")
 			} else if continuesInline && val != "" {
-				// Value continues into next AST node — start inline accumulation.
-				c.inlineStartPos = c.out.Len()
-				writeIndent(&c.out, cueInd)
-				fmt.Fprintf(&c.out, "%s: ", cueKey(key))
+				c.inlineKey = key
+				c.inlineRawKey = false
 				c.inlineParts = []string{escapeCUEString(val)}
 			} else {
-				writeIndent(&c.out, cueInd)
-				fmt.Fprintf(&c.out, "%s: %s\n", cueKey(key), yamlToCUE(val, cueInd))
+				c.emitField(key, yamlToCUE(val, 0))
 			}
 		} else if strings.HasSuffix(trimmed, ":") {
 			key := strings.TrimSuffix(trimmed, ":")
@@ -2086,22 +2193,22 @@ func (c *converter) emitTextNode(text []byte) {
 			c.pendingKey = key
 			c.pendingKeyInd = yamlIndent
 		} else if continuesInline {
-			// Bare value continues into next AST node — start inline accumulation.
-			c.inlineStartPos = c.out.Len()
-			writeIndent(&c.out, cueInd)
+			c.inlineKey = ""
+			c.inlineRawKey = false
 			c.inlineParts = []string{escapeCUEString(trimmed)}
-			if len(c.stack) > 0 && c.stack[len(c.stack)-1].isList {
+			if c.inListContext() {
 				c.inlineSuffix = ","
 			}
 		} else {
-			// Bare value or embedded expression.
-			writeIndent(&c.out, cueInd)
-			fmt.Fprintf(&c.out, "%s\n", yamlToCUE(trimmed, 0))
+			cueVal := yamlToCUE(trimmed, 0)
+			if c.inListContext() {
+				c.appendListExpr(mustParseExpr(cueVal))
+			} else {
+				c.emitEmbed(cueVal)
+			}
 		}
 	}
 
-	// Finalize any block scalar that runs to end of text.
-	// If text ends mid-line, the block scalar continues into the next node.
 	if c.blockScalarLines != nil && len(s) > 0 && s[len(s)-1] != '\n' {
 		// Text ends mid-line — block scalar continues into next node.
 	} else {
@@ -2111,13 +2218,15 @@ func (c *converter) emitTextNode(text []byte) {
 
 // openPendingAsList resolves a pending key as a list block.
 func (c *converter) openPendingAsList(childYamlIndent int) {
-	cueInd := c.currentCUEIndent()
-	writeIndent(&c.out, cueInd)
-	fmt.Fprintf(&c.out, "%s: [\n", cueKey(c.pendingKey))
+	listLit := &ast.ListLit{}
+	c.appendToParent(&ast.Field{
+		Label: cueKeyLabel(c.pendingKey),
+		Value: listLit,
+	})
 	c.stack = append(c.stack, frame{
 		yamlIndent: childYamlIndent,
-		cueIndent:  cueInd + 1,
 		isList:     true,
+		listLit:    listLit,
 	})
 	c.state = stateNormal
 	c.pendingKey = ""
@@ -2125,37 +2234,36 @@ func (c *converter) openPendingAsList(childYamlIndent int) {
 
 // openPendingAsMapping resolves a pending key as a mapping block.
 func (c *converter) openPendingAsMapping(childYamlIndent int) {
-	cueInd := c.currentCUEIndent()
-	writeIndent(&c.out, cueInd)
-	fmt.Fprintf(&c.out, "%s: {\n", cueKey(c.pendingKey))
+	structLit := &ast.StructLit{}
+	c.appendToParent(&ast.Field{
+		Label: cueKeyLabel(c.pendingKey),
+		Value: structLit,
+	})
 	c.stack = append(c.stack, frame{
 		yamlIndent: childYamlIndent,
-		cueIndent:  cueInd + 1,
-		isList:     false,
+		structLit:  structLit,
 	})
 	c.state = stateNormal
 	c.pendingKey = ""
 }
 
 // processListItem handles a YAML list item line (starts with "- ").
-func (c *converter) processListItem(trimmed string, yamlIndent, cueInd int, isLastLine, continuesInline bool) {
+func (c *converter) processListItem(trimmed string, yamlIndent int, isLastLine, continuesInline bool) {
 	content := strings.TrimPrefix(trimmed, "- ")
 
 	// In range body at the range's own list level, list items emit
 	// directly without { } wrapping. Nested lists use normal wrapping.
 	if c.inRangeBody && len(c.stack) == c.rangeBodyStackDepth {
-		c.processRangeListItem(content, yamlIndent, cueInd, isLastLine, continuesInline)
+		c.processRangeListItem(content, yamlIndent, isLastLine, continuesInline)
 		return
 	}
 
 	// Check for YAML flow collections (e.g., - {key: "value"}).
 	if isFlowCollection(content) {
-		writeIndent(&c.out, cueInd)
-		fmt.Fprintf(&c.out, "%s,\n", yamlToCUE(content, cueInd))
+		c.appendListExpr(mustParseExpr(yamlToCUE(content, 0)))
 	} else if continuesInline && startsIncompleteFlow(content) {
 		// Flow collection as list item, but actions split it.
-		writeIndent(&c.out, cueInd)
-		c.startFlowAccum(content, cueInd, ",\n")
+		c.startFlowAccum(content, "", ",\n")
 	} else if colonIdx := strings.Index(content, ": "); colonIdx > 0 {
 		// Check if this is "- key: value" (struct in list).
 		key := content[:colonIdx]
@@ -2167,11 +2275,11 @@ func (c *converter) processListItem(trimmed string, yamlIndent, cueInd int, isLa
 		if val == "" && isLastLine {
 			// "- key: " with trailing space — action provides value.
 			// Open struct for list item.
-			writeIndent(&c.out, cueInd)
-			c.out.WriteString("{\n")
+			itemStruct := &ast.StructLit{}
+			c.appendListExpr(itemStruct)
 			c.stack = append(c.stack, frame{
 				yamlIndent: itemContentIndent,
-				cueIndent:  cueInd + 1,
+				structLit:  itemStruct,
 				isListItem: true,
 			})
 			c.state = statePendingKey
@@ -2179,51 +2287,45 @@ func (c *converter) processListItem(trimmed string, yamlIndent, cueInd int, isLa
 			c.pendingKeyInd = itemContentIndent
 		} else if continuesInline && val != "" && startsIncompleteFlow(val) {
 			// Value is an incomplete flow collection in a list item.
-			// Use raw value to preserve trailing space.
-			writeIndent(&c.out, cueInd)
-			c.out.WriteString("{\n")
-			writeIndent(&c.out, cueInd+1)
-			fmt.Fprintf(&c.out, "%s: ", cueKey(key))
-			c.startFlowAccum(content[colonIdx+2:], cueInd+1, "\n")
+			itemStruct := &ast.StructLit{}
+			c.appendListExpr(itemStruct)
 			c.stack = append(c.stack, frame{
 				yamlIndent: itemContentIndent,
-				cueIndent:  cueInd + 1,
+				structLit:  itemStruct,
 				isListItem: true,
 			})
+			c.startFlowAccum(content[colonIdx+2:], key, "\n")
 		} else if continuesInline && val != "" {
 			// Value continues into next AST node — start inline.
-			writeIndent(&c.out, cueInd)
-			c.out.WriteString("{\n")
-			c.inlineStartPos = c.out.Len()
-			writeIndent(&c.out, cueInd+1)
-			fmt.Fprintf(&c.out, "%s: ", cueKey(key))
-			c.inlineParts = []string{escapeCUEString(val)}
+			itemStruct := &ast.StructLit{}
+			c.appendListExpr(itemStruct)
 			c.stack = append(c.stack, frame{
 				yamlIndent: itemContentIndent,
-				cueIndent:  cueInd + 1,
+				structLit:  itemStruct,
 				isListItem: true,
 			})
+			c.inlineKey = key
+			c.inlineParts = []string{escapeCUEString(val)}
 		} else {
 			// Open struct, emit first field.
-			writeIndent(&c.out, cueInd)
-			c.out.WriteString("{\n")
-			writeIndent(&c.out, cueInd+1)
-			fmt.Fprintf(&c.out, "%s: %s\n", cueKey(key), yamlToCUE(val, cueInd+1))
+			itemStruct := &ast.StructLit{}
+			c.appendListExpr(itemStruct)
 			c.stack = append(c.stack, frame{
 				yamlIndent: itemContentIndent,
-				cueIndent:  cueInd + 1,
+				structLit:  itemStruct,
 				isListItem: true,
 			})
+			c.emitField(key, yamlToCUE(val, 0))
 		}
 	} else if strings.HasSuffix(strings.TrimSpace(content), ":") {
 		// "- key:" — struct in list with bare key.
 		key := strings.TrimSuffix(strings.TrimSpace(content), ":")
 		itemContentIndent := yamlIndent + 2
-		writeIndent(&c.out, cueInd)
-		c.out.WriteString("{\n")
+		itemStruct := &ast.StructLit{}
+		c.appendListExpr(itemStruct)
 		c.stack = append(c.stack, frame{
 			yamlIndent: itemContentIndent,
-			cueIndent:  cueInd + 1,
+			structLit:  itemStruct,
 			isListItem: true,
 		})
 		c.state = statePendingKey
@@ -2238,35 +2340,29 @@ func (c *converter) processListItem(trimmed string, yamlIndent, cueInd int, isLa
 		// Block scalar as list item — start accumulation.
 		c.blockScalarLines = []string{}
 		c.blockScalarBaseIndent = -1
-		c.blockScalarCUEInd = cueInd
 		c.blockScalarFolded = tc[0] == '>'
 		c.blockScalarStrip = strings.HasSuffix(tc, "-")
 		c.blockScalarPartialLine = false
 	} else if continuesInline {
 		// Scalar list item continues into next AST node — start inline.
-		c.inlineStartPos = c.out.Len()
-		writeIndent(&c.out, cueInd)
+		c.inlineKey = ""
 		c.inlineParts = []string{escapeCUEString(strings.TrimSpace(content))}
 		c.inlineSuffix = ","
 	} else {
 		// Simple scalar list item.
-		writeIndent(&c.out, cueInd)
-		fmt.Fprintf(&c.out, "%s,\n", yamlToCUE(strings.TrimSpace(content), 0))
+		c.appendListExpr(mustParseExpr(yamlToCUE(strings.TrimSpace(content), 0)))
 	}
 }
 
-// processRangeListItem handles list items inside a range body — emits directly without { }, wrapping.
-func (c *converter) processRangeListItem(content string, yamlIndent, cueInd int, isLastLine, continuesInline bool) {
+// processRangeListItem handles list items inside a range body — emits directly without { } wrapping.
+func (c *converter) processRangeListItem(content string, yamlIndent int, isLastLine, continuesInline bool) {
 	itemContentIndent := yamlIndent + 2
 
 	if isFlowCollection(content) {
-		writeIndent(&c.out, cueInd)
-		c.out.WriteString(yamlToCUE(content, cueInd))
-		c.out.WriteByte('\n')
+		c.emitEmbed(yamlToCUE(content, 0))
 	} else if continuesInline && startsIncompleteFlow(content) {
 		// Flow collection in range list item, but actions split it.
-		writeIndent(&c.out, cueInd)
-		c.startFlowAccum(content, cueInd, "\n")
+		c.startFlowAccum(content, "", "\n")
 	} else if colonIdx := strings.Index(content, ": "); colonIdx > 0 {
 		key := content[:colonIdx]
 		val := strings.TrimRight(content[colonIdx+2:], " \t")
@@ -2277,19 +2373,13 @@ func (c *converter) processRangeListItem(content string, yamlIndent, cueInd int,
 			c.pendingKeyInd = itemContentIndent
 		} else if continuesInline && val != "" && startsIncompleteFlow(val) {
 			// Value is an incomplete flow collection in range list item.
-			// Use raw value to preserve trailing space.
-			writeIndent(&c.out, cueInd)
-			fmt.Fprintf(&c.out, "%s: ", cueKey(key))
-			c.startFlowAccum(content[colonIdx+2:], cueInd, "\n")
+			c.startFlowAccum(content[colonIdx+2:], key, "\n")
 		} else if continuesInline && val != "" {
 			// Value continues into next AST node — start inline.
-			c.inlineStartPos = c.out.Len()
-			writeIndent(&c.out, cueInd)
-			fmt.Fprintf(&c.out, "%s: ", cueKey(key))
+			c.inlineKey = key
 			c.inlineParts = []string{escapeCUEString(val)}
 		} else {
-			writeIndent(&c.out, cueInd)
-			fmt.Fprintf(&c.out, "%s: %s\n", cueKey(key), yamlToCUE(val, cueInd))
+			c.emitField(key, yamlToCUE(val, 0))
 		}
 	} else if strings.HasSuffix(strings.TrimSpace(content), ":") {
 		key := strings.TrimSuffix(strings.TrimSpace(content), ":")
@@ -2303,14 +2393,11 @@ func (c *converter) processRangeListItem(content string, yamlIndent, cueInd int,
 		c.pendingKeyInd = yamlIndent
 	} else if continuesInline {
 		// Scalar value continues into next AST node — start inline.
-		c.inlineStartPos = c.out.Len()
-		writeIndent(&c.out, cueInd)
+		c.inlineKey = ""
 		c.inlineParts = []string{escapeCUEString(strings.TrimSpace(content))}
 	} else {
 		// Simple scalar value — emit directly.
-		writeIndent(&c.out, cueInd)
-		c.out.WriteString(strings.TrimSpace(content))
-		c.out.WriteByte('\n')
+		c.emitEmbed(strconv.Quote(strings.TrimSpace(content)))
 	}
 }
 
@@ -2434,6 +2521,10 @@ func (c *converter) processNodes(nodes []parse.Node) error {
 		c.topLevelRange = fmt.Sprintf("%sfor %s, %s in %s", guard, keyExpr, valName, overExpr)
 		c.topLevelRangeIsList = isListBody(rangeNode.List.Nodes)
 
+		savedRangeBody := c.inRangeBody
+		savedRangeDepth := c.rangeBodyStackDepth
+		c.inRangeBody = true
+		c.rangeBodyStackDepth = len(c.stack)
 		if err := c.processBodyNodes(rangeNode.List.Nodes); err != nil {
 			return err
 		}
@@ -2441,9 +2532,12 @@ func (c *converter) processNodes(nodes []parse.Node) error {
 		c.finalizeFlow()
 		c.flushPendingAction()
 		c.flushDeferred()
+		c.inRangeBody = savedRangeBody
+		c.rangeBodyStackDepth = savedRangeDepth
 		c.closeBlocksTo(-1)
 
-		c.topLevelRangeBody = c.out.String()
+		c.topLevelRangeBody = c.rootDecls
+		c.rootDecls = nil
 		c.rangeVarStack = c.rangeVarStack[:len(c.rangeVarStack)-1]
 		return nil
 	}
@@ -2765,13 +2859,8 @@ func (c *converter) processNode(node parse.Node) error {
 		text = strings.TrimSuffix(text, "*/")
 		text = strings.TrimSpace(text)
 		for _, line := range strings.Split(text, "\n") {
-			writeIndent(&c.out, c.currentCUEIndent())
 			line = strings.TrimSpace(line)
-			if line == "" {
-				fmt.Fprintf(&c.out, "//\n")
-			} else {
-				fmt.Fprintf(&c.out, "// %s\n", line)
-			}
+			c.emitComment(line)
 		}
 	default:
 		return fmt.Errorf("unsupported template construct: %s", node)
@@ -2810,8 +2899,7 @@ func (c *converter) emitActionExpr(expr string, comment string) {
 	// If a list item action is pending and another action follows,
 	// the item is a concatenation — start inline accumulation.
 	if c.pendingListItemExpr != "" {
-		c.inlineStartPos = c.out.Len()
-		writeIndent(&c.out, c.pendingListItemCUEInd)
+		c.inlineKey = ""
 		c.inlineParts = []string{inlineExpr(c.pendingListItemExpr)}
 		c.inlineSuffix = ","
 		c.pendingListItemExpr = ""
@@ -2830,7 +2918,6 @@ func (c *converter) emitActionExpr(expr string, comment string) {
 			// Defer list item — more content may follow on this line.
 			c.pendingListItemExpr = expr
 			c.pendingListItemComment = comment
-			c.pendingListItemCUEInd = c.currentCUEIndent()
 			c.state = stateNormal
 		} else {
 			// Defer the resolution — deeper content may follow.
@@ -2839,7 +2926,6 @@ func (c *converter) emitActionExpr(expr string, comment string) {
 				value:   expr,
 				comment: comment,
 				indent:  c.pendingKeyInd,
-				cueInd:  c.currentCUEIndent(),
 				rawKey:  strings.HasPrefix(c.pendingKey, "("),
 			}
 			c.state = stateNormal
@@ -2849,14 +2935,13 @@ func (c *converter) emitActionExpr(expr string, comment string) {
 		// Standalone expression — defer in case next text starts with ": " (dynamic key).
 		c.pendingActionExpr = expr
 		c.pendingActionComment = comment
-		c.pendingActionCUEInd = c.currentCUEIndent()
 	}
 }
 
 // emitConditionalBlock emits a CUE conditional guard around body text.
 // It handles the full body processing lifecycle: push context frame,
 // emit text, finalize state, close inner frames, pop context, close guard.
-func (c *converter) emitConditionalBlock(cueInd int, condition string, bodyIndent int, isList bool, bodyText []byte) error {
+func (c *converter) emitConditionalBlock(condition string, bodyIndent int, isList bool, bodyText []byte) error {
 	if len(bytes.TrimSpace(bodyText)) == 0 {
 		return nil
 	}
@@ -2864,18 +2949,21 @@ func (c *converter) emitConditionalBlock(cueInd int, condition string, bodyInden
 	savedState := c.state
 	c.state = stateNormal
 
-	writeIndent(&c.out, cueInd)
-	fmt.Fprintf(&c.out, "if %s {\n", condition)
-
 	// Push body context frame.
 	bodyCtxIndent := bodyIndent - 1
 	if bodyCtxIndent < -1 {
 		bodyCtxIndent = -1
 	}
+	bodyStruct := &ast.StructLit{}
+	var bodyList *ast.ListLit
+	if isList {
+		bodyList = &ast.ListLit{}
+	}
 	c.stack = append(c.stack, frame{
 		yamlIndent: bodyCtxIndent,
-		cueIndent:  cueInd + 1,
+		structLit:  bodyStruct,
 		isList:     isList,
+		listLit:    bodyList,
 	})
 
 	// Ensure text ends with a newline so emitTextNode processes all
@@ -2899,25 +2987,26 @@ func (c *converter) emitConditionalBlock(cueInd int, condition string, bodyInden
 	for len(c.stack) > savedStackLen+1 {
 		c.closeOneFrame()
 	}
-	// Pop body context frame without emitting brace.
+	// Pop body context frame.
 	if len(c.stack) > savedStackLen {
 		c.stack = c.stack[:savedStackLen]
 	}
 	c.state = savedState
 
-	writeIndent(&c.out, cueInd)
-	if len(c.stack) > 0 && c.stack[len(c.stack)-1].isList {
-		c.out.WriteString("},\n")
-	} else {
-		c.out.WriteString("}\n")
+	// Build the comprehension value from collected body content.
+	compValue := c.buildComprehensionValue(bodyStruct, bodyList)
+	comp := &ast.Comprehension{
+		Clauses: []ast.Clause{&ast.IfClause{Condition: mustParseExpr(condition)}},
+		Value:   compValue,
 	}
+	c.appendToParent(comp)
 	return nil
 }
 
 // emitConditionalBlockNodes emits a CUE conditional guard around body nodes.
 // Unlike emitConditionalBlock which processes raw text bytes, this method
 // processes a full node list (including ActionNodes) via processBodyNodes.
-func (c *converter) emitConditionalBlockNodes(cueInd int, condition string, bodyIndent int, isList bool, nodes []parse.Node) error {
+func (c *converter) emitConditionalBlockNodes(condition string, bodyIndent int, isList bool, nodes []parse.Node) error {
 	if len(nodes) == 0 {
 		return nil
 	}
@@ -2929,18 +3018,21 @@ func (c *converter) emitConditionalBlockNodes(cueInd int, condition string, body
 	savedState := c.state
 	c.state = stateNormal
 
-	writeIndent(&c.out, cueInd)
-	fmt.Fprintf(&c.out, "if %s {\n", condition)
-
 	// Push body context frame.
 	bodyCtxIndent := bodyIndent - 1
 	if bodyCtxIndent < -1 {
 		bodyCtxIndent = -1
 	}
+	bodyStruct := &ast.StructLit{}
+	var bodyList *ast.ListLit
+	if isList {
+		bodyList = &ast.ListLit{}
+	}
 	c.stack = append(c.stack, frame{
 		yamlIndent: bodyCtxIndent,
-		cueIndent:  cueInd + 1,
+		structLit:  bodyStruct,
 		isList:     isList,
+		listLit:    bodyList,
 	})
 
 	savedNextInline := c.nextNodeIsInline
@@ -2960,18 +3052,19 @@ func (c *converter) emitConditionalBlockNodes(cueInd int, condition string, body
 	for len(c.stack) > savedStackLen+1 {
 		c.closeOneFrame()
 	}
-	// Pop body context frame without emitting brace.
+	// Pop body context frame.
 	if len(c.stack) > savedStackLen {
 		c.stack = c.stack[:savedStackLen]
 	}
 	c.state = savedState
 
-	writeIndent(&c.out, cueInd)
-	if len(c.stack) > 0 && c.stack[len(c.stack)-1].isList {
-		c.out.WriteString("},\n")
-	} else {
-		c.out.WriteString("}\n")
+	// Build the comprehension value from collected body content.
+	compValue := c.buildComprehensionValue(bodyStruct, bodyList)
+	comp := &ast.Comprehension{
+		Clauses: []ast.Clause{&ast.IfClause{Condition: mustParseExpr(condition)}},
+		Value:   compValue,
 	}
+	c.appendToParent(comp)
 	return nil
 }
 
@@ -2993,7 +3086,6 @@ func (c *converter) processIfScopeExit(
 	n *parse.IfNode,
 	condition, negCondition string,
 	bodyIndent int,
-	cueInd int,
 ) error {
 	// Determine whether the bodies are pure text or mixed (with action nodes).
 	// Pure text bodies can be split at the text level (per list item).
@@ -3002,9 +3094,9 @@ func (c *converter) processIfScopeExit(
 	pureTextElse := n.ElseList == nil || allTextNodes(n.ElseList.Nodes)
 
 	if pureTextIf && pureTextElse {
-		return c.processIfScopeExitText(n, condition, negCondition, bodyIndent, cueInd)
+		return c.processIfScopeExitText(n, condition, negCondition, bodyIndent)
 	}
-	return c.processIfScopeExitNodes(n, condition, negCondition, bodyIndent, cueInd)
+	return c.processIfScopeExitNodes(n, condition, negCondition, bodyIndent)
 }
 
 // processIfScopeExitText handles scope exit for pure-text bodies by splitting
@@ -3013,7 +3105,6 @@ func (c *converter) processIfScopeExitText(
 	n *parse.IfNode,
 	condition, negCondition string,
 	bodyIndent int,
-	cueInd int,
 ) error {
 	// Split if-body into in-scope (list items) and out-of-scope (struct).
 	ifIn, ifOut := splitBodyText(n.List.Nodes, bodyIndent)
@@ -3030,7 +3121,7 @@ func (c *converter) processIfScopeExitText(
 	// CUE unifies multiple values inside a single if block rather than
 	// treating them as separate list items, so each item needs its own guard.
 	for _, item := range splitListItems(ifIn, bodyIndent) {
-		if err := c.emitConditionalBlock(cueInd, condition, bodyIndent, true, item); err != nil {
+		if err := c.emitConditionalBlock(condition, bodyIndent, true, item); err != nil {
 			return err
 		}
 	}
@@ -3040,7 +3131,7 @@ func (c *converter) processIfScopeExitText(
 			elseBI = bodyIndent
 		}
 		for _, item := range splitListItems(elseIn, elseBI) {
-			if err := c.emitConditionalBlock(cueInd, negCondition, elseBI, true, item); err != nil {
+			if err := c.emitConditionalBlock(negCondition, elseBI, true, item); err != nil {
 				return err
 			}
 		}
@@ -3056,16 +3147,15 @@ func (c *converter) processIfScopeExitText(
 	}
 
 	// Phase 2: Emit struct content inside conditional guards.
-	cueInd = c.currentCUEIndent()
 	if len(bytes.TrimSpace(ifOut)) > 0 {
 		outBI := peekTextIndent(ifOut)
-		if err := c.emitConditionalBlock(cueInd, condition, outBI, false, ifOut); err != nil {
+		if err := c.emitConditionalBlock(condition, outBI, false, ifOut); err != nil {
 			return err
 		}
 	}
 	if len(bytes.TrimSpace(elseOut)) > 0 {
 		outBI := peekTextIndent(elseOut)
-		if err := c.emitConditionalBlock(cueInd, negCondition, outBI, false, elseOut); err != nil {
+		if err := c.emitConditionalBlock(negCondition, outBI, false, elseOut); err != nil {
 			return err
 		}
 	}
@@ -3079,7 +3169,6 @@ func (c *converter) processIfScopeExitNodes(
 	n *parse.IfNode,
 	condition, negCondition string,
 	bodyIndent int,
-	cueInd int,
 ) error {
 	// Split if-body nodes at scope boundary.
 	ifInNodes, ifOutNodes := splitBodyNodes(n.List.Nodes, bodyIndent)
@@ -3093,7 +3182,7 @@ func (c *converter) processIfScopeExitNodes(
 	}
 
 	// Phase 1: Emit in-scope list items inside conditional guards.
-	if err := c.emitConditionalBlockNodes(cueInd, condition, bodyIndent, true, ifInNodes); err != nil {
+	if err := c.emitConditionalBlockNodes(condition, bodyIndent, true, ifInNodes); err != nil {
 		return err
 	}
 	if len(elseInNodes) > 0 {
@@ -3101,7 +3190,7 @@ func (c *converter) processIfScopeExitNodes(
 		if elseBI < 0 {
 			elseBI = bodyIndent
 		}
-		if err := c.emitConditionalBlockNodes(cueInd, negCondition, elseBI, true, elseInNodes); err != nil {
+		if err := c.emitConditionalBlockNodes(negCondition, elseBI, true, elseInNodes); err != nil {
 			return err
 		}
 	}
@@ -3116,16 +3205,15 @@ func (c *converter) processIfScopeExitNodes(
 	}
 
 	// Phase 2: Emit out-of-scope struct content inside conditional guards.
-	cueInd = c.currentCUEIndent()
 	if len(ifOutNodes) > 0 {
 		outBI := peekBodyIndent(ifOutNodes)
-		if err := c.emitConditionalBlockNodes(cueInd, condition, outBI, false, ifOutNodes); err != nil {
+		if err := c.emitConditionalBlockNodes(condition, outBI, false, ifOutNodes); err != nil {
 			return err
 		}
 	}
 	if len(elseOutNodes) > 0 {
 		outBI := peekBodyIndent(elseOutNodes)
-		if err := c.emitConditionalBlockNodes(cueInd, negCondition, outBI, false, elseOutNodes); err != nil {
+		if err := c.emitConditionalBlockNodes(negCondition, outBI, false, elseOutNodes); err != nil {
 			return err
 		}
 	}
@@ -3141,7 +3229,6 @@ func (c *converter) processIfMultiListItems(
 	n *parse.IfNode,
 	condition, negCondition string,
 	bodyIndent int,
-	cueInd int,
 ) error {
 	pureTextIf := allTextNodes(n.List.Nodes)
 	pureTextElse := n.ElseList == nil || allTextNodes(n.ElseList.Nodes)
@@ -3150,7 +3237,7 @@ func (c *converter) processIfMultiListItems(
 		// Pure text bodies: split text and emit each item.
 		ifText := []byte(textContent(n.List.Nodes))
 		for _, item := range splitListItems(ifText, bodyIndent) {
-			if err := c.emitConditionalBlock(cueInd, condition, bodyIndent, true, item); err != nil {
+			if err := c.emitConditionalBlock(condition, bodyIndent, true, item); err != nil {
 				return err
 			}
 		}
@@ -3161,7 +3248,7 @@ func (c *converter) processIfMultiListItems(
 				elseBI = bodyIndent
 			}
 			for _, item := range splitListItems(elseText, elseBI) {
-				if err := c.emitConditionalBlock(cueInd, negCondition, elseBI, true, item); err != nil {
+				if err := c.emitConditionalBlock(negCondition, elseBI, true, item); err != nil {
 					return err
 				}
 			}
@@ -3171,7 +3258,7 @@ func (c *converter) processIfMultiListItems(
 
 	// Mixed bodies: split nodes and emit each item group.
 	for _, itemNodes := range splitListItemNodes(n.List.Nodes, bodyIndent) {
-		if err := c.emitConditionalBlockNodes(cueInd, condition, bodyIndent, true, itemNodes); err != nil {
+		if err := c.emitConditionalBlockNodes(condition, bodyIndent, true, itemNodes); err != nil {
 			return err
 		}
 	}
@@ -3181,7 +3268,7 @@ func (c *converter) processIfMultiListItems(
 			elseBI = bodyIndent
 		}
 		for _, itemNodes := range splitListItemNodes(n.ElseList.Nodes, elseBI) {
-			if err := c.emitConditionalBlockNodes(cueInd, negCondition, elseBI, true, itemNodes); err != nil {
+			if err := c.emitConditionalBlockNodes(negCondition, elseBI, true, itemNodes); err != nil {
 				return err
 			}
 		}
@@ -3287,9 +3374,13 @@ func (c *converter) processInlineIf(n *parse.IfNode) error {
 
 	// Save current inline state.
 	prefix := c.inlineParts
-	suffix := c.inlineSuffix
+	key := c.inlineKey
+	rawKey := c.inlineRawKey
+	_ = c.inlineSuffix // suffix is handled structurally by AST context
 	c.inlineParts = nil
 	c.inlineSuffix = ""
+	c.inlineKey = ""
+	c.inlineRawKey = false
 
 	// Flush any pending action into prefix.
 	if c.pendingActionExpr != "" {
@@ -3297,11 +3388,6 @@ func (c *converter) processInlineIf(n *parse.IfNode) error {
 		c.pendingActionExpr = ""
 		c.pendingActionComment = ""
 	}
-
-	// Extract the line prefix that was already written to the output buffer
-	// (indentation + "key: " or similar) since inlineStartPos.
-	linePrefix := c.out.String()[c.inlineStartPos:]
-	c.out.Truncate(c.inlineStartPos)
 
 	// Collect suffix from remaining sibling nodes on the same line.
 	suffixParts, consumed, err := c.collectInlineSuffix()
@@ -3322,21 +3408,15 @@ func (c *converter) processInlineIf(n *parse.IfNode) error {
 		return err
 	}
 
-	cueInd := c.currentCUEIndent()
-
-	// Emit if branch.
-	writeIndent(&c.out, cueInd)
-	fmt.Fprintf(&c.out, "if %s {\n", condition)
-	writeIndent(&c.out, cueInd+1)
-	c.out.WriteString(linePrefix)
+	// Build if-branch value.
 	allParts := make([]string, 0, len(prefix)+len(ifParts)+len(suffixParts))
 	allParts = append(allParts, prefix...)
 	allParts = append(allParts, ifParts...)
 	allParts = append(allParts, suffixParts...)
-	c.out.WriteString(`"` + strings.Join(allParts, "") + `"` + suffix)
-	c.out.WriteByte('\n')
-	writeIndent(&c.out, cueInd)
-	c.out.WriteString("}\n")
+	ifValue := `"` + strings.Join(allParts, "") + `"`
+
+	// Emit if comprehension.
+	c.emitInlineComprehension(condition, key, rawKey, ifValue)
 
 	// Emit else branch.
 	if n.ElseList != nil && len(n.ElseList.Nodes) > 0 {
@@ -3344,18 +3424,13 @@ func (c *converter) processInlineIf(n *parse.IfNode) error {
 		if err != nil {
 			return err
 		}
-		writeIndent(&c.out, cueInd)
-		fmt.Fprintf(&c.out, "if %s {\n", negCondition)
-		writeIndent(&c.out, cueInd+1)
-		c.out.WriteString(linePrefix)
 		allParts = allParts[:0]
 		allParts = append(allParts, prefix...)
 		allParts = append(allParts, elseParts...)
 		allParts = append(allParts, suffixParts...)
-		c.out.WriteString(`"` + strings.Join(allParts, "") + `"` + suffix)
-		c.out.WriteByte('\n')
-		writeIndent(&c.out, cueInd)
-		c.out.WriteString("}\n")
+		elseValue := `"` + strings.Join(allParts, "") + `"`
+
+		c.emitInlineComprehension(negCondition, key, rawKey, elseValue)
 	}
 
 	return nil
@@ -3430,9 +3505,13 @@ func (c *converter) rangeToInlineExpr(n *parse.RangeNode) (string, error) {
 func (c *converter) processInlineRange(n *parse.RangeNode) error {
 	// Save current inline state.
 	prefix := c.inlineParts
-	suffix := c.inlineSuffix
+	key := c.inlineKey
+	rawKey := c.inlineRawKey
+	_ = c.inlineSuffix // suffix is handled structurally by AST context
 	c.inlineParts = nil
 	c.inlineSuffix = ""
+	c.inlineKey = ""
+	c.inlineRawKey = false
 
 	// Flush any pending action into prefix.
 	if c.pendingActionExpr != "" {
@@ -3461,14 +3540,18 @@ func (c *converter) processInlineRange(n *parse.RangeNode) error {
 	allParts = append(allParts, prefix...)
 	allParts = append(allParts, suffixParts...)
 
-	linePrefix := c.out.String()[c.inlineStartPos:]
-	c.out.Truncate(c.inlineStartPos)
-
-	cueInd := c.currentCUEIndent()
-	writeIndent(&c.out, cueInd)
-	c.out.WriteString(linePrefix)
-	c.out.WriteString(`"` + strings.Join(allParts, "") + `"` + suffix)
-	c.out.WriteByte('\n')
+	value := `"` + strings.Join(allParts, "") + `"`
+	if key != "" {
+		if rawKey {
+			c.emitRawField(key, value)
+		} else {
+			c.emitField(key, value)
+		}
+	} else if c.inListContext() {
+		c.appendListExpr(mustParseExpr(value))
+	} else {
+		c.emitEmbed(value)
+	}
 
 	return nil
 }
@@ -3497,11 +3580,8 @@ func (c *converter) processIf(n *parse.IfNode) error {
 	}
 
 	// If we have a pending key, resolve it based on the body content.
-	// When the if-body has no text (bodyIndent < 0), also check remaining
-	// sibling nodes — they may contain list items that determine the key type.
 	if c.state == statePendingKey {
 		if c.pendingKey == "" {
-			// Pending list item context — don't resolve pending, the if is inside the list.
 			c.state = stateNormal
 		} else if isList || (bodyIndent < 0 && isListInSiblings(c.remainingNodes)) {
 			sibIndent := bodyIndent
@@ -3523,30 +3603,21 @@ func (c *converter) processIf(n *parse.IfNode) error {
 		c.closeBlocksTo(bodyIndent)
 	}
 
-	cueInd := c.currentCUEIndent()
 	inList := len(c.stack) > 0 && c.stack[len(c.stack)-1].isList
 
 	// Detect conditional body that exits the current list scope.
-	// When the body starts with list items but then continues with a
-	// sibling key at a shallower indent, split into two phases: emit
-	// list items inside the list, then struct content outside it.
 	if inList && isList && bodyIndent >= 0 &&
 		bodyExitsScope(n.List.Nodes, bodyIndent) {
-		return c.processIfScopeExit(n, condition, negCondition, bodyIndent, cueInd)
+		return c.processIfScopeExit(n, condition, negCondition, bodyIndent)
 	}
 
 	// Detect conditional body with multiple list items.
-	// CUE treats multiple values at the same list position inside a single
-	// conditional guard as conflicting. Split each item into its own guard.
 	if inList && isList && bodyIndent >= 0 &&
 		countTopListItems(n.List.Nodes, bodyIndent) > 1 {
-		return c.processIfMultiListItems(n, condition, negCondition, bodyIndent, cueInd)
+		return c.processIfMultiListItems(n, condition, negCondition, bodyIndent)
 	}
 
 	// Detect conditional list item with continuation fields after {{end}}.
-	// When each branch has exactly one list item and continuation fields
-	// follow at the item content indent, pre-open the list item struct so
-	// it survives body cleanup and the continuation attaches correctly.
 	preOpenedListItem := false
 	if inList && isList && bodyIndent >= 0 && n.ElseList != nil {
 		itemContentIndent := bodyIndent + 2
@@ -3555,66 +3626,19 @@ func (c *converter) processIf(n *parse.IfNode) error {
 			countTopListItems(n.List.Nodes, bodyIndent) == 1 &&
 			countTopListItems(n.ElseList.Nodes, elseBI) == 1 &&
 			hasListItemContinuation(c.remainingNodes, itemContentIndent) {
-			writeIndent(&c.out, cueInd)
-			c.out.WriteString("{\n")
+			itemStruct := &ast.StructLit{}
+			c.appendListExpr(itemStruct)
 			c.stack = append(c.stack, frame{
 				yamlIndent: itemContentIndent,
-				cueIndent:  cueInd + 1,
+				structLit:  itemStruct,
 				isListItem: true,
 			})
-			cueInd = cueInd + 1
 			preOpenedListItem = true
 		}
 	}
 
-	// Emit the if guard.
-	writeIndent(&c.out, cueInd)
-	fmt.Fprintf(&c.out, "if %s {\n", condition)
-
-	// Process body.
-	savedStackLen := len(c.stack)
-	savedState := c.state
-	c.state = stateNormal
-
-	// Push body context frame.
-	bodyCtxIndent := bodyIndent - 1
-	if bodyCtxIndent < -1 {
-		bodyCtxIndent = -1
-	}
-	c.stack = append(c.stack, frame{
-		yamlIndent: bodyCtxIndent,
-		cueIndent:  cueInd + 1,
-		isList:     inList && isList && !preOpenedListItem,
-	})
-
-	if preOpenedListItem {
-		c.stripListDash = true
-	}
-	if err := c.processBodyNodes(n.List.Nodes); err != nil {
-		return err
-	}
-	c.stripListDash = false
-	c.finalizeInline()
-	c.finalizeFlow()
-	c.flushPendingAction()
-	c.flushDeferred()
-
-	// Close all frames opened inside the body.
-	for len(c.stack) > savedStackLen+1 {
-		c.closeOneFrame()
-	}
-	// Pop body context frame without emitting brace.
-	if len(c.stack) > savedStackLen {
-		c.stack = c.stack[:savedStackLen]
-	}
-	c.state = savedState
-
-	writeIndent(&c.out, cueInd)
-	if inList {
-		c.out.WriteString("},\n")
-	} else {
-		c.out.WriteString("}\n")
-	}
+	// Process the if body and emit as comprehension.
+	c.emitIfBranchComprehension(condition, bodyIndent, inList && isList && !preOpenedListItem, preOpenedListItem, n.List.Nodes)
 
 	// Walk else/else-if chain, flattening into CUE multi-clause
 	// comprehensions: if !condA if condB { ... }.
@@ -3630,48 +3654,9 @@ func (c *converter) processIf(n *parse.IfNode) error {
 				}
 
 				guard := strings.Join(append(negChain, innerCond), " if ")
-				writeIndent(&c.out, cueInd)
-				fmt.Fprintf(&c.out, "if %s {\n", guard)
-
 				elseIfIsList := isListBody(innerIf.List.Nodes)
 				elseIfBodyIndent := peekBodyIndent(innerIf.List.Nodes)
-				elseIfCtxIndent := elseIfBodyIndent - 1
-				if elseIfCtxIndent < -1 {
-					elseIfCtxIndent = -1
-				}
-
-				c.stack = append(c.stack, frame{
-					yamlIndent: elseIfCtxIndent,
-					cueIndent:  cueInd + 1,
-					isList:     inList && elseIfIsList && !preOpenedListItem,
-				})
-
-				if preOpenedListItem {
-					c.stripListDash = true
-				}
-				if err := c.processBodyNodes(innerIf.List.Nodes); err != nil {
-					return err
-				}
-				c.stripListDash = false
-				c.finalizeInline()
-				c.finalizeFlow()
-				c.flushPendingAction()
-				c.flushDeferred()
-
-				for len(c.stack) > savedStackLen+1 {
-					c.closeOneFrame()
-				}
-				if len(c.stack) > savedStackLen {
-					c.stack = c.stack[:savedStackLen]
-				}
-				c.state = savedState
-
-				writeIndent(&c.out, cueInd)
-				if inList {
-					c.out.WriteString("},\n")
-				} else {
-					c.out.WriteString("}\n")
-				}
+				c.emitIfBranchComprehension(guard, elseIfBodyIndent, inList && elseIfIsList && !preOpenedListItem, preOpenedListItem, innerIf.List.Nodes)
 
 				negChain = append(negChain, innerNeg)
 				elseList = innerIf.ElseList
@@ -3680,50 +3665,70 @@ func (c *converter) processIf(n *parse.IfNode) error {
 		}
 		// Plain else: emit with all accumulated negations.
 		guard := strings.Join(negChain, " if ")
-		writeIndent(&c.out, cueInd)
-		fmt.Fprintf(&c.out, "if %s {\n", guard)
-
 		elseIsList := isListBody(elseList.Nodes)
 		elseBodyIndent := peekBodyIndent(elseList.Nodes)
-		elseCtxIndent := elseBodyIndent - 1
-		if elseCtxIndent < -1 {
-			elseCtxIndent = -1
-		}
-
-		c.stack = append(c.stack, frame{
-			yamlIndent: elseCtxIndent,
-			cueIndent:  cueInd + 1,
-			isList:     inList && elseIsList && !preOpenedListItem,
-		})
-
-		if preOpenedListItem {
-			c.stripListDash = true
-		}
-		if err := c.processBodyNodes(elseList.Nodes); err != nil {
-			return err
-		}
-		c.stripListDash = false
-		c.finalizeInline()
-		c.finalizeFlow()
-		c.flushPendingAction()
-		c.flushDeferred()
-
-		for len(c.stack) > savedStackLen+1 {
-			c.closeOneFrame()
-		}
-		if len(c.stack) > savedStackLen {
-			c.stack = c.stack[:savedStackLen]
-		}
-
-		writeIndent(&c.out, cueInd)
-		if inList {
-			c.out.WriteString("},\n")
-		} else {
-			c.out.WriteString("}\n")
-		}
+		c.emitIfBranchComprehension(guard, elseBodyIndent, inList && elseIsList && !preOpenedListItem, preOpenedListItem, elseList.Nodes)
 		break
 	}
 
+	return nil
+}
+
+// emitIfBranchComprehension processes a branch body (if/else-if/else)
+// and emits it as an ast.Comprehension.
+func (c *converter) emitIfBranchComprehension(condition string, bodyIndent int, isList, stripDash bool, nodes []parse.Node) error {
+	savedStackLen := len(c.stack)
+	savedState := c.state
+	c.state = stateNormal
+
+	bodyCtxIndent := bodyIndent - 1
+	if bodyCtxIndent < -1 {
+		bodyCtxIndent = -1
+	}
+	bodyStruct := &ast.StructLit{}
+	var bodyList *ast.ListLit
+	if isList {
+		bodyList = &ast.ListLit{}
+	}
+	c.stack = append(c.stack, frame{
+		yamlIndent: bodyCtxIndent,
+		structLit:  bodyStruct,
+		isList:     isList,
+		listLit:    bodyList,
+	})
+
+	if stripDash {
+		c.stripListDash = true
+	}
+	if err := c.processBodyNodes(nodes); err != nil {
+		return err
+	}
+	c.stripListDash = false
+	c.finalizeInline()
+	c.finalizeFlow()
+	c.flushPendingAction()
+	c.flushDeferred()
+
+	for len(c.stack) > savedStackLen+1 {
+		c.closeOneFrame()
+	}
+	if len(c.stack) > savedStackLen {
+		c.stack = c.stack[:savedStackLen]
+	}
+	c.state = savedState
+
+	compValue := c.buildComprehensionValue(bodyStruct, bodyList)
+
+	// Build multi-clause condition: "condA if condB" → [IfClause(condA), IfClause(condB)]
+	var clauses []ast.Clause
+	for _, part := range strings.Split(condition, " if ") {
+		clauses = append(clauses, &ast.IfClause{Condition: mustParseExpr(part)})
+	}
+	comp := &ast.Comprehension{
+		Clauses: clauses,
+		Value:   compValue,
+	}
+	c.appendToParent(comp)
 	return nil
 }
 
@@ -3785,7 +3790,6 @@ func (c *converter) processWith(n *parse.WithNode) error {
 		c.closeBlocksTo(bodyIndent)
 	}
 
-	cueInd := c.currentCUEIndent()
 	inList := len(c.stack) > 0 && c.stack[len(c.stack)-1].isList
 
 	// Push context for dot rebinding inside the with body.
@@ -3796,91 +3800,17 @@ func (c *converter) processWith(n *parse.WithNode) error {
 		basePath: basePath,
 	})
 
-	// Emit the if guard.
-	writeIndent(&c.out, cueInd)
-	fmt.Fprintf(&c.out, "if %s {\n", condition)
-
-	// Process body.
-	savedStackLen := len(c.stack)
-	savedState := c.state
-	c.state = stateNormal
-
-	bodyCtxIndent := bodyIndent - 1
-	if bodyCtxIndent < -1 {
-		bodyCtxIndent = -1
-	}
-	c.stack = append(c.stack, frame{
-		yamlIndent: bodyCtxIndent,
-		cueIndent:  cueInd + 1,
-		isList:     inList && isList,
-	})
-
-	if err := c.processBodyNodes(n.List.Nodes); err != nil {
-		return err
-	}
-	c.finalizeInline()
-	c.finalizeFlow()
-	c.flushPendingAction()
-	c.flushDeferred()
-
-	// Close all frames opened inside the body.
-	for len(c.stack) > savedStackLen+1 {
-		c.closeOneFrame()
-	}
-	if len(c.stack) > savedStackLen {
-		c.stack = c.stack[:savedStackLen]
-	}
-	c.state = savedState
-
-	writeIndent(&c.out, cueInd)
-	if inList {
-		c.out.WriteString("},\n")
-	} else {
-		c.out.WriteString("}\n")
-	}
+	// Process body and emit as comprehension.
+	c.emitIfBranchComprehension(condition, bodyIndent, inList && isList, false, n.List.Nodes)
 
 	// Pop from rangeVarStack (no dot rebinding in else).
 	c.rangeVarStack = c.rangeVarStack[:len(c.rangeVarStack)-1]
 
 	// Handle else branch.
 	if n.ElseList != nil && len(n.ElseList.Nodes) > 0 {
-		writeIndent(&c.out, cueInd)
-		fmt.Fprintf(&c.out, "if %s {\n", negCondition)
-
 		elseIsList := isListBody(n.ElseList.Nodes)
 		elseBodyIndent := peekBodyIndent(n.ElseList.Nodes)
-		elseCtxIndent := elseBodyIndent - 1
-		if elseCtxIndent < -1 {
-			elseCtxIndent = -1
-		}
-
-		c.stack = append(c.stack, frame{
-			yamlIndent: elseCtxIndent,
-			cueIndent:  cueInd + 1,
-			isList:     inList && elseIsList,
-		})
-
-		if err := c.processBodyNodes(n.ElseList.Nodes); err != nil {
-			return err
-		}
-		c.finalizeInline()
-		c.finalizeFlow()
-		c.flushPendingAction()
-		c.flushDeferred()
-
-		for len(c.stack) > savedStackLen+1 {
-			c.closeOneFrame()
-		}
-		if len(c.stack) > savedStackLen {
-			c.stack = c.stack[:savedStackLen]
-		}
-
-		writeIndent(&c.out, cueInd)
-		if inList {
-			c.out.WriteString("},\n")
-		} else {
-			c.out.WriteString("}\n")
-		}
+		c.emitIfBranchComprehension(negCondition, elseBodyIndent, inList && elseIsList, false, n.ElseList.Nodes)
 	}
 
 	// Clean up declared variable.
@@ -4081,7 +4011,6 @@ func (c *converter) processRange(n *parse.RangeNode) error {
 		c.closeBlocksTo(bodyIndent)
 	}
 
-	cueInd := c.currentCUEIndent()
 	inList := len(c.stack) > 0 && c.stack[len(c.stack)-1].isList
 
 	ctx := rangeContext{cueExpr: valName}
@@ -4089,8 +4018,6 @@ func (c *converter) processRange(n *parse.RangeNode) error {
 		ctx.helmObj = helmObj
 		ctx.basePath = fieldPath
 	}
-	// Set argBasePath so sub-field accesses inside the range body
-	// can be tracked back to #arg.
 	if c.helperArgRefs != nil {
 		if f, ok := n.Pipe.Cmds[0].Args[0].(*parse.FieldNode); ok {
 			ctx.argBasePath = f.Ident
@@ -4100,23 +4027,28 @@ func (c *converter) processRange(n *parse.RangeNode) error {
 	}
 	c.rangeVarStack = append(c.rangeVarStack, ctx)
 
-	// Emit the for comprehension, guarded for nil targets.
-	guard := ""
-	if helmObj != "" || strings.HasPrefix(overExpr, "#arg") {
-		c.hasConditions = true
-		guard = fmt.Sprintf("if (_nonzero & {#arg: %s, _}) ", overExpr)
-	}
-	writeIndent(&c.out, cueInd)
+	// Build for clause.
+	keyExpr := "_"
 	if isMap {
-		fmt.Fprintf(&c.out, "%sfor %s, %s in %s {\n", guard, keyName, valName, overExpr)
-	} else {
-		keyExpr := "_"
-		if keyName != "" {
-			keyExpr = keyName
-		}
-		fmt.Fprintf(&c.out, "%sfor %s, %s in %s {\n", guard, keyExpr, valName, overExpr)
+		keyExpr = keyName
+	} else if keyName != "" {
+		keyExpr = keyName
 	}
 
+	// Build clauses: optional guard + for clause.
+	var clauses []ast.Clause
+	if helmObj != "" || strings.HasPrefix(overExpr, "#arg") {
+		c.hasConditions = true
+		guardExpr := fmt.Sprintf("(_nonzero & {#arg: %s, _})", overExpr)
+		clauses = append(clauses, &ast.IfClause{Condition: mustParseExpr(guardExpr)})
+	}
+	clauses = append(clauses, &ast.ForClause{
+		Key:    ast.NewIdent(keyExpr),
+		Value:  ast.NewIdent(valName),
+		Source: mustParseExpr(overExpr),
+	})
+
+	// Process body.
 	savedStackLen := len(c.stack)
 	savedState := c.state
 	c.state = stateNormal
@@ -4125,10 +4057,16 @@ func (c *converter) processRange(n *parse.RangeNode) error {
 	if bodyCtxIndent < -1 {
 		bodyCtxIndent = -1
 	}
+	bodyStruct := &ast.StructLit{}
+	var bodyList *ast.ListLit
+	if inList && isList && !isMap {
+		bodyList = &ast.ListLit{}
+	}
 	c.stack = append(c.stack, frame{
 		yamlIndent: bodyCtxIndent,
-		cueIndent:  cueInd + 1,
+		structLit:  bodyStruct,
 		isList:     inList && isList && !isMap,
+		listLit:    bodyList,
 	})
 
 	savedRangeBody := c.inRangeBody
@@ -4153,12 +4091,12 @@ func (c *converter) processRange(n *parse.RangeNode) error {
 	}
 	c.state = savedState
 
-	writeIndent(&c.out, cueInd)
-	if inList {
-		c.out.WriteString("},\n")
-	} else {
-		c.out.WriteString("}\n")
+	compValue := c.buildComprehensionValue(bodyStruct, bodyList)
+	comp := &ast.Comprehension{
+		Clauses: clauses,
+		Value:   compValue,
 	}
+	c.appendToParent(comp)
 
 	c.rangeVarStack = c.rangeVarStack[:len(c.rangeVarStack)-1]
 	for _, decl := range n.Pipe.Decl {

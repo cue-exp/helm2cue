@@ -33,14 +33,16 @@ converted 2/2 templates from test-app
 
 package test_app
 
-test: [{
-	command: [
-		"/bin/bash",
-		"-ec",
-		"""
-			pull origin \(#values.branch)
-			sleep \(#values.interval)
-			
-			""",
-	]
-}]
+test: [
+	{
+		command: [
+			"/bin/bash",
+			"-ec",
+			"""
+	pull origin \(#values.branch)
+	sleep \(#values.interval)
+	
+	""",
+		]
+	},
+]

@@ -29,18 +29,20 @@ converted 1/1 templates from test-app
 
 package test_app
 
-deployment: [{
-	apiVersion: "v1"
-	kind:       "Pod"
-	metadata: name: "test"
-	spec: containers: [
-		{
-			name: "test"
-			args: [
-				"first",
-				#values.port,
-				"last",
-			]
-		},
-	]
-}]
+deployment: [
+	{
+		apiVersion: "v1"
+		kind:       "Pod"
+		metadata: name: "test"
+		spec: containers: [
+			{
+				name: "test"
+				args: [
+					"first",
+					#values.port,
+					"last",
+				]
+			},
+		]
+	},
+]

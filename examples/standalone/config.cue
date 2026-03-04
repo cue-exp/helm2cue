@@ -19,8 +19,7 @@ _fullname: "\(#values.name)-server"
 output: [
 	{
 		server: {
-			name:    _fullname
-			address: "\(#values.host):\(#values.port)"
+			name: _fullname, address: "\(#values.host):\(#values.port)"
 			if (_nonzero & {#arg: #values.debug, _}) {
 				logLevel: "debug"
 			}
@@ -29,19 +28,16 @@ output: [
 			}
 			if (_nonzero & {#arg: #values.tls, _}) {
 				tls: {
-					cert: #values.tls.cert
-					key:  #values.tls.key
+					cert: #values.tls.cert, key: #values.tls.key
 				}
-			}
-			labels: {
+			}, labels: {
 				if (_nonzero & {#arg: #values.labels, _}) for _key0, _val0 in #values.labels {
 					(_key0): _val0
 				}
 			}
-			features: [
-				if (_nonzero & {#arg: #values.features, _}) for _, _range0 in #values.features {
-					_range0
-				},
+			features: [if (_nonzero & {#arg: #values.features, _}) for _, _range0 in #values.features {
+				_range0
+			},
 			]
 		}
 	},

@@ -784,20 +784,23 @@ func inferNonScalarFromValues(valuesData []byte) (listPaths, structPaths [][]str
 // wrapped as a list by mergeChartDocResults, so we emit it directly as
 // fieldName: [body].
 func writeTemplateCUE(outDir, pkgName, fieldName string, r *convertResult) error {
-	body := strings.TrimRight(r.body, "\n")
-	if body == "" {
+	if len(r.body) == 0 {
 		return nil
 	}
 
-	// Parse the field assignment into AST declarations.
-	fieldText := fmt.Sprintf("%s: %s", fieldName, body)
-	fieldDecls, err := bodyToDecls(fieldText)
-	if err != nil {
-		return fmt.Errorf("parsing %s body: %w", fieldName, err)
+	// The body from mergeChartDocResults is a single embed containing
+	// the list expression. Wrap it in fieldName: value.
+	embed := r.body[0].(*ast.EmbedDecl)
+	fieldDecl := &ast.Field{
+		Label: ast.NewIdent(fieldName),
+		Value: embed.Expr,
 	}
 
 	f := &ast.File{
-		Decls: append([]ast.Decl{&ast.Package{Name: ast.NewIdent(pkgName)}}, fieldDecls...),
+		Decls: []ast.Decl{
+			&ast.Package{Name: ast.NewIdent(pkgName)},
+			fieldDecl,
+		},
 	}
 	formatted, err := formatResolvedFile(f, r.imports)
 	if err != nil {
@@ -810,7 +813,11 @@ func writeTemplateCUE(outDir, pkgName, fieldName string, r *convertResult) error
 // It uses parser-level validation only (no evaluation), since the full context
 // (imports, helpers, values) is not available for semantic checking.
 func validateTemplateBody(r *convertResult) error {
-	body := strings.TrimRight(r.body, "\n")
+	if len(r.body) == 0 {
+		return nil
+	}
+
+	body := declsToText(r.body)
 	if body == "" {
 		return nil
 	}
@@ -1165,93 +1172,53 @@ func mergeChartDocResults(results []*convertResult) *convertResult {
 	}
 
 	// Build list body.
-	var body bytes.Buffer
-
 	listSentinel := importSentinel("list")
+	var listValue ast.Expr
+
 	if len(results) == 1 {
 		r := results[0]
-		docBody := strings.TrimRight(r.body, "\n")
-		if docBody == "" {
-			merged.body = "[]"
+		if len(r.body) == 0 {
+			merged.body = []ast.Decl{&ast.EmbedDecl{Expr: &ast.ListLit{}}}
 			return merged
 		}
 
 		if r.topLevelRange != "" {
 			// Single doc with top-level range.
 			merged.imports["list"] = true
-			fmt.Fprintf(&body, "%s.FlattenN([", listSentinel)
-			body.WriteString(r.topLevelRange)
-			body.WriteString(" {[\n")
-			for _, line := range strings.Split(r.topLevelRangeBody, "\n") {
-				body.WriteString("\t{\n")
-				for _, bline := range strings.Split(line, "\n") {
-					if bline != "" {
-						body.WriteString("\t\t")
-						body.WriteString(bline)
-						body.WriteByte('\n')
-					}
-				}
-				body.WriteString("\t},\n")
+			rb := r.topLevelRangeBody
+			if len(rb) == 0 {
+				rb = r.body
 			}
-			body.WriteString("]}], -1)")
+			innerList := &ast.ListLit{
+				Elts: []ast.Expr{&ast.StructLit{Elts: rb}},
+			}
+			expandList(innerList)
+			comp := &ast.Comprehension{
+				Clauses: parseRangeClauses(r.topLevelRange),
+				Value: &ast.StructLit{
+					Elts: []ast.Decl{&ast.EmbedDecl{Expr: innerList}},
+				},
+			}
+			outerList := &ast.ListLit{Elts: []ast.Expr{comp}}
+			expandList(outerList)
+			listValue = makeFlattenNCall(listSentinel, outerList)
 		} else if len(r.topLevelGuards) > 0 {
-			body.WriteString("[\n")
-			indent := 1
-			for _, guard := range r.topLevelGuards {
-				writeIndent(&body, indent)
-				fmt.Fprintf(&body, "if %s {\n", guard)
-				indent++
+			bodyStruct := &ast.StructLit{Elts: r.body}
+			listValue = &ast.ListLit{
+				Elts: []ast.Expr{wrapInGuards(bodyStruct, r.topLevelGuards)},
 			}
-			writeIndent(&body, indent)
-			body.WriteString("{\n")
-			for _, line := range strings.Split(docBody, "\n") {
-				writeIndent(&body, indent+1)
-				body.WriteString(line)
-				body.WriteByte('\n')
-			}
-			writeIndent(&body, indent)
-			body.WriteString("},\n")
-			for j := len(r.topLevelGuards) - 1; j >= 0; j-- {
-				writeIndent(&body, j+1)
-				body.WriteString("}\n")
-			}
-			body.WriteString("]")
+			expandList(listValue.(*ast.ListLit))
 		} else {
-			body.WriteString("[{\n")
-			for _, line := range strings.Split(docBody, "\n") {
-				body.WriteString("\t")
-				body.WriteString(line)
-				body.WriteByte('\n')
+			listValue = &ast.ListLit{
+				Elts: []ast.Expr{&ast.StructLit{Elts: r.body}},
 			}
-			body.WriteString("}]")
+			expandList(listValue.(*ast.ListLit))
 		}
 	} else {
 		// Multiple documents — group by range blocks.
-		type docEntry struct {
-			body           string
-			topLevelGuards []string
-			topLevelRange  string
-			rangeBody      string
-		}
-		var entries []docEntry
-		for _, r := range results {
-			docBody := strings.TrimRight(r.body, "\n")
-			rangeBody := ""
-			if r.topLevelRange != "" {
-				rangeBody = strings.TrimRight(r.topLevelRangeBody, "\n")
-			}
-			entries = append(entries, docEntry{
-				body:           docBody,
-				topLevelGuards: r.topLevelGuards,
-				topLevelRange:  r.topLevelRange,
-				rangeBody:      rangeBody,
-			})
-		}
-
-		// Check if all entries share the same topLevelRange.
 		hasRange := false
-		for _, e := range entries {
-			if e.topLevelRange != "" {
+		for _, r := range results {
+			if r.topLevelRange != "" {
 				hasRange = true
 				break
 			}
@@ -1261,109 +1228,68 @@ func mergeChartDocResults(results []*convertResult) *convertResult {
 			// Group consecutive entries that share the same
 			// topLevelRange into list.FlattenN blocks.
 			merged.imports["list"] = true
-			fmt.Fprintf(&body, "%s.FlattenN([\n", listSentinel)
+			outerList := &ast.ListLit{}
 			i := 0
-			for i < len(entries) {
-				e := entries[i]
-				if e.topLevelRange != "" {
-					// Find consecutive entries with the same range.
-					rangeHeader := e.topLevelRange
+			for i < len(results) {
+				r := results[i]
+				if r.topLevelRange != "" {
+					rangeHeader := r.topLevelRange
 					j := i
-					for j < len(entries) && entries[j].topLevelRange == rangeHeader {
+					for j < len(results) && results[j].topLevelRange == rangeHeader {
 						j++
 					}
-					body.WriteString("\t")
-					body.WriteString(rangeHeader)
-					body.WriteString(" {[\n")
+					innerList := &ast.ListLit{}
 					for k := i; k < j; k++ {
-						rb := entries[k].rangeBody
-						if rb == "" {
-							rb = entries[k].body
+						rb := results[k].topLevelRangeBody
+						if len(rb) == 0 {
+							rb = results[k].body
 						}
-						body.WriteString("\t\t{\n")
-						for _, line := range strings.Split(rb, "\n") {
-							body.WriteString("\t\t\t")
-							body.WriteString(line)
-							body.WriteByte('\n')
+						if len(rb) == 0 {
+							continue
 						}
-						body.WriteString("\t\t},\n")
+						innerList.Elts = append(innerList.Elts, &ast.StructLit{Elts: rb})
 					}
-					body.WriteString("\t]},\n")
+					expandList(innerList)
+					comp := &ast.Comprehension{
+						Clauses: parseRangeClauses(rangeHeader),
+						Value: &ast.StructLit{
+							Elts: []ast.Decl{&ast.EmbedDecl{Expr: innerList}},
+						},
+					}
+					outerList.Elts = append(outerList.Elts, comp)
 					i = j
-				} else if len(e.topLevelGuards) > 0 {
-					indent := 1
-					for _, guard := range e.topLevelGuards {
-						writeIndent(&body, indent)
-						fmt.Fprintf(&body, "if %s {\n", guard)
-						indent++
-					}
-					writeIndent(&body, indent)
-					body.WriteString("{\n")
-					for _, line := range strings.Split(e.body, "\n") {
-						writeIndent(&body, indent+1)
-						body.WriteString(line)
-						body.WriteByte('\n')
-					}
-					writeIndent(&body, indent)
-					body.WriteString("},\n")
-					for g := len(e.topLevelGuards) - 1; g >= 0; g-- {
-						writeIndent(&body, g+1)
-						body.WriteString("}\n")
-					}
+				} else if len(r.topLevelGuards) > 0 && len(r.body) > 0 {
+					outerList.Elts = append(outerList.Elts,
+						wrapInGuards(&ast.StructLit{Elts: r.body}, r.topLevelGuards))
 					i++
 				} else {
-					body.WriteString("\t{\n")
-					for _, line := range strings.Split(e.body, "\n") {
-						body.WriteString("\t\t")
-						body.WriteString(line)
-						body.WriteByte('\n')
+					if len(r.body) > 0 {
+						outerList.Elts = append(outerList.Elts, &ast.StructLit{Elts: r.body})
 					}
-					body.WriteString("\t},\n")
 					i++
 				}
 			}
-			body.WriteString("], -1)")
+			expandList(outerList)
+			listValue = makeFlattenNCall(listSentinel, outerList)
 		} else {
-			body.WriteString("[\n")
-			for _, e := range entries {
-				if e.body == "" {
+			listLit := &ast.ListLit{}
+			for _, r := range results {
+				if len(r.body) == 0 {
 					continue
 				}
-				if len(e.topLevelGuards) > 0 {
-					indent := 1
-					for _, guard := range e.topLevelGuards {
-						writeIndent(&body, indent)
-						fmt.Fprintf(&body, "if %s {\n", guard)
-						indent++
-					}
-					writeIndent(&body, indent)
-					body.WriteString("{\n")
-					for _, line := range strings.Split(e.body, "\n") {
-						writeIndent(&body, indent+1)
-						body.WriteString(line)
-						body.WriteByte('\n')
-					}
-					writeIndent(&body, indent)
-					body.WriteString("},\n")
-					for g := len(e.topLevelGuards) - 1; g >= 0; g-- {
-						writeIndent(&body, g+1)
-						body.WriteString("}\n")
-					}
+				bodyStruct := &ast.StructLit{Elts: r.body}
+				if len(r.topLevelGuards) > 0 {
+					listLit.Elts = append(listLit.Elts, wrapInGuards(bodyStruct, r.topLevelGuards))
 				} else {
-					body.WriteString("\t{\n")
-					for _, line := range strings.Split(e.body, "\n") {
-						body.WriteString("\t\t")
-						body.WriteString(line)
-						body.WriteByte('\n')
-					}
-					body.WriteString("\t},\n")
+					listLit.Elts = append(listLit.Elts, bodyStruct)
 				}
 			}
-			body.WriteString("]")
+			expandList(listLit)
+			listValue = listLit
 		}
 	}
 
-	merged.body = body.String()
+	merged.body = []ast.Decl{&ast.EmbedDecl{Expr: listValue}}
 	return merged
 }
 

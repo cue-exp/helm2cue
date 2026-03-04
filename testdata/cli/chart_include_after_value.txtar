@@ -42,15 +42,16 @@ data:
 
 package test_app
 
-test: [{
-	apiVersion: "v1"
-	kind:       "ConfigMap"
-	metadata: {
-		name: "test"
-		labels: {
-			app: "\(_test_name)-alertmanager"
-			_test_labels
+test: [
+	{
+		apiVersion: "v1"
+		kind:       "ConfigMap"
+		metadata: {
+			name: "test"
+			labels: {
+				app: "\(_test_name)-alertmanager", _test_labels
+			}
 		}
-	}
-	data: key: "value"
-}]
+		data: key: "value"
+	},
+]

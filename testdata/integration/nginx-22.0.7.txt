@@ -1,18 +1,18 @@
 -- ConvertChart --
-warning: skipping ingress-tls-secret.yaml (doc 1): unsupported template action: {{$ca := genCA "nginx-ca" 365}}
+warning: skipping ingress-tls-secret.yaml (doc 2): unsupported template action: {{$ca := genCA "nginx-ca" 365}}
 warning: skipping tls-secret.yaml (doc 0): unsupported template action: {{$ca := genCA "nginx-ca" 365}}
 error: values.yaml does not satisfy inferred schema: #values.podSecurityContext.seLinuxOptions: field is required but not present
-converted 14/20 templates from nginx
+converted 14/21 templates from nginx
 ConvertChart error: values schema validation failed
 -- cue vet --
 exit status 1
 deployment.spec.template.spec.containers.args: preference mark not allowed at this position:
-    ./deployment.cue:503:38
+    ./deployment.cue:350:39
 _common_utils_fieldToEnvVar: reference "_range1" not found:
-    ./helpers.cue:749:31
+    ./helpers.cue:852:31
 -- cue export --
 exit status 1
 deployment.spec.template.spec.containers.args: preference mark not allowed at this position:
-    ./deployment.cue:503:38
+    ./deployment.cue:350:39
 _common_utils_fieldToEnvVar: reference "_range1" not found:
-    ./helpers.cue:749:31
+    ./helpers.cue:852:31

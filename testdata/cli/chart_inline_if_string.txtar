@@ -28,14 +28,14 @@ converted 1/1 templates from test-app
 
 package test_app
 
-test: [{
-	apiVersion: "v1"
-	kind:       "Pod"
-	spec: containers: [
-		{
-			name: "test"
-			args: [
-				if (_nonzero & {#arg: #values.tls, _}) {
+test: [
+	{
+		apiVersion: "v1"
+		kind:       "Pod"
+		spec: containers: [
+			{
+				name: "test"
+				args: [if (_nonzero & {#arg: #values.tls, _}) {
 					if (_nonzero & {#arg: #values.certManager, _}) {
 						"\"--cert=tls.crt\""
 					}
@@ -43,7 +43,8 @@ test: [{
 						"\"--cert=cert\""
 					}
 				},
-			]
-		},
-	]
-}]
+				]
+			},
+		]
+	},
+]

@@ -47,8 +47,7 @@ output: [
 		metadata: {
 			name: "test"
 			labels: {
-				app: "\(_test_name)-alertmanager"
-				_test_labels
+				app: "\(_test_name)-alertmanager", _test_labels
 			}
 		}
 		data: key: "value"

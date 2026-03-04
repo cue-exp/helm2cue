@@ -33,27 +33,29 @@ converted 1/1 templates from test-app
 
 package test_app
 
-test: [{
-	apiVersion: "v1"
-	kind:       "Test"
-	spec: {
-		rules: [
-			{
-				host: "\(#values.hostPrefix)-\(#values.hostDomain)"
-				http: paths: [
-					{
-						path: "/"
-					},
-				]
-			},
-		]
-		tls: [
-			{
-				hosts: [
-					"\(#values.hostPrefix)-\(#values.hostDomain)",
-				]
-				secretName: #values.tlsSecret
-			},
-		]
-	}
-}]
+test: [
+	{
+		apiVersion: "v1"
+		kind:       "Test"
+		spec: {
+			rules: [
+				{
+					host: "\(#values.hostPrefix)-\(#values.hostDomain)"
+					http: paths: [
+						{
+							path: "/"
+						},
+					]
+				},
+			]
+			tls: [
+				{
+					hosts: [
+						"\(#values.hostPrefix)-\(#values.hostDomain)",
+					]
+					secretName: #values.tlsSecret
+				},
+			]
+		}
+	},
+]

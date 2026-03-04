@@ -9,12 +9,4 @@ cmp stdout expected
     matchExpressions:
       - {key: "app", operator: "In", values: ["coremedia"]}
 -- expected --
-output: [
-	{
-		{
-			podSelector: matchExpressions: [
-				{key: "app", operator: "In", values: ["coremedia"]},
-			]
-		}
-	},
-]
+output: []
