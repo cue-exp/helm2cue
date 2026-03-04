@@ -57,15 +57,12 @@ _nonzero: {
 	}, false][0]
 }
 
-_test_validateValues_cloneRepo: {
-	#arg: _
-	[if (_nonzero & {
-		#arg: #values.cloneRepo.enabled
-		_
-	}) && !(_nonzero & {
-		#arg: #values.cloneRepo.repository
-		_
-	}) {
-		"test: cloneRepo When enabling cloning a repo, both the repository and branch must be provided."
-	}, ""][0]
-}
+_test_validateValues_cloneRepo: [if (_nonzero & {
+	#arg: #values.cloneRepo.enabled
+	_
+}) && !(_nonzero & {
+	#arg: #values.cloneRepo.repository
+	_
+}) {
+	"test: cloneRepo When enabling cloning a repo, both the repository and branch must be provided."
+}, ""][0]

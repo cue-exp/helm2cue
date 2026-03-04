@@ -14,7 +14,9 @@ metadata:
   {{- $labels := include "myapp.labels" . }}
   labels: {{ $labels }}
 -- output.cue --
-_myapp_labels: app: "myapp"
+_myapp_labels: {
+	app: "myapp"
+}
 
 output: [
 	{
