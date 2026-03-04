@@ -2100,7 +2100,7 @@ func (c *converter) finalizeFlow() {
 	c.flowDepth = 0
 	c.flowKey = ""
 
-	cueStr := yamlToCUE(joined, 0)
+	cueStr := yamlToCUEText(joined, 0)
 
 	// Replace quoted sentinels with CUE expressions.
 	for i, expr := range exprs {
@@ -2378,7 +2378,7 @@ func (c *converter) emitTextNode(text []byte) {
 				if val == "" {
 					continue
 				}
-				c.emitRawField(c.pendingKey, mustParseExpr(yamlToCUE(val, 0)))
+				c.emitRawField(c.pendingKey, yamlToExpr(val))
 				c.state = stateNormal
 				c.pendingKey = ""
 				continue
@@ -2426,7 +2426,7 @@ func (c *converter) emitTextNode(text []byte) {
 		if strings.HasPrefix(content, "- ") {
 			c.processListItem(content, yamlIndent, isLastLine, continuesInline)
 		} else if isFlowCollection(trimmed) {
-			cueVal := mustParseExpr(yamlToCUE(trimmed, 0))
+			cueVal := yamlToExpr(trimmed)
 			if c.inListContext() {
 				c.appendListExpr(cueVal)
 			} else {
@@ -2462,7 +2462,7 @@ func (c *converter) emitTextNode(text []byte) {
 				c.inlineRawKey = false
 				c.inlineParts = []inlinePart{{text: escapeCUEString(val)}}
 			} else {
-				c.emitField(key, mustParseExpr(yamlToCUE(val, 0)))
+				c.emitField(key, yamlToExpr(val))
 			}
 		} else if strings.HasSuffix(trimmed, ":") {
 			key := strings.TrimSuffix(trimmed, ":")
@@ -2477,7 +2477,7 @@ func (c *converter) emitTextNode(text []byte) {
 				c.inlineSuffix = ","
 			}
 		} else {
-			cueVal := mustParseExpr(yamlToCUE(trimmed, 0))
+			cueVal := yamlToExpr(trimmed)
 			if c.inListContext() {
 				c.appendListExpr(cueVal)
 			} else {
@@ -2537,7 +2537,7 @@ func (c *converter) processListItem(trimmed string, yamlIndent int, isLastLine, 
 
 	// Check for YAML flow collections (e.g., - {key: "value"}).
 	if isFlowCollection(content) {
-		c.appendListExpr(mustParseExpr(yamlToCUE(content, 0)))
+		c.appendListExpr(yamlToExpr(content))
 	} else if continuesInline && startsIncompleteFlow(content) {
 		// Flow collection as list item, but actions split it.
 		c.startFlowAccum(content, "", ",\n")
@@ -2592,7 +2592,7 @@ func (c *converter) processListItem(trimmed string, yamlIndent int, isLastLine, 
 				structLit:  itemStruct,
 				isListItem: true,
 			})
-			c.emitField(key, mustParseExpr(yamlToCUE(val, 0)))
+			c.emitField(key, yamlToExpr(val))
 		}
 	} else if strings.HasSuffix(strings.TrimSpace(content), ":") {
 		// "- key:" — struct in list with bare key.
@@ -2627,7 +2627,7 @@ func (c *converter) processListItem(trimmed string, yamlIndent int, isLastLine, 
 		c.inlineSuffix = ","
 	} else {
 		// Simple scalar list item.
-		c.appendListExpr(mustParseExpr(yamlToCUE(strings.TrimSpace(content), 0)))
+		c.appendListExpr(yamlToExpr(strings.TrimSpace(content)))
 	}
 }
 
@@ -2636,7 +2636,7 @@ func (c *converter) processRangeListItem(content string, yamlIndent int, isLastL
 	itemContentIndent := yamlIndent + 2
 
 	if isFlowCollection(content) {
-		c.emitEmbed(mustParseExpr(yamlToCUE(content, 0)))
+		c.emitEmbed(yamlToExpr(content))
 	} else if continuesInline && startsIncompleteFlow(content) {
 		// Flow collection in range list item, but actions split it.
 		c.startFlowAccum(content, "", "\n")
@@ -2656,7 +2656,7 @@ func (c *converter) processRangeListItem(content string, yamlIndent int, isLastL
 			c.inlineKey = key
 			c.inlineParts = []inlinePart{{text: escapeCUEString(val)}}
 		} else {
-			c.emitField(key, mustParseExpr(yamlToCUE(val, 0)))
+			c.emitField(key, yamlToExpr(val))
 		}
 	} else if strings.HasSuffix(strings.TrimSpace(content), ":") {
 		key := strings.TrimSuffix(strings.TrimSpace(content), ":")
@@ -2686,9 +2686,31 @@ func isFlowCollection(s string) bool {
 		(len(s) > 2 && s[0] == '[' && s[len(s)-1] == ']')
 }
 
-// yamlToCUE converts a YAML value string (scalar or flow collection)
-// to its CUE representation at the given indent level.
-func yamlToCUE(s string, indent int) string {
+// yamlToExpr parses a YAML scalar/flow value and returns the CUE AST
+// expression directly. Falls back to a quoted string on parse error.
+func yamlToExpr(s string) ast.Expr {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return cueString("")
+	}
+	f, err := cueyaml.Extract("", []byte("_: "+s))
+	if err != nil {
+		return cueString(s)
+	}
+	if len(f.Decls) == 0 {
+		return cueString(s)
+	}
+	field, ok := f.Decls[0].(*ast.Field)
+	if !ok {
+		return cueString(s)
+	}
+	return field.Value
+}
+
+// yamlToCUEText converts a YAML value string (scalar or flow collection)
+// to its CUE text representation at the given indent level. Used only
+// where the result needs text manipulation before parsing.
+func yamlToCUEText(s string, indent int) string {
 	s = strings.TrimSpace(s)
 	if s == "" {
 		return `""`
