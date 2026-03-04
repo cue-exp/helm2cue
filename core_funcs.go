@@ -541,12 +541,8 @@ func convertMinMaxImpl(c *converter, args []funcArg, fn string) (ast.Expr, strin
 		}
 		elems = append(elems, e)
 	}
-	listRef := c.importRef("list")
-	elemStrs := make([]string, len(elems))
-	for i, e := range elems {
-		elemStrs[i] = exprToText(e)
-	}
-	return mustParseExpr(fmt.Sprintf("%s.%s([%s])", listRef, fn, strings.Join(elemStrs, ", "))), helmObj, nil
+	c.addImport("list")
+	return importCall("list", fn, &ast.ListLit{Elts: elems}), helmObj, nil
 }
 
 func convertTpl(c *converter, args []funcArg) (ast.Expr, string, error) {
@@ -583,10 +579,8 @@ func convertTpl(c *converter, args []funcArg) (ast.Expr, string, error) {
 	c.addImport("text/template")
 	h := c.tplContextDef()
 	c.usedHelpers[h.Name] = h
-	yamlRef := c.importRef("encoding/yaml")
-	tmplRef := c.importRef("text/template")
-	tmplExprStr := exprToText(tmplExpr)
-	expr := mustParseExpr(fmt.Sprintf("%s.Unmarshal(%s.Execute(%s, _tplContext))", yamlRef, tmplRef, tmplExprStr))
+	expr := importCall("encoding/yaml", "Unmarshal",
+		importCall("text/template", "Execute", tmplExpr, ast.NewIdent("_tplContext")))
 	var helmObj string
 	if tmplObj != "" {
 		helmObj = tmplObj
