@@ -478,6 +478,12 @@ func buildSelChain(base ast.Expr, fields []string) ast.Expr {
 	return e
 }
 
+// isArgIdent reports whether expr is exactly the identifier #arg.
+func isArgIdent(e ast.Expr) bool {
+	id, ok := e.(*ast.Ident)
+	return ok && id.Name == "#arg"
+}
+
 // exprStartsWithArg reports whether the root identifier of expr is #arg.
 func exprStartsWithArg(e ast.Expr) bool {
 	for {
@@ -4391,7 +4397,7 @@ func (c *converter) processRange(n *parse.RangeNode) error {
 
 	// Build clauses: optional guard + for clause.
 	var clauses []ast.Clause
-	if helmObj != "" || strings.HasPrefix(exprToText(overExpr), "#arg") {
+	if helmObj != "" || exprStartsWithArg(overExpr) {
 		c.hasConditions = true
 		clauses = append(clauses, &ast.IfClause{Condition: nonzeroExpr(overExpr)})
 	}
@@ -5214,7 +5220,7 @@ func (c *converter) conditionPipeToExpr(pipe *parse.PipeNode) (ast.Expr, error) 
 				expr, helmObj := c.fieldToCUEInContext(f.Ident)
 				if helmObj != "" && len(f.Ident) >= 2 {
 					c.trackNonScalarRef(helmObj, f.Ident[1:])
-				} else if c.helperArgNonScalarRefs != nil && strings.HasPrefix(exprToText(expr), "#arg") {
+				} else if c.helperArgNonScalarRefs != nil && exprStartsWithArg(expr) {
 					c.helperArgNonScalarRefs = append(c.helperArgNonScalarRefs,
 						append([]string(nil), f.Ident...))
 				}
@@ -5607,7 +5613,7 @@ func (c *converter) actionToCUE(n *parse.ActionNode) (expr ast.Expr, helmObj str
 			if helmObj != "" {
 				fieldPath = f.Ident[1:]
 				c.trackFieldRef(helmObj, fieldPath)
-			} else if c.helperArgNonScalarRefs != nil && strings.HasPrefix(exprToText(fieldExpr), "#arg") {
+			} else if c.helperArgNonScalarRefs != nil && exprStartsWithArg(fieldExpr) {
 				argFieldPath = append([]string(nil), f.Ident...)
 			}
 		} else if v, ok := first.Args[0].(*parse.VariableNode); ok {
@@ -5729,7 +5735,7 @@ func (c *converter) actionToCUE(n *parse.ActionNode) (expr ast.Expr, helmObj str
 						if pf.NonScalar {
 							c.trackNonScalarRef(helmObj, fieldPath)
 						}
-					} else if pf.NonScalar && c.helperArgNonScalarRefs != nil && strings.HasPrefix(exprToText(expr), "#arg") {
+					} else if pf.NonScalar && c.helperArgNonScalarRefs != nil && exprStartsWithArg(expr) {
 						c.helperArgNonScalarRefs = append(c.helperArgNonScalarRefs,
 							append([]string(nil), f.Ident...))
 					}
@@ -5763,7 +5769,7 @@ func (c *converter) actionToCUE(n *parse.ActionNode) (expr ast.Expr, helmObj str
 						if pf.NonScalar {
 							c.trackNonScalarRef(helmObj, fieldPath)
 						}
-					} else if pf.NonScalar && c.helperArgNonScalarRefs != nil && strings.HasPrefix(exprToText(expr), "#arg") {
+					} else if pf.NonScalar && c.helperArgNonScalarRefs != nil && exprStartsWithArg(expr) {
 						c.helperArgNonScalarRefs = append(c.helperArgNonScalarRefs,
 							append([]string(nil), f.Ident...))
 					}
@@ -6339,7 +6345,7 @@ func (c *converter) convertTplArg(node parse.Node) (ast.Expr, string, error) {
 		if f, ok := valueNode.(*parse.FieldNode); ok {
 			if helmObj != "" && len(f.Ident) >= 2 {
 				c.trackNonScalarRef(helmObj, f.Ident[1:])
-			} else if c.helperArgNonScalarRefs != nil && strings.HasPrefix(exprToText(expr), "#arg") {
+			} else if c.helperArgNonScalarRefs != nil && exprStartsWithArg(expr) {
 				c.helperArgNonScalarRefs = append(c.helperArgNonScalarRefs,
 					append([]string(nil), f.Ident...))
 			}
@@ -6431,7 +6437,7 @@ func (c *converter) fieldToCUEInContext(ident []string) (ast.Expr, string) {
 	}
 	if len(c.rangeVarStack) > 0 {
 		top := c.rangeVarStack[len(c.rangeVarStack)-1]
-		if exprToText(top.cueExpr) == "#arg" && c.helperArgRefs != nil {
+		if isArgIdent(top.cueExpr) && c.helperArgRefs != nil {
 			ref := append([]string(nil), ident...)
 			c.helperArgRefs = append(c.helperArgRefs, ref)
 			if !c.suppressRequired {
