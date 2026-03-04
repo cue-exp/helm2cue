@@ -16,8 +16,8 @@ metadata:
     app: myapp
 -- output.cue --
 import (
-	"list"
 	"struct"
+	"list"
 )
 
 #values: {

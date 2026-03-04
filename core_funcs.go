@@ -506,8 +506,8 @@ func convertMinMaxImpl(c *converter, args []funcArg, fn string) (string, string,
 		}
 		elems = append(elems, e)
 	}
-	c.addImport("list")
-	return fmt.Sprintf("list.%s([%s])", fn, strings.Join(elems, ", ")), helmObj, nil
+	listRef := c.importRef("list")
+	return fmt.Sprintf("%s.%s([%s])", listRef, fn, strings.Join(elems, ", ")), helmObj, nil
 }
 
 func convertTpl(c *converter, args []funcArg) (string, string, error) {
@@ -539,11 +539,11 @@ func convertTpl(c *converter, args []funcArg) (string, string, error) {
 		}
 	}
 
-	c.addImport("encoding/yaml")
-	c.addImport("text/template")
+	yamlRef := c.importRef("encoding/yaml")
+	tmplRef := c.importRef("text/template")
 	h := c.tplContextDef()
 	c.usedHelpers[h.Name] = h
-	expr := fmt.Sprintf("yaml.Unmarshal(template.Execute(%s, _tplContext))", tmplExpr)
+	expr := fmt.Sprintf("%s.Unmarshal(%s.Execute(%s, _tplContext))", yamlRef, tmplRef, tmplExpr)
 	var helmObj string
 	if tmplObj != "" {
 		helmObj = tmplObj
@@ -624,7 +624,7 @@ func convertOmit(c *converter, args []funcArg) (string, string, error) {
 	}
 	keyList := "[" + strings.Join(keyParts, ", ") + "]"
 
-	c.addImport("list")
+	c.importRef("list")
 	c.usedHelpers["_omit"] = HelperDef{
 		Name: "_omit", Def: omitDef, Imports: []string{"list"},
 	}

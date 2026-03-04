@@ -37,9 +37,7 @@ import "strings"
 test: [{
 	apiVersion: "v1"
 	kind:       "ConfigMap"
-	metadata: {
-		name: "test"
-	}
+	metadata: name: "test"
 	data: {
 		if strings.Contains(#values.hostname, "example") {
 			matched: "yes"

@@ -14,9 +14,9 @@ data:
 {{- end }}
 -- output.cue --
 import (
-	"strconv"
-	"strings"
 	"struct"
+	"strings"
+	"strconv"
 )
 
 #capabilities: {

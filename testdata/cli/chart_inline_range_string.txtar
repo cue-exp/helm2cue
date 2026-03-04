@@ -40,7 +40,5 @@ package test_app
 import "strings"
 
 test: [{
-	data: {
-		expr: "count(up) BY (\(strings.Join([for _, _range0 in #values.labels {"\(_range0),"}], ""))cluster)"
-	}
+	data: expr: "count(up) BY (\(strings.Join([for _, _range0 in #values.labels {"\(_range0),"}], ""))cluster)"
 }]

@@ -52,7 +52,5 @@ test: [{
 			_test_labels
 		}
 	}
-	data: {
-		key: "value"
-	}
+	data: key: "value"
 }]

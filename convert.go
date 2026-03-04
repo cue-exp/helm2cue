@@ -25,8 +25,10 @@ import (
 	"text/template/parse"
 
 	"cuelang.org/go/cue/ast"
+	"cuelang.org/go/cue/ast/astutil"
 	"cuelang.org/go/cue/cuecontext"
 	"cuelang.org/go/cue/format"
+	"cuelang.org/go/cue/parser"
 	cueyaml "cuelang.org/go/encoding/yaml"
 )
 
@@ -570,38 +572,20 @@ func convertStructured(cfg *Config, input []byte, templateName string, treeSet m
 
 // assembleSingleFile assembles a complete single-file CUE output from a convertResult.
 func assembleSingleFile(cfg *Config, r *convertResult) ([]byte, error) {
-	imports := make(map[string]bool)
+	allImports := make(map[string]bool)
 	for k, v := range r.imports {
-		imports[k] = v
+		allImports[k] = v
 	}
 	if r.needsNonzero {
-		imports["struct"] = true
+		allImports["struct"] = true
 	}
 	for _, h := range r.usedHelpers {
 		for _, pkg := range h.Imports {
-			imports[pkg] = true
+			allImports[pkg] = true
 		}
 	}
 
 	var final bytes.Buffer
-
-	// Emit imports.
-	if len(imports) > 0 {
-		var pkgs []string
-		for pkg := range imports {
-			pkgs = append(pkgs, pkg)
-		}
-		slices.Sort(pkgs)
-		if len(pkgs) == 1 {
-			fmt.Fprintf(&final, "import %q\n\n", pkgs[0])
-		} else {
-			final.WriteString("import (\n")
-			for _, pkg := range pkgs {
-				fmt.Fprintf(&final, "\t%q\n", pkg)
-			}
-			final.WriteString(")\n\n")
-		}
-	}
 
 	// Emit context object declarations.
 	var decls []string
@@ -692,25 +676,21 @@ func assembleSingleFile(cfg *Config, r *convertResult) ([]byte, error) {
 		final.WriteByte('\n')
 	}
 
-	// Emit _nonzero if needed.
+	// Emit _nonzero if needed — sentinelize import refs in the constant.
 	if r.needsNonzero {
-		final.WriteString(stripCUEComments(nonzeroDef))
+		def := sentinelizeImportsRaw(stripCUEComments(nonzeroDef), []string{"struct"}, nil)
+		final.WriteString(def)
 		final.WriteString("\n")
 	}
 
-	// Emit used helper definitions.
+	// Emit used helper definitions — sentinelize import refs.
 	for _, h := range r.usedHelpers {
-		final.WriteString(stripCUEComments(h.Def))
+		def := sentinelizeImportsRaw(stripCUEComments(h.Def), h.Imports, nil)
+		final.WriteString(def)
 		final.WriteString("\n")
 	}
 
-	// Format and validate the generated CUE.
-	result, err := format.Source(final.Bytes(), format.Simplify())
-	if err != nil {
-		return nil, fmt.Errorf("generated invalid CUE:\n%s\nerror: %w", final.Bytes(), err)
-	}
-
-	return result, nil
+	return resolveImportsAndFormat(final.Bytes(), allImports)
 }
 
 // Convert transforms a template YAML file into CUE using the given config.
@@ -811,10 +791,11 @@ func mergeConvertResults(results []*convertResult) *convertResult {
 		}
 	}
 
+	listSentinel := importSentinel("list")
 	if hasRange && len(results) > 1 {
 		// Multi-doc with range: use list.FlattenN.
 		merged.imports["list"] = true
-		body.WriteString("output: list.FlattenN([\n")
+		fmt.Fprintf(&body, "output: %s.FlattenN([\n", listSentinel)
 		i := 0
 		for i < len(results) {
 			r := results[i]
@@ -888,7 +869,7 @@ func mergeConvertResults(results []*convertResult) *convertResult {
 		if rb == "" {
 			rb = strings.TrimRight(r.body, "\n")
 		}
-		body.WriteString("output: list.FlattenN([")
+		fmt.Fprintf(&body, "output: %s.FlattenN([", listSentinel)
 		body.WriteString(r.topLevelRange)
 		body.WriteString(" {[\n\t{\n")
 		for _, line := range strings.Split(rb, "\n") {
@@ -3385,14 +3366,14 @@ func (c *converter) rangeToInlineExpr(n *parse.RangeNode) (string, error) {
 	bodyStr := strings.Join(bodyParts, "")
 
 	// Build strings.Join expression.
-	c.addImport("strings")
+	stringsRef := c.importRef("strings")
 	keyExpr := "_"
 	if keyName != "" {
 		keyExpr = keyName
 	}
 	return fmt.Sprintf(
-		`strings.Join([for %s, %s in %s {"%s"}], "")`,
-		keyExpr, valName, overExpr, bodyStr,
+		`%s.Join([for %s, %s in %s {"%s"}], "")`,
+		stringsRef, keyExpr, valName, overExpr, bodyStr,
 	), nil
 }
 
@@ -4442,8 +4423,8 @@ func (c *converter) pipeToFieldExpr(pipe *parse.PipeNode) (string, string, []str
 			if err != nil {
 				return "", "", nil, fmt.Errorf("until: %w", err)
 			}
-			c.addImport("list")
-			return fmt.Sprintf("list.Range(0, %s, 1)", argExpr), "", nil, nil
+			listRef := c.importRef("list")
+			return fmt.Sprintf("%s.Range(0, %s, 1)", listRef, argExpr), "", nil, nil
 		}
 	}
 
@@ -4569,13 +4550,13 @@ func (c *converter) applyRangePipelineFunc(pf PipelineFunc, name, expr, helmObj 
 	if pf.NonScalar {
 		c.trackNonScalarRef(helmObj, fieldPath)
 	}
-	for _, pkg := range pf.Imports {
-		c.addImport(pkg)
-	}
 	for _, h := range pf.Helpers {
 		c.usedHelpers[h.Name] = h
 	}
 	if pf.Convert == nil {
+		for _, pkg := range pf.Imports {
+			c.addImport(pkg)
+		}
 		return expr, nil
 	}
 	var args []string
@@ -4587,6 +4568,7 @@ func (c *converter) applyRangePipelineFunc(pf PipelineFunc, name, expr, helmObj 
 		args = append(args, argExpr)
 	}
 	result := pf.Convert(expr, args)
+	result = c.sentinelizeImports(result, pf.Imports)
 	if result == "" {
 		return "", fmt.Errorf("function %q has no CUE equivalent", name)
 	}
@@ -4784,10 +4766,8 @@ func (c *converter) conditionPipeToExpr(pipe *parse.PipeNode) (string, error) {
 				}
 				exprs[i] = e
 			}
-			for _, imp := range cf.imports {
-				c.addImport(imp)
-			}
-			return fmt.Sprintf(cf.format, exprs...), nil
+			result := fmt.Sprintf(cf.format, exprs...)
+			return c.sentinelizeImports(result, cf.imports), nil
 		}
 
 		switch id.Ident {
@@ -5057,8 +5037,8 @@ func (c *converter) conditionPipeToExpr(pipe *parse.PipeNode) (string, error) {
 					c.trackNonScalarRef(helmObj, listIdent[1:])
 				}
 			}
-			c.addImport("list")
-			return fmt.Sprintf("list.Contains(%s, %s)", expr, strconv.Quote(strArg.Text)), nil
+			listRef := c.importRef("list")
+			return fmt.Sprintf("%s.Contains(%s, %s)", listRef, expr, strconv.Quote(strArg.Text)), nil
 		}
 	}
 
@@ -5373,9 +5353,7 @@ func (c *converter) actionToCUE(n *parse.ActionNode) (expr string, helmObj strin
 					}
 				}
 				expr = pf.Convert(expr, args)
-				for _, pkg := range pf.Imports {
-					c.addImport(pkg)
-				}
+				expr = c.sentinelizeImports(expr, pf.Imports)
 				for _, h := range pf.Helpers {
 					c.usedHelpers[h.Name] = h
 				}
@@ -5439,10 +5417,7 @@ func (c *converter) actionToCUE(n *parse.ActionNode) (expr string, helmObj strin
 				// Sentinel for unsupported functions (e.g. lookup, tpl).
 				return "", "", fmt.Errorf("function %q has no CUE equivalent and cannot be converted", id.Ident)
 			}
-			expr = result
-			for _, pkg := range pf.Imports {
-				c.addImport(pkg)
-			}
+			expr = c.sentinelizeImports(result, pf.Imports)
 			for _, h := range pf.Helpers {
 				c.usedHelpers[h.Name] = h
 			}
@@ -5761,9 +5736,7 @@ func (c *converter) convertSubPipe(pipe *parse.PipeNode) (string, string, error)
 						args = append(args, lit)
 					}
 					expr = pf.Convert(expr, args)
-					for _, pkg := range pf.Imports {
-						c.addImport(pkg)
-					}
+					expr = c.sentinelizeImports(expr, pf.Imports)
 					for _, h := range pf.Helpers {
 						c.usedHelpers[h.Name] = h
 					}
@@ -5831,10 +5804,7 @@ func (c *converter) convertSubPipe(pipe *parse.PipeNode) (string, string, error)
 			if result == "" {
 				return "", "", fmt.Errorf("unsupported pipe node: %s", pipe)
 			}
-			expr = result
-			for _, pkg := range pf.Imports {
-				c.addImport(pkg)
-			}
+			expr = c.sentinelizeImports(result, pf.Imports)
 			for _, h := range pf.Helpers {
 				c.usedHelpers[h.Name] = h
 			}
@@ -5896,7 +5866,7 @@ func (c *converter) convertTplArg(node parse.Node) (string, string, error) {
 	}
 
 	if hasToYaml {
-		c.addImport("encoding/yaml")
+		yamlRef := c.importRef("encoding/yaml")
 		// Mark the field as non-scalar since it's being serialized.
 		if f, ok := valueNode.(*parse.FieldNode); ok {
 			if helmObj != "" && len(f.Ident) >= 2 {
@@ -5906,7 +5876,7 @@ func (c *converter) convertTplArg(node parse.Node) (string, string, error) {
 					append([]string(nil), f.Ident...))
 			}
 		}
-		expr = fmt.Sprintf("yaml.Marshal(%s)", expr)
+		expr = fmt.Sprintf("%s.Marshal(%s)", yamlRef, expr)
 	}
 
 	return expr, helmObj, nil
@@ -6029,6 +5999,131 @@ func (c *converter) fieldToCUEInContext(ident []string) (string, string) {
 
 func (c *converter) addImport(pkg string) {
 	c.imports[pkg] = true
+}
+
+// importSentinel returns a deterministic sentinel identifier for a CUE
+// import package. The sentinel is used in emitted text so that a
+// post-processing step can resolve it back to a real import-tagged
+// ident before calling astutil.Sanitize.
+// E.g. "strings" → "_h2c_strings_", "encoding/yaml" → "_h2c_encoding_yaml_".
+func importSentinel(pkg string) string {
+	s := strings.NewReplacer("/", "_", ".", "_").Replace(pkg)
+	return "_h2c_" + s + "_"
+}
+
+// importRef records an import and returns its sentinel identifier.
+func (c *converter) importRef(pkg string) string {
+	c.addImport(pkg)
+	return importSentinel(pkg)
+}
+
+// sentinelizeImports replaces known import short names with their
+// sentinel forms in s, and records the imports. This is used for
+// post-processing PipelineFunc.Convert return values and constant
+// helper definition strings that contain hardcoded package references.
+func (c *converter) sentinelizeImports(s string, imports []string) string {
+	return sentinelizeImportsRaw(s, imports, func(pkg string) { c.addImport(pkg) })
+}
+
+// sentinelizeImportsRaw replaces known import short names with their
+// sentinel forms in s and calls record for each package.
+func sentinelizeImportsRaw(s string, imports []string, record func(string)) string {
+	for _, pkg := range imports {
+		shortName := pkg
+		if idx := strings.LastIndex(pkg, "/"); idx >= 0 {
+			shortName = pkg[idx+1:]
+		}
+		sentinel := importSentinel(pkg)
+		// Replace shortName. followed by an identifier char with sentinel.
+		// This avoids replacing partial matches.
+		s = replaceImportShortName(s, shortName, sentinel)
+		if record != nil {
+			record(pkg)
+		}
+	}
+	return s
+}
+
+// replaceImportShortName replaces occurrences of shortName+"." with
+// replacement+"." in s, but only where shortName is not preceded by
+// an identifier character (to avoid matching e.g. "#template" when
+// replacing "template").
+func replaceImportShortName(s, shortName, replacement string) string {
+	old := shortName + "."
+	newRef := replacement + "."
+	var result strings.Builder
+	result.Grow(len(s))
+	for i := 0; i < len(s); {
+		if strings.HasPrefix(s[i:], old) {
+			if i > 0 && isIdentOrHash(s[i-1]) {
+				result.WriteString(old)
+			} else {
+				result.WriteString(newRef)
+			}
+			i += len(old)
+		} else {
+			result.WriteByte(s[i])
+			i++
+		}
+	}
+	return result.String()
+}
+
+func isIdentOrHash(b byte) bool {
+	return (b >= 'a' && b <= 'z') || (b >= 'A' && b <= 'Z') ||
+		(b >= '0' && b <= '9') || b == '_' || b == '#'
+}
+
+// resolveImportsAndFormat parses CUE source containing import sentinels,
+// resolves them to real import-tagged identifiers, calls astutil.Sanitize
+// to manage imports, and formats the result.
+func resolveImportsAndFormat(src []byte, knownImports map[string]bool) ([]byte, error) {
+	// Build sentinel → package map.
+	type sentinelInfo struct {
+		pkg       string
+		shortName string
+	}
+	sentinels := make(map[string]sentinelInfo)
+	for pkg := range knownImports {
+		sentinel := importSentinel(pkg)
+		shortName := pkg
+		if idx := strings.LastIndex(pkg, "/"); idx >= 0 {
+			shortName = pkg[idx+1:]
+		}
+		sentinels[sentinel] = sentinelInfo{pkg: pkg, shortName: shortName}
+	}
+
+	f, err := parser.ParseFile("output.cue", src, parser.ParseComments)
+	if err != nil {
+		return nil, fmt.Errorf("generated invalid CUE:\n%s\nerror: %w", src, err)
+	}
+
+	// Walk AST: for each SelectorExpr where X is an Ident matching
+	// a sentinel, replace X.Name with the real short name and set
+	// X.Node = ast.NewImport(nil, pkg).
+	ast.Walk(f, func(n ast.Node) bool {
+		sel, ok := n.(*ast.SelectorExpr)
+		if !ok {
+			return true
+		}
+		ident, ok := sel.X.(*ast.Ident)
+		if !ok {
+			return true
+		}
+		info, ok := sentinels[ident.Name]
+		if !ok {
+			return true
+		}
+		ident.Name = info.shortName
+		ident.Node = ast.NewImport(nil, info.pkg)
+		return true
+	}, nil)
+
+	if err := astutil.Sanitize(f); err != nil {
+		return nil, fmt.Errorf("sanitize: %w", err)
+	}
+
+	return format.Node(f, format.Simplify())
 }
 
 // cueScalarType is the CUE type for leaf fields that are known to be
@@ -6171,17 +6266,18 @@ func validateHelperExpr(expr string, imports map[string]bool) error {
 
 	var buf bytes.Buffer
 
-	// Include imports needed by the expression.
+	// Include imports needed by the expression. Sentinel identifiers
+	// (e.g. _h2c_strings_) are used in the expression; map them back
+	// to the real import path for the validation CUE file.
 	if len(imports) > 0 {
 		var pkgs []string
 		for pkg := range imports {
-			// Only include imports whose short name appears in the expression.
-			shortName := pkg
-			if idx := strings.LastIndex(pkg, "/"); idx >= 0 {
-				shortName = pkg[idx+1:]
-			}
-			if strings.Contains(expr, shortName+".") {
+			sentinel := importSentinel(pkg)
+			if strings.Contains(expr, sentinel+".") {
 				pkgs = append(pkgs, pkg)
+				// Remove sentinels from refs — they are import
+				// identifiers, not field references.
+				delete(refs, sentinel)
 			}
 		}
 		slices.Sort(pkgs)
@@ -6193,6 +6289,15 @@ func validateHelperExpr(expr string, imports map[string]bool) error {
 				fmt.Fprintf(&buf, "\t%q\n", pkg)
 			}
 			buf.WriteString(")\n")
+		}
+		// Replace sentinels with real short names for validation.
+		for _, pkg := range pkgs {
+			sentinel := importSentinel(pkg)
+			shortName := pkg
+			if idx := strings.LastIndex(pkg, "/"); idx >= 0 {
+				shortName = pkg[idx+1:]
+			}
+			expr = strings.ReplaceAll(expr, sentinel+".", shortName+".")
 		}
 	}
 

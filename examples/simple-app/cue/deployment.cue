@@ -11,13 +11,9 @@ deployment: [{
 	}
 	spec: {
 		replicas: *#values.replicaCount | 1
-		selector: {
-			matchLabels: _simple_app_selectorLabels
-		}
+		selector: matchLabels: _simple_app_selectorLabels
 		template: {
-			metadata: {
-				labels: _simple_app_selectorLabels
-			}
+			metadata: labels: _simple_app_selectorLabels
 			spec: {
 				serviceAccountName: _simple_app_serviceAccountName & {#arg: #values.serviceAccount, _}
 				containers: [

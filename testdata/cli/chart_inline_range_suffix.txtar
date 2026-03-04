@@ -39,10 +39,6 @@ import "strings"
 test: [{
 	apiVersion: "v1"
 	kind:       "ConfigMap"
-	metadata: {
-		name: "test"
-	}
-	data: {
-		expr: "x\(strings.Join([for _, _range0 in #values.labels {"\(_range0),"}], ""))y\(strings.Join([for _, _range0 in #values.labels {"\(_range0),"}], ""))z"
-	}
+	metadata: name: "test"
+	data: expr: "x\(strings.Join([for _, _range0 in #values.labels {"\(_range0),"}], ""))y\(strings.Join([for _, _range0 in #values.labels {"\(_range0),"}], ""))z"
 }]

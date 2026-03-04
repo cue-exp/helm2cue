@@ -37,9 +37,7 @@ test: [
 		{
 			apiVersion: "autoscaling.k8s.io/v1"
 			kind:       "VerticalPodAutoscaler"
-			metadata: {
-				name: "test"
-			}
+			metadata: name: "test"
 		}
 	},
 ]

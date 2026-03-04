@@ -434,50 +434,23 @@ func writeHelpersCUE(outDir, pkgName string, r *convertResult, needsNonzero bool
 	buf.WriteString(generatedHeader)
 	fmt.Fprintf(&buf, "package %s\n\n", pkgName)
 
-	// Collect all imports needed by helper expressions and built-in definitions.
-	helperImports := make(map[string]bool)
+	// Collect all imports for resolveImportsAndFormat.
+	allImports := make(map[string]bool)
 	if needsNonzero {
-		helperImports["struct"] = true
+		allImports["struct"] = true
 	}
 	for _, h := range usedHelpers {
 		for _, pkg := range h.Imports {
-			helperImports[pkg] = true
+			allImports[pkg] = true
 		}
 	}
-	for _, name := range r.helperOrder {
-		cueName := r.helperExprs[name]
-		if cueExpr, ok := r.helpers[cueName]; ok {
-			for pkg := range r.imports {
-				shortName := pkg
-				if idx := strings.LastIndex(pkg, "/"); idx >= 0 {
-					shortName = pkg[idx+1:]
-				}
-				if strings.Contains(cueExpr, shortName+".") {
-					helperImports[pkg] = true
-				}
-			}
-		}
-	}
-
-	if len(helperImports) > 0 {
-		var pkgs []string
-		for pkg := range helperImports {
-			pkgs = append(pkgs, pkg)
-		}
-		slices.Sort(pkgs)
-		if len(pkgs) == 1 {
-			fmt.Fprintf(&buf, "import %q\n\n", pkgs[0])
-		} else {
-			buf.WriteString("import (\n")
-			for _, pkg := range pkgs {
-				fmt.Fprintf(&buf, "\t%q\n", pkg)
-			}
-			buf.WriteString(")\n\n")
-		}
+	for pkg := range r.imports {
+		allImports[pkg] = true
 	}
 
 	if needsNonzero {
-		buf.WriteString(nonzeroDef)
+		def := sentinelizeImportsRaw(nonzeroDef, []string{"struct"}, nil)
+		buf.WriteString(def)
 		buf.WriteString("\n")
 	}
 
@@ -487,7 +460,9 @@ func writeHelpersCUE(outDir, pkgName string, r *convertResult, needsNonzero bool
 	}
 	slices.Sort(helperNames)
 	for _, name := range helperNames {
-		buf.WriteString(usedHelpers[name].Def)
+		h := usedHelpers[name]
+		def := sentinelizeImportsRaw(h.Def, h.Imports, nil)
+		buf.WriteString(def)
 		buf.WriteString("\n")
 	}
 
@@ -541,7 +516,11 @@ func writeHelpersCUE(outDir, pkgName string, r *convertResult, needsNonzero bool
 		buf.WriteString("}\n")
 	}
 
-	return writeCUEFile(filepath.Join(outDir, "helpers.cue"), buf.Bytes())
+	formatted, err := resolveImportsAndFormat(buf.Bytes(), allImports)
+	if err != nil {
+		return fmt.Errorf("formatting helpers.cue: %w", err)
+	}
+	return os.WriteFile(filepath.Join(outDir, "helpers.cue"), formatted, 0o644)
 }
 
 // buildValuesSchemaCUE generates the #values schema block (without a package
@@ -665,14 +644,19 @@ func writeResultsCUE(outDir, pkgName string, results []templateResult) error {
 	var buf bytes.Buffer
 	buf.WriteString(generatedHeader)
 	fmt.Fprintf(&buf, "package %s\n\n", pkgName)
-	buf.WriteString("import \"list\"\n\n")
-	buf.WriteString("results: list.FlattenN([\n")
+	listSentinel := importSentinel("list")
+	fmt.Fprintf(&buf, "results: %s.FlattenN([\n", listSentinel)
 	for _, tr := range results {
 		fmt.Fprintf(&buf, "\t%s,\n", tr.fieldName)
 	}
 	buf.WriteString("], 1)\n")
 
-	return writeCUEFile(filepath.Join(outDir, "results.cue"), buf.Bytes())
+	allImports := map[string]bool{"list": true}
+	formatted, err := resolveImportsAndFormat(buf.Bytes(), allImports)
+	if err != nil {
+		return fmt.Errorf("formatting results.cue: %w", err)
+	}
+	return os.WriteFile(filepath.Join(outDir, "results.cue"), formatted, 0o644)
 }
 
 // writeContextCUE writes context.cue with definitions for used context objects.
@@ -769,98 +753,23 @@ func inferNonScalarFromValues(valuesData []byte) (listPaths, structPaths [][]str
 // wrapped as a list by mergeChartDocResults, so we emit it directly as
 // fieldName: [body].
 func writeTemplateCUE(outDir, pkgName, fieldName string, r *convertResult) error {
-	var buf bytes.Buffer
-	buf.WriteString(generatedHeader)
-	fmt.Fprintf(&buf, "package %s\n\n", pkgName)
-
-	// Emit only imports that are actually used in this template body.
-	// When a short import name collides with a struct field in the body,
-	// use an alias (path segments joined with underscores) and rewrite
-	// references in the body. This would be handled automatically by
-	// astutil.Sanitize if we built an AST instead of printing text (#74).
 	body := strings.TrimRight(r.body, "\n")
-	type importEntry struct {
-		pkg   string
-		alias string // non-empty when aliased
-	}
-	var imports []importEntry
-	for pkg := range r.imports {
-		shortName := pkg
-		if idx := strings.LastIndex(pkg, "/"); idx >= 0 {
-			shortName = pkg[idx+1:]
-		}
-		if !strings.Contains(body, shortName+".") {
-			continue
-		}
-		alias := ""
-		if strings.Contains(body, shortName+":") {
-			alias = strings.ReplaceAll(pkg, "/", "_")
-			body = replaceImportRef(body, shortName, alias)
-		}
-		imports = append(imports, importEntry{pkg: pkg, alias: alias})
-	}
-	slices.SortFunc(imports, func(a, b importEntry) int {
-		return strings.Compare(a.pkg, b.pkg)
-	})
-
-	if len(imports) > 0 {
-		if len(imports) == 1 {
-			e := imports[0]
-			if e.alias != "" {
-				fmt.Fprintf(&buf, "import %s %q\n\n", e.alias, e.pkg)
-			} else {
-				fmt.Fprintf(&buf, "import %q\n\n", e.pkg)
-			}
-		} else {
-			buf.WriteString("import (\n")
-			for _, e := range imports {
-				if e.alias != "" {
-					fmt.Fprintf(&buf, "\t%s %q\n", e.alias, e.pkg)
-				} else {
-					fmt.Fprintf(&buf, "\t%q\n", e.pkg)
-				}
-			}
-			buf.WriteString(")\n\n")
-		}
-	}
-
 	if body == "" {
 		return nil
 	}
 
+	var buf bytes.Buffer
+	buf.WriteString(generatedHeader)
+	fmt.Fprintf(&buf, "package %s\n\n", pkgName)
+
 	// The body from mergeChartDocResults is already the list contents.
 	fmt.Fprintf(&buf, "%s: %s\n", fieldName, body)
 
-	return writeCUEFile(filepath.Join(outDir, fieldName+".cue"), buf.Bytes())
-}
-
-// replaceImportRef replaces standalone package references (shortName + ".")
-// with alias + "." in body, without touching occurrences that are part of a
-// larger identifier (e.g. #template.field should not become #text_template.field).
-func replaceImportRef(body, shortName, alias string) string {
-	old := shortName + "."
-	newRef := alias + "."
-	var result strings.Builder
-	result.Grow(len(body))
-	for i := 0; i < len(body); {
-		if strings.HasPrefix(body[i:], old) {
-			if i > 0 && isIdentOrHash(body[i-1]) {
-				result.WriteString(old)
-			} else {
-				result.WriteString(newRef)
-			}
-			i += len(old)
-		} else {
-			result.WriteByte(body[i])
-			i++
-		}
+	formatted, err := resolveImportsAndFormat(buf.Bytes(), r.imports)
+	if err != nil {
+		return fmt.Errorf("formatting %s.cue: %w", fieldName, err)
 	}
-	return result.String()
-}
-
-func isIdentOrHash(b byte) bool {
-	return (b >= 'a' && b <= 'z') || (b >= 'A' && b <= 'Z') ||
-		(b >= '0' && b <= '9') || b == '_' || b == '#'
+	return os.WriteFile(filepath.Join(outDir, fieldName+".cue"), formatted, 0o644)
 }
 
 // validateTemplateBody checks that a template body is syntactically valid CUE.
@@ -1224,6 +1133,7 @@ func mergeChartDocResults(results []*convertResult) *convertResult {
 	// Build list body.
 	var body bytes.Buffer
 
+	listSentinel := importSentinel("list")
 	if len(results) == 1 {
 		r := results[0]
 		docBody := strings.TrimRight(r.body, "\n")
@@ -1235,7 +1145,7 @@ func mergeChartDocResults(results []*convertResult) *convertResult {
 		if r.topLevelRange != "" {
 			// Single doc with top-level range.
 			merged.imports["list"] = true
-			body.WriteString("list.FlattenN([")
+			fmt.Fprintf(&body, "%s.FlattenN([", listSentinel)
 			body.WriteString(r.topLevelRange)
 			body.WriteString(" {[\n")
 			for _, line := range strings.Split(r.topLevelRangeBody, "\n") {
@@ -1317,7 +1227,7 @@ func mergeChartDocResults(results []*convertResult) *convertResult {
 			// Group consecutive entries that share the same
 			// topLevelRange into list.FlattenN blocks.
 			merged.imports["list"] = true
-			body.WriteString("list.FlattenN([\n")
+			fmt.Fprintf(&body, "%s.FlattenN([\n", listSentinel)
 			i := 0
 			for i < len(entries) {
 				e := entries[i]
