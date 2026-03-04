@@ -1234,9 +1234,8 @@ func mergeChartDocResults(results []*convertResult) *convertResult {
 				r := results[i]
 				if len(r.topLevelRange) > 0 {
 					rangeClauses := r.topLevelRange
-					rangeText := clausesToText(rangeClauses)
 					j := i
-					for j < len(results) && clausesToText(results[j].topLevelRange) == rangeText {
+					for j < len(results) && clausesEqual(results[j].topLevelRange, rangeClauses) {
 						j++
 					}
 					innerList := &ast.ListLit{}

@@ -510,7 +510,41 @@ func exprToText(e ast.Expr) string {
 	return string(b)
 }
 
-// clausesToText formats a slice of ast.Clause to CUE text for comparison.
+// clausesEqual reports whether two clause slices are structurally equal.
+func clausesEqual(a, b []ast.Clause) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		switch ca := a[i].(type) {
+		case *ast.ForClause:
+			cb, ok := b[i].(*ast.ForClause)
+			if !ok {
+				return false
+			}
+			if exprToText(ca.Key) != exprToText(cb.Key) ||
+				exprToText(ca.Value) != exprToText(cb.Value) ||
+				exprToText(ca.Source) != exprToText(cb.Source) {
+				return false
+			}
+		case *ast.IfClause:
+			cb, ok := b[i].(*ast.IfClause)
+			if !ok {
+				return false
+			}
+			if exprToText(ca.Condition) != exprToText(cb.Condition) {
+				return false
+			}
+		default:
+			return false
+		}
+	}
+	return true
+}
+
+// clausesToText formats a slice of ast.Clause to CUE text.
+// Used only where clause text is needed for text-based composition
+// (helper body wrapping).
 func clausesToText(clauses []ast.Clause) string {
 	if len(clauses) == 0 {
 		return ""
@@ -1359,9 +1393,8 @@ func mergeConvertResults(results []*convertResult) *convertResult {
 			if len(r.topLevelRange) > 0 {
 				// Group consecutive results with the same range.
 				rangeClauses := r.topLevelRange
-				rangeText := clausesToText(rangeClauses)
 				j := i
-				for j < len(results) && clausesToText(results[j].topLevelRange) == rangeText {
+				for j < len(results) && clausesEqual(results[j].topLevelRange, rangeClauses) {
 					j++
 				}
 				innerList := &ast.ListLit{}
