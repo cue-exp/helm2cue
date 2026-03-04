@@ -24,7 +24,9 @@ data:
 import "strings"
 
 #values: {
-	labels?: _
+	labels?: [...] | {
+		...
+	}
 	...
 }
 

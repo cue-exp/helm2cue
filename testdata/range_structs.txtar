@@ -36,7 +36,13 @@ import "struct"
 		name!: bool | number | string | null
 		port!: bool | number | string | null
 		...
-	}]
+	}] | {
+		[string]: {
+			name!: bool | number | string | null
+			port!: bool | number | string | null
+			...
+		}
+	}
 	...
 }
 

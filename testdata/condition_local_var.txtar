@@ -28,7 +28,9 @@ data:
 import "struct"
 
 #values: {
-	routes?: _
+	routes?: [...] | {
+		...
+	}
 	...
 }
 

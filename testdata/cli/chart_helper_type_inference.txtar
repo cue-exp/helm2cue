@@ -38,6 +38,10 @@ package test_app
 		name!:      bool | number | string | null
 		mountPath!: bool | number | string | null
 		...
-	}]
+	}] | {[string]: {
+		name!:      bool | number | string | null
+		mountPath!: bool | number | string | null
+		...
+	}}
 	...
 }

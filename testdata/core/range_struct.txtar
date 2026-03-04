@@ -20,7 +20,13 @@ import "struct"
 		name!:  bool | number | string | null
 		value!: bool | number | string | null
 		...
-	}]
+	}] | {
+		[string]: {
+			name!:  bool | number | string | null
+			value!: bool | number | string | null
+			...
+		}
+	}
 	...
 }
 

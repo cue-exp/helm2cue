@@ -13,7 +13,9 @@ labels:
 import "struct"
 
 #input: {
-	labels?: _
+	labels?: [...] | {
+		...
+	}
 	...
 }
 

@@ -24,7 +24,9 @@ spec:
 import "struct"
 
 #values: {
-	extraArgs?: _
+	extraArgs?: [...] | {
+		...
+	}
 	...
 }
 

@@ -20,7 +20,11 @@ package simple_app
 		name!:          bool | number | string | null
 		containerPort!: bool | number | string | null
 		...
-	}]
+	}] | {[string]: {
+		name!:          bool | number | string | null
+		containerPort!: bool | number | string | null
+		...
+	}}
 	service?: {
 		type?: bool | number | string | null
 		port?: bool | number | string | null

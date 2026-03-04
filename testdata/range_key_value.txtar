@@ -25,7 +25,9 @@ metadata:
 import "struct"
 
 #values: {
-	labels?: _
+	labels?: [...] | {
+		...
+	}
 	...
 }
 

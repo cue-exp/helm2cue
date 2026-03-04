@@ -29,7 +29,9 @@ data:
 import "struct"
 
 #values: {
-	items?: _
+	items?: [...] | {
+		...
+	}
 	...
 }
 
