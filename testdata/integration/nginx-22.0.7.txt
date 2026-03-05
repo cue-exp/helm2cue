@@ -1,16 +1,19 @@
 -- ConvertChart --
-warning: helper _common_ingress_backend: if condition: unsupported condition function: typeIs
-warning: helper _common_resources_preset: if condition: hasKey key must be a string literal
-warning: helper _common_tplvalues_merge: function "merge" has no CUE equivalent: CUE uses unification instead of mutable map merging
-warning: helper _common_tplvalues_render: unsupported template action: {{$value := typeIs "string" .value | ternary .value (.value | toYaml)}}
+warning: helper _common_tplvalues_render: if condition: contains argument 1: unsupported condition function: toJson
 warning: skipping ingress-tls-secret.yaml (doc 2): unsupported template action: {{$ca := genCA "nginx-ca" 365}}
 warning: skipping tls-secret.yaml (doc 0): unsupported template action: {{$ca := genCA "nginx-ca" 365}}
 converted 14/21 templates from nginx
 -- cue vet --
 exit status 1
 _cMinor: error in call to strconv.Atoi: strconv.Atoi: parsing "25-0": invalid syntax:
-    ./helpers.cue:74:16
+    ./helpers.cue:100:16
+_common_resources_preset: ERROR: Preset key '#arg.type' invalid. Allowed values are nano,micro,small,medium,large,xlarge,2xlarge:
+    ./helpers.cue:1808:3
+    ./helpers.cue:1808:31
 -- cue export --
 exit status 1
 _cMinor: error in call to strconv.Atoi: strconv.Atoi: parsing "25-0": invalid syntax:
-    ./helpers.cue:74:16
+    ./helpers.cue:100:16
+_common_resources_preset: ERROR: Preset key '#arg.type' invalid. Allowed values are nano,micro,small,medium,large,xlarge,2xlarge:
+    ./helpers.cue:1808:3
+    ./helpers.cue:1808:31

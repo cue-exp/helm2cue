@@ -1,6 +1,38 @@
-mergeOverwrite function: should error because CUE uses unification, not mutable merging.
+mergeOverwrite function in inline position.
+No semantic comparison: CUE comprehension-based merge differs from
+Go runtime map mutation.
 
+-- values.yaml --
+a:
+  x: 1
+b:
+  y: 2
 -- input.yaml --
-data: {{ mergeOverwrite .Values.a .Values.b }}
--- error --
-"mergeOverwrite" has no CUE equivalent: CUE uses unification instead of mutable map merging
+data: {{ mergeOverwrite .Values.a .Values.b | toYaml | nindent 2 }}
+-- output.cue --
+#values: {
+	a!: _
+	b!: _
+	...
+}
+
+output: [
+	{
+		data: (_mergeOverwrite & {
+			#a: #values.a
+			#b: #values.b
+		}).out
+	},
+]
+_mergeOverwrite: {
+	#a!: _
+	#b!: _
+	out: {
+		for k, v in #a if #b[k] == _|_ {
+			(k): v
+		}
+		for k, v in #b {
+			(k): v
+		}
+	}
+}

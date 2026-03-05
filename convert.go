@@ -204,6 +204,38 @@ const omitDef = `_omit: {
 }
 `
 
+// mergeDef is the CUE definition for shallow key-level merge of two
+// structs where the first argument wins, matching Sprig's merge.
+const mergeDef = `_merge: {
+	#a!: _
+	#b!: _
+	out: {
+		for k, v in #a {
+			(k): v
+		}
+		for k, v in #b if #a[k] == _|_ {
+			(k): v
+		}
+	}
+}
+`
+
+// mergeOverwriteDef is the CUE definition for shallow key-level merge
+// of two structs where the last argument wins, matching Sprig's mergeOverwrite.
+const mergeOverwriteDef = `_mergeOverwrite: {
+	#a!: _
+	#b!: _
+	out: {
+		for k, v in #a if #b[k] == _|_ {
+			(k): v
+		}
+		for k, v in #b {
+			(k): v
+		}
+	}
+}
+`
+
 var identRe = regexp.MustCompile(`^[a-zA-Z_$][a-zA-Z0-9_$]*$`)
 
 var sharedCueCtx = cuecontext.New()
@@ -7123,10 +7155,15 @@ func (c *converter) conditionPipeToExpr(pipe *parse.PipeNode) (ast.Expr, error) 
 				return nil, fmt.Errorf("hasKey map argument: %w", err)
 			}
 			keyNode, ok := args[1].(*parse.StringNode)
-			if !ok {
-				return nil, fmt.Errorf("hasKey key must be a string literal")
+			if ok {
+				return nonzeroExpr(selExpr(mapExpr, cueKey(keyNode.Text))), nil
 			}
-			return nonzeroExpr(selExpr(mapExpr, cueKey(keyNode.Text))), nil
+			// Dynamic key: map[key] != _|_
+			keyExpr, err := c.conditionNodeToRawExpr(args[1])
+			if err != nil {
+				return nil, fmt.Errorf("hasKey key argument: %w", err)
+			}
+			return binOp(token.NEQ, indexExpr(mapExpr, keyExpr), &ast.BottomLit{}), nil
 		case "coalesce":
 			if !c.isCoreFunc(id.Ident) {
 				return nil, fmt.Errorf("unsupported condition function: %s (not a text/template builtin)", id.Ident)
@@ -7282,6 +7319,51 @@ func (c *converter) conditionPipeToExpr(pipe *parse.PipeNode) (ast.Expr, error) 
 				typeExpr = ast.NewIdent(cueType)
 			}
 			return binOp(token.NEQ, parenExpr(binOp(token.AND, valExpr, typeExpr)), &ast.BottomLit{}), nil
+		case "typeIs":
+			if !c.isCoreFunc(id.Ident) {
+				return nil, fmt.Errorf("unsupported condition function: %s (not a text/template builtin)", id.Ident)
+			}
+			if len(args) != 2 {
+				return nil, fmt.Errorf("typeIs requires 2 arguments, got %d", len(args))
+			}
+			typeIsNode, ok := args[0].(*parse.StringNode)
+			if !ok {
+				return nil, fmt.Errorf("typeIs type must be a string literal")
+			}
+			typeIsValExpr, err := c.conditionNodeToRawExpr(args[1])
+			if err != nil {
+				return nil, fmt.Errorf("typeIs value argument: %w", err)
+			}
+			typeIsMap := map[string]string{
+				"bool":                    "bool",
+				"string":                  "string",
+				"int":                     "int",
+				"int64":                   "int",
+				"float64":                 "float",
+				"map[string]interface {}": "{...}",
+				"[]interface {}":          "[...]",
+			}
+			if typeIsNode.Text == "<nil>" || typeIsNode.Text == "<invalid>" {
+				return binOp(token.EQL, typeIsValExpr, &ast.BottomLit{}), nil
+			}
+			typeIsCueType, ok := typeIsMap[typeIsNode.Text]
+			if !ok {
+				return nil, fmt.Errorf("unsupported typeIs type: %q", typeIsNode.Text)
+			}
+			var typeIsTypeExpr ast.Expr
+			switch typeIsCueType {
+			case "{...}":
+				typeIsTypeExpr = &ast.StructLit{
+					Elts: []ast.Decl{&ast.Ellipsis{}},
+				}
+			case "[...]":
+				typeIsTypeExpr = &ast.ListLit{
+					Elts: []ast.Expr{&ast.Ellipsis{}},
+				}
+			default:
+				typeIsTypeExpr = ast.NewIdent(typeIsCueType)
+			}
+			return binOp(token.NEQ, parenExpr(binOp(token.AND, typeIsValExpr, typeIsTypeExpr)), &ast.BottomLit{}), nil
 		case "typeOf":
 			if !c.isCoreFunc(id.Ident) {
 				return nil, fmt.Errorf("unsupported condition function: %s (not a text/template builtin)", id.Ident)
