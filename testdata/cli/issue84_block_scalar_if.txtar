@@ -32,19 +32,17 @@ data:
 
 package test
 
-import "strings"
-
 test: [
 	{
 		apiVersion: "v1"
 		kind:       "ConfigMap"
 		metadata: name:    "test"
 		data: datasources: """
-	datasources:\(strings.Join([if (_nonzero & {
+	datasources:\([if (_nonzero & {
 			#arg: #values.enabled
 		}).out {
 			"\n- name: \(#values.firstName)\n  type: first"
-		}], ""))
+		}, ""][0])
 	- name: \(#values.secondName)
 	  type: second
 	

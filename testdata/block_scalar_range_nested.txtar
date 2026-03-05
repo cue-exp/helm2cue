@@ -1,0 +1,89 @@
+Range with nested control structures (if) inside a YAML block scalar
+embeds the range and its nested if as string expressions rather than
+leaking the loop variable outside the for comprehension scope.
+-- values.yaml --
+replicas: 3
+enabled: true
+uid: prometheus
+-- input.yaml --
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test
+data:
+  config.yaml: |-
+    datasources:
+{{- if .Values.enabled }}
+{{- range until (int .Values.replicas) }}
+    - name: "replica-{{ . }}"
+      uid: {{ $.Values.uid }}-{{ . }}
+{{- if $.Values.enabled }}
+      active: true
+{{- end }}
+{{- end }}
+{{- end }}
+-- helm_output.yaml --
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test
+data:
+  config.yaml: |-
+    datasources:
+    - name: "replica-0"
+      uid: prometheus-0
+      active: true
+    - name: "replica-1"
+      uid: prometheus-1
+      active: true
+    - name: "replica-2"
+      uid: prometheus-2
+      active: true
+-- output.cue --
+import (
+	"strings"
+	"list"
+	"struct"
+)
+
+#values: {
+	enabled?:  bool | number | string | null
+	replicas?: bool | number | string | null
+	uid!:      bool | number | string | null
+	...
+}
+
+output: [
+	{
+		apiVersion: "v1"
+		kind:       "ConfigMap"
+		metadata: name:      "test"
+		data: "config.yaml": """
+	datasources:\([if (_nonzero & {
+			#arg: #values.enabled
+		}).out {
+			"\(strings.Join([for _, _range0 in list.Range(0, int & #values.replicas, 1) {
+				"\n- name: \"replica-\(_range0)\"\n  uid: \(#values.uid)-\(_range0)\([if (_nonzero & {
+					#arg: #values.enabled
+				}).out {
+					"\n  active: true"
+				}, ""][0])"
+			}], ""))"
+		}, ""][0])
+	"""
+	},
+]
+_nonzero: {
+	#arg?: _
+	out: [if #arg != _|_ {
+		[
+			if (#arg & int) != _|_ {#arg != 0},
+			if (#arg & string) != _|_ {#arg != ""},
+			if (#arg & float) != _|_ {#arg != 0.0},
+			if (#arg & bool) != _|_ {#arg},
+			if (#arg & [...]) != _|_ {len(#arg) > 0},
+			if (#arg & {...}) != _|_ {(#arg & struct.MaxFields(0)) == _|_},
+			false,
+		][0]
+	}, false][0]
+}
