@@ -201,12 +201,15 @@ standard library does not yet provide as builtins:
 
 | Helper | Purpose |
 |---|---|
-| `_nonzero` | Tests whether a value is "truthy" (non-zero, non-empty, non-null), matching Go `text/template` semantics |
+| `_nonzero` | Tests whether a value is "truthy" (non-zero, non-empty, non-null), matching Go `text/template` semantics. Has an `out` field: `(_nonzero & {#arg: expr}).out` |
 | `_semverCompare` | Evaluates simple semver operator constraints (`>=`, `<=`, `>`, `<`, `!=`, `=`) against a version string |
 | `_trunc` | Truncates a string to N runes, matching Helm's `trunc` semantics |
 | `_last` | Extracts the last element of a list |
 | `_compact` | Removes empty strings from a list |
 | `_uniq` | Removes duplicate elements from a list |
+| `_typeof` | Returns the CUE type name of a value, matching Sprig's `typeOf` semantics |
+| `_dig` | Nested map traversal with a default value, matching Sprig's `dig` |
+| `_omit` | Returns a struct with specified keys removed, matching Sprig's `omit` |
 
 These are natural candidates for CUE standard library builtins and will be
 removed once those exist.
@@ -238,15 +241,19 @@ removed once those exist.
 | `{{/* comment */}}` | CUE comment: `// ...` | Done |
 | `{{ define "name" }}...{{ end }}` | CUE hidden field: `_name: <expr>` | Done |
 | `{{ include "name" . }}` | Reference to hidden field: `_name` | Done |
-| `{{ include "name" .Values.x }}` | `_name & {#arg: #values.x, _}` with schema propagation | Done |
+| `{{ include "name" .Values.x }}` | `(_name & {#arg: #values.x}).out` with schema propagation | Done |
 | `{{ include "name" (dict ...) }}` | Reference with dict context tracking | Done |
 | `{{ include (print ...) . }}` | Dynamic lookup: `_helpers[nameExpr]` | Done |
-| `{{ if include "name" . }}` | Condition with `_nonzero` wrapping include result | Done |
+| `{{ if include "name" . }}` | Condition with `(_nonzero & {#arg: ...}).out` | Done |
 | `{{ template "name" . }}` | Reference to hidden field: `_name` | Done |
 | `{{ with .Values.x }}...{{ end }}` | CUE `if` guard with dot rebinding | Done |
 | `{{ with .Values.x }}...{{ else }}...{{ end }}` | Two `if` guards; `with` branch rebinds dot, `else` does not | Done |
 | `{{ tpl .Values.x . }}` | `yaml.Unmarshal(template.Execute(#values.x, _tplContext))` | Done |
 | `{{ tpl (toYaml .Values.x) . }}` | Wraps value in `yaml.Marshal(...)` before `template.Execute` | Done |
+| `{{ dig "a" "b" "default" .Values.x }}` | `(_dig & {#path: ["a","b"], #default: "default", #map: #values.x}).out` | Done |
+| `{{ omit .Values.x "key" }}` | `(_omit & {#arg: #values.x, #omit: ["key"]}).out` | Done |
+| `{{ kindIs "string" .Values.x }}` | Type test condition | Done |
+| `{{ typeOf .Values.x }}` | `(_typeof & {#arg: #values.x}).out` | Done |
 | `{{ lookup ... }}` | Not supported (descriptive error) | Error |
 
 ### Pipeline functions (Sprig, chart mode only)
@@ -297,10 +304,11 @@ removed once those exist.
 | `list` | `[arg1, arg2, ...]` (list literal) | — |
 | `last` | `(_last & {#in: expr}).out` | — |
 | `uniq` | `(_uniq & {#in: expr}).out` | `list` |
+| `mustUniq` | `(_uniq & {#in: expr}).out` (alias for `uniq`) | `list` |
 | `compact` | `(_compact & {#in: expr}).out` | — |
 | `dict` | `{key: val, ...}` (struct literal) | — |
 | `get` | `map.key` or `map[key]` | — |
-| `hasKey` | `(_nonzero & {#arg: map.key, _})` | — |
+| `hasKey` | `(_nonzero & {#arg: map.key}).out` | — |
 | `keys` | `[ for k, _ in expr {k}]` | — |
 | `values` | `[ for _, v in expr {v}]` | — |
 | `coalesce` | `[if nz(a) {a}, ..., last][0]` | — |
@@ -320,11 +328,6 @@ is a good stress test).
 ### Template constructs
 
 - **`lookup`** — runtime Kubernetes API lookups have no static CUE equivalent
-- **`index` in conditions** — `{{ if (index .Values "key").field }}` uses
-  bracket-style map access which the condition parser does not handle
-- **Method calls in conditions** — e.g.
-  `.Capabilities.APIVersions.Has "autoscaling/v2"` (method-style calls
-  on context objects)
 
 ### Sprig functions not yet converted
 
@@ -337,40 +340,51 @@ is a good stress test).
 
 Some functions that _are_ handled have gaps in specific usage patterns:
 
-- **`default`** with non-literal fallback — `default` works when the
-  fallback is a literal (`"x"`, `true`, `80`), a field reference
-  (`.Values.x`), or a `printf`/`print` call, but fails when it is an
-  `include` call or a keyword (`list`)
 - **Functions in sub-expression position** — when a function call
   appears nested inside another expression (e.g. as an argument to
-  `default`), only `printf`, `print`, `include`, and `tpl` are
-  recognised. Other functions in that position produce an "unsupported pipe node"
-  error. Each function requires an explicit case in `nodeToExpr`
-- **`ternary`** — the function is recognised but fails in some contexts
-  (e.g. when used in webhook configurations)
+  `default`), only a subset of functions is recognised. Other functions
+  in that position produce an "unsupported pipe node" error. Each
+  function requires an explicit case in `nodeToExpr`
 
 ### CUE output validation failures
 
 Some templates convert without error but produce CUE that does not
-parse. These are structural issues in how the converter maps
-YAML+template interactions to CUE, not missing function support. The
-17 errors across integration tests (2 nginx, 15 kube-prometheus-stack)
-break down as follows:
+validate. These are structural issues in how the converter maps
+YAML+template interactions to CUE, not missing function support.
 
-- **YAML sibling keys nested into lists** (~6 errors) — when a YAML
-  list item has sibling keys (`apiGroups:`, `resources:`, `verbs:`),
-  the converter nests subsequent keys inside the first key's list
-  instead of making them struct fields within the list element
-- **`toYaml` splicing into list context** (~5 errors) — `toYaml`
-  output inserted mid-list cannot be tracked as list vs struct context,
-  producing `missing ',' in list literal`
-- **Multi-part string interpolation** (2 errors) — complex image
-  strings like `{{ $reg }}/{{ .repo }}:{{ .tag }}@sha256:{{ .sha }}`
-  fail to combine into a single CUE string interpolation, producing
-  stray tokens
-- **Range body boundary** (2 errors) — range over content that
-  produces multiple YAML documents closes the `for` comprehension
-  too early, leaving trailing content outside the loop
+**nginx** (14/21 templates converted, 2 skipped due to `genCA`):
+`cue vet` reports type conflicts in image helpers where `#arg.global`
+is constrained as `bool | number | string | null` but receives a
+struct value, plus a few undefined field errors and a field combination
+conflict in `_common_warnings_resources`.
+
+**kube-prometheus-stack** (171/216 templates converted): `cue vet`
+reports `_range0` reference-not-found errors in one template
+(`grafana_configmaps_datasources`) where a range variable escapes its
+scope.
+
+## Key Issues
+
+The following issues track fundamental design questions that affect how
+templates are converted. They are not simple bugs — they represent tensions
+in the mapping from Go `text/template` semantics to CUE, and may require
+ongoing refinement as more real-world charts are tested.
+
+- [**#92 — Helper output type: body analysis vs call-site
+  analysis**](https://github.com/cue-exp/helm2cue/issues/92) — When a
+  helper produces multi-line output, the converter must decide whether it
+  is structured YAML (emitted as CUE struct fields) or plain text (emitted
+  as a CUE string). The current approach analyses the helper body to make
+  this decision, but `{{ include "foo" . | nindent 4 }}` is genuinely
+  ambiguous: `nindent` applies equally to structured YAML that needs
+  re-indenting and to plain text that happens to need indenting.
+
+- [**#93 — Improve readability of generated
+  CUE**](https://github.com/cue-exp/helm2cue/issues/93) — The generated
+  CUE is correct but not always idiomatic or readable. Helper call sites
+  like `(_nonzero & {#arg: expr}).out` are verbose, schema types are
+  broader than necessary, and the overall style should feel natural to
+  CUE users. Tracks readability improvements as a cross-cutting concern.
 
 ## Related Projects
 
@@ -449,6 +463,7 @@ Each file uses the same txtar format with additional optional sections:
 - `-- values.yaml --` — Helm values to use during validation
 - `-- helm_output.yaml --` — expected rendered output from `helm template`
 - `-- error --` — expected error substring (negative test; see below)
+- `-- broken --` — marks a known converter bug (see below)
 
 Each test case:
 
@@ -472,6 +487,23 @@ the given substring. This is used to verify that unsupported functions
 (`merge`, `set`, `lookup`) and invalid argument counts produce
 clear error messages. Error tests are named `error_*.txtar` by
 convention.
+
+#### Broken tests
+
+If `-- broken --` is present, the test marks a known converter bug.
+`helm template` validation still runs against `helm_output.yaml`, then
+`Convert()` is expected to error with the `broken` substring. When the
+bug is fixed, `-- broken --` is replaced with `-- output.cue --`.
+This keeps the test in the verified directory from the start so the fix
+produces a clean diff.
+
+#### Noverify tests
+
+Tests in `testdata/noverify/*.txtar` are run by `TestConvertNoVerify`.
+These must **not** contain `helm_output.yaml`. Each file must have a
+txtar comment explaining why Helm comparison is not possible (e.g.
+Helm renders Go format output like `map[...]`, uses undefined helpers,
+or produces output that cannot be meaningfully compared).
 
 ### Integration tests
 
@@ -506,7 +538,11 @@ includes:
 - **`template` subcommand**: file input, file with helper, stdin input
 - **`template` errors**: multiple template files, non-existent file,
   unsupported Sprig/Helm function
+- **`chart` subcommand**: full chart conversion with helpers, subcharts,
+  values schema inference, and output file comparison
 - **`chart` errors**: missing arguments, non-existent chart directory
+- **Bug reproductions**: issue-specific tests (e.g. `issue85_*.txtar`,
+  `issue86_*.txtar`) that exercise chart-level conversion for reported bugs
 - **`version` subcommand**: prints version information
 - **Usage/unknown command**: no arguments, unknown subcommand
 
