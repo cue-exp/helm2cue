@@ -2810,12 +2810,11 @@ func (c *converter) embedRangeInBlockScalarMultiline(n *parse.RangeNode) error {
 		return err
 	}
 
-	// Strip leading newline from body expression: the first text node
-	// typically starts with "\n" which is the line separator from the
-	// range tag to the body. We use "\n" as the join separator instead.
+	// At the top level of a block scalar, strip the leading "\n" from
+	// the body and use "\n" as the join separator so the range output
+	// starts cleanly on its own block scalar line.
 	bodyExpr = stripLeadingNewline(bodyExpr)
 
-	// Build strings.Join([for _, val in overExpr {bodyExpr}], "\n").
 	c.addImport("strings")
 	keyExpr := "_"
 	if keyName != "" {
@@ -2838,7 +2837,6 @@ func (c *converter) embedRangeInBlockScalarMultiline(n *parse.RangeNode) error {
 	joinExpr := importCall("strings", "Join", listComp, cueString("\n"))
 
 	joinText := inlineExpr(c.exprToGuardText(joinExpr))
-	// Start the range output on a new block scalar line.
 	c.blockScalarLines = append(c.blockScalarLines, joinText)
 	c.blockScalarPartialLine = true
 	return nil
@@ -2905,15 +2903,14 @@ func (c *converter) embedIfInBlockScalar(n *parse.IfNode) error {
 		return err
 	}
 
-	c.addImport("strings")
-	joinExpr := conditionalStringJoin(condition, ifExpr)
+	joinExpr := conditionalStringSelect(condition, ifExpr)
 
 	if n.ElseList != nil && len(n.ElseList.Nodes) > 0 {
 		elseExpr, err := c.blockScalarBranchToExpr(n.ElseList.Nodes)
 		if err != nil {
 			return err
 		}
-		elseJoin := conditionalStringJoin(negCondition, elseExpr)
+		elseJoin := conditionalStringSelect(negCondition, elseExpr)
 		joinExpr = binOp(token.ADD, joinExpr, elseJoin)
 	}
 
@@ -2955,9 +2952,184 @@ func (c *converter) blockScalarBranchToExpr(nodes []parse.Node) (ast.Expr, error
 				c.usedContextObjects[helmObj] = true
 			}
 			parts = append(parts, toInlinePart(ast.NewIdent(cueName)))
+		case *parse.IfNode:
+			expr, err := c.blockScalarIfToExpr(t)
+			if err != nil {
+				return nil, err
+			}
+			parts = append(parts, toInlinePart(expr))
+		case *parse.RangeNode:
+			expr, err := c.blockScalarRangeToExpr(t)
+			if err != nil {
+				return nil, err
+			}
+			parts = append(parts, toInlinePart(expr))
+		case *parse.WithNode:
+			expr, err := c.blockScalarWithToExpr(t)
+			if err != nil {
+				return nil, err
+			}
+			parts = append(parts, toInlinePart(expr))
 		}
 	}
 	return partsToExpr(parts), nil
+}
+
+// blockScalarIfToExpr converts an IfNode inside a block scalar body
+// to a conditional string expression: [if cond {text}, ""][0].
+func (c *converter) blockScalarIfToExpr(n *parse.IfNode) (ast.Expr, error) {
+	c.hasConditions = true
+
+	condition, negCondition, err := c.pipeToCUECondition(n.Pipe)
+	if err != nil {
+		return nil, fmt.Errorf("block scalar if: %w", err)
+	}
+
+	ifExpr, err := c.blockScalarBranchToExpr(n.List.Nodes)
+	if err != nil {
+		return nil, err
+	}
+
+	joinExpr := conditionalStringSelect(condition, ifExpr)
+
+	if n.ElseList != nil && len(n.ElseList.Nodes) > 0 {
+		elseExpr, err := c.blockScalarBranchToExpr(n.ElseList.Nodes)
+		if err != nil {
+			return nil, err
+		}
+		elseJoin := conditionalStringSelect(negCondition, elseExpr)
+		joinExpr = binOp(token.ADD, joinExpr, elseJoin)
+	}
+
+	return joinExpr, nil
+}
+
+// blockScalarWithToExpr converts a WithNode inside a block scalar body
+// to a conditional string expression with dot rebinding.
+func (c *converter) blockScalarWithToExpr(n *parse.WithNode) (ast.Expr, error) {
+	c.hasConditions = true
+
+	condition, negCondition, err := c.pipeToCUECondition(n.Pipe)
+	if err != nil {
+		return nil, fmt.Errorf("block scalar with: %w", err)
+	}
+
+	// Rebind dot for the with body.
+	rawExpr, err := c.withPipeToRawExpr(n.Pipe)
+	if err != nil {
+		return nil, err
+	}
+	if len(n.Pipe.Decl) > 0 {
+		c.localVars[n.Pipe.Decl[0].Ident[0]] = rawExpr
+	}
+
+	helmObj, basePath := c.withPipeContext(n.Pipe)
+	c.rangeVarStack = append(c.rangeVarStack, rangeContext{
+		cueExpr:  rawExpr,
+		helmObj:  helmObj,
+		basePath: basePath,
+	})
+
+	withExpr, err := c.blockScalarBranchToExpr(n.List.Nodes)
+
+	// Pop scope.
+	c.rangeVarStack = c.rangeVarStack[:len(c.rangeVarStack)-1]
+	if len(n.Pipe.Decl) > 0 {
+		delete(c.localVars, n.Pipe.Decl[0].Ident[0])
+	}
+
+	if err != nil {
+		return nil, err
+	}
+
+	joinExpr := conditionalStringSelect(condition, withExpr)
+
+	if n.ElseList != nil && len(n.ElseList.Nodes) > 0 {
+		elseExpr, err := c.blockScalarBranchToExpr(n.ElseList.Nodes)
+		if err != nil {
+			return nil, err
+		}
+		elseJoin := conditionalStringSelect(negCondition, elseExpr)
+		joinExpr = binOp(token.ADD, joinExpr, elseJoin)
+	}
+
+	return joinExpr, nil
+}
+
+// blockScalarRangeToExpr converts a RangeNode inside a block scalar body
+// to a strings.Join([for ... {text}], "\n") expression.
+func (c *converter) blockScalarRangeToExpr(n *parse.RangeNode) (ast.Expr, error) {
+	// Resolve range expression.
+	saved := c.suppressRequired
+	c.suppressRequired = true
+	overExpr, helmObj, fieldPath, err := c.pipeToFieldExpr(n.Pipe)
+	c.suppressRequired = saved
+	if err != nil {
+		return nil, fmt.Errorf("block scalar range: %w", err)
+	}
+	if helmObj != "" {
+		c.usedContextObjects[helmObj] = true
+		if fieldPath != nil {
+			c.rangeRefs[helmObj] = append(c.rangeRefs[helmObj], fieldPath)
+		}
+	}
+
+	// Determine loop variable names.
+	blockIdx := len(c.rangeVarStack)
+	var keyName, valName string
+	if len(n.Pipe.Decl) == 2 {
+		keyName = fmt.Sprintf("_key%d", blockIdx)
+		valName = fmt.Sprintf("_val%d", blockIdx)
+		c.localVars[n.Pipe.Decl[0].Ident[0]] = ast.NewIdent(keyName)
+		c.localVars[n.Pipe.Decl[1].Ident[0]] = ast.NewIdent(valName)
+	} else if len(n.Pipe.Decl) == 1 {
+		valName = fmt.Sprintf("_range%d", blockIdx)
+		c.localVars[n.Pipe.Decl[0].Ident[0]] = ast.NewIdent(valName)
+	} else {
+		valName = fmt.Sprintf("_range%d", blockIdx)
+	}
+
+	// Push range context.
+	ctx := rangeContext{cueExpr: ast.NewIdent(valName)}
+	c.rangeVarStack = append(c.rangeVarStack, ctx)
+
+	// Convert body to string expression.
+	bodyExpr, err := c.blockScalarBranchToExpr(n.List.Nodes)
+
+	// Pop range context and clean up local vars.
+	c.rangeVarStack = c.rangeVarStack[:blockIdx]
+	for _, decl := range n.Pipe.Decl {
+		delete(c.localVars, decl.Ident[0])
+	}
+
+	if err != nil {
+		return nil, err
+	}
+
+	// Keep the body as-is: the leading "\n" from the first text node
+	// serves as the separator between iterations and between the
+	// preceding content and the first iteration. Use "" as the join
+	// separator since the body already contains its own newlines.
+	c.addImport("strings")
+	keyExpr := "_"
+	if keyName != "" {
+		keyExpr = keyName
+	}
+	listComp := &ast.ListLit{Elts: []ast.Expr{
+		&ast.Comprehension{
+			Clauses: []ast.Clause{
+				&ast.ForClause{
+					Key:    ast.NewIdent(keyExpr),
+					Value:  ast.NewIdent(valName),
+					Source: overExpr,
+				},
+			},
+			Value: &ast.StructLit{Elts: []ast.Decl{
+				&ast.EmbedDecl{Expr: bodyExpr},
+			}},
+		},
+	}}
+	return importCall("strings", "Join", listComp, cueString("")), nil
 }
 
 // normalizeBlockScalarText strips the block scalar base indent from each
@@ -2981,8 +3153,9 @@ func (c *converter) normalizeBlockScalarText(text string) string {
 	return strings.Join(lines, "\n")
 }
 
-// conditionalStringJoin builds strings.Join([if condition { expr }], "").
-func conditionalStringJoin(condition, bodyExpr ast.Expr) ast.Expr {
+// conditionalStringSelect builds [if condition {expr}, ""][0]:
+// evaluates to expr when the condition is true, or "" when false.
+func conditionalStringSelect(condition, bodyExpr ast.Expr) ast.Expr {
 	comp := &ast.Comprehension{
 		Clauses: []ast.Clause{
 			&ast.IfClause{Condition: condition},
@@ -2991,8 +3164,10 @@ func conditionalStringJoin(condition, bodyExpr ast.Expr) ast.Expr {
 			&ast.EmbedDecl{Expr: bodyExpr},
 		}},
 	}
-	listComp := &ast.ListLit{Elts: []ast.Expr{comp}}
-	return importCall("strings", "Join", listComp, cueString(""))
+	return &ast.IndexExpr{
+		X:     &ast.ListLit{Elts: []ast.Expr{comp, cueString("")}},
+		Index: cueInt(0),
+	}
 }
 
 // finalizeBlockScalar emits the accumulated block scalar content as a CUE
@@ -3976,41 +4151,38 @@ func isInlineSafeIf(n *parse.IfNode) bool {
 	return true
 }
 
-// isBlockScalarSafeBody reports whether all nodes are text, action,
-// or template nodes — suitable for embedding within a block scalar string.
-// Unlike isInlineBody, newlines in text nodes are allowed.
-func isBlockScalarSafeBody(nodes []parse.Node) bool {
+// isBlockScalarEmbeddable reports whether all nodes can be converted to
+// string expressions by blockScalarBranchToExpr. This is a recursive check:
+// text, action, template, if (with embeddable bodies), and range (with
+// embeddable body) are accepted.
+func isBlockScalarEmbeddable(nodes []parse.Node) bool {
 	for _, n := range nodes {
-		switch n.(type) {
+		switch t := n.(type) {
 		case *parse.TextNode, *parse.ActionNode, *parse.TemplateNode:
 			// OK
+		case *parse.IfNode:
+			if t.List == nil || !isBlockScalarEmbeddable(t.List.Nodes) {
+				return false
+			}
+			if t.ElseList != nil && !isBlockScalarEmbeddable(t.ElseList.Nodes) {
+				return false
+			}
+		case *parse.RangeNode:
+			if t.List == nil || !isBlockScalarEmbeddable(t.List.Nodes) {
+				return false
+			}
+		case *parse.WithNode:
+			if t.List == nil || !isBlockScalarEmbeddable(t.List.Nodes) {
+				return false
+			}
+			if t.ElseList != nil && !isBlockScalarEmbeddable(t.ElseList.Nodes) {
+				return false
+			}
 		default:
 			return false
 		}
 	}
 	return len(nodes) > 0
-}
-
-// isBlockScalarSafeIf reports whether an IfNode can be embedded within a
-// block scalar: both bodies contain only text, action, and template nodes.
-func isBlockScalarSafeIf(n *parse.IfNode) bool {
-	if n.List == nil || !isBlockScalarSafeBody(n.List.Nodes) {
-		return false
-	}
-	if n.ElseList != nil && !isBlockScalarSafeBody(n.ElseList.Nodes) {
-		return false
-	}
-	return true
-}
-
-// isBlockScalarSafeRange reports whether a RangeNode can be embedded within
-// a block scalar: the body contains only text, action, and template nodes,
-// and there is no else branch.
-func isBlockScalarSafeRange(n *parse.RangeNode) bool {
-	if n.List == nil || !isBlockScalarSafeBody(n.List.Nodes) {
-		return false
-	}
-	return n.ElseList == nil || len(n.ElseList.Nodes) == 0
 }
 
 // isInlineSafeRange reports whether a RangeNode can be handled inline:
@@ -4049,7 +4221,8 @@ func (c *converter) processNode(node parse.Node) error {
 		comment := c.comments[expr]
 		c.emitActionExpr(expr, comment)
 	case *parse.IfNode:
-		if c.blockScalarLines != nil && isBlockScalarSafeIf(n) {
+		if c.blockScalarLines != nil && isBlockScalarEmbeddable(n.List.Nodes) &&
+			(n.ElseList == nil || isBlockScalarEmbeddable(n.ElseList.Nodes)) {
 			return c.embedIfInBlockScalar(n)
 		}
 		if c.inlineParts != nil && isInlineSafeIf(n) {
@@ -4060,7 +4233,7 @@ func (c *converter) processNode(node parse.Node) error {
 		if c.blockScalarLines != nil && isInlineSafeRange(n) {
 			return c.embedRangeInBlockScalar(n)
 		}
-		if c.blockScalarLines != nil && isBlockScalarSafeRange(n) {
+		if c.blockScalarLines != nil && isBlockScalarEmbeddable(n.List.Nodes) {
 			return c.embedRangeInBlockScalarMultiline(n)
 		}
 		if c.inlineParts != nil && isInlineSafeRange(n) {
