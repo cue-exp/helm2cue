@@ -56,13 +56,4 @@ _nonzero: {
 	}, false][0]
 }
 
-_test_warnings: {
-	if !((_nonzero & {
-		#arg: #values.resources
-	}).out) {}
-	if (_nonzero & {
-		#arg: true
-	}).out {
-		WARNING: "There are sections not set.", "+info https://example.com"
-	}
-}
+_test_warnings: "WARNING: There are sections not set. +info https://example.com"

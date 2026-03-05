@@ -1,0 +1,51 @@
+Text helper with mixed content (field-like and bare string) inside
+a non-top-level if comprehension collapses to a string value.
+Helm comparison not possible: the text collapse normalizes whitespace
+(newlines become spaces), producing a different string than Helm.
+-- values.yaml --
+resources: {}
+-- helpers.tpl --
+{{- define "test.warnings" -}}
+{{- $msg := false -}}
+{{- if not .Values.resources -}}
+  {{- $msg = true -}}
+{{- end -}}
+{{- if $msg }}
+error: something went wrong
+please check the logs
+{{- end -}}
+{{- end -}}
+-- input.yaml --
+data:
+  warn: {{ include "test.warnings" . | trim | quote }}
+-- output.cue --
+import (
+	"strings"
+	"struct"
+)
+
+#values: {
+	resources?: bool | number | string | null
+	...
+}
+_test_warnings: "error: something went wrong please check the logs"
+
+output: [
+	{
+		data: warn: "\(strings.TrimSpace(_test_warnings))"
+	},
+]
+_nonzero: {
+	#arg?: _
+	out: [if #arg != _|_ {
+		[
+			if (#arg & int) != _|_ {#arg != 0},
+			if (#arg & string) != _|_ {#arg != ""},
+			if (#arg & float) != _|_ {#arg != 0.0},
+			if (#arg & bool) != _|_ {#arg},
+			if (#arg & [...]) != _|_ {len(#arg) > 0},
+			if (#arg & {...}) != _|_ {(#arg & struct.MaxFields(0)) == _|_},
+			false,
+		][0]
+	}, false][0]
+}
