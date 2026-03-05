@@ -49,8 +49,8 @@ output: [
 			_
 		}) {
 			data: {
-				secretName: #values.secret.name
-				secretKey:  #values.secret.key
+				secretName: "\(#values.secret.name)"
+				secretKey:  "\(#values.secret.key)"
 				if (_nonzero & {
 					#arg: #values.secret.optional
 					_

@@ -23,7 +23,7 @@ output: [
 		}) {
 			error("required must be set")
 		}
-		data: #values.name
+		data: "\(#values.name)"
 	},
 ]
 _nonzero: {

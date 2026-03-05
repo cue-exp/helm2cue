@@ -26,7 +26,7 @@ output: [
 	{
 		apiVersion: "v1"
 		kind:       "ConfigMap"
-		metadata: name: #values.name
+		metadata: name: "\(#values.name)"
 		data: key:      "hello"
 	},
 ]

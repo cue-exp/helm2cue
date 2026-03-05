@@ -36,7 +36,7 @@ output: [
 			#arg: #input.items
 			_
 		}) for _, _range0 in #input.items {
-			name: _range0.name, value: _range0.value
+			name: _range0.name, value: "\(_range0.value)"
 		},
 		]
 	},

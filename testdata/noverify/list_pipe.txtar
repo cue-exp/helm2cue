@@ -23,8 +23,8 @@ output: [
 		kind:       "ConfigMap"
 		metadata: name: "test"
 		data: {
-			single: [#values.item]
-			multi: ["a", "b", #values.item]
+			single: "\([#values.item])"
+			multi:  "\(["a", "b", #values.item])"
 		}
 	},
 ]

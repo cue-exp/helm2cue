@@ -18,8 +18,8 @@ _myapp_labels: {
 		version!: bool | number | string | null
 		...
 	}
-	app:     #arg.name
-	version: #arg.version
+	app:     "\(#arg.name)"
+	version: "\(#arg.version)"
 }
 
 output: [

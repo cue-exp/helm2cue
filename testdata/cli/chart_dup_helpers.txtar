@@ -68,8 +68,8 @@ _trunc: {
 }
 
 _dup_helpers_labels: {
-	"app.kubernetes.io/name":     _dup_helpers_name
-	"app.kubernetes.io/instance": #release.Name
+	"app.kubernetes.io/name":     "\(_dup_helpers_name)"
+	"app.kubernetes.io/instance": "\(#release.Name)"
 }
 _dup_helpers_name: strings.TrimSuffix((_trunc & {
 	#in: #chart.Name
@@ -95,15 +95,15 @@ deployment: [
 		apiVersion: "apps/v1"
 		kind:       "Deployment"
 		metadata: {
-			name:   _dup_helpers_name
+			name:   "\(_dup_helpers_name)"
 			labels: _dup_helpers_labels
 		}
 		spec: {
-			replicas: #values.replicaCount
+			replicas: "\(#values.replicaCount)"
 			template: spec: containers: [
 				{
 					name:  _dup_helpers_name
-					image: #values.image
+					image: "\(#values.image)"
 				},
 			]
 		}

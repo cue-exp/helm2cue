@@ -25,7 +25,7 @@ import (
 
 output: [
 	{
-		data: yaml.Unmarshal(template.Execute(#values.greeting, _tplContext))
+		data: "\(yaml.Unmarshal(template.Execute(#values.greeting, _tplContext)))"
 	},
 ]
 _tplContext: {

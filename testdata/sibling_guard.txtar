@@ -44,7 +44,7 @@ output: [
 				#arg: #values.config.enabled
 				_
 			}) {
-				name: #values.config.name
+				name: "\(#values.config.name)"
 			}
 		}
 	},

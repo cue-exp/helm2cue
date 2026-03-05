@@ -66,7 +66,7 @@ output: [
 			_
 		}) for _, _range0 in #values.hosts {
 			host: _range0.name
-			port: _range0.port
+			port: "\(_range0.port)"
 			paths: [
 				{
 					path:    "/"

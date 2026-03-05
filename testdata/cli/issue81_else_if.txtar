@@ -39,7 +39,7 @@ deploy: [
 				#arg: #values.x
 				_
 			}) {
-				key: #values.x
+				key: "\(#values.x)"
 			}
 			if !(_nonzero & {
 				#arg: #values.x
@@ -48,7 +48,7 @@ deploy: [
 				#arg: #values.y
 				_
 			}) {
-				key: #values.y
+				key: "\(#values.y)"
 			}
 		}
 	},

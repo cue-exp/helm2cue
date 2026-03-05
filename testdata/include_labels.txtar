@@ -32,8 +32,8 @@ metadata:
 	...
 }
 _myapp_labels: {
-	app:     #chart.Name
-	release: #release.Name
+	app:     "\(#chart.Name)"
+	release: "\(#release.Name)"
 }
 
 output: [

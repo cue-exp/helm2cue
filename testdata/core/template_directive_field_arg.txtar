@@ -20,9 +20,9 @@ _id: {
 
 output: [
 	{
-		name: _id & {
+		name: "\(_id & {
 			#arg: #input.name
 			_
-		}
+		})"
 	},
 ]

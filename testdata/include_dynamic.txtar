@@ -39,8 +39,8 @@ output: [
 		apiVersion: "v1"
 		kind:       "ConfigMap"
 		metadata: {
-			name: _myapp_fullname
-			app:  _helpers["myapp.fullname"]
+			name: "\(_myapp_fullname)"
+			app:  "\(_helpers["myapp.fullname"])"
 		}
 	},
 ]

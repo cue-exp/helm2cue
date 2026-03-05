@@ -42,14 +42,14 @@ output: [
 		apiVersion: "v1"
 		kind:       "ConfigMap"
 		metadata: {
-			name: #values.name
+			name: "\(#values.name)"
 			labels: {
-				app: #values.name
+				app: "\(#values.name)"
 				if (_nonzero & {
 					#arg: #values.hasTier
 					_
 				}) {
-					tier: #values.tier
+					tier: "\(#values.tier)"
 				}
 			}
 		}

@@ -200,7 +200,7 @@ func convertDefault(c *converter, args []funcArg) (ast.Expr, string, error) {
 	if err != nil {
 		return nil, "", fmt.Errorf("default field: %w", err)
 	}
-	return defaultExpr(expr, defaultValExpr), helmObj, nil
+	return c.defaultExpr(expr, defaultValExpr), helmObj, nil
 }
 
 func convertPrintf(c *converter, args []funcArg) (ast.Expr, string, error) {

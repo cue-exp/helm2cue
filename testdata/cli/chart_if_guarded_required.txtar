@@ -38,7 +38,7 @@ deploy: [
 				#arg: #values.x
 				_
 			}) {
-				key: #values.x
+				key: "\(#values.x)"
 			}
 		}
 	},

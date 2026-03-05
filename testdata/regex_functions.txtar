@@ -32,8 +32,8 @@ output: [
 		kind:       "ConfigMap"
 		metadata: name: "test"
 		data: {
-			matches: regexp.Match("^hello", #values.name)
-			found:   regexp.Find("[a-z]+", #values.name)
+			matches: "\(regexp.Match("^hello", #values.name))"
+			found:   "\(regexp.Find("[a-z]+", #values.name))"
 		}
 	},
 ]

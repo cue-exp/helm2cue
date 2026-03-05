@@ -53,7 +53,7 @@ test: [
 					hosts: [
 						"\(#values.hostPrefix)-\(#values.hostDomain)",
 					]
-					secretName: #values.tlsSecret
+					secretName: "\(#values.tlsSecret)"
 				},
 			]
 		}

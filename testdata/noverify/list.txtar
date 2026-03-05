@@ -24,9 +24,9 @@ output: [
 		kind:       "ConfigMap"
 		metadata: name: "test"
 		data: {
-			items: ["a", "b", "c"]
-			mixed: [#values.x, "literal"]
-			empty: []
+			items: "\(["a", "b", "c"])"
+			mixed: "\([#values.x, "literal"])"
+			empty: "\([])"
 		}
 	},
 ]

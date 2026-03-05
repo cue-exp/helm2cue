@@ -21,6 +21,11 @@ package test_app
 
 test: [
 	{
-		cpu: *#values.cpu | 0
+		cpu: "\([if (_nonzero & {
+			#arg: #values.cpu
+			_
+		}) {
+			#values.cpu
+		}, 0][0])"
 	},
 ]

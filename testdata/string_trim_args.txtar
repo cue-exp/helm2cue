@@ -32,8 +32,8 @@ output: [
 		kind:       "ConfigMap"
 		metadata: name: "test"
 		data: {
-			trimPrefix: strings.TrimPrefix(#values.name, "prefix-")
-			trimSuffix: strings.TrimSuffix(#values.name, "-suffix")
+			trimPrefix: "\(strings.TrimPrefix(#values.name, "prefix-"))"
+			trimSuffix: "\(strings.TrimSuffix(#values.name, "-suffix"))"
 		}
 	},
 ]

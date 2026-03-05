@@ -21,9 +21,9 @@ output: [
 		apiVersion: "v1"
 		kind:       "ConfigMap"
 		metadata: name: "test"
-		data: config: {
+		data: config:   "\({
 			name: #values.x
 			port: 8080
-		}
+		})"
 	},
 ]

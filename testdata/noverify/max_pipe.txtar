@@ -25,8 +25,8 @@ output: [
 		kind:       "ConfigMap"
 		metadata: name: "test"
 		data: {
-			port: list.Max([1024, #values.port])
-			capped: list.Min([65535, #values.port])
+			port:   "\(list.Max([1024, #values.port]))"
+			capped: "\(list.Min([65535, #values.port]))"
 		}
 	},
 ]

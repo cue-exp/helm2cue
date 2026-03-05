@@ -45,7 +45,7 @@ output: [
 	{
 		apiVersion: "v1"
 		kind:       "Pod"
-		metadata: name: #values.name
+		metadata: name: "\(#values.name)"
 		spec: containers: [
 			{
 				name:      #values.name

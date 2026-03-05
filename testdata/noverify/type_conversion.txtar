@@ -30,9 +30,9 @@ output: [
 		kind:       "ConfigMap"
 		metadata: name: "test"
 		data: {
-			port:     strconv.Atoi(#values.port)
-			replicas: int & #values.replicas
-			ratio:    number & #values.ratio
+			port:     "\(strconv.Atoi(#values.port))"
+			replicas: "\(int & #values.replicas)"
+			ratio:    "\(number & #values.ratio)"
 		}
 	},
 ]

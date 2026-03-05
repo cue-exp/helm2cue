@@ -30,9 +30,9 @@ output: [
 		apiVersion: "v1"
 		kind:       "ConfigMap"
 		metadata: name: "test"
-		data: tail: (_last & {
+		data: tail:     "\((_last & {
 			#in: #values.items
-		}).out
+		}).out)"
 	},
 ]
 _last: {

@@ -24,6 +24,6 @@ output: [
 		apiVersion: "v1"
 		kind:       "ConfigMap"
 		metadata: name: "test"
-		data: items:    strings.Split(#values.csv, ",")
+		data: items:    "\(strings.Split(#values.csv, ","))"
 	},
 ]

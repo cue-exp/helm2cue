@@ -34,8 +34,8 @@ output: [
 		kind:       "ConfigMap"
 		metadata: name: "test"
 		data: {
-			biggest: list.Max([#values.a, #values.b])
-			smallest: list.Min([#values.a, #values.b])
+			biggest:  "\(list.Max([#values.a, #values.b]))"
+			smallest: "\(list.Min([#values.a, #values.b]))"
 		}
 	},
 ]

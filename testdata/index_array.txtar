@@ -30,6 +30,6 @@ output: [
 		apiVersion: "v1"
 		kind:       "ConfigMap"
 		metadata: name: "test"
-		data: primary:  #values.hosts[0]
+		data: primary:  "\(#values.hosts[0])"
 	},
 ]

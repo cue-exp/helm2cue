@@ -20,9 +20,9 @@ _myapp_name: {
 
 output: [
 	{
-		name: _myapp_name & {
+		name: "\(_myapp_name & {
 			#arg: #values.name
 			_
-		}
+		})"
 	},
 ]

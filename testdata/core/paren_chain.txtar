@@ -7,6 +7,6 @@ cpu: {{ ((.Values).cpu) }}
 -- output.cue --
 output: [
 	{
-		cpu: Values.cpu
+		cpu: "\(Values.cpu)"
 	},
 ]

@@ -12,6 +12,6 @@ name: hello
 
 output: [
 	{
-		name: #input.name
+		name: "\(#input.name)"
 	},
 ]

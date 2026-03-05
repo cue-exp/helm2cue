@@ -26,7 +26,7 @@ import (
 
 output: [
 	{
-		data: yaml.Unmarshal(template.Execute(yaml.Marshal(#values.sel), _tplContext))
+		data: "\(yaml.Unmarshal(template.Execute(yaml.Marshal(#values.sel), _tplContext)))"
 	},
 ]
 _tplContext: {

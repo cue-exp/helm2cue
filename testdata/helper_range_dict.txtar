@@ -68,7 +68,7 @@ _renderVolumes: {
 		_
 	}) for _, _range1 in _args.items {
 		name:      _range1.name
-		mountPath: _range1.mountPath
+		mountPath: "\(_range1.mountPath)"
 	}]
 }
 

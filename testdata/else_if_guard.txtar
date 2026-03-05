@@ -41,7 +41,7 @@ output: [
 				#arg: #values.foo
 				_
 			}) {
-				key: #values.foo
+				key: "\(#values.foo)"
 			}
 			if !(_nonzero & {
 				#arg: #values.foo
@@ -50,7 +50,7 @@ output: [
 				#arg: #values.bar
 				_
 			}) {
-				key: #values.bar
+				key: "\(#values.bar)"
 			}
 		}
 	},

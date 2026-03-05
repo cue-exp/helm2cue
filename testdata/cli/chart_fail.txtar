@@ -65,6 +65,6 @@ test: [
 		apiVersion: "v1"
 		kind:       "ConfigMap"
 		metadata: name: "test"
-		data: key:      #values.name
+		data: key:      "\(#values.name)"
 	},
 ]

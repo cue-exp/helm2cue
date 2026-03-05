@@ -7,30 +7,40 @@ deployment: [
 		apiVersion: "apps/v1"
 		kind:       "Deployment"
 		metadata: {
-			name:   _simple_app_fullname
+			name:   "\(_simple_app_fullname)"
 			labels: _simple_app_labels
 		}
 		spec: {
-			replicas: *#values.replicaCount | 1
+			replicas: "\([if (_nonzero & {
+				#arg: #values.replicaCount
+				_
+			}) {
+				#values.replicaCount
+			}, 1][0])"
 			selector: matchLabels: _simple_app_selectorLabels
 			template: {
 				metadata: labels: _simple_app_selectorLabels
 				spec: {
-					serviceAccountName: _simple_app_serviceAccountName & {
+					serviceAccountName: "\(_simple_app_serviceAccountName & {
 						#arg: #values.serviceAccount
 						_
-					}
+					})"
 					containers: [
 						{
 							name:            _simple_app_name
 							image:           "\(#values.image.repository):\(#values.image.tag)"
-							imagePullPolicy: *#values.image.pullPolicy | "IfNotPresent"
+							imagePullPolicy: "\([if (_nonzero & {
+								#arg: #values.image.pullPolicy
+								_
+							}) {
+								#values.image.pullPolicy
+							}, "IfNotPresent"][0])"
 							ports: [if (_nonzero & {
 								#arg: #values.ports
 								_
 							}) for _, _range0 in #values.ports {
 								name:          _range0.name
-								containerPort: _range0.containerPort
+								containerPort: "\(_range0.containerPort)"
 							},
 							]
 						},

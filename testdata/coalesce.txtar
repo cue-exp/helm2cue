@@ -31,7 +31,7 @@ output: [
 		apiVersion: "v1"
 		kind:       "ConfigMap"
 		metadata: name: "test"
-		data: result: [if (_nonzero & {
+		data: result:   "\([if (_nonzero & {
 			#arg: #values.a
 			_
 		}) {
@@ -41,7 +41,7 @@ output: [
 			_
 		}) {
 			#values.b
-		}, "default"][0]
+		}, "default"][0])"
 	},
 ]
 _nonzero: {

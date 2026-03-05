@@ -27,6 +27,6 @@ output: [
 		apiVersion: "v1"
 		kind:       "ConfigMap"
 		metadata: name: "test"
-		data: sorted:   list.SortStrings(#values.items)
+		data: sorted:   "\(list.SortStrings(#values.items))"
 	},
 ]

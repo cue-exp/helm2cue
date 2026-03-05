@@ -38,12 +38,12 @@ output: [
 			}) {
 				"true"
 			}, "false"][0])"
-			scheme: [if (_nonzero & {
+			scheme: "\([if (_nonzero & {
 				#arg: #values.debug
 				_
 			}) {
 				"https"
-			}, "http"][0]
+			}, "http"][0])"
 		}
 	},
 ]

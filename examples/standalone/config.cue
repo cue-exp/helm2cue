@@ -23,7 +23,7 @@ _fullname: "\(#values.name)-server"
 output: [
 	{
 		server: {
-			name: _fullname, address: "\(#values.host):\(#values.port)"
+			name: "\(_fullname)", address: "\(#values.host):\(#values.port)"
 			if (_nonzero & {
 				#arg: #values.debug
 				_
@@ -41,7 +41,7 @@ output: [
 				_
 			}) {
 				tls: {
-					cert: #values.tls.cert, key: #values.tls.key
+					cert: "\(#values.tls.cert)", key: "\(#values.tls.key)"
 				}
 			}, labels: {
 				if (_nonzero & {

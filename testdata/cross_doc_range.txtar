@@ -78,13 +78,13 @@ output: list.FlattenN([
 			{
 				apiVersion: "v1"
 				kind:       "ConfigMap"
-				metadata: name: _range0.name
+				metadata: name: "\(_range0.name)"
 				data: key:      "one"
 			},
 			{
 				apiVersion: "v1"
 				kind:       "ConfigMap"
-				metadata: name: _range0.name
+				metadata: name: "\(_range0.name)"
 				data: key:      "two"
 			},
 		]

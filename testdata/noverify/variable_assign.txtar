@@ -22,6 +22,6 @@ output: [
 	{
 		apiVersion: "v1"
 		kind:       "Service"
-		metadata: labels: _myapp_labels
+		metadata: labels: "\(_myapp_labels)"
 	},
 ]

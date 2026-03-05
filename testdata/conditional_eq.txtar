@@ -41,9 +41,9 @@ output: [
 		apiVersion: "v1"
 		kind:       "Service"
 		spec: {
-			type: #values.service.type
+			type: "\(#values.service.type)"
 			if #values.service.type == "ClusterIP" {
-				clusterIP: #values.service.clusterIP
+				clusterIP: "\(#values.service.clusterIP)"
 			}
 			if #values.service.type != "ExternalName" {
 				ports: [

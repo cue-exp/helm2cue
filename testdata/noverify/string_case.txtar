@@ -28,9 +28,9 @@ output: [
 		kind:       "ConfigMap"
 		metadata: name: "test"
 		data: {
-			upper: strings.ToUpper(#values.name)
-			lower: strings.ToLower(#values.env)
-			title: strings.ToTitle(#values.name)
+			upper: "\(strings.ToUpper(#values.name))"
+			lower: "\(strings.ToLower(#values.env))"
+			title: "\(strings.ToTitle(#values.name))"
 		}
 	},
 ]

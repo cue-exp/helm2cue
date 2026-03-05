@@ -29,6 +29,6 @@ output: [
 		apiVersion: "v1"
 		kind:       "Secret"
 		metadata: name: "test"
-		data: encoded:  base64.Encode(null, #values.secret)
+		data: encoded:  "\(base64.Encode(null, #values.secret))"
 	},
 ]

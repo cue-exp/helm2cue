@@ -29,9 +29,9 @@ output: [
 		apiVersion: "v1"
 		kind:       "ConfigMap"
 		metadata: name: "test"
-		data: unique: (_uniq & {
+		data: unique:   "\((_uniq & {
 			#in: #values.items
-		}).out
+		}).out)"
 	},
 ]
 _uniq: {
