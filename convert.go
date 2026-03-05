@@ -6539,22 +6539,29 @@ func exprReferencesAny(expr ast.Expr, names []string) bool {
 
 // declsHaveMixedFieldsAndStrings reports whether decls contain both
 // ast.Field declarations and ast.EmbedDecl with a string literal value.
+// It checks recursively inside comprehension values.
 func declsHaveMixedFieldsAndStrings(decls []ast.Decl) bool {
 	hasField := false
 	hasString := false
+	checkDecls(decls, &hasField, &hasString)
+	return hasField && hasString
+}
+
+func checkDecls(decls []ast.Decl, hasField, hasString *bool) {
 	for _, d := range decls {
 		switch d := d.(type) {
 		case *ast.Field:
-			hasField = true
+			*hasField = true
 		case *ast.Comprehension:
-			// skip
+			if s, ok := d.Value.(*ast.StructLit); ok {
+				checkDecls(s.Elts, hasField, hasString)
+			}
 		case *ast.EmbedDecl:
 			if lit, ok := d.Expr.(*ast.BasicLit); ok && lit.Kind == token.STRING {
-				hasString = true
+				*hasString = true
 			}
 		}
 	}
-	return hasField && hasString
 }
 
 // renameArgIdents walks the AST and renames all #arg value-position

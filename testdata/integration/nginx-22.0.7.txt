@@ -6,13 +6,7 @@ converted 14/21 templates from nginx
 exit status 1
 _cMinor: error in call to strconv.Atoi: strconv.Atoi: parsing "25-0": invalid syntax:
     ./helpers.cue:74:16
-_common_warnings_resources: cannot combine regular field "WARNING" with "+info https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/":
-    ./helpers.cue:1853:12
-    ./helpers.cue:1853:227
 -- cue export --
 exit status 1
 _cMinor: error in call to strconv.Atoi: strconv.Atoi: parsing "25-0": invalid syntax:
     ./helpers.cue:74:16
-_common_warnings_resources: cannot combine regular field "WARNING" with "+info https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/":
-    ./helpers.cue:1853:12
-    ./helpers.cue:1853:227
