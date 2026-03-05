@@ -1,0 +1,79 @@
+Conditional block inside a YAML block scalar should be embedded
+as a conditional string interpolation, not break out of the block
+scalar context.
+
+-- input.yaml --
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test
+data:
+  datasources: |
+    datasources:
+{{- if .Values.enabled }}
+    - name: {{ .Values.firstName }}
+      type: first
+{{- end }}
+    - name: {{ .Values.secondName }}
+      type: second
+-- values.yaml --
+enabled: true
+firstName: Alice
+secondName: Bob
+-- helm_output.yaml --
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test
+data:
+  datasources: |
+    datasources:
+    - name: Alice
+      type: first
+    - name: Bob
+      type: second
+-- output.cue --
+import (
+	"strings"
+	"struct"
+)
+
+#values: {
+	enabled?:    bool | number | string | null
+	firstName!:  bool | number | string | null
+	secondName!: bool | number | string | null
+	...
+}
+
+output: [
+	{
+		apiVersion: "v1"
+		kind:       "ConfigMap"
+		metadata: name:    "test"
+		data: datasources: """
+	datasources:\(strings.Join([if (_nonzero & {
+			#arg: #values.enabled
+			_
+		}) {
+			"\n- name: \(#values.firstName)\n  type: first"
+		}], ""))
+	- name: \(#values.secondName)
+	  type: second
+	
+	"""
+	},
+]
+_nonzero: {
+	#arg?: _
+	[if #arg != _|_ {
+		[
+			if (#arg & int) != _|_ {#arg != 0},
+			if (#arg & string) != _|_ {#arg != ""},
+			if (#arg & float) != _|_ {#arg != 0.0},
+			if (#arg & bool) != _|_ {#arg},
+			if (#arg & [...]) != _|_ {len(#arg) > 0},
+			if (#arg & {...}) != _|_ {(#arg & struct.MaxFields(0)) == _|_},
+			false,
+		][0]
+	}, false][0]
+}
