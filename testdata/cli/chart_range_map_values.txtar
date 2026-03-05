@@ -38,7 +38,7 @@ converted 1/1 templates from test-app
 package test_app
 
 #values: {
-	server!: {
+	server?: {
 		enabled?: bool | number | string | null
 		paths?: [...] | {
 			[string]: _

@@ -51,7 +51,7 @@ package test_app
 #values: {
 	config?: {
 		enabled?: bool | number | string | null
-		name!:    bool | number | string | null
+		name?:    bool | number | string | null
 		...
 	}
 	...

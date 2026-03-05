@@ -14,7 +14,7 @@ import "struct"
 
 #input: {
 	config?: {
-		name!: bool | number | string | null
+		name?: bool | number | string | null
 		...
 	}
 	...

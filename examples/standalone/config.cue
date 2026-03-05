@@ -6,8 +6,8 @@ import "struct"
 	port!:  bool | number | string | null
 	debug?: bool | number | string | null
 	tls?: {
-		cert!: bool | number | string | null
-		key!:  bool | number | string | null
+		cert?: bool | number | string | null
+		key?:  bool | number | string | null
 		...
 	}
 	labels?: [...] | {

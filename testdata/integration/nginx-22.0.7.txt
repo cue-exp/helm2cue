@@ -1,9 +1,7 @@
 -- ConvertChart --
 warning: skipping ingress-tls-secret.yaml (doc 2): unsupported template action: {{$ca := genCA "nginx-ca" 365}}
 warning: skipping tls-secret.yaml (doc 0): unsupported template action: {{$ca := genCA "nginx-ca" 365}}
-error: values.yaml does not satisfy inferred schema: #values.podSecurityContext.seLinuxOptions: field is required but not present
 converted 14/21 templates from nginx
-ConvertChart error: values schema validation failed
 -- cue vet --
 exit status 1
 _common_affinities_pods_hard.requiredDuringSchedulingIgnoredDuringExecution.labelSelector.#arg: reference "component" not found:
