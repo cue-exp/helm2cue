@@ -246,11 +246,11 @@ const (
 // pendingResolution records a key-value pair that was just resolved by an action
 // but might need to become a block if deeper content follows.
 type pendingResolution struct {
-	key     string
-	value   ast.Expr
-	comment string
-	indent  int  // YAML indent of the key
-	rawKey  bool // true for dynamic keys like (expr) — don't run through cueKey()
+	key      string
+	keyLabel ast.Label // non-nil for dynamic keys — use directly, don't run through cueKey()
+	value    ast.Expr
+	comment  string
+	indent   int // YAML indent of the key
 }
 
 // rangeContext tracks what dot (.) refers to inside a with or range block.
@@ -307,6 +307,7 @@ type converter struct {
 	stack               []frame
 	state               emitState
 	pendingKey          string              // the key name when in statePendingKey
+	pendingKeyLabel     ast.Label           // non-nil for dynamic keys — use directly instead of cueKeyLabel(pendingKey)
 	pendingKeyInd       int                 // YAML indent of the pending key
 	deferredKV          *pendingResolution  // non-nil when action resolved pendingKey but deeper content may follow
 	comments            map[ast.Expr]string // expr → trailing comment
@@ -330,7 +331,7 @@ type converter struct {
 	inlineParts      []inlinePart // non-nil when inline mode is active
 	inlineSuffix     string       // appended after closing quote (e.g. "," for list items)
 	inlineKey        string       // field key for inline value (empty for bare/list)
-	inlineRawKey     bool         // true for dynamic keys (parenthesized)
+	inlineKeyLabel   ast.Label    // non-nil for dynamic keys (parenthesized)
 	nextNodeIsInline bool         // true when next sibling is an action/text node (not a control structure)
 	skipCount        int          // nodes to skip in body/top-level processing loops (consumed by processInlineIf)
 
@@ -849,10 +850,10 @@ func (c *converter) emitField(key string, value ast.Expr) {
 	})
 }
 
-// emitRawField creates an ast.Field with a raw key expression and appends it.
-func (c *converter) emitRawField(rawKey string, value ast.Expr) {
+// emitRawField creates an ast.Field with a pre-built label and appends it.
+func (c *converter) emitRawField(label ast.Label, value ast.Expr) {
 	c.appendToParent(&ast.Field{
-		Label: mustParseExpr(rawKey).(ast.Label),
+		Label: label,
 		Value: value,
 	})
 }
@@ -879,13 +880,13 @@ func (c *converter) buildComprehensionValue(bodyStruct *ast.StructLit, bodyList 
 // emitInlineComprehension emits a conditional comprehension for an inline
 // value. Used by processInlineIf to emit each branch as a separate
 // if comprehension that produces the complete field/list/embed value.
-func (c *converter) emitInlineComprehension(condition ast.Expr, key string, rawKey bool, value ast.Expr) {
+func (c *converter) emitInlineComprehension(condition ast.Expr, key string, keyLabel ast.Label, value ast.Expr) {
 	bodyStruct := &ast.StructLit{}
 	var bodyDecl ast.Decl
 	if key != "" {
 		var label ast.Label
-		if rawKey {
-			label = mustParseExpr(key).(ast.Label)
+		if keyLabel != nil {
+			label = keyLabel
 		} else {
 			label = cueKeyLabel(key)
 		}
@@ -2007,32 +2008,32 @@ func (c *converter) convertIncludeContext(node parse.Node) (argExpr ast.Expr, he
 		return expr, ho, bp, nil, nil
 	case *parse.PipeNode:
 		dm, dictExpr, pipeErr := c.processContextPipe(n)
-		if dictExpr == "" {
+		if dictExpr == nil {
 			return nil, "", nil, dm, pipeErr
 		}
-		return mustParseExpr(dictExpr), "", nil, dm, pipeErr
+		return dictExpr, "", nil, dm, pipeErr
 	default:
 		return nil, "", nil, nil, fmt.Errorf("include: unsupported context argument %s (only ., $, field references, and dict/list are supported)", node)
 	}
 }
 
-func (c *converter) processContextPipe(pipe *parse.PipeNode) (map[string]contextSource, string, error) {
+func (c *converter) processContextPipe(pipe *parse.PipeNode) (map[string]contextSource, ast.Expr, error) {
 	if len(pipe.Cmds) != 1 {
-		return nil, "", fmt.Errorf("include: unsupported multi-command context pipe: %s", pipe)
+		return nil, nil, fmt.Errorf("include: unsupported multi-command context pipe: %s", pipe)
 	}
 	cmd := pipe.Cmds[0]
 	if len(cmd.Args) == 0 {
-		return nil, "", fmt.Errorf("include: empty context pipe command")
+		return nil, nil, fmt.Errorf("include: empty context pipe command")
 	}
 	id, ok := cmd.Args[0].(*parse.IdentifierNode)
 	if !ok {
-		return nil, "", fmt.Errorf("include: unsupported context expression: %s", pipe)
+		return nil, nil, fmt.Errorf("include: unsupported context expression: %s", pipe)
 	}
 	switch id.Ident {
 	case "dict":
 		args := cmd.Args[1:]
 		if len(args)%2 != 0 {
-			return nil, "", fmt.Errorf("include: dict requires even number of arguments (key-value pairs)")
+			return nil, nil, fmt.Errorf("include: dict requires even number of arguments (key-value pairs)")
 		}
 		var dictMap map[string]contextSource
 		for i := 0; i < len(args); i += 2 {
@@ -2057,7 +2058,7 @@ func (c *converter) processContextPipe(pipe *parse.PipeNode) (map[string]context
 			}
 		}
 		// Build CUE struct expression for the dict.
-		var exprParts []string
+		var fields []ast.Decl
 		allConverted := true
 		for i := 0; i < len(args); i += 2 {
 			keyNode, ok := args[i].(*parse.StringNode)
@@ -2070,11 +2071,20 @@ func (c *converter) processContextPipe(pipe *parse.PipeNode) (map[string]context
 				allConverted = false
 				break
 			}
-			exprParts = append(exprParts, cueKey(keyNode.Text)+": "+exprToText(valExpr))
+			clearExprRelPos(valExpr)
+			f := &ast.Field{
+				Label: cueKeyLabel(keyNode.Text),
+				Value: valExpr,
+			}
+			ast.SetRelPos(f, token.Blank)
+			fields = append(fields, f)
 		}
-		var dictExpr string
-		if allConverted && len(exprParts) > 0 {
-			dictExpr = "{" + strings.Join(exprParts, ", ") + "}"
+		var dictExpr ast.Expr
+		if allConverted && len(fields) > 0 {
+			dictExpr = &ast.StructLit{
+				Elts:   fields,
+				Rbrace: token.Blank.Pos(),
+			}
 		}
 		return dictMap, dictExpr, nil
 	case "list":
@@ -2083,7 +2093,7 @@ func (c *converter) processContextPipe(pipe *parse.PipeNode) (map[string]context
 		}
 	default:
 	}
-	return nil, "", nil
+	return nil, nil, nil
 }
 
 func (c *converter) trackContextNode(node parse.Node) {
@@ -2173,8 +2183,8 @@ func (c *converter) flushDeferred() {
 	}
 	d := c.deferredKV
 	c.deferredKV = nil
-	if d.rawKey {
-		c.emitRawField(d.key, d.value)
+	if d.keyLabel != nil {
+		c.emitRawField(d.keyLabel, d.value)
 	} else {
 		c.emitField(d.key, d.value)
 	}
@@ -2188,17 +2198,17 @@ func (c *converter) finalizeInline() {
 	}
 	result := partsToExpr(c.inlineParts)
 	key := c.inlineKey
-	rawKey := c.inlineRawKey
+	keyLabel := c.inlineKeyLabel
 	suffix := c.inlineSuffix
 	c.inlineParts = nil
 	c.inlineSuffix = ""
 	c.inlineKey = ""
-	c.inlineRawKey = false
+	c.inlineKeyLabel = nil
 
 	_ = suffix // suffix is handled structurally by AST context
 	if key != "" {
-		if rawKey {
-			c.emitRawField(key, result)
+		if keyLabel != nil {
+			c.emitRawField(keyLabel, result)
 		} else {
 			c.emitField(key, result)
 		}
@@ -2411,8 +2421,8 @@ func (c *converter) resolveDeferredAsBlock(childYamlIndent int) {
 	}
 
 	var label ast.Label
-	if d.rawKey {
-		label = mustParseExpr(d.key).(ast.Label)
+	if d.keyLabel != nil {
+		label = d.keyLabel
 	} else {
 		label = cueKeyLabel(d.key)
 	}
@@ -2450,13 +2460,8 @@ func (c *converter) emitTextNode(text []byte) {
 	if c.deferredKV != nil && s[0] != '\n' {
 		d := c.deferredKV
 		c.deferredKV = nil
-		if d.rawKey {
-			c.inlineKey = d.key
-			c.inlineRawKey = true
-		} else {
-			c.inlineKey = d.key
-			c.inlineRawKey = false
-		}
+		c.inlineKey = d.key
+		c.inlineKeyLabel = d.keyLabel
 		c.inlineParts = []inlinePart{toInlinePart(d.value)}
 	}
 
@@ -2568,7 +2573,8 @@ func (c *converter) emitTextNode(text []byte) {
 		if c.pendingActionExpr != nil {
 			if strings.HasPrefix(content, ": ") || content == ":" {
 				c.state = statePendingKey
-				c.pendingKey = "(" + exprToText(c.pendingActionExpr) + ")"
+				c.pendingKey = "(dyn)"
+				c.pendingKeyLabel = &ast.ParenExpr{X: c.pendingActionExpr}
 				c.pendingKeyInd = c.nextActionYamlIndent
 				c.pendingActionExpr = nil
 				c.pendingActionComment = ""
@@ -2579,9 +2585,10 @@ func (c *converter) emitTextNode(text []byte) {
 				if val == "" {
 					continue
 				}
-				c.emitRawField(c.pendingKey, yamlToExpr(val))
+				c.emitRawField(c.pendingKeyLabel, yamlToExpr(val))
 				c.state = stateNormal
 				c.pendingKey = ""
+				c.pendingKeyLabel = nil
 				continue
 			}
 			c.flushPendingAction()
@@ -2660,7 +2667,7 @@ func (c *converter) emitTextNode(text []byte) {
 				c.startFlowAccum(content[colonIdx+2:], key, "\n")
 			} else if continuesInline && val != "" {
 				c.inlineKey = key
-				c.inlineRawKey = false
+				c.inlineKeyLabel = nil
 				c.inlineParts = []inlinePart{{text: escapeCUEString(val)}}
 			} else {
 				c.emitField(key, yamlToExpr(val))
@@ -2672,7 +2679,7 @@ func (c *converter) emitTextNode(text []byte) {
 			c.pendingKeyInd = yamlIndent
 		} else if continuesInline {
 			c.inlineKey = ""
-			c.inlineRawKey = false
+			c.inlineKeyLabel = nil
 			c.inlineParts = []inlinePart{{text: escapeCUEString(trimmed)}}
 			if c.inListContext() {
 				c.inlineSuffix = ","
@@ -2697,8 +2704,14 @@ func (c *converter) emitTextNode(text []byte) {
 // openPendingAsList resolves a pending key as a list block.
 func (c *converter) openPendingAsList(childYamlIndent int) {
 	listLit := &ast.ListLit{}
+	var label ast.Label
+	if c.pendingKeyLabel != nil {
+		label = c.pendingKeyLabel
+	} else {
+		label = cueKeyLabel(c.pendingKey)
+	}
 	c.appendToParent(&ast.Field{
-		Label: cueKeyLabel(c.pendingKey),
+		Label: label,
 		Value: listLit,
 	})
 	c.stack = append(c.stack, frame{
@@ -2708,13 +2721,20 @@ func (c *converter) openPendingAsList(childYamlIndent int) {
 	})
 	c.state = stateNormal
 	c.pendingKey = ""
+	c.pendingKeyLabel = nil
 }
 
 // openPendingAsMapping resolves a pending key as a mapping block.
 func (c *converter) openPendingAsMapping(childYamlIndent int) {
 	structLit := &ast.StructLit{}
+	var label ast.Label
+	if c.pendingKeyLabel != nil {
+		label = c.pendingKeyLabel
+	} else {
+		label = cueKeyLabel(c.pendingKey)
+	}
 	c.appendToParent(&ast.Field{
-		Label: cueKeyLabel(c.pendingKey),
+		Label: label,
 		Value: structLit,
 	})
 	c.stack = append(c.stack, frame{
@@ -2723,6 +2743,7 @@ func (c *converter) openPendingAsMapping(childYamlIndent int) {
 	})
 	c.state = stateNormal
 	c.pendingKey = ""
+	c.pendingKeyLabel = nil
 }
 
 // processListItem handles a YAML list item line (starts with "- ").
@@ -3433,14 +3454,15 @@ func (c *converter) emitActionExpr(expr ast.Expr, comment string) {
 		} else {
 			// Defer the resolution — deeper content may follow.
 			c.deferredKV = &pendingResolution{
-				key:     c.pendingKey,
-				value:   expr,
-				comment: comment,
-				indent:  c.pendingKeyInd,
-				rawKey:  strings.HasPrefix(c.pendingKey, "("),
+				key:      c.pendingKey,
+				value:    expr,
+				comment:  comment,
+				indent:   c.pendingKeyInd,
+				keyLabel: c.pendingKeyLabel,
 			}
 			c.state = stateNormal
 			c.pendingKey = ""
+			c.pendingKeyLabel = nil
 		}
 	} else {
 		// Standalone expression — defer in case next text starts with ": " (dynamic key).
@@ -3886,12 +3908,12 @@ func (c *converter) processInlineIf(n *parse.IfNode) error {
 	// Save current inline state.
 	prefix := c.inlineParts
 	key := c.inlineKey
-	rawKey := c.inlineRawKey
+	keyLabel := c.inlineKeyLabel
 	_ = c.inlineSuffix // suffix is handled structurally by AST context
 	c.inlineParts = nil
 	c.inlineSuffix = ""
 	c.inlineKey = ""
-	c.inlineRawKey = false
+	c.inlineKeyLabel = nil
 
 	// Flush any pending action into prefix.
 	if c.pendingActionExpr != nil {
@@ -3927,7 +3949,7 @@ func (c *converter) processInlineIf(n *parse.IfNode) error {
 	ifValueExpr := partsToExpr(allParts)
 
 	// Emit if comprehension.
-	c.emitInlineComprehension(condition, key, rawKey, ifValueExpr)
+	c.emitInlineComprehension(condition, key, keyLabel, ifValueExpr)
 
 	// Emit else branch.
 	if n.ElseList != nil && len(n.ElseList.Nodes) > 0 {
@@ -3941,7 +3963,7 @@ func (c *converter) processInlineIf(n *parse.IfNode) error {
 		allParts = append(allParts, suffixParts...)
 		elseValueExpr := partsToExpr(allParts)
 
-		c.emitInlineComprehension(negCondition, key, rawKey, elseValueExpr)
+		c.emitInlineComprehension(negCondition, key, keyLabel, elseValueExpr)
 	}
 
 	return nil
@@ -4028,12 +4050,12 @@ func (c *converter) processInlineRange(n *parse.RangeNode) error {
 	// Save current inline state.
 	prefix := c.inlineParts
 	key := c.inlineKey
-	rawKey := c.inlineRawKey
+	keyLabel := c.inlineKeyLabel
 	_ = c.inlineSuffix // suffix is handled structurally by AST context
 	c.inlineParts = nil
 	c.inlineSuffix = ""
 	c.inlineKey = ""
-	c.inlineRawKey = false
+	c.inlineKeyLabel = nil
 
 	// Flush any pending action into prefix.
 	if c.pendingActionExpr != nil {
@@ -4064,8 +4086,8 @@ func (c *converter) processInlineRange(n *parse.RangeNode) error {
 
 	valueExpr := partsToExpr(allParts)
 	if key != "" {
-		if rawKey {
-			c.emitRawField(key, valueExpr)
+		if keyLabel != nil {
+			c.emitRawField(keyLabel, valueExpr)
 		} else {
 			c.emitField(key, valueExpr)
 		}
@@ -6944,6 +6966,58 @@ func cueKeyLabel(s string) ast.Label {
 		return ast.NewIdent(s)
 	}
 	return &ast.BasicLit{Kind: token.STRING, Value: strconv.Quote(s)}
+}
+
+// clearExprRelPos clones the position-owning leaf node of expr and sets
+// its relative position to token.Blank. This avoids mutating shared AST
+// nodes (e.g. an #arg ident reused across multiple selector chains).
+func clearExprRelPos(expr ast.Expr) {
+	// Walk down selector chains to find the innermost expression
+	// whose pos() determines the overall position.
+	cur := expr
+	for {
+		switch e := cur.(type) {
+		case *ast.SelectorExpr:
+			cur = e.X
+			continue
+		case *ast.IndexExpr:
+			cur = e.X
+			continue
+		default:
+		}
+		break
+	}
+	// Clone the leaf if it's an identifier (the common shared-node case).
+	if id, ok := cur.(*ast.Ident); ok {
+		// Replace the reference to this ident with a fresh copy.
+		cloned := &ast.Ident{
+			NamePos: token.Blank.Pos(),
+			Name:    id.Name,
+		}
+		// Walk back to find the parent that references cur and replace it.
+		replaceLeaf(expr, id, cloned)
+		return
+	}
+	// For non-ident leaves, just set the position directly.
+	ast.SetRelPos(cur, token.Blank)
+}
+
+// replaceLeaf replaces the innermost X of a selector/index chain.
+func replaceLeaf(expr ast.Expr, old, new ast.Expr) {
+	switch e := expr.(type) {
+	case *ast.SelectorExpr:
+		if e.X == old {
+			e.X = new
+		} else {
+			replaceLeaf(e.X, old, new)
+		}
+	case *ast.IndexExpr:
+		if e.X == old {
+			e.X = new
+		} else {
+			replaceLeaf(e.X, old, new)
+		}
+	}
 }
 
 // cueScalarTypeExpr returns a fresh AST expression for the scalar type
