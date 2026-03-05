@@ -373,6 +373,12 @@ type converter struct {
 	blockScalarPartialLine bool     // last block scalar line is incomplete (action mid-line)
 	blockScalarKey         string   // non-empty for "key: |" block scalars
 
+	// Quoted scalar accumulation state (for multi-line 'text' or "text").
+	quotedScalarParts       []string // non-nil when accumulating a multi-line quoted value
+	quotedScalarKey         string   // the field key
+	quotedScalarQuote       byte     // '\'' or '"'
+	quotedScalarPartialLine bool     // last part is incomplete (action mid-line)
+
 	stripListDash   bool           // strip "- " prefix from next list item line
 	pendingComments []*ast.Comment // buffered comments to attach to next declaration
 
@@ -3224,6 +3230,79 @@ func (c *converter) finalizeBlockScalar() {
 	}
 }
 
+// isUnterminatedQuotedScalar reports whether val starts with a single or
+// double quote but does not end with the matching closing quote, indicating
+// a multi-line YAML flow scalar.
+func isUnterminatedQuotedScalar(val string) bool {
+	if len(val) < 2 {
+		return false
+	}
+	q := val[0]
+	if q != '\'' && q != '"' {
+		return false
+	}
+	// Check if the string is terminated (closing quote found).
+	return findClosingQuote(val[1:], q) < 0
+}
+
+// findClosingQuote returns the index (in s) of the closing quote character q,
+// or -1 if not found. For single-quoted YAML strings, ” is an escaped literal
+// quote and does not terminate the string.
+func findClosingQuote(s string, q byte) int {
+	for i := 0; i < len(s); i++ {
+		if s[i] == q {
+			if q == '\'' && i+1 < len(s) && s[i+1] == '\'' {
+				// '' is an escaped single quote — skip both.
+				i++
+				continue
+			}
+			return i
+		}
+	}
+	return -1
+}
+
+// finalizeQuotedScalar joins accumulated quoted scalar parts using YAML flow
+// scalar folding rules and emits the result as a field value.
+//
+// YAML flow scalar folding: line breaks between content lines become spaces;
+// blank lines (represented as "\n" sentinels) become literal newlines.
+func (c *converter) finalizeQuotedScalar() {
+	if c.quotedScalarParts == nil {
+		return
+	}
+	parts := c.quotedScalarParts
+	c.quotedScalarParts = nil
+	key := c.quotedScalarKey
+	c.quotedScalarKey = ""
+
+	// Apply YAML flow scalar folding.
+	var sb strings.Builder
+	for i, part := range parts {
+		if part == "\n" {
+			// Blank line → literal newline.
+			sb.WriteByte('\n')
+			continue
+		}
+		if i > 0 && sb.Len() > 0 {
+			last := sb.String()[sb.Len()-1]
+			if last != '\n' {
+				// Non-blank preceding → fold to space.
+				sb.WriteByte(' ')
+			}
+		}
+		sb.WriteString(part)
+	}
+	folded := sb.String()
+
+	// For single-quoted YAML, '' is an escaped single quote.
+	if c.quotedScalarQuote == '\'' {
+		folded = strings.ReplaceAll(folded, "''", "'")
+	}
+
+	c.emitField(key, cueString(folded))
+}
+
 // resolveDeferredAsBlock converts a deferred key-value into a block with embedding.
 func (c *converter) resolveDeferredAsBlock(childYamlIndent int) {
 	if c.deferredKV == nil {
@@ -3372,6 +3451,54 @@ func (c *converter) emitTextNode(text []byte) {
 			c.finalizeBlockScalar()
 		}
 
+		// Quoted scalar accumulation.
+		if c.quotedScalarParts != nil {
+			if c.quotedScalarPartialLine {
+				// Continuation of a partial line from a previous action node.
+				c.quotedScalarPartialLine = false
+				if rawLine == "" {
+					continue
+				}
+				// Check for closing quote in this fragment.
+				q := c.quotedScalarQuote
+				if idx := findClosingQuote(rawLine, q); idx >= 0 {
+					if len(c.quotedScalarParts) > 0 {
+						last := len(c.quotedScalarParts) - 1
+						c.quotedScalarParts[last] += rawLine[:idx]
+					}
+					c.finalizeQuotedScalar()
+					continue
+				}
+				if len(c.quotedScalarParts) > 0 {
+					last := len(c.quotedScalarParts) - 1
+					c.quotedScalarParts[last] += rawLine
+				}
+				continue
+			}
+			trimLine := strings.TrimSpace(rawLine)
+			if trimLine == "" {
+				// Blank line → preserved newline in YAML flow scalar folding.
+				c.quotedScalarParts = append(c.quotedScalarParts, "\n")
+				continue
+			}
+			q := c.quotedScalarQuote
+			if idx := findClosingQuote(trimLine, q); idx >= 0 {
+				// Found closing quote. Take content up to the closing quote.
+				c.quotedScalarParts = append(c.quotedScalarParts, trimLine[:idx])
+				c.finalizeQuotedScalar()
+				continue
+			}
+			// Continuation line — accumulate. Preserve trailing
+			// whitespace on the last line when it continues into
+			// an action node (no trailing newline).
+			text := trimLine
+			if isLastLine && textEndsNoNewline {
+				text = strings.TrimLeft(rawLine, " \t")
+			}
+			c.quotedScalarParts = append(c.quotedScalarParts, text)
+			continue
+		}
+
 		if strings.TrimSpace(rawLine) == "" {
 			if isLastLine && rawLine != "" {
 				c.nextActionYamlIndent = len(rawLine) - len(strings.TrimLeft(rawLine, " "))
@@ -3490,6 +3617,13 @@ func (c *converter) emitTextNode(text []byte) {
 				c.state = statePendingKey
 				c.pendingKey = key
 				c.pendingKeyInd = yamlIndent
+			} else if isUnterminatedQuotedScalar(val) {
+				c.quotedScalarQuote = val[0]
+				c.quotedScalarKey = key
+				// Use untrimmed value to preserve trailing whitespace
+				// before template actions on the same line.
+				rawVal := content[colonIdx+2:]
+				c.quotedScalarParts = []string{rawVal[1:]} // strip opening quote
 			} else if continuesInline && val != "" && startsIncompleteFlow(val) {
 				c.startFlowAccum(content[colonIdx+2:], key, "\n")
 			} else if continuesInline && val != "" {
@@ -4334,6 +4468,19 @@ func (c *converter) emitActionExpr(expr ast.Expr, comment string) {
 			c.blockScalarLines = append(c.blockScalarLines, inlineExpr(exprStr))
 		}
 		c.blockScalarPartialLine = true
+		return
+	}
+
+	// If quoted scalar accumulation is active, embed as interpolation.
+	if c.quotedScalarParts != nil {
+		exprStr := c.exprToGuardText(expr)
+		if len(c.quotedScalarParts) > 0 {
+			last := len(c.quotedScalarParts) - 1
+			c.quotedScalarParts[last] += inlineExpr(exprStr)
+		} else {
+			c.quotedScalarParts = append(c.quotedScalarParts, inlineExpr(exprStr))
+		}
+		c.quotedScalarPartialLine = true
 		return
 	}
 
