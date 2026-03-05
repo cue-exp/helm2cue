@@ -2461,6 +2461,112 @@ func (c *converter) embedRangeInBlockScalar(n *parse.RangeNode) error {
 	return nil
 }
 
+// embedIfInBlockScalar converts a block-scalar-safe IfNode to a conditional
+// string expression and embeds it in the current block scalar, mirroring
+// how embedRangeInBlockScalar handles range nodes inside block scalars.
+func (c *converter) embedIfInBlockScalar(n *parse.IfNode) error {
+	c.hasConditions = true
+
+	condition, negCondition, err := c.pipeToCUECondition(n.Pipe)
+	if err != nil {
+		return fmt.Errorf("block scalar if condition: %w", err)
+	}
+
+	ifExpr, err := c.blockScalarBranchToExpr(n.List.Nodes)
+	if err != nil {
+		return err
+	}
+
+	c.addImport("strings")
+	joinExpr := conditionalStringJoin(condition, ifExpr)
+
+	if n.ElseList != nil && len(n.ElseList.Nodes) > 0 {
+		elseExpr, err := c.blockScalarBranchToExpr(n.ElseList.Nodes)
+		if err != nil {
+			return err
+		}
+		elseJoin := conditionalStringJoin(negCondition, elseExpr)
+		joinExpr = binOp(token.ADD, joinExpr, elseJoin)
+	}
+
+	joinText := inlineExpr(c.exprToGuardText(joinExpr))
+	if len(c.blockScalarLines) > 0 {
+		last := len(c.blockScalarLines) - 1
+		c.blockScalarLines[last] += joinText
+	} else {
+		c.blockScalarLines = append(c.blockScalarLines, joinText)
+	}
+	c.blockScalarPartialLine = true
+	return nil
+}
+
+// blockScalarBranchToExpr converts branch body nodes into a CUE string
+// expression, normalizing YAML indent relative to the block scalar base indent.
+func (c *converter) blockScalarBranchToExpr(nodes []parse.Node) (ast.Expr, error) {
+	var parts []inlinePart
+	for _, node := range nodes {
+		switch t := node.(type) {
+		case *parse.TextNode:
+			text := c.normalizeBlockScalarText(string(t.Text))
+			parts = append(parts, inlinePart{text: escapeCUEString(text)})
+		case *parse.ActionNode:
+			expr, helmObj, err := c.actionToCUE(t)
+			if err != nil {
+				return nil, err
+			}
+			if helmObj != "" {
+				c.usedContextObjects[helmObj] = true
+			}
+			parts = append(parts, toInlinePart(expr))
+		case *parse.TemplateNode:
+			cueName, helmObj, err := c.handleInclude(t.Name, t.Pipe)
+			if err != nil {
+				return nil, err
+			}
+			if helmObj != "" {
+				c.usedContextObjects[helmObj] = true
+			}
+			parts = append(parts, toInlinePart(ast.NewIdent(cueName)))
+		}
+	}
+	return partsToExpr(parts), nil
+}
+
+// normalizeBlockScalarText strips the block scalar base indent from each
+// line of a text node's content.
+func (c *converter) normalizeBlockScalarText(text string) string {
+	baseIndent := c.blockScalarBaseIndent
+	if baseIndent < 0 {
+		baseIndent = 0
+	}
+	lines := strings.Split(text, "\n")
+	for i, line := range lines {
+		if strings.TrimSpace(line) == "" {
+			lines[i] = ""
+			continue
+		}
+		indent := len(line) - len(strings.TrimLeft(line, " "))
+		if indent >= baseIndent {
+			lines[i] = line[baseIndent:]
+		}
+	}
+	return strings.Join(lines, "\n")
+}
+
+// conditionalStringJoin builds strings.Join([if condition { expr }], "").
+func conditionalStringJoin(condition, bodyExpr ast.Expr) ast.Expr {
+	comp := &ast.Comprehension{
+		Clauses: []ast.Clause{
+			&ast.IfClause{Condition: condition},
+		},
+		Value: &ast.StructLit{Elts: []ast.Decl{
+			&ast.EmbedDecl{Expr: bodyExpr},
+		}},
+	}
+	listComp := &ast.ListLit{Elts: []ast.Expr{comp}}
+	return importCall("strings", "Join", listComp, cueString(""))
+}
+
 // finalizeBlockScalar emits the accumulated block scalar content as a CUE
 // value. Literal scalars (|, |-) produce a multi-line string ("""); folded
 // scalars (>, >-) join lines with spaces into a quoted string.
@@ -3442,6 +3548,33 @@ func isInlineSafeIf(n *parse.IfNode) bool {
 	return true
 }
 
+// isBlockScalarSafeBody reports whether all nodes are text, action,
+// or template nodes — suitable for embedding within a block scalar string.
+// Unlike isInlineBody, newlines in text nodes are allowed.
+func isBlockScalarSafeBody(nodes []parse.Node) bool {
+	for _, n := range nodes {
+		switch n.(type) {
+		case *parse.TextNode, *parse.ActionNode, *parse.TemplateNode:
+			// OK
+		default:
+			return false
+		}
+	}
+	return len(nodes) > 0
+}
+
+// isBlockScalarSafeIf reports whether an IfNode can be embedded within a
+// block scalar: both bodies contain only text, action, and template nodes.
+func isBlockScalarSafeIf(n *parse.IfNode) bool {
+	if n.List == nil || !isBlockScalarSafeBody(n.List.Nodes) {
+		return false
+	}
+	if n.ElseList != nil && !isBlockScalarSafeBody(n.ElseList.Nodes) {
+		return false
+	}
+	return true
+}
+
 // isInlineSafeRange reports whether a RangeNode can be handled inline:
 // the body contains only inline-safe nodes and there is no else branch.
 func isInlineSafeRange(n *parse.RangeNode) bool {
@@ -3478,6 +3611,9 @@ func (c *converter) processNode(node parse.Node) error {
 		comment := c.comments[expr]
 		c.emitActionExpr(expr, comment)
 	case *parse.IfNode:
+		if c.blockScalarLines != nil && isBlockScalarSafeIf(n) {
+			return c.embedIfInBlockScalar(n)
+		}
 		if c.inlineParts != nil && isInlineSafeIf(n) {
 			return c.processInlineIf(n)
 		}
