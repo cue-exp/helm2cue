@@ -27,8 +27,8 @@ data:
 import "struct"
 
 #values: {
-	enabled?: bool | number | string | null
 	name!:    bool | number | string | null
+	enabled?: bool | number | string | null
 	...
 }
 _myapp_enabled: {

@@ -1,13 +1,5 @@
 -- ConvertChart --
-error: values.yaml does not satisfy inferred schema: #values.automountServiceAccountToken: field is required but not present
-error: values.yaml does not satisfy inferred schema: #values.shareProcessNamespace: field is required but not present
-error: values.yaml does not satisfy inferred schema: #values.hostUsers: field is required but not present
-error: values.yaml does not satisfy inferred schema: #values.enableServiceLinks: field is required but not present
-error: values.yaml does not satisfy inferred schema: #values.podPortName: field is required but not present
-error: values.yaml does not satisfy inferred schema: #values.gossipPortName: field is required but not present
-error: values.yaml does not satisfy inferred schema: #values.adminUser: field is required but not present
 converted 171/216 templates from kube-prometheus-stack
-ConvertChart error: values schema validation failed
 -- cue vet --
 exit status 1
 grafana_configmaps_datasources.data."datasource.yaml": reference "_range0" not found:
