@@ -5035,27 +5035,89 @@ func (c *converter) processRange(n *parse.RangeNode) error {
 	// Detect accumulator pattern: variables that were updated via
 	// append inside the range body. Replace with list comprehensions
 	// so the range variable stays in scope.
+	//
+	// Also detect plain reassignment that captures range-scoped
+	// variables (e.g. $result = .). Wrap these in a list
+	// comprehension and take the last element to match Helm's
+	// "last value wins" semantics.
+
+	// Build a bare for-clause list (without the _nonzero guard) for
+	// accumulator comprehensions. The guard is unnecessary here: if
+	// the collection is empty the for-loop produces an empty list.
+	var bareClauses []ast.Clause
+	for _, cl := range clauses {
+		if _, ok := cl.(*ast.ForClause); ok {
+			bareClauses = append(bareClauses, cl)
+		}
+	}
+
+	rangeVarNames := []string{valName}
+	if keyName != "" {
+		rangeVarNames = append(rangeVarNames, keyName)
+	}
 	for varName, preExpr := range preRangeVars {
 		curExpr := c.localVars[varName]
 		if curExpr == preExpr { // pointer equality — unchanged
 			continue
 		}
 		elem, ok := decomposeAppend(curExpr, preExpr)
-		if !ok {
+		if ok {
+			listComp := &ast.ListLit{Elts: []ast.Expr{
+				&ast.Comprehension{
+					Clauses: bareClauses,
+					Value: &ast.StructLit{Elts: []ast.Decl{
+						&ast.EmbedDecl{Expr: elem},
+					}},
+				},
+			}}
+			if isEmptyList(preExpr) {
+				c.localVars[varName] = listComp
+			} else {
+				c.localVars[varName] = binOp(token.ADD, preExpr, listComp)
+			}
 			continue
 		}
-		listComp := &ast.ListLit{Elts: []ast.Expr{
-			&ast.Comprehension{
-				Clauses: clauses,
-				Value: &ast.StructLit{Elts: []ast.Decl{
-					&ast.EmbedDecl{Expr: elem},
+		// Plain reassignment capturing a range variable: the variable
+		// holds the value from the last iteration. Collect all values
+		// in a list comprehension, then take the last element with a
+		// fallback to the pre-range default.
+		//
+		// CUE pattern:
+		//   {let _acc = [for ...{ expr }],
+		//    [if len(_acc) > 0 {_acc[len(_acc)-1]}, default][0]}
+		if exprReferencesAny(curExpr, rangeVarNames) {
+			accName := "_acc"
+			accIdent := ast.NewIdent(accName)
+			listComp := &ast.ListLit{Elts: []ast.Expr{
+				&ast.Comprehension{
+					Clauses: bareClauses,
+					Value: &ast.StructLit{Elts: []ast.Decl{
+						&ast.EmbedDecl{Expr: curExpr},
+					}},
+				},
+			}}
+			lastExpr := &ast.IndexExpr{
+				X:     accIdent,
+				Index: binOp(token.SUB, callExpr("len", accIdent), cueInt(1)),
+			}
+			pick := &ast.IndexExpr{
+				X: &ast.ListLit{Elts: []ast.Expr{
+					&ast.Comprehension{
+						Clauses: []ast.Clause{&ast.IfClause{
+							Condition: binOp(token.GTR, callExpr("len", accIdent), cueInt(0)),
+						}},
+						Value: &ast.StructLit{Elts: []ast.Decl{
+							&ast.EmbedDecl{Expr: lastExpr},
+						}},
+					},
+					preExpr,
 				}},
-			},
-		}}
-		if isEmptyList(preExpr) {
-			c.localVars[varName] = listComp
-		} else {
-			c.localVars[varName] = binOp(token.ADD, preExpr, listComp)
+				Index: cueInt(0),
+			}
+			c.localVars[varName] = &ast.StructLit{Elts: []ast.Decl{
+				&ast.LetClause{Ident: ast.NewIdent(accName), Expr: listComp},
+				&ast.EmbedDecl{Expr: pick},
+			}}
 		}
 	}
 
@@ -6249,6 +6311,27 @@ func declsReferenceIdent(decls []ast.Decl, name string) bool {
 			return true
 		}, nil)
 	}
+	return found
+}
+
+// exprReferencesAny reports whether any of the given names appears
+// as an identifier anywhere in expr.
+func exprReferencesAny(expr ast.Expr, names []string) bool {
+	set := make(map[string]bool, len(names))
+	for _, n := range names {
+		set[n] = true
+	}
+	found := false
+	ast.Walk(expr, func(n ast.Node) bool {
+		if found {
+			return false
+		}
+		if id, ok := n.(*ast.Ident); ok && set[id.Name] {
+			found = true
+			return false
+		}
+		return true
+	}, nil)
 	return found
 }
 

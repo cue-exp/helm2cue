@@ -1,0 +1,73 @@
+Variable reassignment inside a range body that captures the range
+element. The converter collects values via a list comprehension and
+picks the last element, matching Helm's "last value wins" semantics.
+
+-- values.yaml --
+{}
+-- helpers.tpl --
+{{- define "test.join" -}}
+{{- $result := "" -}}
+{{- range .items -}}
+  {{- $result = . -}}
+{{- end -}}
+{{- $result -}}
+{{- end -}}
+-- input.yaml --
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test
+data:
+  val: {{ include "test.join" (dict "items" (list "a" "b")) }}
+-- helm_output.yaml --
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test
+data:
+  val: b
+-- output.cue --
+import "struct"
+
+_test_join: {
+	#arg: {
+		items?: [...] | {
+			...
+		}
+		...
+	}
+	{
+		let _acc = [for _, _range1 in #arg.items {
+			_range1
+		}]
+		[if len(_acc) > 0 {
+			_acc[len(_acc)-1]
+		}, ""][0]
+	}
+}
+
+output: [
+	{
+		apiVersion: "v1"
+		kind:       "ConfigMap"
+		metadata: name: "test"
+		data: val: _test_join & {
+			#arg: {items: ["a", "b"]}
+			_
+		}
+	},
+]
+_nonzero: {
+	#arg?: _
+	out: [if #arg != _|_ {
+		[
+			if (#arg & int) != _|_ {#arg != 0},
+			if (#arg & string) != _|_ {#arg != ""},
+			if (#arg & float) != _|_ {#arg != 0.0},
+			if (#arg & bool) != _|_ {#arg},
+			if (#arg & [...]) != _|_ {len(#arg) > 0},
+			if (#arg & {...}) != _|_ {(#arg & struct.MaxFields(0)) == _|_},
+			false,
+		][0]
+	}, false][0]
+}
