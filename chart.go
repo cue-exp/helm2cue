@@ -162,7 +162,7 @@ func ConvertChart(chartDir, outDir string, opts ChartOptions) error {
 	// 5. Convert each template.
 	var results []templateResult
 	var warnings []string
-	totalDocs := 0
+	totalFiles := 0
 
 	for _, tmplPath := range templateFiles {
 		// Use path relative to templates/ for display and field naming,
@@ -173,10 +173,10 @@ func ConvertChart(chartDir, outDir string, opts ChartOptions) error {
 			relPath = filepath.Base(tmplPath)
 		}
 
+		totalFiles++
 		content, err := os.ReadFile(tmplPath)
 		if err != nil {
 			warnings = append(warnings, fmt.Sprintf("skipping %s: %v", relPath, err))
-			totalDocs++
 			continue
 		}
 
@@ -190,7 +190,6 @@ func ConvertChart(chartDir, outDir string, opts ChartOptions) error {
 		var docResults []*convertResult
 		allOK := true
 		for i, doc := range docs {
-			totalDocs++
 			docFieldName := fieldName
 			if len(docs) > 1 {
 				docFieldName = fmt.Sprintf("%s_%d", fieldName, i)
@@ -465,7 +464,7 @@ func ConvertChart(chartDir, outDir string, opts ChartOptions) error {
 		logf("error: %s\n", w)
 	}
 	logf("converted %d/%d templates from %s\n",
-		len(results), totalDocs, meta.Name)
+		len(results), totalFiles, meta.Name)
 
 	if len(valWarnings) > 0 {
 		return fmt.Errorf("values schema validation failed")

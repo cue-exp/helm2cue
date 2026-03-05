@@ -1,5 +1,5 @@
 -- ConvertChart --
-converted 171/216 templates from kube-prometheus-stack
+converted 171/171 templates from kube-prometheus-stack
 -- cue vet --
 -- cue export --
 exit status 1
