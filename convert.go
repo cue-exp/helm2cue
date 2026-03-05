@@ -300,6 +300,7 @@ type converter struct {
 	imports                     map[string]bool
 	hasConditions               bool                 // true if any if blocks or top-level guards exist
 	usedHelpers                 map[string]HelperDef // collected during conversion
+	rootExprAST                 ast.Expr             // parsed config.RootExpr, cached
 
 	// AST construction state.
 	rootDecls           []ast.Decl // top-level declarations built during conversion
@@ -962,10 +963,12 @@ func wrapInGuards(expr ast.Expr, guards []ast.Expr) ast.Expr {
 }
 
 // makeFlattenNCall creates list.FlattenN(listExpr, -1).
-func makeFlattenNCall(listSentinel string, listExpr ast.Expr) ast.Expr {
+func makeFlattenNCall(listExpr ast.Expr) ast.Expr {
+	listIdent := ast.NewIdent("list")
+	listIdent.Node = ast.NewImport(nil, "list")
 	return &ast.CallExpr{
 		Fun: &ast.SelectorExpr{
-			X:   ast.NewIdent(listSentinel),
+			X:   listIdent,
 			Sel: ast.NewIdent("FlattenN"),
 		},
 		Args: []ast.Expr{listExpr, &ast.UnaryExpr{Op: token.SUB, X: cueInt(1)}},
@@ -1208,6 +1211,10 @@ func convertStructured(cfg *Config, input []byte, templateName string, treeSet m
 		helperArgFieldNonScalarRefs: make(map[string][][]string),
 	}
 
+	if cfg.RootExpr != "" {
+		c.rootExprAST = mustParseExpr(cfg.RootExpr)
+	}
+
 	// Phase 0: Register CUE names for all defined helpers.
 	for name := range treeSet {
 		if name == templateName || helperFileNames[name] {
@@ -1407,8 +1414,7 @@ func assembleSingleFile(cfg *Config, r *convertResult) ([]byte, error) {
 	// separated by blank lines.
 	helperDefCount := 0
 	if r.needsNonzero {
-		def := sentinelizeImportsRaw(stripCUEComments(nonzeroDef), []string{"struct"}, nil)
-		defDecls, err := bodyToDecls(def)
+		defDecls, err := parseHelperDefDecls(nonzeroDef, []string{"struct"}, true)
 		if err != nil {
 			return nil, fmt.Errorf("parsing nonzero def: %w", err)
 		}
@@ -1421,8 +1427,7 @@ func assembleSingleFile(cfg *Config, r *convertResult) ([]byte, error) {
 	}
 
 	for _, h := range r.usedHelpers {
-		def := sentinelizeImportsRaw(stripCUEComments(h.Def), h.Imports, nil)
-		defDecls, err := bodyToDecls(def)
+		defDecls, err := parseHelperDefDecls(h.Def, h.Imports, true)
 		if err != nil {
 			return nil, fmt.Errorf("parsing helper def %s: %w", h.Name, err)
 		}
@@ -1535,7 +1540,6 @@ func mergeConvertResults(results []*convertResult) *convertResult {
 		}
 	}
 
-	listSentinel := importSentinel("list")
 	var outputValue ast.Expr
 
 	if hasRange && len(results) > 1 {
@@ -1584,7 +1588,7 @@ func mergeConvertResults(results []*convertResult) *convertResult {
 			}
 		}
 		expandList(outerList)
-		outputValue = makeFlattenNCall(listSentinel, outerList)
+		outputValue = makeFlattenNCall(outerList)
 	} else if hasRange && len(results) == 1 {
 		// Single doc with top-level range.
 		r := results[0]
@@ -1605,7 +1609,7 @@ func mergeConvertResults(results []*convertResult) *convertResult {
 		}
 		outerList := &ast.ListLit{Elts: []ast.Expr{comp}}
 		expandList(outerList)
-		outputValue = makeFlattenNCall(listSentinel, outerList)
+		outputValue = makeFlattenNCall(outerList)
 	} else {
 		// No range — plain list with optional if guards.
 		listLit := &ast.ListLit{}
@@ -5237,7 +5241,7 @@ func (c *converter) conditionNodeToExpr(node parse.Node) (ast.Expr, error) {
 			return nonzeroExpr(c.rangeVarStack[len(c.rangeVarStack)-1].cueExpr), nil
 		}
 		if c.config.RootExpr != "" {
-			return nonzeroExpr(mustParseExpr(c.config.RootExpr)), nil
+			return nonzeroExpr(c.rootExprAST), nil
 		}
 		return nil, fmt.Errorf("{{ . }} outside range/with not supported")
 	case *parse.PipeNode:
@@ -5311,7 +5315,7 @@ func (c *converter) conditionNodeToRawExpr(node parse.Node) (ast.Expr, error) {
 			return c.rangeVarStack[len(c.rangeVarStack)-1].cueExpr, nil
 		}
 		if c.config.RootExpr != "" {
-			return mustParseExpr(c.config.RootExpr), nil
+			return c.rootExprAST, nil
 		}
 		return nil, fmt.Errorf("{{ . }} outside range/with not supported")
 	case *parse.PipeNode:
@@ -5959,7 +5963,7 @@ func (c *converter) actionToCUE(n *parse.ActionNode) (expr ast.Expr, helmObj str
 			if len(c.rangeVarStack) > 0 {
 				expr = c.rangeVarStack[len(c.rangeVarStack)-1].cueExpr
 			} else if c.config.RootExpr != "" {
-				expr = mustParseExpr(c.config.RootExpr)
+				expr = c.rootExprAST
 			} else {
 				return nil, "", fmt.Errorf("{{ . }} outside range/with not supported")
 			}
@@ -6361,7 +6365,7 @@ func (c *converter) nodeToExpr(node parse.Node) (ast.Expr, string, error) {
 			return c.rangeVarStack[len(c.rangeVarStack)-1].cueExpr, "", nil
 		}
 		if c.config.RootExpr != "" {
-			return mustParseExpr(c.config.RootExpr), "", nil
+			return c.rootExprAST, "", nil
 		}
 		return nil, "", fmt.Errorf("{{ . }} outside range/with not supported")
 	case *parse.ChainNode:
@@ -6799,61 +6803,18 @@ func importSentinel(pkg string) string {
 	return "_h2c_" + s + "_"
 }
 
-// sentinelizeImportsRaw replaces known import short names with their
-// sentinel forms in s and calls record for each package.
-func sentinelizeImportsRaw(s string, imports []string, record func(string)) string {
-	for _, pkg := range imports {
-		shortName := pkg
-		if idx := strings.LastIndex(pkg, "/"); idx >= 0 {
-			shortName = pkg[idx+1:]
-		}
-		sentinel := importSentinel(pkg)
-		// Replace shortName. followed by an identifier char with sentinel.
-		// This avoids replacing partial matches.
-		s = replaceImportShortName(s, shortName, sentinel)
-		if record != nil {
-			record(pkg)
-		}
-	}
-	return s
-}
-
-// replaceImportShortName replaces occurrences of shortName+"." with
-// replacement+"." in s, but only where shortName is not preceded by
-// an identifier character (to avoid matching e.g. "#template" when
-// replacing "template").
-func replaceImportShortName(s, shortName, replacement string) string {
-	old := shortName + "."
-	newRef := replacement + "."
-	var result strings.Builder
-	result.Grow(len(s))
-	for i := 0; i < len(s); {
-		if strings.HasPrefix(s[i:], old) {
-			if i > 0 && isIdentOrHash(s[i-1]) {
-				result.WriteString(old)
-			} else {
-				result.WriteString(newRef)
-			}
-			i += len(old)
-		} else {
-			result.WriteByte(s[i])
-			i++
-		}
-	}
-	return result.String()
-}
-
-func isIdentOrHash(b byte) bool {
-	return (b >= 'a' && b <= 'z') || (b >= 'A' && b <= 'Z') ||
-		(b >= '0' && b <= '9') || b == '_' || b == '#'
-}
-
 // appendSectionDecls appends declarations with a blank line separator.
 // It sets token.NewSection on the first new declaration to ensure
-// format.Node inserts a blank line before it.
+// format.Node inserts a blank line before it. If the first declaration
+// has leading comments, the position is set on the first comment group
+// so the blank line appears before the comment.
 func appendSectionDecls(target, newDecls []ast.Decl) []ast.Decl {
 	if len(newDecls) > 0 && len(target) > 0 {
-		ast.SetRelPos(newDecls[0], token.NewSection)
+		if cgs := ast.Comments(newDecls[0]); len(cgs) > 0 {
+			ast.SetRelPos(cgs[0], token.NewSection)
+		} else {
+			ast.SetRelPos(newDecls[0], token.NewSection)
+		}
 	}
 	return append(target, newDecls...)
 }
@@ -6884,6 +6845,50 @@ func bodyToDecls(body string) ([]ast.Decl, error) {
 		return nil, fmt.Errorf("expected struct lit, got %T", embed.Expr)
 	}
 	return lit.Elts, nil
+}
+
+// parseHelperDefDecls parses a helper definition text into []ast.Decl and
+// tags import identifiers with their import specs. If stripComments is true,
+// leading CUE comments are stripped before parsing.
+func parseHelperDefDecls(text string, imports []string, stripComments bool) ([]ast.Decl, error) {
+	if stripComments {
+		text = stripCUEComments(text)
+	}
+	decls, err := bodyToDecls(text)
+	if err != nil {
+		return nil, err
+	}
+	if len(imports) == 0 {
+		return decls, nil
+	}
+	// Build short name → full package path mapping.
+	shortToFull := make(map[string]string, len(imports))
+	for _, pkg := range imports {
+		short := pkg
+		if idx := strings.LastIndex(pkg, "/"); idx >= 0 {
+			short = pkg[idx+1:]
+		}
+		shortToFull[short] = pkg
+	}
+	// Walk to tag import idents: find selector expressions where X is
+	// an ident matching an import short name.
+	for _, d := range decls {
+		ast.Walk(d, func(n ast.Node) bool {
+			sel, ok := n.(*ast.SelectorExpr)
+			if !ok {
+				return true
+			}
+			ident, ok := sel.X.(*ast.Ident)
+			if !ok {
+				return true
+			}
+			if pkg, ok := shortToFull[ident.Name]; ok {
+				ident.Node = ast.NewImport(nil, pkg)
+			}
+			return true
+		}, nil)
+	}
+	return decls, nil
 }
 
 // resolveImportSentinels walks an *ast.File and resolves sentinel

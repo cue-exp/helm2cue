@@ -27,6 +27,7 @@ import (
 
 	"cuelang.org/go/cue"
 	"cuelang.org/go/cue/ast"
+	"cuelang.org/go/cue/ast/astutil"
 	"cuelang.org/go/cue/cuecontext"
 	cueerrors "cuelang.org/go/cue/errors"
 	"cuelang.org/go/cue/format"
@@ -445,15 +446,19 @@ func writeHelpersCUE(outDir, pkgName string, r *convertResult, needsNonzero bool
 
 	var allDecls []ast.Decl
 
-	// Helper definitions: _nonzero, _trunc, etc. Build as single text
-	// block with blank line separators so the parser preserves spacing.
-	var defsBuf bytes.Buffer
+	// Helper definitions: _nonzero, _trunc, etc.
+	helperDefCount := 0
 	if needsNonzero {
-		def := sentinelizeImportsRaw(nonzeroDef, []string{"struct"}, nil)
-		if defsBuf.Len() > 0 {
-			defsBuf.WriteByte('\n')
+		defDecls, err := parseHelperDefDecls(nonzeroDef, []string{"struct"}, false)
+		if err != nil {
+			return fmt.Errorf("parsing nonzero def: %w", err)
 		}
-		defsBuf.WriteString(def)
+		if helperDefCount > 0 {
+			allDecls = appendSectionDecls(allDecls, defDecls)
+		} else {
+			allDecls = append(allDecls, defDecls...)
+		}
+		helperDefCount++
 	}
 
 	var helperNames []string
@@ -463,19 +468,16 @@ func writeHelpersCUE(outDir, pkgName string, r *convertResult, needsNonzero bool
 	slices.Sort(helperNames)
 	for _, name := range helperNames {
 		h := usedHelpers[name]
-		def := sentinelizeImportsRaw(h.Def, h.Imports, nil)
-		if defsBuf.Len() > 0 {
-			defsBuf.WriteByte('\n')
-		}
-		defsBuf.WriteString(def)
-	}
-
-	if defsBuf.Len() > 0 {
-		defsDecls, err := bodyToDecls(defsBuf.String())
+		defDecls, err := parseHelperDefDecls(h.Def, h.Imports, false)
 		if err != nil {
-			return fmt.Errorf("parsing helper defs: %w", err)
+			return fmt.Errorf("parsing helper def %s: %w", h.Name, err)
 		}
-		allDecls = append(allDecls, defsDecls...)
+		if helperDefCount > 0 {
+			allDecls = appendSectionDecls(allDecls, defDecls)
+		} else {
+			allDecls = append(allDecls, defDecls...)
+		}
+		helperDefCount++
 	}
 
 	// Helper expressions (template name → CUE expression).
@@ -670,24 +672,37 @@ func writeDataCUE(outDir, pkgName string) error {
 // into a single list. Each template produces a list, so results concatenates
 // them using list.FlattenN.
 func writeResultsCUE(outDir, pkgName string, results []templateResult) error {
-	listSentinel := importSentinel("list")
-	var resultsText bytes.Buffer
-	fmt.Fprintf(&resultsText, "results: %s.FlattenN([\n", listSentinel)
+	// Build list literal with field name idents.
+	listLit := &ast.ListLit{}
 	for _, tr := range results {
-		fmt.Fprintf(&resultsText, "\t%s,\n", tr.fieldName)
+		listLit.Elts = append(listLit.Elts, ast.NewIdent(tr.fieldName))
 	}
-	resultsText.WriteString("], 1)")
+	expandList(listLit)
 
-	resultsDecls, err := bodyToDecls(resultsText.String())
-	if err != nil {
-		return fmt.Errorf("parsing results body: %w", err)
+	// Build list.FlattenN([...], 1).
+	listIdent := ast.NewIdent("list")
+	listIdent.Node = ast.NewImport(nil, "list")
+	flattenCall := &ast.CallExpr{
+		Fun:  &ast.SelectorExpr{X: listIdent, Sel: ast.NewIdent("FlattenN")},
+		Args: []ast.Expr{listLit, cueInt(1)},
+	}
+
+	// results: list.FlattenN([...], 1)
+	resultsField := &ast.Field{
+		Label: ast.NewIdent("results"),
+		Value: flattenCall,
 	}
 
 	f := &ast.File{
-		Decls: append([]ast.Decl{&ast.Package{Name: ast.NewIdent(pkgName)}}, resultsDecls...),
+		Decls: []ast.Decl{
+			&ast.Package{Name: ast.NewIdent(pkgName)},
+			resultsField,
+		},
 	}
-	allImports := map[string]bool{"list": true}
-	formatted, err := formatResolvedFile(f, allImports)
+	if err := astutil.Sanitize(f); err != nil {
+		return fmt.Errorf("sanitize results.cue: %w", err)
+	}
+	formatted, err := format.Node(f, format.Simplify())
 	if err != nil {
 		return fmt.Errorf("formatting results.cue: %w", err)
 	}
@@ -1170,7 +1185,6 @@ func mergeChartDocResults(results []*convertResult) *convertResult {
 	}
 
 	// Build list body.
-	listSentinel := importSentinel("list")
 	var listValue ast.Expr
 
 	if len(results) == 1 {
@@ -1199,7 +1213,7 @@ func mergeChartDocResults(results []*convertResult) *convertResult {
 			}
 			outerList := &ast.ListLit{Elts: []ast.Expr{comp}}
 			expandList(outerList)
-			listValue = makeFlattenNCall(listSentinel, outerList)
+			listValue = makeFlattenNCall(outerList)
 		} else if len(r.topLevelGuards) > 0 {
 			bodyStruct := &ast.StructLit{Elts: r.body}
 			listValue = &ast.ListLit{
@@ -1268,7 +1282,7 @@ func mergeChartDocResults(results []*convertResult) *convertResult {
 				}
 			}
 			expandList(outerList)
-			listValue = makeFlattenNCall(listSentinel, outerList)
+			listValue = makeFlattenNCall(outerList)
 		} else {
 			listLit := &ast.ListLit{}
 			for _, r := range results {
