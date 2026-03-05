@@ -1,0 +1,13 @@
+Pipeline function (toJson) used as a sub-expression in a condition.
+
+-- values.yaml --
+config:
+  key: "hello {{ world }}"
+-- input.yaml --
+{{- if contains "{{" (toJson .Values.config) }}
+hasTpl: true
+{{- end }}
+-- helm_output.yaml --
+hasTpl: true
+-- broken --
+unsupported condition function: toJson
