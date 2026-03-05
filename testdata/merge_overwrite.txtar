@@ -1,0 +1,54 @@
+mergeOverwrite function: last argument (source) wins over destination.
+
+-- values.yaml --
+defaults:
+  color: blue
+  size: large
+overrides:
+  color: red
+-- input.yaml --
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test
+  labels: {{ mergeOverwrite .Values.defaults .Values.overrides | toYaml | nindent 4 }}
+-- helm_output.yaml --
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test
+  labels: 
+    color: red
+    size: large
+-- output.cue --
+#values: {
+	defaults!:  _
+	overrides!: _
+	...
+}
+
+output: [
+	{
+		apiVersion: "v1"
+		kind:       "ConfigMap"
+		metadata: {
+			name: "test"
+			labels: (_mergeOverwrite & {
+				#a: #values.defaults
+				#b: #values.overrides
+			}).out
+		}
+	},
+]
+_mergeOverwrite: {
+	#a!: _
+	#b!: _
+	out: {
+		for k, v in #a if #b[k] == _|_ {
+			(k): v
+		}
+		for k, v in #b {
+			(k): v
+		}
+	}
+}

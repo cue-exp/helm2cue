@@ -1,0 +1,45 @@
+hasKey with dynamic (non-literal) key argument.
+No semantic comparison: dynamic key lookup uses CUE index notation
+which differs from Helm's runtime map access.
+
+-- values.yaml --
+presets:
+  small:
+    cpu: 100m
+  medium:
+    cpu: 500m
+size: small
+-- input.yaml --
+{{- if hasKey .Values.presets .Values.size }}
+found: true
+{{- end }}
+-- output.cue --
+import "struct"
+
+#values: {
+	presets!: _
+	size!:    bool | number | string | null
+	...
+}
+
+output: [
+	if #values.presets[#values.size] != _|_ {
+		{
+			found: true
+		}
+	},
+]
+_nonzero: {
+	#arg?: _
+	out: [if #arg != _|_ {
+		[
+			if (#arg & int) != _|_ {#arg != 0},
+			if (#arg & string) != _|_ {#arg != ""},
+			if (#arg & float) != _|_ {#arg != 0.0},
+			if (#arg & bool) != _|_ {#arg},
+			if (#arg & [...]) != _|_ {len(#arg) > 0},
+			if (#arg & {...}) != _|_ {(#arg & struct.MaxFields(0)) == _|_},
+			false,
+		][0]
+	}, false][0]
+}

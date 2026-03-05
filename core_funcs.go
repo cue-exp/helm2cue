@@ -71,10 +71,11 @@ func init() {
 		"min":            {nargs: -1, convert: convertMin},
 		"tpl":            {nargs: 2, pipedFirst: true, convert: convertTpl},
 		"index":          {nargs: -1, convert: convertIndex},
-		"merge":          {nargs: -1, convert: convertMergeUnsupported("merge")},
-		"mergeOverwrite": {nargs: -1, convert: convertMergeUnsupported("mergeOverwrite")},
+		"merge":          {nargs: -1, convert: convertMerge},
+		"mergeOverwrite": {nargs: -1, convert: convertMergeOverwrite},
 		"dig":            {nargs: -1, convert: convertDig},
 		"omit":           {nargs: -1, convert: convertOmit},
+		"typeIs":         {nargs: 2, convert: convertTypeIs},
 	}
 }
 
@@ -680,8 +681,111 @@ func convertOmit(c *converter, args []funcArg) (ast.Expr, string, error) {
 	return expr, helmObj, nil
 }
 
-func convertMergeUnsupported(name string) func(*converter, []funcArg) (ast.Expr, string, error) {
-	return func(c *converter, args []funcArg) (ast.Expr, string, error) {
-		return nil, "", fmt.Errorf("function %q has no CUE equivalent: CUE uses unification instead of mutable map merging", name)
+// convertMerge handles Sprig's merge function: merge dst src1 src2 ...
+// The destination (first arg) wins over sources. We chain pairwise
+// _merge helpers for each source argument.
+func convertMerge(c *converter, args []funcArg) (ast.Expr, string, error) {
+	return convertMergeImpl(c, args, "_merge", mergeDef)
+}
+
+// convertMergeOverwrite handles Sprig's mergeOverwrite function:
+// mergeOverwrite dst src1 src2 ... where sources override the destination.
+func convertMergeOverwrite(c *converter, args []funcArg) (ast.Expr, string, error) {
+	return convertMergeImpl(c, args, "_mergeOverwrite", mergeOverwriteDef)
+}
+
+func convertMergeImpl(c *converter, args []funcArg, helperName, helperDef string) (ast.Expr, string, error) {
+	if len(args) < 2 {
+		return nil, "", fmt.Errorf("%s requires at least 2 arguments, got %d", helperName, len(args))
 	}
+	c.usedHelpers[helperName] = HelperDef{Name: helperName, Def: helperDef}
+
+	// Resolve the destination (first argument).
+	result, helmObj, err := c.resolveExpr(args[0])
+	if err != nil {
+		return nil, "", fmt.Errorf("%s destination: %w", helperName, err)
+	}
+	// Mark the destination as non-scalar.
+	if helmObj != "" {
+		refs := c.fieldRefs[helmObj]
+		if len(refs) > 0 {
+			c.trackNonScalarRef(helmObj, refs[len(refs)-1])
+		}
+	}
+
+	// Chain each source: result = (_merge & {#a: result, #b: src}).out
+	for i := 1; i < len(args); i++ {
+		srcExpr, srcObj, err := c.resolveExpr(args[i])
+		if err != nil {
+			return nil, "", fmt.Errorf("%s source %d: %w", helperName, i, err)
+		}
+		if srcObj != "" {
+			refs := c.fieldRefs[srcObj]
+			if len(refs) > 0 {
+				c.trackNonScalarRef(srcObj, refs[len(refs)-1])
+			}
+		}
+		result = selExpr(
+			parenExpr(binOp(token.AND, ast.NewIdent(helperName), &ast.StructLit{Elts: []ast.Decl{
+				&ast.Field{Label: ast.NewIdent("#a"), Value: result},
+				&ast.Field{Label: ast.NewIdent("#b"), Value: srcExpr},
+			}})),
+			"out",
+		)
+	}
+	return result, helmObj, nil
+}
+
+// convertTypeIs handles Sprig's typeIs function in pipeline position:
+// typeIs "string" .value → (value & string) != _|_
+func convertTypeIs(c *converter, args []funcArg) (ast.Expr, string, error) {
+	if len(args) != 2 {
+		return nil, "", fmt.Errorf("typeIs requires 2 arguments, got %d", len(args))
+	}
+	typeStr, err := c.resolveLiteral(args[0])
+	if err != nil {
+		return nil, "", fmt.Errorf("typeIs type argument: %w", err)
+	}
+	strLit, ok := typeStr.(*ast.BasicLit)
+	if !ok || strLit.Kind != token.STRING {
+		return nil, "", fmt.Errorf("typeIs type must be a string literal")
+	}
+	// Strip quotes from the literal.
+	typeName := strings.Trim(strLit.Value, "\"")
+
+	valExpr, helmObj, err := c.resolveExpr(args[1])
+	if err != nil {
+		return nil, "", fmt.Errorf("typeIs value argument: %w", err)
+	}
+
+	typeIsMap := map[string]string{
+		"bool":                    "bool",
+		"string":                  "string",
+		"int":                     "int",
+		"int64":                   "int",
+		"float64":                 "float",
+		"map[string]interface {}": "{...}",
+		"[]interface {}":          "[...]",
+	}
+	if typeName == "<nil>" || typeName == "<invalid>" {
+		return binOp(token.EQL, valExpr, &ast.BottomLit{}), helmObj, nil
+	}
+	cueType, ok := typeIsMap[typeName]
+	if !ok {
+		return nil, "", fmt.Errorf("unsupported typeIs type: %q", typeName)
+	}
+	var typeExpr ast.Expr
+	switch cueType {
+	case "{...}":
+		typeExpr = &ast.StructLit{
+			Elts: []ast.Decl{&ast.Ellipsis{}},
+		}
+	case "[...]":
+		typeExpr = &ast.ListLit{
+			Elts: []ast.Expr{&ast.Ellipsis{}},
+		}
+	default:
+		typeExpr = ast.NewIdent(cueType)
+	}
+	return binOp(token.NEQ, parenExpr(binOp(token.AND, valExpr, typeExpr)), &ast.BottomLit{}), helmObj, nil
 }
