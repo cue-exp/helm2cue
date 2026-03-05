@@ -2758,6 +2758,137 @@ func (c *converter) embedRangeInBlockScalar(n *parse.RangeNode) error {
 	return nil
 }
 
+// embedRangeInBlockScalarMultiline converts a block-scalar-safe (but not
+// inline-safe) range to a string interpolation and embeds it in the current
+// block scalar. Each iteration's body is converted to a string expression
+// via blockScalarBranchToExpr, and the iterations are joined with "\n".
+func (c *converter) embedRangeInBlockScalarMultiline(n *parse.RangeNode) error {
+	// Resolve range expression.
+	saved := c.suppressRequired
+	c.suppressRequired = true
+	overExpr, helmObj, fieldPath, err := c.pipeToFieldExpr(n.Pipe)
+	c.suppressRequired = saved
+	if err != nil {
+		return fmt.Errorf("block scalar range: %w", err)
+	}
+	if helmObj != "" {
+		c.usedContextObjects[helmObj] = true
+		if fieldPath != nil {
+			c.rangeRefs[helmObj] = append(c.rangeRefs[helmObj], fieldPath)
+		}
+	}
+
+	// Determine loop variable names.
+	blockIdx := len(c.rangeVarStack)
+	var keyName, valName string
+	if len(n.Pipe.Decl) == 2 {
+		keyName = fmt.Sprintf("_key%d", blockIdx)
+		valName = fmt.Sprintf("_val%d", blockIdx)
+		c.localVars[n.Pipe.Decl[0].Ident[0]] = ast.NewIdent(keyName)
+		c.localVars[n.Pipe.Decl[1].Ident[0]] = ast.NewIdent(valName)
+	} else if len(n.Pipe.Decl) == 1 {
+		valName = fmt.Sprintf("_range%d", blockIdx)
+		c.localVars[n.Pipe.Decl[0].Ident[0]] = ast.NewIdent(valName)
+	} else {
+		valName = fmt.Sprintf("_range%d", blockIdx)
+	}
+
+	// Push range context.
+	ctx := rangeContext{cueExpr: ast.NewIdent(valName)}
+	c.rangeVarStack = append(c.rangeVarStack, ctx)
+
+	// Convert body to string expression.
+	bodyExpr, err := c.blockScalarBranchToExpr(n.List.Nodes)
+
+	// Pop range context and clean up local vars.
+	c.rangeVarStack = c.rangeVarStack[:blockIdx]
+	for _, decl := range n.Pipe.Decl {
+		delete(c.localVars, decl.Ident[0])
+	}
+
+	if err != nil {
+		return err
+	}
+
+	// Strip leading newline from body expression: the first text node
+	// typically starts with "\n" which is the line separator from the
+	// range tag to the body. We use "\n" as the join separator instead.
+	bodyExpr = stripLeadingNewline(bodyExpr)
+
+	// Build strings.Join([for _, val in overExpr {bodyExpr}], "\n").
+	c.addImport("strings")
+	keyExpr := "_"
+	if keyName != "" {
+		keyExpr = keyName
+	}
+	listComp := &ast.ListLit{Elts: []ast.Expr{
+		&ast.Comprehension{
+			Clauses: []ast.Clause{
+				&ast.ForClause{
+					Key:    ast.NewIdent(keyExpr),
+					Value:  ast.NewIdent(valName),
+					Source: overExpr,
+				},
+			},
+			Value: &ast.StructLit{Elts: []ast.Decl{
+				&ast.EmbedDecl{Expr: bodyExpr},
+			}},
+		},
+	}}
+	joinExpr := importCall("strings", "Join", listComp, cueString("\n"))
+
+	joinText := inlineExpr(c.exprToGuardText(joinExpr))
+	// Start the range output on a new block scalar line.
+	c.blockScalarLines = append(c.blockScalarLines, joinText)
+	c.blockScalarPartialLine = true
+	return nil
+}
+
+// stripLeadingNewline removes a leading "\n" from a string expression.
+// This is used when converting range body text into a join expression
+// where the newline separator is provided by strings.Join instead.
+func stripLeadingNewline(expr ast.Expr) ast.Expr {
+	switch e := expr.(type) {
+	case *ast.BasicLit:
+		if e.Kind == token.STRING {
+			s, err := strconv.Unquote(e.Value)
+			if err == nil && strings.HasPrefix(s, "\n") {
+				s = s[1:]
+				return cueString(s)
+			}
+		}
+	case *ast.BinaryExpr:
+		if e.Op == token.ADD {
+			stripped := stripLeadingNewline(e.X)
+			if lit, ok := stripped.(*ast.BasicLit); ok && lit.Kind == token.STRING {
+				s, err := strconv.Unquote(lit.Value)
+				if err == nil && s == "" {
+					return e.Y
+				}
+			}
+			return &ast.BinaryExpr{Op: token.ADD, X: stripped, Y: e.Y}
+		}
+	case *ast.Interpolation:
+		if len(e.Elts) > 0 {
+			if lit, ok := e.Elts[0].(*ast.BasicLit); ok && lit.Kind == token.STRING {
+				// Interpolation text segments use raw CUE string syntax
+				// (not Go-quoted), e.g. `"\\n- name: ` or `"\\n`.
+				val := lit.Value
+				if strings.HasPrefix(val, `"\n`) {
+					newElts := make([]ast.Expr, len(e.Elts))
+					copy(newElts, e.Elts)
+					newLit := &ast.BasicLit{Kind: token.STRING, Value: `"` + val[3:]}
+					newElts[0] = newLit
+					// If the first element is now just `"`, it's empty text
+					// before the first interpolation — keep it as CUE needs it.
+					return &ast.Interpolation{Elts: newElts}
+				}
+			}
+		}
+	}
+	return expr
+}
+
 // embedIfInBlockScalar converts a block-scalar-safe IfNode to a conditional
 // string expression and embeds it in the current block scalar, mirroring
 // how embedRangeInBlockScalar handles range nodes inside block scalars.
@@ -3872,6 +4003,16 @@ func isBlockScalarSafeIf(n *parse.IfNode) bool {
 	return true
 }
 
+// isBlockScalarSafeRange reports whether a RangeNode can be embedded within
+// a block scalar: the body contains only text, action, and template nodes,
+// and there is no else branch.
+func isBlockScalarSafeRange(n *parse.RangeNode) bool {
+	if n.List == nil || !isBlockScalarSafeBody(n.List.Nodes) {
+		return false
+	}
+	return n.ElseList == nil || len(n.ElseList.Nodes) == 0
+}
+
 // isInlineSafeRange reports whether a RangeNode can be handled inline:
 // the body contains only inline-safe nodes and there is no else branch.
 func isInlineSafeRange(n *parse.RangeNode) bool {
@@ -3918,6 +4059,9 @@ func (c *converter) processNode(node parse.Node) error {
 	case *parse.RangeNode:
 		if c.blockScalarLines != nil && isInlineSafeRange(n) {
 			return c.embedRangeInBlockScalar(n)
+		}
+		if c.blockScalarLines != nil && isBlockScalarSafeRange(n) {
+			return c.embedRangeInBlockScalarMultiline(n)
 		}
 		if c.inlineParts != nil && isInlineSafeRange(n) {
 			return c.processInlineRange(n)

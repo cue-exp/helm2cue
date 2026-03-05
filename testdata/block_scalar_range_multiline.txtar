@@ -1,0 +1,54 @@
+Range with multi-line body inside a YAML block scalar embeds the
+range as a strings.Join expression rather than leaking the loop
+variable outside the for comprehension scope.
+-- values.yaml --
+replicas: 3
+-- input.yaml --
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test
+data:
+  config.yaml: |-
+    primary:
+      name: primary
+{{- range until (int .Values.replicas) }}
+    - name: "replica-{{ . }}"
+{{- end }}
+-- helm_output.yaml --
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test
+data:
+  config.yaml: |-
+    primary:
+      name: primary
+    - name: "replica-0"
+    - name: "replica-1"
+    - name: "replica-2"
+-- output.cue --
+import (
+	"strings"
+	"list"
+)
+
+#values: {
+	replicas?: bool | number | string | null
+	...
+}
+
+output: [
+	{
+		apiVersion: "v1"
+		kind:       "ConfigMap"
+		metadata: name:      "test"
+		data: "config.yaml": """
+	primary:
+	  name: primary
+	\(strings.Join([for _, _range0 in list.Range(0, int & #values.replicas, 1) {
+			"- name: \"replica-\(_range0)\""
+		}], "\n"))
+	"""
+	},
+]

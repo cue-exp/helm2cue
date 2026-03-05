@@ -36,6 +36,11 @@ converted 2/2 templates from test-app
 
 package test_app
 
+import (
+	"strings"
+	"list"
+)
+
 cm: [
 	{
 		apiVersion: "v1"
@@ -44,8 +49,9 @@ cm: [
 		data: "config.yaml": """
 	primary:
 	  name: primary
-	
-	- name: "replica-\(_range0)"
+	\(strings.Join([for _, _range0 in list.Range(0, int & #values.replicas, 1) {
+			"- name: \"replica-\(_range0)\""
+		}], "\n"))
 	"""
 	},
 ]
