@@ -63,7 +63,10 @@ _test_image: {
 			repository!: bool | number | string | null
 			...
 		}
-		global?: bool | number | string | null
+		global?: {
+			imageRegistry?: bool | number | string | null
+			...
+		}
 		...
 	}
 	"\([if (_nonzero & {

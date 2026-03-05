@@ -1079,6 +1079,43 @@ func (c *converter) remapFieldPath(helmObj string, path []string) []string {
 	return path
 }
 
+// trackChainFields records the combined field path for a ChainNode
+// (base pipe ident + chain fields). The base pipe's FieldNode has already
+// been tracked as a leaf; this records the extended path so that the
+// field tree sees the chain fields as sub-fields rather than the base
+// being a scalar leaf. For example, ((.global).imageRegistry) tracks
+// ["global", "imageRegistry"] in addition to the ["global"] that the
+// base pipe already tracked.
+func (c *converter) trackChainFields(pipe *parse.PipeNode, chainFields []string) {
+	if len(pipe.Cmds) != 1 || len(pipe.Cmds[0].Args) != 1 || len(chainFields) == 0 {
+		return
+	}
+	switch base := pipe.Cmds[0].Args[0].(type) {
+	case *parse.FieldNode:
+		combined := append(append([]string{}, base.Ident...), chainFields...)
+		if len(c.rangeVarStack) > 0 {
+			top := c.rangeVarStack[len(c.rangeVarStack)-1]
+			if isArgIdent(top.cueExpr) && c.helperArgRefs != nil {
+				c.helperArgRefs = append(c.helperArgRefs, combined)
+				if !c.suppressRequired {
+					c.helperArgRequiredRefs = append(c.helperArgRequiredRefs, combined)
+				}
+			}
+			if top.helmObj != "" {
+				fullPath := make([]string, len(top.basePath)+len(combined))
+				copy(fullPath, top.basePath)
+				copy(fullPath[len(top.basePath):], combined)
+				c.trackFieldRef(top.helmObj, fullPath)
+			}
+		} else {
+			if _, ok := c.config.ContextObjects[base.Ident[0]]; ok && len(base.Ident) >= 2 {
+				fullPath := append(append([]string{}, base.Ident[1:]...), chainFields...)
+				c.trackFieldRef(base.Ident[0], fullPath)
+			}
+		}
+	}
+}
+
 // guardedPathKey returns the key for a guarded path entry.
 func guardedPathKey(helmObj string, path []string) string {
 	return helmObj + "\x00" + strings.Join(path, "\x00")
@@ -5934,6 +5971,7 @@ func (c *converter) conditionNodeToRawExpr(node parse.Node) (ast.Expr, error) {
 		for _, field := range n.Field {
 			baseExpr = selExpr(baseExpr, cueKey(field))
 		}
+		c.trackChainFields(pipe, n.Field)
 		return baseExpr, nil
 	case *parse.DotNode:
 		if len(c.rangeVarStack) > 0 {
@@ -7073,6 +7111,7 @@ func (c *converter) nodeToExpr(node parse.Node) (ast.Expr, string, error) {
 		for _, field := range n.Field {
 			baseExpr = selExpr(baseExpr, cueKey(field))
 		}
+		c.trackChainFields(pipe, n.Field)
 		return baseExpr, helmObj, nil
 	case *parse.PipeNode:
 		return c.convertSubPipe(n)
