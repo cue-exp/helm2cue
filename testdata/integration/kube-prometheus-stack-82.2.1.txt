@@ -67,13 +67,6 @@ prometheus_operator_admission_webhooks_validatingWebhookConfiguration.0.path: co
     ./prometheus_operator_admission_webhooks_validatingWebhookConfiguration.cue:15:3
     ./prometheus_operator_admission_webhooks_validatingWebhookConfiguration.cue:96:10
     ./prometheus_operator_admission_webhooks_validatingWebhookConfiguration.cue:188:10
-prometheus_operator_servicemonitor.0.spec.endpoints.0.tlsConfig.ca.secret.key: conflicting values {optional:false} and "ca" (mismatched types struct and string):
-    ./prometheus_operator_servicemonitor.cue:17:5
-    ./prometheus_operator_servicemonitor.cue:18:3
-    ./prometheus_operator_servicemonitor.cue:39:7
-    ./prometheus_operator_servicemonitor.cue:49:15
-    ./prometheus_operator_servicemonitor.cue:56:11
-    ./prometheus_operator_servicemonitor.cue:60:12
 alertmanager_secret.0.data."alertmanager.yaml": invalid interpolation: cannot use {global:{resolve_timeout:"5m"},inhibit_rules:[{source_matchers:["severity = critical"],target_matchers:["severity =~ warning|info"],equal:["namespace","alertname"]},{source_matchers:["severity = warning"],target_matchers:["severity = info"],equal:["namespace","alertname"]},{source_matchers:["alertname = InfoInhibitor"],target_matchers:["severity = info"],equal:["namespace"]},{target_matchers:["alertname = InfoInhibitor"]}],route:{group_by:["namespace"],group_wait:"30s",group_interval:"5m",repeat_interval:"12h",receiver:"null",routes:[{receiver:"null",matchers:["alertname = \"Watchdog\""]}]},receivers:[{name:"null"}],templates:["/etc/alertmanager/config/*.tmpl"]} (type struct) as (string|bytes) in argument 2 to "encoding/base64".Encode:
     ./alertmanager_secret.cue:70:27
     ./values.cue:697:18
@@ -160,13 +153,6 @@ prometheus_operator_admission_webhooks_validatingWebhookConfiguration.0.path: co
     ./prometheus_operator_admission_webhooks_validatingWebhookConfiguration.cue:15:3
     ./prometheus_operator_admission_webhooks_validatingWebhookConfiguration.cue:96:10
     ./prometheus_operator_admission_webhooks_validatingWebhookConfiguration.cue:188:10
-prometheus_operator_servicemonitor.0.spec.endpoints.0.tlsConfig.ca.secret.key: conflicting values {optional:false} and "ca" (mismatched types struct and string):
-    ./prometheus_operator_servicemonitor.cue:17:5
-    ./prometheus_operator_servicemonitor.cue:18:3
-    ./prometheus_operator_servicemonitor.cue:39:7
-    ./prometheus_operator_servicemonitor.cue:49:15
-    ./prometheus_operator_servicemonitor.cue:56:11
-    ./prometheus_operator_servicemonitor.cue:60:12
 alertmanager_secret.0.data."alertmanager.yaml": invalid interpolation: cannot use {global:{resolve_timeout:"5m"},inhibit_rules:[{source_matchers:["severity = critical"],target_matchers:["severity =~ warning|info"],equal:["namespace","alertname"]},{source_matchers:["severity = warning"],target_matchers:["severity = info"],equal:["namespace","alertname"]},{source_matchers:["alertname = InfoInhibitor"],target_matchers:["severity = info"],equal:["namespace"]},{target_matchers:["alertname = InfoInhibitor"]}],route:{group_by:["namespace"],group_wait:"30s",group_interval:"5m",repeat_interval:"12h",receiver:"null",routes:[{receiver:"null",matchers:["alertname = \"Watchdog\""]}]},receivers:[{name:"null"}],templates:["/etc/alertmanager/config/*.tmpl"]} (type struct) as (string|bytes) in argument 2 to "encoding/base64".Encode:
     ./alertmanager_secret.cue:70:27
     ./values.cue:697:18

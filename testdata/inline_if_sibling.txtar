@@ -1,0 +1,61 @@
+Inline if/else value followed by a sibling field at the same indent.
+
+-- values.yaml --
+useCert: true
+-- input.yaml --
+apiVersion: v1
+kind: Pod
+spec:
+  secret:
+    key: {{ if .Values.useCert }}ca.crt{{ else }}ca{{ end }}
+    optional: false
+-- helm_output.yaml --
+apiVersion: v1
+kind: Pod
+spec:
+  secret:
+    key: ca.crt
+    optional: false
+-- output.cue --
+import "struct"
+
+#values: {
+	useCert?: bool | number | string | null
+	...
+}
+
+output: [
+	{
+		apiVersion: "v1"
+		kind:       "Pod"
+		spec: secret: {
+			if (_nonzero & {
+				#arg: #values.useCert
+				_
+			}) {
+				key: "ca.crt"
+			}
+			if !(_nonzero & {
+				#arg: #values.useCert
+				_
+			}) {
+				key: "ca"
+			}
+			optional: false
+		}
+	},
+]
+_nonzero: {
+	#arg?: _
+	[if #arg != _|_ {
+		[
+			if (#arg & int) != _|_ {#arg != 0},
+			if (#arg & string) != _|_ {#arg != ""},
+			if (#arg & float) != _|_ {#arg != 0.0},
+			if (#arg & bool) != _|_ {#arg},
+			if (#arg & [...]) != _|_ {len(#arg) > 0},
+			if (#arg & {...}) != _|_ {(#arg & struct.MaxFields(0)) == _|_},
+			false,
+		][0]
+	}, false][0]
+}

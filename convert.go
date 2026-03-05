@@ -2745,6 +2745,14 @@ func (c *converter) emitTextNode(text []byte) {
 					c.blockScalarPartialLine = false
 					c.blockScalarKey = key
 				}
+			} else if val == "" && continuesInline && c.nextIsInlineSafeIf() {
+				// The next node is an inline-safe IfNode following an empty
+				// key value (e.g. "key: {{ if cond }}X{{ else }}Y{{ end }}").
+				// Start inline accumulation so processInlineIf handles it,
+				// keeping sibling fields at the same indent as proper siblings.
+				c.inlineKey = key
+				c.inlineKeyLabel = nil
+				c.inlineParts = []inlinePart{}
 			} else if val == "" && isLastLine {
 				c.state = statePendingKey
 				c.pendingKey = key
@@ -3386,6 +3394,16 @@ func isInlineBody(nodes []parse.Node) bool {
 		}
 	}
 	return hasText
+}
+
+// nextIsInlineSafeIf reports whether the next remaining node is an
+// inline-safe IfNode.
+func (c *converter) nextIsInlineSafeIf() bool {
+	if len(c.remainingNodes) == 0 {
+		return false
+	}
+	n, ok := c.remainingNodes[0].(*parse.IfNode)
+	return ok && isInlineSafeIf(n)
 }
 
 // isInlineSafeIf reports whether an IfNode can be handled inline: both
