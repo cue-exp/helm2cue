@@ -238,7 +238,11 @@ func ConvertChart(chartDir, outDir string, opts ChartOptions) error {
 	mergedUsedHelpers := make(map[string]HelperDef)
 	hasDynamicInclude := false
 
-	// Helper info comes from first result (all share the same treeSet).
+	// Merge helpers across all results. Each per-template converter may
+	// have converted different deferred helpers depending on which
+	// templates include them. Take the first conversion of each helper.
+	mergedHelpers := make(map[string]ast.Expr)
+	mergedHelperOutputType := make(map[string]string)
 	firstResult := results[0].result
 
 	for _, tr := range results {
@@ -267,7 +271,87 @@ func ConvertChart(chartDir, outDir string, opts ChartOptions) error {
 		if r.hasDynamicInclude {
 			hasDynamicInclude = true
 		}
+		// Merge helpers: take the first conversion of each.
+		for cueName, expr := range r.helpers {
+			if _, exists := mergedHelpers[cueName]; !exists {
+				mergedHelpers[cueName] = expr
+				if t, ok := r.helperOutputType[cueName]; ok {
+					mergedHelperOutputType[cueName] = t
+				}
+			}
+		}
+		warnings = append(warnings, r.warnings...)
 	}
+
+	// Deduplicate warnings (same helper may fail in multiple templates).
+	warnings = slices.Compact(slices.Sorted(slices.Values(warnings)))
+
+	// Convert any remaining deferred helpers that were never included
+	// by any template. Try scalar (text) form first since text helpers
+	// with control structures are common, then fall back to struct.
+	for _, name := range firstResult.helperOrder {
+		cueName := firstResult.helperExprs[name]
+		if _, ok := mergedHelpers[cueName]; ok {
+			continue // already converted
+		}
+		tree := treeSet[name]
+		if tree == nil || tree.Root == nil {
+			continue
+		}
+		c := &converter{
+			config:                      cfg,
+			usedContextObjects:          make(map[string]bool),
+			fieldRefs:                   make(map[string][][]string),
+			requiredRefs:                make(map[string][][]string),
+			rangeRefs:                   make(map[string][][]string),
+			nonScalarRefs:               make(map[string][][]string),
+			imports:                     make(map[string]bool),
+			usedHelpers:                 make(map[string]HelperDef),
+			treeSet:                     treeSet,
+			helperExprs:                 firstResult.helperExprs,
+			helperCUE:                   mergedHelpers,
+			helperNodes:                 make(map[string][]parse.Node),
+			helperOutputType:            mergedHelperOutputType,
+			helperArgFieldRefs:          make(map[string][][]string),
+			helperArgFieldRequiredRefs:  make(map[string][][]string),
+			helperArgFieldRangeRefs:     make(map[string][][]string),
+			helperArgFieldNonScalarRefs: make(map[string][][]string),
+			helperDirectFieldRefs:       make(map[string]map[string][][]string),
+			helperDirectRequiredRefs:    make(map[string]map[string][][]string),
+			helperDirectRangeRefs:       make(map[string]map[string][][]string),
+			helperDirectNonScalarRefs:   make(map[string]map[string][][]string),
+			helperIncludes:              make(map[string][]string),
+			undefinedHelpers:            make(map[string]string),
+			localVars:                   make(map[string]ast.Expr),
+			comments:                    make(map[ast.Expr]string),
+			currentHelperCUEName:        cueName,
+		}
+		c.helperNodes[cueName] = tree.Root.Nodes
+		// Try struct conversion first (the general/safe default),
+		// then fall back to scalar for text-producing helpers.
+		cueExpr, argInfo, err := c.convertHelperBody(tree.Root.Nodes)
+		if err != nil {
+			// Struct failed; try scalar form for text helpers.
+			err2 := c.convertDeferredHelperAsScalar(cueName, tree.Root.Nodes)
+			if err2 != nil {
+				continue
+			}
+		} else {
+			mergedHelpers[cueName] = cueExpr
+			c.storeHelperArgInfo(cueName, argInfo)
+		}
+		// Propagate state from fallback converter back to merged results.
+		if c.hasConditions || c.hasDefault || len(c.topLevelGuards) > 0 {
+			needsNonzero = true
+		}
+		for k, v := range c.usedHelpers {
+			mergedUsedHelpers[k] = v
+		}
+	}
+
+	// Replace firstResult's helpers with the merged set.
+	firstResult.helpers = mergedHelpers
+	firstResult.helperOutputType = mergedHelperOutputType
 
 	// 7. Create output directory structure.
 	if err := os.MkdirAll(filepath.Join(outDir, "cue.mod"), 0o755); err != nil {
@@ -1175,13 +1259,27 @@ func mergeChartDocResults(results []*convertResult) *convertResult {
 			merged.hasDynamicInclude = true
 		}
 
-		// Take helper info from the first result (all share the same treeSet).
+		// Merge helper info. Helper order/exprs/undefined are the same
+		// across all results (same treeSet). Helper CUE expressions and
+		// output types may differ when deferred helpers are converted
+		// by different templates with different contexts. Merge by
+		// taking the first conversion of each helper.
 		if i == 0 {
-			merged.helpers = r.helpers
+			merged.helpers = make(map[string]ast.Expr)
+			merged.helperOutputType = make(map[string]string)
 			merged.helperOrder = r.helperOrder
 			merged.helperExprs = r.helperExprs
 			merged.undefinedHelpers = r.undefinedHelpers
 		}
+		for cueName, expr := range r.helpers {
+			if _, exists := merged.helpers[cueName]; !exists {
+				merged.helpers[cueName] = expr
+				if t, ok := r.helperOutputType[cueName]; ok {
+					merged.helperOutputType[cueName] = t
+				}
+			}
+		}
+		merged.warnings = append(merged.warnings, r.warnings...)
 	}
 
 	// Build list body.

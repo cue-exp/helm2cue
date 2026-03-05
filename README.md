@@ -368,19 +368,30 @@ Some functions that _are_ handled have gaps in specific usage patterns:
 ### CUE output validation failures
 
 Some templates convert without error but produce CUE that does not
-validate. These are structural issues in how the converter maps
-YAML+template interactions to CUE, not missing function support.
+fully validate at export time. `cue vet` (structural validation)
+now passes for kube-prometheus-stack; nginx has one remaining
+`cue vet` error. `cue export` (full evaluation) surfaces additional
+issues because it requires concrete values that the unconstrained
+`#values` schema cannot provide.
 
 **nginx** (14/21 templates converted, 2 skipped due to `genCA`):
-`cue vet` reports type conflicts in image helpers where `#arg.global`
-is constrained as `bool | number | string | null` but receives a
-struct value, plus a few undefined field errors and a field combination
-conflict in `_common_warnings_resources`.
+four helpers from the Bitnami common subchart could not be converted
+(`typeIs`, `merge`, `hasKey` with non-literal key); these are reported
+as warnings and default to `_` in the output. `cue vet` reports one
+error: `strconv.Atoi` fails on a capability-version string (`"25-0"`)
+in a helper that parses `.Capabilities.KubeVersion.Minor`. This is a
+data issue (the test fixture provides a version string that Atoi
+cannot parse), not a converter bug.
 
 **kube-prometheus-stack** (171/216 templates converted): `cue vet`
-reports `_range0` reference-not-found errors in one template
-(`grafana_configmaps_datasources`) where a range variable escapes its
-scope.
+passes cleanly. `cue export` fails because many templates use `tpl`
+(converted to `text/template.Execute`) which requires concrete values
+to evaluate. With unconstrained `#values` the template engine cannot
+render, producing "cannot convert non-concrete value" errors. This
+primarily affects grafana dashboard configmap labels (dynamic keys
+from `tpl` calls) and servicemonitor relabeling fields. One helper
+evaluates to `_` (unconverted due to an unsupported function in its
+body); providing concrete values would resolve the `tpl` errors.
 
 ## Key Issues
 
@@ -393,10 +404,14 @@ ongoing refinement as more real-world charts are tested.
   analysis**](https://github.com/cue-exp/helm2cue/issues/92) — When a
   helper produces multi-line output, the converter must decide whether it
   is structured YAML (emitted as CUE struct fields) or plain text (emitted
-  as a CUE string). The current approach analyses the helper body to make
-  this decision, but `{{ include "foo" . | nindent 4 }}` is genuinely
-  ambiguous: `nindent` applies equally to structured YAML that needs
-  re-indenting and to plain text that happens to need indenting.
+  as a CUE string). Helpers with control structures (if/range/with) are
+  now deferred until their first `include` call site, where the YAML
+  context (inline string, block scalar, etc.) and the pipeline's first
+  non-cosmetic function together determine the output form. This resolved
+  the `strings.TrimSpace on struct` errors in kube-prometheus-stack. Open
+  area: helpers used in both struct and scalar contexts currently use
+  first-encounter-wins; a more principled approach (dual forms or explicit
+  annotation) may be needed.
 
 - [**#93 — Improve readability of generated
   CUE**](https://github.com/cue-exp/helm2cue/issues/93) — The generated
