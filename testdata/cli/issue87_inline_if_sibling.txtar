@@ -33,18 +33,18 @@ test: [
 	{
 		apiVersion: "v1"
 		kind:       "Pod"
-		spec: secret: key: {
+		spec: secret: {
 			if (_nonzero & {
 				#arg: #values.useCert
 				_
 			}) {
-				"ca.crt"
+				key: "ca.crt"
 			}
 			if !(_nonzero & {
 				#arg: #values.useCert
 				_
 			}) {
-				"ca"
+				key: "ca"
 			}
 			optional: false
 		}

@@ -2745,10 +2745,14 @@ func (c *converter) emitTextNode(text []byte) {
 					c.blockScalarPartialLine = false
 					c.blockScalarKey = key
 				}
-			} else if val == "" && isLastLine {
+			} else if val == "" && isLastLine && !continuesInline {
 				c.state = statePendingKey
 				c.pendingKey = key
 				c.pendingKeyInd = yamlIndent
+			} else if val == "" && continuesInline {
+				c.inlineKey = key
+				c.inlineKeyLabel = nil
+				c.inlineParts = []inlinePart{}
 			} else if continuesInline && val != "" && startsIncompleteFlow(val) {
 				c.startFlowAccum(content[colonIdx+2:], key, "\n")
 			} else if continuesInline && val != "" {
