@@ -6601,6 +6601,11 @@ func (c *converter) actionToCUE(n *parse.ActionNode) (expr ast.Expr, helmObj str
 		return nil, "", fmt.Errorf("unsupported template action: %s", n)
 	}
 
+	// Track whether the expression is known non-scalar (struct/list).
+	// When a function that expects string input receives a non-scalar,
+	// insert yaml.Marshal to serialize it first.
+	nonScalar := c.firstCmdNonScalar(first)
+
 	for _, cmd := range pipe.Cmds[1:] {
 		if len(cmd.Args) == 0 {
 			return nil, "", fmt.Errorf("empty command in pipeline: %s", n)
@@ -6628,6 +6633,7 @@ func (c *converter) actionToCUE(n *parse.ActionNode) (expr ast.Expr, helmObj str
 				helmObj = prevObj
 			}
 			fieldPath = nil
+			nonScalar = false
 		} else if pf, ok := c.config.Funcs[id.Ident]; ok {
 			if pf.NonScalar {
 				c.trackNonScalarRef(helmObj, fieldPath)
@@ -6638,7 +6644,17 @@ func (c *converter) actionToCUE(n *parse.ActionNode) (expr ast.Expr, helmObj str
 			}
 			if pf.Convert == nil {
 				// No-op function (e.g. nindent, indent, toYaml in pipeline).
+				if pf.NonScalar {
+					nonScalar = true
+				}
 				continue
+			}
+			// When the piped expression is known non-scalar
+			// (struct/list) and the function expects a string,
+			// insert yaml.Marshal to serialize it first.
+			if nonScalar {
+				expr = c.marshalExpr(expr)
+				nonScalar = false
 			}
 			var pfArgs []ast.Expr
 			if pf.Nargs > 0 {
@@ -6666,6 +6682,37 @@ func (c *converter) actionToCUE(n *parse.ActionNode) (expr ast.Expr, helmObj str
 	}
 
 	return expr, helmObj, nil
+}
+
+// firstCmdNonScalar reports whether the first pipeline command produces
+// a known non-scalar (struct/list) result via a serialization
+// passthrough function (e.g. toYaml, toJson). These functions
+// serialize their input to a string in Helm but are treated as
+// passthroughs in the converter; subsequent string-expecting
+// functions need yaml.Marshal inserted to recover the serialization.
+func (c *converter) firstCmdNonScalar(cmd *parse.CommandNode) bool {
+	if len(cmd.Args) == 0 {
+		return false
+	}
+	id, ok := cmd.Args[0].(*parse.IdentifierNode)
+	if !ok {
+		return false
+	}
+	if pf, ok := c.config.Funcs[id.Ident]; ok {
+		return pf.Passthrough && pf.NonScalar
+	}
+	return false
+}
+
+// marshalExpr wraps expr in strings.TrimRight(yaml.Marshal(expr), "\n")
+// to match Helm's toYaml which strips the trailing newline that Go's
+// yaml.Marshal adds.
+func (c *converter) marshalExpr(expr ast.Expr) ast.Expr {
+	c.addImport("encoding/yaml")
+	c.addImport("strings")
+	return importCall("strings", "TrimRight",
+		importCall("encoding/yaml", "Marshal", expr),
+		cueString("\n"))
 }
 
 func (c *converter) extractPipelineArgs(cmd *parse.CommandNode, n int) ([]ast.Expr, error) {
@@ -7022,6 +7069,8 @@ func (c *converter) convertSubPipe(pipe *parse.PipeNode) (ast.Expr, string, erro
 		return nil, "", fmt.Errorf("unsupported pipe node: %s", pipe)
 	}
 
+	nonScalar := c.firstCmdNonScalar(first)
+
 	// Apply remaining pipe commands.
 	for _, cmd := range pipe.Cmds[1:] {
 		if len(cmd.Args) == 0 {
@@ -7047,6 +7096,7 @@ func (c *converter) convertSubPipe(pipe *parse.PipeNode) (ast.Expr, string, erro
 				defaultValExpr = defaultValLit
 			}
 			expr = c.defaultExpr(expr, defaultValExpr)
+			nonScalar = false
 		} else if cf, ok := coreFuncs[id.Ident]; ok && c.isCoreFunc(id.Ident) {
 			piped := funcArg{expr: expr, obj: helmObj}
 			args := buildPipeArgs(cf, cmd.Args[1:], piped)
@@ -7060,9 +7110,18 @@ func (c *converter) convertSubPipe(pipe *parse.PipeNode) (ast.Expr, string, erro
 			if helmObj == "" {
 				helmObj = prevObj
 			}
+			nonScalar = false
 		} else if pf, ok := c.config.Funcs[id.Ident]; ok {
 			if pf.Convert == nil {
-				continue // No-op/passthrough function.
+				// No-op/passthrough function.
+				if pf.NonScalar {
+					nonScalar = true
+				}
+				continue
+			}
+			if nonScalar {
+				expr = c.marshalExpr(expr)
+				nonScalar = false
 			}
 			var pfArgs []ast.Expr
 			for _, a := range cmd.Args[1:] {
