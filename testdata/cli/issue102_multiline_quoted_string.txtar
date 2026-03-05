@@ -43,7 +43,7 @@ rules: [
 		kind:       "ConfigMap"
 		metadata: name: "rules"
 		data: annotations: {
-			description: "'Errors encountered while the config-reloader", "attempts to sync config in the namespace.", "As a result, configuration may be stale.'"
+			description: "Errors encountered while the config-reloader attempts to sync config in the namespace.\nAs a result, configuration may be stale."
 			runbook_url: "\(#values.url)/runbook"
 		}
 	},

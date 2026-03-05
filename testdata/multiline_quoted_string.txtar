@@ -1,0 +1,46 @@
+Multi-line YAML quoted string (single-quoted, spanning multiple lines
+with a blank line) should be folded into a single CUE string value
+using YAML flow scalar rules (line breaks → spaces, blank lines → newlines).
+-- values.yaml --
+url: https://example.com
+-- input.yaml --
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: rules
+data:
+  annotations:
+    description: 'Errors encountered while the config-reloader
+      attempts to sync config in the namespace.
+
+      As a result, configuration may be stale.'
+    runbook_url: {{ .Values.url }}/runbook
+-- helm_output.yaml --
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: rules
+data:
+  annotations:
+    description: 'Errors encountered while the config-reloader
+      attempts to sync config in the namespace.
+
+      As a result, configuration may be stale.'
+    runbook_url: https://example.com/runbook
+-- output.cue --
+#values: {
+	url!: bool | number | string | null
+	...
+}
+
+output: [
+	{
+		apiVersion: "v1"
+		kind:       "ConfigMap"
+		metadata: name: "rules"
+		data: annotations: {
+			description: "Errors encountered while the config-reloader attempts to sync config in the namespace.\nAs a result, configuration may be stale."
+			runbook_url: "\(#values.url)/runbook"
+		}
+	},
+]

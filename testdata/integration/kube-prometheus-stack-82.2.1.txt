@@ -11,54 +11,6 @@ prometheus_operator_admission_webhooks_validatingWebhookConfiguration.0.path: co
     ./prometheus_operator_admission_webhooks_validatingWebhookConfiguration.cue:13:3
     ./prometheus_operator_admission_webhooks_validatingWebhookConfiguration.cue:86:10
     ./prometheus_operator_admission_webhooks_validatingWebhookConfiguration.cue:160:10
-prometheus_rules_1_14_config_reloaders.0.spec.groups.0.rules.0.annotations: conflicting values {if (_nonzero(helm.local/kube-prometheus-stack@v0:kube_prometheus_stack) & {#arg:#values.defaultRules.additionalRuleAnnotations}).out {#values.defaultRules.additionalRuleAnnotations},if (_nonzero(helm.local/kube-prometheus-stack@v0:kube_prometheus_stack) & {#arg:#values.defaultRules.additionalRuleGroupAnnotations.configReloaders}).out {#values.defaultRules.additionalRuleGroupAnnotations.configReloaders},description:"'Errors encountered while the{{$labels.pod}} config-reloader sidecar attempts to sync config in {{$labels.namespace}} namespace.","As a result, configuration for service running in{{$labels.pod}} may be stale and cannot be updated anymore.'",runbook_url:"\(#values.defaultRules.runbookUrl)/prometheus-operator/configreloadersidecarerrors",summary:"config-reloader sidecar has not had a successful reload for 10m"} and "As a result, configuration for service running in{{$labels.pod}} may be stale and cannot be updated anymore.'" (mismatched types struct and string):
-    ./prometheus_rules_1_14_config_reloaders.cue:8:2
-    ./prometheus_rules_1_14_config_reloaders.cue:9:3
-    ./prometheus_rules_1_14_config_reloaders.cue:57:7
-    ./prometheus_rules_1_14_config_reloaders.cue:58:59
-    ./prometheus_rules_1_14_config_reloaders.cue:69:9
-prometheus_rules_1_14_general_rules.0.spec.groups.0.rules.1.annotations: conflicting values {if (_nonzero(helm.local/kube-prometheus-stack@v0:kube_prometheus_stack) & {#arg:#values.defaultRules.additionalRuleAnnotations}).out {#values.defaultRules.additionalRuleAnnotations},if (_nonzero(helm.local/kube-prometheus-stack@v0:kube_prometheus_stack) & {#arg:#values.defaultRules.additionalRuleGroupAnnotations.general}).out {#values.defaultRules.additionalRuleGroupAnnotations.general},description:"'This is an alert meant to ensure that the entire alerting pipeline is functional.","This alert is always firing, therefore it should always be firing in Alertmanager","and always fire against a receiver. There are integrations with various notification","mechanisms that send a notification when this alert is not firing. For example the","\"DeadMansSnitch\" integration in PagerDuty.","'",runbook_url:"\(#values.defaultRules.runbookUrl)/general/watchdog",summary:"An alert that should always be firing to certify that Alertmanager is working properly."} and "This alert is always firing, therefore it should always be firing in Alertmanager" (mismatched types struct and string):
-    ./prometheus_rules_1_14_general_rules.cue:8:2
-    ./prometheus_rules_1_14_general_rules.cue:9:3
-    ./prometheus_rules_1_14_general_rules.cue:112:7
-    ./prometheus_rules_1_14_general_rules.cue:113:40
-    ./prometheus_rules_1_14_general_rules.cue:123:111
-prometheus_rules_1_14_general_rules.0.spec.groups.0.rules.2.annotations: conflicting values {if (_nonzero(helm.local/kube-prometheus-stack@v0:kube_prometheus_stack) & {#arg:#values.defaultRules.additionalRuleAnnotations}).out {#values.defaultRules.additionalRuleAnnotations},if (_nonzero(helm.local/kube-prometheus-stack@v0:kube_prometheus_stack) & {#arg:#values.defaultRules.additionalRuleGroupAnnotations.general}).out {#values.defaultRules.additionalRuleGroupAnnotations.general},description:"'This is an alert that is used to inhibit info alerts.","By themselves, the info-level alerts are sometimes very noisy, but they are relevant when combined with","other alerts.","This alert fires whenever there''s a severity=\"info\" alert, and stops firing when another alert with a","severity of ''warning'' or ''critical'' starts firing on the same namespace.","This alert should be routed to a null receiver and configured to inhibit alerts with severity=\"info\".","'",runbook_url:"\(#values.defaultRules.runbookUrl)/general/infoinhibitor",summary:"Info-level alert inhibition."} and "By themselves, the info-level alerts are sometimes very noisy, but they are relevant when combined with" (mismatched types struct and string):
-    ./prometheus_rules_1_14_general_rules.cue:8:2
-    ./prometheus_rules_1_14_general_rules.cue:9:3
-    ./prometheus_rules_1_14_general_rules.cue:158:7
-    ./prometheus_rules_1_14_general_rules.cue:159:45
-    ./prometheus_rules_1_14_general_rules.cue:169:83
-prometheus_rules_1_14_node_exporter.0.spec.groups.0.rules.18.annotations: conflicting values {if (_nonzero(helm.local/kube-prometheus-stack@v0:kube_prometheus_stack) & {#arg:#values.defaultRules.additionalRuleAnnotations}).out {#values.defaultRules.additionalRuleAnnotations},if (_nonzero(helm.local/kube-prometheus-stack@v0:kube_prometheus_stack) & {#arg:#values.defaultRules.additionalRuleGroupAnnotations.nodeExporterAlerting}).out {#values.defaultRules.additionalRuleGroupAnnotations.nodeExporterAlerting},description:"'CPU usage at{{ $labels.instance }} has been above 90% for the last 15 minutes, is currently at {{ printf \"%.2f\" $value }}%.","'",runbook_url:"\(#values.defaultRules.runbookUrl)/node/nodecpuhighusage",summary:"High CPU usage."} and "'" (mismatched types struct and string):
-    ./prometheus_rules_1_14_node_exporter.cue:8:2
-    ./prometheus_rules_1_14_node_exporter.cue:9:3
-    ./prometheus_rules_1_14_node_exporter.cue:1035:7
-    ./prometheus_rules_1_14_node_exporter.cue:1036:48
-    ./prometheus_rules_1_14_node_exporter.cue:1047:9
-prometheus_rules_1_14_node_exporter.0.spec.groups.0.rules.19.annotations: conflicting values {if (_nonzero(helm.local/kube-prometheus-stack@v0:kube_prometheus_stack) & {#arg:#values.defaultRules.additionalRuleAnnotations}).out {#values.defaultRules.additionalRuleAnnotations},if (_nonzero(helm.local/kube-prometheus-stack@v0:kube_prometheus_stack) & {#arg:#values.defaultRules.additionalRuleGroupAnnotations.nodeExporterAlerting}).out {#values.defaultRules.additionalRuleGroupAnnotations.nodeExporterAlerting},description:"'System load per core at{{ $labels.instance }} has been above 2 for the last 15 minutes, is currently at {{ printf \"%.2f\" $value }}.","This might indicate this instance resources saturation and can cause it becoming unresponsive.","'",runbook_url:"\(#values.defaultRules.runbookUrl)/node/nodesystemsaturation",summary:"System saturated, load per core is very high."} and "This might indicate this instance resources saturation and can cause it becoming unresponsive." (mismatched types struct and string):
-    ./prometheus_rules_1_14_node_exporter.cue:8:2
-    ./prometheus_rules_1_14_node_exporter.cue:9:3
-    ./prometheus_rules_1_14_node_exporter.cue:1088:7
-    ./prometheus_rules_1_14_node_exporter.cue:1089:52
-    ./prometheus_rules_1_14_node_exporter.cue:1099:163
-prometheus_rules_1_14_node_exporter.0.spec.groups.0.rules.20.annotations: conflicting values {if (_nonzero(helm.local/kube-prometheus-stack@v0:kube_prometheus_stack) & {#arg:#values.defaultRules.additionalRuleAnnotations}).out {#values.defaultRules.additionalRuleAnnotations},if (_nonzero(helm.local/kube-prometheus-stack@v0:kube_prometheus_stack) & {#arg:#values.defaultRules.additionalRuleGroupAnnotations.nodeExporterAlerting}).out {#values.defaultRules.additionalRuleGroupAnnotations.nodeExporterAlerting},description:"'Memory major pages are occurring at very high rate at{{ $labels.instance }}, 500 major page faults per second for the last 15 minutes, is currently at {{ printf \"%.2f\" $value }}.","Please check that there is enough memory available at this instance.","'",runbook_url:"\(#values.defaultRules.runbookUrl)/node/nodememorymajorpagesfaults",summary:"Memory major page faults are occurring at very high rate."} and "Please check that there is enough memory available at this instance." (mismatched types struct and string):
-    ./prometheus_rules_1_14_node_exporter.cue:8:2
-    ./prometheus_rules_1_14_node_exporter.cue:9:3
-    ./prometheus_rules_1_14_node_exporter.cue:1145:7
-    ./prometheus_rules_1_14_node_exporter.cue:1146:58
-    ./prometheus_rules_1_14_node_exporter.cue:1156:210
-prometheus_rules_1_14_node_exporter.0.spec.groups.0.rules.21.annotations: conflicting values {if (_nonzero(helm.local/kube-prometheus-stack@v0:kube_prometheus_stack) & {#arg:#values.defaultRules.additionalRuleAnnotations}).out {#values.defaultRules.additionalRuleAnnotations},if (_nonzero(helm.local/kube-prometheus-stack@v0:kube_prometheus_stack) & {#arg:#values.defaultRules.additionalRuleGroupAnnotations.nodeExporterAlerting}).out {#values.defaultRules.additionalRuleGroupAnnotations.nodeExporterAlerting},description:"'Memory is filling up at{{ $labels.instance }}, has been above 90% for the last 15 minutes, is currently at {{ printf \"%.2f\" $value }}%.","'",runbook_url:"\(#values.defaultRules.runbookUrl)/node/nodememoryhighutilization",summary:"Host is running out of memory."} and "'" (mismatched types struct and string):
-    ./prometheus_rules_1_14_node_exporter.cue:8:2
-    ./prometheus_rules_1_14_node_exporter.cue:9:3
-    ./prometheus_rules_1_14_node_exporter.cue:1198:7
-    ./prometheus_rules_1_14_node_exporter.cue:1199:57
-    ./prometheus_rules_1_14_node_exporter.cue:1210:9
-prometheus_rules_1_14_node_exporter.0.spec.groups.0.rules.22.annotations: conflicting values {if (_nonzero(helm.local/kube-prometheus-stack@v0:kube_prometheus_stack) & {#arg:#values.defaultRules.additionalRuleAnnotations}).out {#values.defaultRules.additionalRuleAnnotations},if (_nonzero(helm.local/kube-prometheus-stack@v0:kube_prometheus_stack) & {#arg:#values.defaultRules.additionalRuleGroupAnnotations.nodeExporterAlerting}).out {#values.defaultRules.additionalRuleGroupAnnotations.nodeExporterAlerting},description:"'Disk IO queue (aqu-sq) is high on{{ $labels.device }} at {{ $labels.instance }}, has been above 10 for the last 30 minutes, is currently at {{ printf \"%.2f\" $value }}.","This symptom might indicate disk saturation.","'",runbook_url:"\(#values.defaultRules.runbookUrl)/node/nodediskiosaturation",summary:"Disk IO queue is high."} and "This symptom might indicate disk saturation." (mismatched types struct and string):
-    ./prometheus_rules_1_14_node_exporter.cue:8:2
-    ./prometheus_rules_1_14_node_exporter.cue:9:3
-    ./prometheus_rules_1_14_node_exporter.cue:1251:7
-    ./prometheus_rules_1_14_node_exporter.cue:1252:52
-    ./prometheus_rules_1_14_node_exporter.cue:1262:199
 results: error in call to list.FlattenN: cannot use {} (type struct) as string in argument 1 to strings.TrimSpace:
     ./results.cue:7:10
     ./helpers.cue:835:65
@@ -79,54 +31,6 @@ prometheus_operator_admission_webhooks_validatingWebhookConfiguration.0.path: co
     ./prometheus_operator_admission_webhooks_validatingWebhookConfiguration.cue:13:3
     ./prometheus_operator_admission_webhooks_validatingWebhookConfiguration.cue:86:10
     ./prometheus_operator_admission_webhooks_validatingWebhookConfiguration.cue:160:10
-prometheus_rules_1_14_config_reloaders.0.spec.groups.0.rules.0.annotations: conflicting values {if (_nonzero(helm.local/kube-prometheus-stack@v0:kube_prometheus_stack) & {#arg:#values.defaultRules.additionalRuleAnnotations}).out {#values.defaultRules.additionalRuleAnnotations},if (_nonzero(helm.local/kube-prometheus-stack@v0:kube_prometheus_stack) & {#arg:#values.defaultRules.additionalRuleGroupAnnotations.configReloaders}).out {#values.defaultRules.additionalRuleGroupAnnotations.configReloaders},description:"'Errors encountered while the{{$labels.pod}} config-reloader sidecar attempts to sync config in {{$labels.namespace}} namespace.","As a result, configuration for service running in{{$labels.pod}} may be stale and cannot be updated anymore.'",runbook_url:"\(#values.defaultRules.runbookUrl)/prometheus-operator/configreloadersidecarerrors",summary:"config-reloader sidecar has not had a successful reload for 10m"} and "As a result, configuration for service running in{{$labels.pod}} may be stale and cannot be updated anymore.'" (mismatched types struct and string):
-    ./prometheus_rules_1_14_config_reloaders.cue:8:2
-    ./prometheus_rules_1_14_config_reloaders.cue:9:3
-    ./prometheus_rules_1_14_config_reloaders.cue:57:7
-    ./prometheus_rules_1_14_config_reloaders.cue:58:59
-    ./prometheus_rules_1_14_config_reloaders.cue:69:9
-prometheus_rules_1_14_general_rules.0.spec.groups.0.rules.1.annotations: conflicting values {if (_nonzero(helm.local/kube-prometheus-stack@v0:kube_prometheus_stack) & {#arg:#values.defaultRules.additionalRuleAnnotations}).out {#values.defaultRules.additionalRuleAnnotations},if (_nonzero(helm.local/kube-prometheus-stack@v0:kube_prometheus_stack) & {#arg:#values.defaultRules.additionalRuleGroupAnnotations.general}).out {#values.defaultRules.additionalRuleGroupAnnotations.general},description:"'This is an alert meant to ensure that the entire alerting pipeline is functional.","This alert is always firing, therefore it should always be firing in Alertmanager","and always fire against a receiver. There are integrations with various notification","mechanisms that send a notification when this alert is not firing. For example the","\"DeadMansSnitch\" integration in PagerDuty.","'",runbook_url:"\(#values.defaultRules.runbookUrl)/general/watchdog",summary:"An alert that should always be firing to certify that Alertmanager is working properly."} and "This alert is always firing, therefore it should always be firing in Alertmanager" (mismatched types struct and string):
-    ./prometheus_rules_1_14_general_rules.cue:8:2
-    ./prometheus_rules_1_14_general_rules.cue:9:3
-    ./prometheus_rules_1_14_general_rules.cue:112:7
-    ./prometheus_rules_1_14_general_rules.cue:113:40
-    ./prometheus_rules_1_14_general_rules.cue:123:111
-prometheus_rules_1_14_general_rules.0.spec.groups.0.rules.2.annotations: conflicting values {if (_nonzero(helm.local/kube-prometheus-stack@v0:kube_prometheus_stack) & {#arg:#values.defaultRules.additionalRuleAnnotations}).out {#values.defaultRules.additionalRuleAnnotations},if (_nonzero(helm.local/kube-prometheus-stack@v0:kube_prometheus_stack) & {#arg:#values.defaultRules.additionalRuleGroupAnnotations.general}).out {#values.defaultRules.additionalRuleGroupAnnotations.general},description:"'This is an alert that is used to inhibit info alerts.","By themselves, the info-level alerts are sometimes very noisy, but they are relevant when combined with","other alerts.","This alert fires whenever there''s a severity=\"info\" alert, and stops firing when another alert with a","severity of ''warning'' or ''critical'' starts firing on the same namespace.","This alert should be routed to a null receiver and configured to inhibit alerts with severity=\"info\".","'",runbook_url:"\(#values.defaultRules.runbookUrl)/general/infoinhibitor",summary:"Info-level alert inhibition."} and "By themselves, the info-level alerts are sometimes very noisy, but they are relevant when combined with" (mismatched types struct and string):
-    ./prometheus_rules_1_14_general_rules.cue:8:2
-    ./prometheus_rules_1_14_general_rules.cue:9:3
-    ./prometheus_rules_1_14_general_rules.cue:158:7
-    ./prometheus_rules_1_14_general_rules.cue:159:45
-    ./prometheus_rules_1_14_general_rules.cue:169:83
-prometheus_rules_1_14_node_exporter.0.spec.groups.0.rules.18.annotations: conflicting values {if (_nonzero(helm.local/kube-prometheus-stack@v0:kube_prometheus_stack) & {#arg:#values.defaultRules.additionalRuleAnnotations}).out {#values.defaultRules.additionalRuleAnnotations},if (_nonzero(helm.local/kube-prometheus-stack@v0:kube_prometheus_stack) & {#arg:#values.defaultRules.additionalRuleGroupAnnotations.nodeExporterAlerting}).out {#values.defaultRules.additionalRuleGroupAnnotations.nodeExporterAlerting},description:"'CPU usage at{{ $labels.instance }} has been above 90% for the last 15 minutes, is currently at {{ printf \"%.2f\" $value }}%.","'",runbook_url:"\(#values.defaultRules.runbookUrl)/node/nodecpuhighusage",summary:"High CPU usage."} and "'" (mismatched types struct and string):
-    ./prometheus_rules_1_14_node_exporter.cue:8:2
-    ./prometheus_rules_1_14_node_exporter.cue:9:3
-    ./prometheus_rules_1_14_node_exporter.cue:1035:7
-    ./prometheus_rules_1_14_node_exporter.cue:1036:48
-    ./prometheus_rules_1_14_node_exporter.cue:1047:9
-prometheus_rules_1_14_node_exporter.0.spec.groups.0.rules.19.annotations: conflicting values {if (_nonzero(helm.local/kube-prometheus-stack@v0:kube_prometheus_stack) & {#arg:#values.defaultRules.additionalRuleAnnotations}).out {#values.defaultRules.additionalRuleAnnotations},if (_nonzero(helm.local/kube-prometheus-stack@v0:kube_prometheus_stack) & {#arg:#values.defaultRules.additionalRuleGroupAnnotations.nodeExporterAlerting}).out {#values.defaultRules.additionalRuleGroupAnnotations.nodeExporterAlerting},description:"'System load per core at{{ $labels.instance }} has been above 2 for the last 15 minutes, is currently at {{ printf \"%.2f\" $value }}.","This might indicate this instance resources saturation and can cause it becoming unresponsive.","'",runbook_url:"\(#values.defaultRules.runbookUrl)/node/nodesystemsaturation",summary:"System saturated, load per core is very high."} and "This might indicate this instance resources saturation and can cause it becoming unresponsive." (mismatched types struct and string):
-    ./prometheus_rules_1_14_node_exporter.cue:8:2
-    ./prometheus_rules_1_14_node_exporter.cue:9:3
-    ./prometheus_rules_1_14_node_exporter.cue:1088:7
-    ./prometheus_rules_1_14_node_exporter.cue:1089:52
-    ./prometheus_rules_1_14_node_exporter.cue:1099:163
-prometheus_rules_1_14_node_exporter.0.spec.groups.0.rules.20.annotations: conflicting values {if (_nonzero(helm.local/kube-prometheus-stack@v0:kube_prometheus_stack) & {#arg:#values.defaultRules.additionalRuleAnnotations}).out {#values.defaultRules.additionalRuleAnnotations},if (_nonzero(helm.local/kube-prometheus-stack@v0:kube_prometheus_stack) & {#arg:#values.defaultRules.additionalRuleGroupAnnotations.nodeExporterAlerting}).out {#values.defaultRules.additionalRuleGroupAnnotations.nodeExporterAlerting},description:"'Memory major pages are occurring at very high rate at{{ $labels.instance }}, 500 major page faults per second for the last 15 minutes, is currently at {{ printf \"%.2f\" $value }}.","Please check that there is enough memory available at this instance.","'",runbook_url:"\(#values.defaultRules.runbookUrl)/node/nodememorymajorpagesfaults",summary:"Memory major page faults are occurring at very high rate."} and "Please check that there is enough memory available at this instance." (mismatched types struct and string):
-    ./prometheus_rules_1_14_node_exporter.cue:8:2
-    ./prometheus_rules_1_14_node_exporter.cue:9:3
-    ./prometheus_rules_1_14_node_exporter.cue:1145:7
-    ./prometheus_rules_1_14_node_exporter.cue:1146:58
-    ./prometheus_rules_1_14_node_exporter.cue:1156:210
-prometheus_rules_1_14_node_exporter.0.spec.groups.0.rules.21.annotations: conflicting values {if (_nonzero(helm.local/kube-prometheus-stack@v0:kube_prometheus_stack) & {#arg:#values.defaultRules.additionalRuleAnnotations}).out {#values.defaultRules.additionalRuleAnnotations},if (_nonzero(helm.local/kube-prometheus-stack@v0:kube_prometheus_stack) & {#arg:#values.defaultRules.additionalRuleGroupAnnotations.nodeExporterAlerting}).out {#values.defaultRules.additionalRuleGroupAnnotations.nodeExporterAlerting},description:"'Memory is filling up at{{ $labels.instance }}, has been above 90% for the last 15 minutes, is currently at {{ printf \"%.2f\" $value }}%.","'",runbook_url:"\(#values.defaultRules.runbookUrl)/node/nodememoryhighutilization",summary:"Host is running out of memory."} and "'" (mismatched types struct and string):
-    ./prometheus_rules_1_14_node_exporter.cue:8:2
-    ./prometheus_rules_1_14_node_exporter.cue:9:3
-    ./prometheus_rules_1_14_node_exporter.cue:1198:7
-    ./prometheus_rules_1_14_node_exporter.cue:1199:57
-    ./prometheus_rules_1_14_node_exporter.cue:1210:9
-prometheus_rules_1_14_node_exporter.0.spec.groups.0.rules.22.annotations: conflicting values {if (_nonzero(helm.local/kube-prometheus-stack@v0:kube_prometheus_stack) & {#arg:#values.defaultRules.additionalRuleAnnotations}).out {#values.defaultRules.additionalRuleAnnotations},if (_nonzero(helm.local/kube-prometheus-stack@v0:kube_prometheus_stack) & {#arg:#values.defaultRules.additionalRuleGroupAnnotations.nodeExporterAlerting}).out {#values.defaultRules.additionalRuleGroupAnnotations.nodeExporterAlerting},description:"'Disk IO queue (aqu-sq) is high on{{ $labels.device }} at {{ $labels.instance }}, has been above 10 for the last 30 minutes, is currently at {{ printf \"%.2f\" $value }}.","This symptom might indicate disk saturation.","'",runbook_url:"\(#values.defaultRules.runbookUrl)/node/nodediskiosaturation",summary:"Disk IO queue is high."} and "This symptom might indicate disk saturation." (mismatched types struct and string):
-    ./prometheus_rules_1_14_node_exporter.cue:8:2
-    ./prometheus_rules_1_14_node_exporter.cue:9:3
-    ./prometheus_rules_1_14_node_exporter.cue:1251:7
-    ./prometheus_rules_1_14_node_exporter.cue:1252:52
-    ./prometheus_rules_1_14_node_exporter.cue:1262:199
 _kube_prometheus_stack_operator_admission_webhook_dnsNames: invalid interpolation: conflicting values "test-kube-prometheus-stack-operator" and ".default.svc":
     ./prometheus_operator_admission_webhooks_job_patch_job_createSecret.cue:87:10
     ./helpers.cue:768:61
