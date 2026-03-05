@@ -81,8 +81,6 @@ _nginx_metrics_image.#arg.global: conflicting values {imageRegistry:"",imagePull
     ./helpers.cue:1861:51
 #arg: undefined field: kubeVersion:
     ./helpers.cue:530:23
-_common_fips_enabled: undefined field: Annotations:
-    ./helpers.cue:746:22
 _common_warnings_resources: cannot combine regular field "WARNING" with "+info https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/":
     ./helpers.cue:1847:12
     ./helpers.cue:1847:227
@@ -167,8 +165,6 @@ _nginx_metrics_image.#arg.global: conflicting values {imageRegistry:"",imagePull
     ./helpers.cue:1861:51
 #arg: undefined field: kubeVersion:
     ./helpers.cue:530:23
-_common_fips_enabled: undefined field: Annotations:
-    ./helpers.cue:746:22
 _common_warnings_resources: cannot combine regular field "WARNING" with "+info https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/":
     ./helpers.cue:1847:12
     ./helpers.cue:1847:227

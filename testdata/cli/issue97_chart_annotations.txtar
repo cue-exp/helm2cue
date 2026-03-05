@@ -29,6 +29,6 @@ cm: [
 		apiVersion: "v1"
 		kind:       "ConfigMap"
 		metadata: name: "test"
-		data: fips:     #chart.Annotations.fips
+		data: fips:     #chart.annotations.fips
 	},
 ]

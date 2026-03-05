@@ -88,6 +88,11 @@ type Config struct {
 	// "unsupported pipeline function" error.
 	CoreFuncs map[string]bool
 
+	// FieldRemap maps context object names to field name remappings.
+	// For example, {"Chart": {"Annotations": "annotations"}} rewrites
+	// .Chart.Annotations to #chart.annotations.
+	FieldRemap map[string]map[string]string
+
 	// RootExpr is the CUE expression used for bare {{ . }} at the
 	// top level (outside range/with). If empty, bare dot at the top
 	// level produces an error.
@@ -1047,10 +1052,31 @@ func (c *converter) isCoreFunc(name string) bool {
 // is set or the path is guarded by an enclosing if-condition, also
 // records it as a required (value-accessed) reference.
 func (c *converter) trackFieldRef(helmObj string, path []string) {
+	path = c.remapFieldPath(helmObj, path)
 	c.fieldRefs[helmObj] = append(c.fieldRefs[helmObj], path)
 	if !c.suppressRequired && !c.isGuardedPath(helmObj, path) {
 		c.requiredRefs[helmObj] = append(c.requiredRefs[helmObj], path)
 	}
+}
+
+// remapFieldPath applies FieldRemap to a tracked field path so that
+// the field tree uses the same names as the emitted CUE expressions.
+func (c *converter) remapFieldPath(helmObj string, path []string) []string {
+	remap, ok := c.config.FieldRemap[helmObj]
+	if !ok {
+		return path
+	}
+	var changed bool
+	for i, p := range path {
+		if newName, ok := remap[p]; ok {
+			if !changed {
+				path = append([]string{}, path...) // copy before mutating
+				changed = true
+			}
+			path[i] = newName
+		}
+	}
+	return path
 }
 
 // guardedPathKey returns the key for a guarded path entry.
@@ -1124,7 +1150,7 @@ func (c *converter) collectGuardedPaths(node parse.Node, args []parse.Node, path
 		}
 	case *parse.VariableNode:
 		if len(n.Ident) >= 2 && n.Ident[0] == "$" {
-			_, helmObj := fieldToCUE(c.config.ContextObjects, n.Ident[1:])
+			_, helmObj := fieldToCUE(c.config.ContextObjects, c.config.FieldRemap, n.Ident[1:])
 			if helmObj != "" && len(n.Ident) >= 3 {
 				c.addGuardedPath(paths, helmObj, n.Ident[2:])
 			}
@@ -7416,12 +7442,20 @@ func nodeToCUELiteral(node parse.Node) (ast.Expr, error) {
 	}
 }
 
-func fieldToCUE(contextObjects map[string]string, ident []string) (ast.Expr, string) {
+func fieldToCUE(contextObjects map[string]string, fieldRemap map[string]map[string]string, ident []string) (ast.Expr, string) {
 	var helmObj string
 	if len(ident) > 0 {
 		if mapped, ok := contextObjects[ident[0]]; ok {
 			helmObj = ident[0]
 			ident = append([]string{mapped}, ident[1:]...)
+			// Apply field name remappings (e.g. Chart.Annotations → #chart.annotations).
+			if remap, ok := fieldRemap[helmObj]; ok {
+				for i := 1; i < len(ident); i++ {
+					if newName, ok := remap[ident[i]]; ok {
+						ident[i] = newName
+					}
+				}
+			}
 		}
 	}
 	var e ast.Expr = ast.NewIdent(ident[0])
@@ -7434,7 +7468,7 @@ func fieldToCUE(contextObjects map[string]string, ident []string) (ast.Expr, str
 func (c *converter) fieldToCUEInContext(ident []string) (ast.Expr, string) {
 	if len(ident) > 0 {
 		if _, ok := c.config.ContextObjects[ident[0]]; ok {
-			return fieldToCUE(c.config.ContextObjects, ident)
+			return fieldToCUE(c.config.ContextObjects, c.config.FieldRemap, ident)
 		}
 	}
 	if len(c.rangeVarStack) > 0 {
@@ -7465,7 +7499,7 @@ func (c *converter) fieldToCUEInContext(ident []string) (ast.Expr, string) {
 		}
 		return buildSelChain(top.cueExpr, ident), ""
 	}
-	return fieldToCUE(c.config.ContextObjects, ident)
+	return fieldToCUE(c.config.ContextObjects, c.config.FieldRemap, ident)
 }
 
 // dollarFieldToCUE resolves a $ variable reference (with the "$" prefix
@@ -7475,7 +7509,7 @@ func (c *converter) dollarFieldToCUE(ident []string) (ast.Expr, string) {
 	// Context objects take priority ($.Values.X → #values.X).
 	if len(ident) > 0 {
 		if _, ok := c.config.ContextObjects[ident[0]]; ok {
-			return fieldToCUE(c.config.ContextObjects, ident)
+			return fieldToCUE(c.config.ContextObjects, c.config.FieldRemap, ident)
 		}
 	}
 	// In helper bodies, $ refers to #arg (the root scope, stack[0]).
@@ -7497,7 +7531,7 @@ func (c *converter) dollarFieldToCUE(ident []string) (ast.Expr, string) {
 		}
 		return buildSelChain(root.cueExpr, ident), ""
 	}
-	return fieldToCUE(c.config.ContextObjects, ident)
+	return fieldToCUE(c.config.ContextObjects, c.config.FieldRemap, ident)
 }
 
 func (c *converter) addImport(pkg string) {

@@ -150,6 +150,13 @@ func HelmConfig() *Config {
 			"Template":     "#template",
 			"Files":        "#files",
 		},
+		FieldRemap: map[string]map[string]string{
+			// Helm's Chart Go struct uses capitalized field names, but
+			// annotations is lowercase in Chart.yaml and in the CUE schema.
+			"Chart": {
+				"Annotations": "annotations",
+			},
+		},
 		Funcs: map[string]PipelineFunc{
 			// Serialization no-ops (passthrough in first-command position too).
 			"toYaml":       {Passthrough: true, NonScalar: true},
