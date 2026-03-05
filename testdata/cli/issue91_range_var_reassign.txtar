@@ -1,7 +1,12 @@
 # Variable reassignment inside a range body that captures the range
-# element should not leak the range variable outside the for block.
+# element must not leak the range variable outside the for block.
+# The converter collects all values via a list comprehension and
+# picks the last element, matching Helm's "last value wins" semantics.
 # https://github.com/cue-exp/helm2cue/issues/91
 exec helm2cue chart input output
+cd output
+exec cue vet
+cd ..
 cmp output/helpers.cue expected/helpers.cue
 
 -- input/Chart.yaml --
@@ -50,4 +55,19 @@ _nonzero: {
 	}, false][0]
 }
 
-_test_join: _range1
+_test_join: {
+	#arg: {
+		items?: [...] | {
+			...
+		}
+		...
+	}
+	{
+		let _acc = [for _, _range1 in #arg.items {
+			_range1
+		}]
+		[if len(_acc) > 0 {
+			_acc[len(_acc)-1]
+		}, ""][0]
+	}
+}
