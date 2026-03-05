@@ -9,5 +9,36 @@ hasTpl: true
 {{- end }}
 -- helm_output.yaml --
 hasTpl: true
--- broken --
-unsupported condition function: toJson
+-- output.cue --
+import (
+	"strings"
+	"encoding/json"
+	"struct"
+)
+
+#values: {
+	config!: _
+	...
+}
+
+output: [
+	if strings.Contains(json.Marshal(#values.config), "{{") {
+		{
+			hasTpl: true
+		}
+	},
+]
+_nonzero: {
+	#arg?: _
+	out: [if #arg != _|_ {
+		[
+			if (#arg & int) != _|_ {#arg != 0},
+			if (#arg & string) != _|_ {#arg != ""},
+			if (#arg & float) != _|_ {#arg != 0.0},
+			if (#arg & bool) != _|_ {#arg},
+			if (#arg & [...]) != _|_ {len(#arg) > 0},
+			if (#arg & {...}) != _|_ {(#arg & struct.MaxFields(0)) == _|_},
+			false,
+		][0]
+	}, false][0]
+}

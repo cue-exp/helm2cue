@@ -7393,6 +7393,43 @@ func (c *converter) conditionPipeToExpr(pipe *parse.PipeNode) (ast.Expr, error) 
 				}
 				return nonzeroExpr(cfExpr), nil
 			}
+			// Check pipeline functions (Funcs map) as a fallback.
+			if pf, ok := c.config.Funcs[id.Ident]; ok {
+				if len(args) != 1 {
+					return nil, fmt.Errorf("condition function %s: expected 1 argument, got %d", id.Ident, len(args))
+				}
+				// Mark non-scalar fields so the schema uses _
+				// instead of the scalar type constraint.
+				if pf.NonScalar {
+					if f, ok := args[0].(*parse.FieldNode); ok && len(f.Ident) >= 2 {
+						_, helmObj := c.fieldToCUEInContext(f.Ident)
+						c.trackNonScalarRef(helmObj, f.Ident[1:])
+					}
+				}
+				argExpr, err := c.conditionNodeToRawExpr(args[0])
+				if err != nil {
+					return nil, fmt.Errorf("%s argument: %w", id.Ident, err)
+				}
+				// Serialization functions are passthrough in pipeline
+				// context (CUE values are the data), but in condition
+				// context they must produce a string for the enclosing
+				// function (e.g. contains) to operate on.
+				switch id.Ident {
+				case "toJson", "toRawJson", "toPrettyJson":
+					c.addImport("encoding/json")
+					return importCall("encoding/json", "Marshal", argExpr), nil
+				case "toYaml":
+					c.addImport("encoding/yaml")
+					return importCall("encoding/yaml", "Marshal", argExpr), nil
+				}
+				for _, imp := range pf.Imports {
+					c.addImport(imp)
+				}
+				if pf.Passthrough || pf.Convert == nil {
+					return argExpr, nil
+				}
+				return pf.Convert(argExpr, nil), nil
+			}
 			return nil, fmt.Errorf("unsupported condition function: %s", id.Ident)
 		}
 	}
