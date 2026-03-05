@@ -5007,7 +5007,9 @@ func (c *converter) processInlineIf(n *parse.IfNode) error {
 	// Emit if comprehension.
 	c.emitInlineComprehension(condition, key, keyLabel, ifValueExpr)
 
-	// Emit else branch.
+	// Emit else branch. When there is an explicit else body, use it.
+	// When there is no else but there is a prefix or suffix, emit the
+	// base value (prefix + suffix) so the field is always present.
 	if n.ElseList != nil && len(n.ElseList.Nodes) > 0 {
 		elseParts, err := c.branchToInlineParts(n.ElseList.Nodes)
 		if err != nil {
@@ -5016,6 +5018,13 @@ func (c *converter) processInlineIf(n *parse.IfNode) error {
 		allParts = allParts[:0]
 		allParts = append(allParts, prefix...)
 		allParts = append(allParts, elseParts...)
+		allParts = append(allParts, suffixParts...)
+		elseValueExpr := partsToExpr(allParts)
+
+		c.emitInlineComprehension(negCondition, key, keyLabel, elseValueExpr)
+	} else if len(prefix) > 0 || len(suffixParts) > 0 {
+		allParts = allParts[:0]
+		allParts = append(allParts, prefix...)
 		allParts = append(allParts, suffixParts...)
 		elseValueExpr := partsToExpr(allParts)
 

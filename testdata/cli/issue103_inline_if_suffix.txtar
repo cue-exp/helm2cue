@@ -48,7 +48,12 @@ webhook: [
 					if (_nonzero & {
 						#arg: #values.deployWebhook
 					}).out {
-							name: "my-service-webhook"
+						name: "my-service-webhook"
+					}
+					if !((_nonzero & {
+						#arg: #values.deployWebhook
+					}).out) {
+							name: "my-service"
 					}, path: "/validate"
 				}
 			},
