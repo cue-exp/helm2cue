@@ -23,8 +23,7 @@ test: [
 	{
 		cpu: [if (_nonzero & {
 			#arg: #values.cpu
-			_
-		}) {
+		}).out {
 			#values.cpu
 		}, 0][0]
 	},

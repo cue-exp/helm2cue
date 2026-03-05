@@ -17,8 +17,7 @@ import "struct"
 output: [
 	if (_nonzero & {
 		#arg: #input.enabled
-		_
-	}) {
+	}).out {
 		{
 			enabled: true
 		}
@@ -26,7 +25,7 @@ output: [
 ]
 _nonzero: {
 	#arg?: _
-	[if #arg != _|_ {
+	out: [if #arg != _|_ {
 		[
 			if (#arg & int) != _|_ {#arg != 0},
 			if (#arg & string) != _|_ {#arg != ""},

@@ -31,21 +31,19 @@ output: [
 		kind:       "ConfigMap"
 		metadata: name: [if (_nonzero & {
 			#arg: #values.name
-			_
-		}) {
+		}).out {
 			#values.name
 		}, "fallback"][0]
 		data: env: [if (_nonzero & {
 			#arg: #values.env
-			_
-		}) {
+		}).out {
 			#values.env
 		}, "production"][0]
 	},
 ]
 _nonzero: {
 	#arg?: _
-	[if #arg != _|_ {
+	out: [if #arg != _|_ {
 		[
 			if (#arg & int) != _|_ {#arg != 0},
 			if (#arg & string) != _|_ {#arg != ""},

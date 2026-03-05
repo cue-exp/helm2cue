@@ -36,8 +36,7 @@ deploy: [
 		data: {
 			if (_nonzero & {
 				#arg: #values.config.enabled
-				_
-			}) {
+			}).out {
 				name: #values.config.name
 			}
 		}

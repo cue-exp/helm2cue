@@ -46,8 +46,7 @@ test: [
 			#arg: (_uniq & {
 				#in: #values.denyNamespaces
 			}).out
-			_
-		}) for _, _range0 in (_uniq & {
+		}).out for _, _range0 in (_uniq & {
 			#in: #values.denyNamespaces
 		}).out {
 			_range0

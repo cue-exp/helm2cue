@@ -17,10 +17,9 @@ import "struct"
 
 output: [
 	{
-		if !(_nonzero & {
+		if !((_nonzero & {
 			#arg: #values.required
-			_
-		}) {
+		}).out) {
 			error("required must be set")
 		}
 		data: #values.name
@@ -28,7 +27,7 @@ output: [
 ]
 _nonzero: {
 	#arg?: _
-	[if #arg != _|_ {
+	out: [if #arg != _|_ {
 		[
 			if (#arg & int) != _|_ {#arg != 0},
 			if (#arg & string) != _|_ {#arg != ""},

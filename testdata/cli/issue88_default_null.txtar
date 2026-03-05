@@ -33,8 +33,7 @@ test: [
 		kind:       "ConfigMap"
 		metadata: name: [if (_nonzero & {
 			#arg: #values.name
-			_
-		}) {
+		}).out {
 			#values.name
 		}, "fallback"][0]
 	},

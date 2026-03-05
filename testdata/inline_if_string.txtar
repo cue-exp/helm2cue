@@ -39,18 +39,15 @@ output: [
 				name: "test"
 				args: [if (_nonzero & {
 					#arg: #values.tls
-					_
-				}) {
+				}).out {
 					if (_nonzero & {
 						#arg: #values.certManager
-						_
-					}) {
+					}).out {
 						"--cert=tls.crt"
 					}
-					if !(_nonzero & {
+					if !((_nonzero & {
 						#arg: #values.certManager
-						_
-					}) {
+					}).out) {
 						"--cert=cert"
 					}
 				},
@@ -61,7 +58,7 @@ output: [
 ]
 _nonzero: {
 	#arg?: _
-	[if #arg != _|_ {
+	out: [if #arg != _|_ {
 		[
 			if (#arg & int) != _|_ {#arg != 0},
 			if (#arg & string) != _|_ {#arg != ""},

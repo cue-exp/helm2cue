@@ -42,8 +42,7 @@ test: [
 		data: datasources: """
 	datasources:\(strings.Join([if (_nonzero & {
 			#arg: #values.enabled
-			_
-		}) {
+		}).out {
 			"\n- name: \(#values.firstName)\n  type: first"
 		}], ""))
 	- name: \(#values.secondName)

@@ -45,8 +45,7 @@ output: [
 			#arg: (_uniq & {
 				#in: #values.denyNamespaces
 			}).out
-			_
-		}) for _, _range0 in (_uniq & {
+		}).out for _, _range0 in (_uniq & {
 			#in: #values.denyNamespaces
 		}).out {
 			_range0
@@ -56,7 +55,7 @@ output: [
 ]
 _nonzero: {
 	#arg?: _
-	[if #arg != _|_ {
+	out: [if #arg != _|_ {
 		[
 			if (#arg & int) != _|_ {#arg != 0},
 			if (#arg & string) != _|_ {#arg != ""},

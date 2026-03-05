@@ -118,7 +118,7 @@ const nonzeroDef = `// _nonzero tests whether a value is "truthy" (non-zero,
 // A natural candidate for a CUE standard library builtin.
 _nonzero: {
 	#arg?: _
-	[if #arg != _|_ {
+	out: [if #arg != _|_ {
 		[
 			if (#arg & int) != _|_ {#arg != 0},
 			if (#arg & string) != _|_ {#arg != ""},
@@ -469,13 +469,12 @@ func parenExpr(x ast.Expr) *ast.ParenExpr {
 	return &ast.ParenExpr{X: x}
 }
 
-// nonzeroExpr builds (_nonzero & {#arg: expr, _}).
+// nonzeroExpr builds (_nonzero & {#arg: expr}).out.
 func nonzeroExpr(expr ast.Expr) ast.Expr {
-	return parenExpr(binOp(token.AND, ast.NewIdent("_nonzero"),
+	return selExpr(parenExpr(binOp(token.AND, ast.NewIdent("_nonzero"),
 		&ast.StructLit{Elts: []ast.Decl{
 			&ast.Field{Label: ast.NewIdent("#arg"), Value: expr},
-			&ast.EmbedDecl{Expr: ast.NewIdent("_")},
-		}}))
+		}})), "out")
 }
 
 // defaultExpr builds a Helm-compatible default expression.

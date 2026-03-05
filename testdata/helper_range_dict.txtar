@@ -65,8 +65,7 @@ _renderVolumes: {
 	let _args = #arg
 	[if (_nonzero & {
 		#arg: _args.items
-		_
-	}) for _, _range1 in _args.items {
+	}).out for _, _range1 in _args.items {
 		name:      _range1.name
 		mountPath: _range1.mountPath
 	}]
@@ -84,7 +83,7 @@ output: [
 ]
 _nonzero: {
 	#arg?: _
-	[if #arg != _|_ {
+	out: [if #arg != _|_ {
 		[
 			if (#arg & int) != _|_ {#arg != 0},
 			if (#arg & string) != _|_ {#arg != ""},

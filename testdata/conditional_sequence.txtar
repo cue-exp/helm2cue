@@ -45,15 +45,13 @@ output: [
 		metadata: name: "test"
 		spec: ports: [if (_nonzero & {
 			#arg: #values.httpEnabled
-			_
-		}) {
+		}).out {
 			{
 				port: 80, name: "http"
 			}
 		}, if (_nonzero & {
 			#arg: #values.httpsEnabled
-			_
-		}) {
+		}).out {
 			{
 				port: 443, name: "https"
 			}
@@ -63,7 +61,7 @@ output: [
 ]
 _nonzero: {
 	#arg?: _
-	[if #arg != _|_ {
+	out: [if #arg != _|_ {
 		[
 			if (#arg & int) != _|_ {#arg != 0},
 			if (#arg & string) != _|_ {#arg != ""},

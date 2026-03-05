@@ -5,12 +5,12 @@ converted 14/21 templates from nginx
 -- cue vet --
 exit status 1
 _common_utils_getValueFromKey.#arg: reference "_range1" not found:
-    ./helpers.cue:1854:29
+    ./helpers.cue:1700:29
 _common_utils_getValueFromKey: reference "_range1" not found:
-    ./helpers.cue:1857:23
+    ./helpers.cue:1702:23
 -- cue export --
 exit status 1
 _common_utils_getValueFromKey.#arg: reference "_range1" not found:
-    ./helpers.cue:1854:29
+    ./helpers.cue:1700:29
 _common_utils_getValueFromKey: reference "_range1" not found:
-    ./helpers.cue:1857:23
+    ./helpers.cue:1702:23

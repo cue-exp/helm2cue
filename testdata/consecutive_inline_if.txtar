@@ -36,26 +36,22 @@ output: [
 		data: {
 			if (_nonzero & {
 				#arg: #values.x
-				_
-			}) {
+			}).out {
 				a: "x1y"
 			}
-			if !(_nonzero & {
+			if !((_nonzero & {
 				#arg: #values.x
-				_
-			}) {
+			}).out) {
 				a: "x2y"
 			}
 			if (_nonzero & {
 				#arg: #values.x
-				_
-			}) {
+			}).out {
 				b: "x3y"
 			}
-			if !(_nonzero & {
+			if !((_nonzero & {
 				#arg: #values.x
-				_
-			}) {
+			}).out) {
 				b: "x4y"
 			}
 		}
@@ -63,7 +59,7 @@ output: [
 ]
 _nonzero: {
 	#arg?: _
-	[if #arg != _|_ {
+	out: [if #arg != _|_ {
 		[
 			if (#arg & int) != _|_ {#arg != 0},
 			if (#arg & string) != _|_ {#arg != ""},

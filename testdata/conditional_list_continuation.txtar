@@ -43,15 +43,13 @@ output: [
 			{
 				if (_nonzero & {
 					#arg: #values.useHttps
-					_
-				}) {
+				}).out {
 					port:   "https"
 					scheme: "https"
 				}
-				if !(_nonzero & {
+				if !((_nonzero & {
 					#arg: #values.useHttps
-					_
-				}) {
+				}).out) {
 					port: "http"
 				}
 				honorLabels: true
@@ -61,7 +59,7 @@ output: [
 ]
 _nonzero: {
 	#arg?: _
-	[if #arg != _|_ {
+	out: [if #arg != _|_ {
 		[
 			if (#arg & int) != _|_ {#arg != 0},
 			if (#arg & string) != _|_ {#arg != ""},

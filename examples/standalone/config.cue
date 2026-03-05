@@ -26,35 +26,30 @@ output: [
 			name: _fullname, address: "\(#values.host):\(#values.port)"
 			if (_nonzero & {
 				#arg: #values.debug
-				_
-			}) {
+			}).out {
 				logLevel: "debug"
 			}
-			if !(_nonzero & {
+			if !((_nonzero & {
 				#arg: #values.debug
-				_
-			}) {
+			}).out) {
 				logLevel: "info"
 			}
 			if (_nonzero & {
 				#arg: #values.tls
-				_
-			}) {
+			}).out {
 				tls: {
 					cert: #values.tls.cert, key: #values.tls.key
 				}
 			}, labels: {
 				if (_nonzero & {
 					#arg: #values.labels
-					_
-				}) for _key0, _val0 in #values.labels {
+				}).out for _key0, _val0 in #values.labels {
 					(_key0): _val0
 				}
 			}
 			features: [if (_nonzero & {
 				#arg: #values.features
-				_
-			}) for _, _range0 in #values.features {
+			}).out for _, _range0 in #values.features {
 				_range0
 			},
 			]
@@ -63,7 +58,7 @@ output: [
 ]
 _nonzero: {
 	#arg?: _
-	[if #arg != _|_ {
+	out: [if #arg != _|_ {
 		[
 			if (#arg & int) != _|_ {#arg != 0},
 			if (#arg & string) != _|_ {#arg != ""},

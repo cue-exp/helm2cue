@@ -27,15 +27,14 @@ output: [
 		metadata: name: "test"
 		data: result: [if (_nonzero & {
 			#arg: #values.primary
-			_
-		}) {
+		}).out {
 			#values.primary
 		}, #values.fallback][0]
 	},
 ]
 _nonzero: {
 	#arg?: _
-	[if #arg != _|_ {
+	out: [if #arg != _|_ {
 		[
 			if (#arg & int) != _|_ {#arg != 0},
 			if (#arg & string) != _|_ {#arg != ""},

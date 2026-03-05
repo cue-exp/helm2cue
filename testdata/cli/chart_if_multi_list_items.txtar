@@ -49,13 +49,11 @@ test: [
 				name: "test"
 				args: [if (_nonzero & {
 					#arg: #values.tls
-					_
-				}) {
+				}).out {
 					"a"
 				}, if (_nonzero & {
 					#arg: #values.tls
-					_
-				}) {
+				}).out {
 					"b"
 				},
 				]

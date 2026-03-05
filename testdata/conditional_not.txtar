@@ -33,17 +33,16 @@ output: [
 		apiVersion: "v1"
 		kind:       "ConfigMap"
 		metadata: name: #values.name
-		if !(_nonzero & {
+		if !((_nonzero & {
 			#arg: #values.debug
-			_
-		}) {
+		}).out) {
 			data: env: "production"
 		}
 	},
 ]
 _nonzero: {
 	#arg?: _
-	[if #arg != _|_ {
+	out: [if #arg != _|_ {
 		[
 			if (#arg & int) != _|_ {#arg != 0},
 			if (#arg & string) != _|_ {#arg != ""},

@@ -37,18 +37,15 @@ test: [
 				name: "test"
 				args: [if (_nonzero & {
 					#arg: #values.tls
-					_
-				}) {
+				}).out {
 					if (_nonzero & {
 						#arg: #values.certManager
-						_
-					}) {
+					}).out {
 						"\"--cert=tls.crt\""
 					}
-					if !(_nonzero & {
+					if !((_nonzero & {
 						#arg: #values.certManager
-						_
-					}) {
+					}).out) {
 						"\"--cert=cert\""
 					}
 				},
