@@ -95,7 +95,7 @@ func (c *converter) resolveField(a funcArg) (expr ast.Expr, helmObj string, fiel
 	}
 	switch n := a.node.(type) {
 	case *parse.FieldNode:
-		expr, helmObj = fieldToCUE(c.config.ContextObjects, n.Ident)
+		expr, helmObj = c.fieldToCUEInContext(n.Ident)
 		if helmObj != "" {
 			fieldPath = n.Ident[1:]
 			c.trackFieldRef(helmObj, fieldPath)
@@ -103,7 +103,7 @@ func (c *converter) resolveField(a funcArg) (expr ast.Expr, helmObj string, fiel
 		return expr, helmObj, fieldPath, nil
 	case *parse.VariableNode:
 		if len(n.Ident) >= 2 && n.Ident[0] == "$" {
-			expr, helmObj = fieldToCUE(c.config.ContextObjects, n.Ident[1:])
+			expr, helmObj = c.dollarFieldToCUE(n.Ident[1:])
 			if helmObj != "" {
 				if len(n.Ident) >= 3 {
 					fieldPath = n.Ident[2:]

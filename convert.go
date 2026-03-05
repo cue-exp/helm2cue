@@ -4800,7 +4800,7 @@ func (c *converter) withPipeToRawExpr(pipe *parse.PipeNode) (ast.Expr, error) {
 		return expr, nil
 	case *parse.VariableNode:
 		if len(a.Ident) >= 2 && a.Ident[0] == "$" {
-			expr, _ := fieldToCUE(c.config.ContextObjects, a.Ident[1:])
+			expr, _ := c.dollarFieldToCUE(a.Ident[1:])
 			return expr, nil
 		}
 		if len(a.Ident) >= 2 && a.Ident[0] != "$" {
@@ -5498,7 +5498,7 @@ func (c *converter) singleNodeToFieldExpr(node parse.Node) (ast.Expr, string, []
 	}
 	if v, ok := node.(*parse.VariableNode); ok {
 		if len(v.Ident) >= 2 && v.Ident[0] == "$" {
-			expr, helmObj := fieldToCUE(c.config.ContextObjects, v.Ident[1:])
+			expr, helmObj := c.dollarFieldToCUE(v.Ident[1:])
 			if helmObj != "" {
 				c.trackFieldRef(helmObj, v.Ident[2:])
 				return expr, helmObj, v.Ident[2:], nil
@@ -5603,7 +5603,7 @@ func (c *converter) conditionNodeToExpr(node parse.Node) (ast.Expr, error) {
 		return nonzeroExpr(expr), nil
 	case *parse.VariableNode:
 		if len(n.Ident) >= 2 && n.Ident[0] == "$" {
-			expr, helmObj := fieldToCUE(c.config.ContextObjects, n.Ident[1:])
+			expr, helmObj := c.dollarFieldToCUE(n.Ident[1:])
 			if helmObj != "" {
 				c.usedContextObjects[helmObj] = true
 				if len(n.Ident) >= 3 {
@@ -5664,7 +5664,7 @@ func (c *converter) conditionNodeToRawExpr(node parse.Node) (ast.Expr, error) {
 		return expr, nil
 	case *parse.VariableNode:
 		if len(n.Ident) >= 2 && n.Ident[0] == "$" {
-			expr, helmObj := fieldToCUE(c.config.ContextObjects, n.Ident[1:])
+			expr, helmObj := c.dollarFieldToCUE(n.Ident[1:])
 			if helmObj != "" {
 				c.usedContextObjects[helmObj] = true
 				if len(n.Ident) >= 3 {
@@ -6341,7 +6341,7 @@ func (c *converter) actionToCUE(n *parse.ActionNode) (expr ast.Expr, helmObj str
 			}
 		} else if v, ok := first.Args[0].(*parse.VariableNode); ok {
 			if len(v.Ident) >= 2 && v.Ident[0] == "$" {
-				fieldExpr, ho := fieldToCUE(c.config.ContextObjects, v.Ident[1:])
+				fieldExpr, ho := c.dollarFieldToCUE(v.Ident[1:])
 				expr = fieldExpr
 				helmObj = ho
 				if helmObj != "" {
@@ -6729,7 +6729,7 @@ func (c *converter) nodeToExpr(node parse.Node) (ast.Expr, string, error) {
 		return expr, helmObj, nil
 	case *parse.VariableNode:
 		if len(n.Ident) >= 2 && n.Ident[0] == "$" {
-			expr, helmObj := fieldToCUE(c.config.ContextObjects, n.Ident[1:])
+			expr, helmObj := c.dollarFieldToCUE(n.Ident[1:])
 			if helmObj != "" {
 				c.trackFieldRef(helmObj, n.Ident[2:])
 				c.usedContextObjects[helmObj] = true
@@ -7185,6 +7185,38 @@ func (c *converter) fieldToCUEInContext(ident []string) (ast.Expr, string) {
 			c.usedContextObjects[top.helmObj] = true
 		}
 		return buildSelChain(top.cueExpr, ident), ""
+	}
+	return fieldToCUE(c.config.ContextObjects, ident)
+}
+
+// dollarFieldToCUE resolves a $ variable reference (with the "$" prefix
+// already stripped). $ always refers to the root scope: context objects
+// first, then the root of the range var stack (e.g. #arg in helper bodies).
+func (c *converter) dollarFieldToCUE(ident []string) (ast.Expr, string) {
+	// Context objects take priority ($.Values.X → #values.X).
+	if len(ident) > 0 {
+		if _, ok := c.config.ContextObjects[ident[0]]; ok {
+			return fieldToCUE(c.config.ContextObjects, ident)
+		}
+	}
+	// In helper bodies, $ refers to #arg (the root scope, stack[0]).
+	if len(c.rangeVarStack) > 0 {
+		root := c.rangeVarStack[0]
+		if isArgIdent(root.cueExpr) && c.helperArgRefs != nil {
+			ref := append([]string(nil), ident...)
+			c.helperArgRefs = append(c.helperArgRefs, ref)
+			if !c.suppressRequired {
+				c.helperArgRequiredRefs = append(c.helperArgRequiredRefs, ref)
+			}
+		}
+		if root.helmObj != "" {
+			fullPath := make([]string, len(root.basePath)+len(ident))
+			copy(fullPath, root.basePath)
+			copy(fullPath[len(root.basePath):], ident)
+			c.trackFieldRef(root.helmObj, fullPath)
+			c.usedContextObjects[root.helmObj] = true
+		}
+		return buildSelChain(root.cueExpr, ident), ""
 	}
 	return fieldToCUE(c.config.ContextObjects, ident)
 }
