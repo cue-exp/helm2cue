@@ -1,0 +1,42 @@
+Multi-line text helper produces a string, not struct embeddings.
+
+-- values.yaml --
+name: myapp
+namespace: default
+-- _helpers.tpl --
+{{- define "test.names" -}}
+{{- .Values.name }}
+{{ .Values.name }}.{{ .Values.namespace }}.svc
+{{- end }}
+-- input.yaml --
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test
+data:
+  names: {{ include "test.names" . | quote }}
+-- helm_output.yaml --
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test
+data:
+  names: "myapp\nmyapp.default.svc"
+-- output.cue --
+import "strings"
+
+#values: {
+	name!:      bool | number | string | null
+	namespace!: bool | number | string | null
+	...
+}
+_test_names: strings.TrimSpace("\(#values.name)\n\(#values.name).\(#values.namespace).svc")
+
+output: [
+	{
+		apiVersion: "v1"
+		kind:       "ConfigMap"
+		metadata: name: "test"
+		data: names:    "\(_test_names)"
+	},
+]

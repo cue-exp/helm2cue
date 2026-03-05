@@ -1759,6 +1759,16 @@ func (c *converter) convertHelperBody(nodes []parse.Node) (ast.Expr, *helperArgI
 		return cueString(strings.Join(strings.Fields(text), " ")), nil, nil
 	}
 
+	// Check if the body is text with interpolated actions (no YAML structure).
+	// These produce a CUE string with \(...) interpolations.
+	if isTextHelperBody(nodes) {
+		expr, argInfo, err := c.convertTextHelperBody(nodes)
+		if err == nil {
+			return expr, argInfo, nil
+		}
+		// Fall through to general converter on error.
+	}
+
 	sub := &converter{
 		config:                      c.config,
 		usedContextObjects:          c.usedContextObjects,
@@ -2008,6 +2018,134 @@ func isStringHelperBody(nodes []parse.Node) bool {
 		}
 	}
 	return true
+}
+
+// isTextHelperBody reports whether a helper body contains text and
+// actions but no YAML structure (no "key: value", no "- " list items).
+// These helpers produce text output that should be emitted as a CUE
+// string with interpolations, not as a struct with embeddings.
+func isTextHelperBody(nodes []parse.Node) bool {
+	hasAction := false
+	for _, node := range nodes {
+		switch node.(type) {
+		case *parse.TextNode:
+			// OK
+		case *parse.ActionNode:
+			hasAction = true
+		default:
+			// Control structures (if/range/with) need the general
+			// converter — only handle simple text+action bodies.
+			return false
+		}
+	}
+	if !hasAction {
+		return false // pure text is handled by isStringHelperBody
+	}
+	// Check that text content has no YAML structure.
+	text := textContent(nodes)
+	for _, line := range strings.Split(text, "\n") {
+		trimmed := strings.TrimSpace(line)
+		if trimmed == "" {
+			continue
+		}
+		if strings.Contains(trimmed, ": ") || strings.HasSuffix(trimmed, ":") || strings.HasPrefix(trimmed, "- ") {
+			return false
+		}
+	}
+	// Must be multi-line: the text nodes must contain at least one
+	// newline that separates action outputs. Single-line text+action
+	// helpers work fine as struct embeddings.
+	return strings.Contains(text, "\n")
+}
+
+// convertTextHelperBody converts a helper body of text+actions into
+// a CUE string expression with interpolations. It also returns arg
+// info for schema generation.
+func (c *converter) convertTextHelperBody(nodes []parse.Node) (ast.Expr, *helperArgInfo, error) {
+	// Build a sub-converter to resolve expressions and track refs.
+	sub := &converter{
+		config:                      c.config,
+		usedContextObjects:          c.usedContextObjects,
+		fieldRefs:                   make(map[string][][]string),
+		requiredRefs:                make(map[string][][]string),
+		rangeRefs:                   make(map[string][][]string),
+		nonScalarRefs:               make(map[string][][]string),
+		imports:                     c.imports,
+		usedHelpers:                 c.usedHelpers,
+		treeSet:                     c.treeSet,
+		helperExprs:                 c.helperExprs,
+		helperCUE:                   c.helperCUE,
+		helperArgFieldRefs:          c.helperArgFieldRefs,
+		helperArgFieldRequiredRefs:  c.helperArgFieldRequiredRefs,
+		helperArgFieldRangeRefs:     c.helperArgFieldRangeRefs,
+		helperArgFieldNonScalarRefs: c.helperArgFieldNonScalarRefs,
+		helperDirectFieldRefs:       c.helperDirectFieldRefs,
+		helperDirectRequiredRefs:    c.helperDirectRequiredRefs,
+		helperDirectRangeRefs:       c.helperDirectRangeRefs,
+		helperDirectNonScalarRefs:   c.helperDirectNonScalarRefs,
+		helperIncludes:              c.helperIncludes,
+		currentHelperCUEName:        c.currentHelperCUEName,
+		undefinedHelpers:            c.undefinedHelpers,
+		localVars:                   make(map[string]ast.Expr),
+		comments:                    make(map[ast.Expr]string),
+	}
+	useArg := sub.config.RootExpr == ""
+	if useArg {
+		sub.rangeVarStack = []rangeContext{{cueExpr: ast.NewIdent("#arg")}}
+		sub.helperArgRefs = [][]string{}
+		sub.helperArgRequiredRefs = [][]string{}
+		sub.helperArgRangeRefs = [][]string{}
+		sub.helperArgNonScalarRefs = [][]string{}
+	}
+
+	// Walk nodes, building inline parts for partsToExpr.
+	var parts []inlinePart
+	for _, node := range nodes {
+		switch n := node.(type) {
+		case *parse.TextNode:
+			s := string(n.Text)
+			if s != "" {
+				parts = append(parts, inlinePart{text: escapeCUEString(s)})
+			}
+		case *parse.ActionNode:
+			expr, _, err := sub.actionToCUE(n)
+			if err != nil {
+				return nil, nil, err
+			}
+			parts = append(parts, inlinePart{expr: expr})
+		}
+	}
+
+	if len(parts) == 0 {
+		return cueString(""), nil, nil
+	}
+
+	// Mark context objects used by the helper body.
+	for helmObj := range sub.fieldRefs {
+		c.usedContextObjects[helmObj] = true
+	}
+
+	result := partsToExpr(parts)
+
+	// Trim the result.
+	c.addImport("strings")
+	result = importCall("strings", "TrimSpace", result)
+
+	var argInfo *helperArgInfo
+	if useArg {
+		argInfo = &helperArgInfo{
+			fieldRefs:           sub.helperArgRefs,
+			requiredRefs:        sub.helperArgRequiredRefs,
+			rangeRefs:           sub.helperArgRangeRefs,
+			nonScalarRefs:       sub.helperArgNonScalarRefs,
+			directFieldRefs:     sub.fieldRefs,
+			directRequiredRefs:  sub.requiredRefs,
+			directRangeRefs:     sub.rangeRefs,
+			directNonScalarRefs: sub.nonScalarRefs,
+		}
+	}
+
+	return result, argInfo, nil
 }
 
 // escapeCUEString escapes a string for embedding in a CUE quoted string.
