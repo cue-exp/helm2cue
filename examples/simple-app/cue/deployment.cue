@@ -11,7 +11,12 @@ deployment: [
 			labels: _simple_app_labels
 		}
 		spec: {
-			replicas: *#values.replicaCount | 1
+			replicas: [if (_nonzero & {
+				#arg: #values.replicaCount
+				_
+			}) {
+				#values.replicaCount
+			}, 1][0]
 			selector: matchLabels: _simple_app_selectorLabels
 			template: {
 				metadata: labels: _simple_app_selectorLabels
@@ -22,9 +27,14 @@ deployment: [
 					}
 					containers: [
 						{
-							name:            _simple_app_name
-							image:           "\(#values.image.repository):\(#values.image.tag)"
-							imagePullPolicy: *#values.image.pullPolicy | "IfNotPresent"
+							name:  _simple_app_name
+							image: "\(#values.image.repository):\(#values.image.tag)"
+							imagePullPolicy: [if (_nonzero & {
+								#arg: #values.image.pullPolicy
+								_
+							}) {
+								#values.image.pullPolicy
+							}, "IfNotPresent"][0]
 							ports: [if (_nonzero & {
 								#arg: #values.ports
 								_

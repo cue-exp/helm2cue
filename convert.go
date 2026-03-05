@@ -301,6 +301,7 @@ type converter struct {
 	topLevelRangeIsList         bool                  // true when range body emits YAML list items
 	imports                     map[string]bool
 	hasConditions               bool                 // true if any if blocks or top-level guards exist
+	hasDefault                  bool                 // true if any default expressions exist
 	usedHelpers                 map[string]HelperDef // collected during conversion
 	rootExprAST                 ast.Expr             // parsed config.RootExpr, cached
 
@@ -464,9 +465,29 @@ func nonzeroExpr(expr ast.Expr) ast.Expr {
 		}}))
 }
 
-// defaultExpr builds *expr | defaultVal.
-func defaultExpr(expr, defaultVal ast.Expr) ast.Expr {
-	return binOp(token.OR, &ast.UnaryExpr{Op: token.MUL, X: expr}, defaultVal)
+// defaultExpr builds a Helm-compatible default expression.
+// Instead of *expr | defaultVal (which only falls back on bottom),
+// this produces [if (_nonzero & {#arg: expr, _}) {expr}, defaultVal][0]
+// which falls back when expr is a zero value (null, "", 0, false, [], {}),
+// matching Helm's default semantics.
+func (c *converter) defaultExpr(expr, defaultVal ast.Expr) ast.Expr {
+	c.hasDefault = true
+	return &ast.IndexExpr{
+		X: &ast.ListLit{
+			Elts: []ast.Expr{
+				&ast.Comprehension{
+					Clauses: []ast.Clause{
+						&ast.IfClause{Condition: nonzeroExpr(expr)},
+					},
+					Value: &ast.StructLit{Elts: []ast.Decl{
+						&ast.EmbedDecl{Expr: expr},
+					}},
+				},
+				defaultVal,
+			},
+		},
+		Index: cueInt(0),
+	}
 }
 
 // negExpr builds !(x).
@@ -1310,7 +1331,7 @@ func convertStructured(cfg *Config, input []byte, templateName string, treeSet m
 
 	return &convertResult{
 		imports:            c.imports,
-		needsNonzero:       c.hasConditions || len(c.topLevelGuards) > 0,
+		needsNonzero:       c.hasConditions || c.hasDefault || len(c.topLevelGuards) > 0,
 		usedHelpers:        c.usedHelpers,
 		helpers:            c.helperCUE,
 		helperOrder:        c.helperOrder,
@@ -1753,9 +1774,12 @@ func (c *converter) convertHelperBody(nodes []parse.Node) (ast.Expr, *helperArgI
 
 	bodyDecls := sub.rootDecls
 
-	// Propagate hasConditions so _nonzero is emitted by the parent.
+	// Propagate hasConditions/hasDefault so _nonzero is emitted by the parent.
 	if sub.hasConditions {
 		c.hasConditions = true
+	}
+	if sub.hasDefault {
+		c.hasDefault = true
 	}
 
 	// If processNodes extracted a top-level range, wrap the body in the
@@ -5885,7 +5909,7 @@ func (c *converter) conditionMultiCmdPipe(pipe *parse.PipeNode) (ast.Expr, error
 			} else {
 				defaultValExpr = defaultValLit
 			}
-			expr = defaultExpr(expr, defaultValExpr)
+			expr = c.defaultExpr(expr, defaultValExpr)
 		default:
 			return nil, fmt.Errorf("unsupported function in condition pipeline: %s", id.Ident)
 		}
@@ -6626,7 +6650,7 @@ func (c *converter) convertSubPipe(pipe *parse.PipeNode) (ast.Expr, string, erro
 			if err != nil {
 				return nil, "", fmt.Errorf("default field: %w", err)
 			}
-			expr = defaultExpr(expr, defaultValExpr)
+			expr = c.defaultExpr(expr, defaultValExpr)
 		default:
 			if cf, ok := coreFuncs[id.Ident]; ok && c.isCoreFunc(id.Ident) {
 				args := make([]funcArg, len(first.Args)-1)
@@ -6707,7 +6731,7 @@ func (c *converter) convertSubPipe(pipe *parse.PipeNode) (ast.Expr, string, erro
 			} else {
 				defaultValExpr = defaultValLit
 			}
-			expr = defaultExpr(expr, defaultValExpr)
+			expr = c.defaultExpr(expr, defaultValExpr)
 		} else if cf, ok := coreFuncs[id.Ident]; ok && c.isCoreFunc(id.Ident) {
 			piped := funcArg{expr: expr, obj: helmObj}
 			args := buildPipeArgs(cf, cmd.Args[1:], piped)

@@ -14,6 +14,8 @@ kind: ConfigMap
 metadata:
   name: hello
 -- output.cue --
+import "struct"
+
 #values: {
 	primary?:  bool | number | string | null
 	fallback?: bool | number | string | null
@@ -24,6 +26,25 @@ output: [
 	{
 		apiVersion: "v1"
 		kind:       "ConfigMap"
-		metadata: name: *#values.primary | #values.fallback
+		metadata: name: [if (_nonzero & {
+			#arg: #values.primary
+			_
+		}) {
+			#values.primary
+		}, #values.fallback][0]
 	},
 ]
+_nonzero: {
+	#arg?: _
+	[if #arg != _|_ {
+		[
+			if (#arg & int) != _|_ {#arg != 0},
+			if (#arg & string) != _|_ {#arg != ""},
+			if (#arg & float) != _|_ {#arg != 0.0},
+			if (#arg & bool) != _|_ {#arg},
+			if (#arg & [...]) != _|_ {len(#arg) > 0},
+			if (#arg & {...}) != _|_ {(#arg & struct.MaxFields(0)) == _|_},
+			false,
+		][0]
+	}, false][0]
+}

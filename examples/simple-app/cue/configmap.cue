@@ -11,7 +11,12 @@ configmap: [
 			labels: _simple_app_labels
 		}
 		data: {
-			environment: "\(*#values.env | "development")"
+			environment: "\([if (_nonzero & {
+				#arg: #values.env
+				_
+			}) {
+				#values.env
+			}, "development"][0])"
 			if (_nonzero & {
 				#arg: #values.debug
 				_
