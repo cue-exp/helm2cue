@@ -14,6 +14,8 @@ kind: ConfigMap
 metadata:
   name: my-app
 -- output.cue --
+import "struct"
+
 #values: {
 	config?: {
 		name?: bool | number | string | null
@@ -26,6 +28,25 @@ output: [
 	{
 		apiVersion: "v1"
 		kind:       "ConfigMap"
-		metadata: name: *#values.config.name | "fallback"
+		metadata: name: [if (_nonzero & {
+			#arg: #values.config.name
+			_
+		}) {
+			#values.config.name
+		}, "fallback"][0]
 	},
 ]
+_nonzero: {
+	#arg?: _
+	[if #arg != _|_ {
+		[
+			if (#arg & int) != _|_ {#arg != 0},
+			if (#arg & string) != _|_ {#arg != ""},
+			if (#arg & float) != _|_ {#arg != 0.0},
+			if (#arg & bool) != _|_ {#arg},
+			if (#arg & [...]) != _|_ {len(#arg) > 0},
+			if (#arg & {...}) != _|_ {(#arg & struct.MaxFields(0)) == _|_},
+			false,
+		][0]
+	}, false][0]
+}

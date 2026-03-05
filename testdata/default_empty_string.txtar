@@ -1,26 +1,35 @@
-Parenthesized field access chain with default.
+Pipeline with default value when field is empty string.
 
 -- values.yaml --
-cpu: 100m
+name: ""
 -- input.yaml --
-cpu: {{ ((.Values).cpu) | default 0 }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Values.name | default "fallback" }}
 -- helm_output.yaml --
-cpu: 100m
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: fallback
 -- output.cue --
 import "struct"
 
 #values: {
+	name?: bool | number | string | null
 	...
 }
 
 output: [
 	{
-		cpu: [if (_nonzero & {
-			#arg: #values.cpu
+		apiVersion: "v1"
+		kind:       "ConfigMap"
+		metadata: name: [if (_nonzero & {
+			#arg: #values.name
 			_
 		}) {
-			#values.cpu
-		}, 0][0]
+			#values.name
+		}, "fallback"][0]
 	},
 ]
 _nonzero: {

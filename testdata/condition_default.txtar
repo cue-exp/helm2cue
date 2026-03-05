@@ -34,7 +34,12 @@ output: [
 		kind:       "ConfigMap"
 		metadata: name: #values.name
 		if !(_nonzero & {
-			#arg: *#values.disabled | false
+			#arg: [if (_nonzero & {
+				#arg: #values.disabled
+				_
+			}) {
+				#values.disabled
+			}, false][0]
 			_
 		}) {
 			data: status: "active"

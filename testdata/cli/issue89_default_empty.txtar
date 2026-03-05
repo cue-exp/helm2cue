@@ -31,6 +31,11 @@ test: [
 	{
 		apiVersion: "v1"
 		kind:       "ConfigMap"
-		metadata: name: *#values.name | "fallback"
+		metadata: name: [if (_nonzero & {
+			#arg: #values.name
+			_
+		}) {
+			#values.name
+		}, "fallback"][0]
 	},
 ]
