@@ -1938,7 +1938,7 @@ func (c *converter) convertHelperBody(nodes []parse.Node) (ast.Expr, *helperArgI
 		rawText := strings.TrimSpace(deepTextContent(nodes))
 		if rawText != "" {
 			bodyDecls = []ast.Decl{
-				&ast.EmbedDecl{Expr: cueString(strings.Join(strings.Fields(rawText), " "))},
+				&ast.EmbedDecl{Expr: cueString(rawText)},
 			}
 		}
 	}
