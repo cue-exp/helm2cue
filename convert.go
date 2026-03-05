@@ -4384,6 +4384,30 @@ func (c *converter) processNode(node parse.Node) error {
 		if c.inlineParts != nil && isInlineSafeIf(n) {
 			return c.processInlineIf(n)
 		}
+		// When a deferred key-value (key: {{ action }}) is followed by
+		// an inline-safe if, promote to inline accumulation so the if
+		// becomes a suffix on the value rather than a standalone block.
+		if c.deferredKV != nil && isInlineSafeIf(n) {
+			d := c.deferredKV
+			c.deferredKV = nil
+			c.inlineKey = d.key
+			c.inlineKeyLabel = d.keyLabel
+			c.inlineParts = []inlinePart{toInlinePart(d.value)}
+			return c.processInlineIf(n)
+		}
+		// Same for pending action expressions (standalone {{ action }}
+		// followed by inline-safe if on the same line).
+		if c.pendingActionExpr != nil && isInlineSafeIf(n) {
+			c.inlineKey = ""
+			c.inlineKeyLabel = nil
+			c.inlineParts = []inlinePart{toInlinePart(c.pendingActionExpr)}
+			c.pendingActionExpr = nil
+			c.pendingActionComment = ""
+			if c.inListContext() {
+				c.inlineSuffix = ","
+			}
+			return c.processInlineIf(n)
+		}
 		return c.processIf(n)
 	case *parse.RangeNode:
 		if c.blockScalarLines != nil && isInlineSafeRange(n) {

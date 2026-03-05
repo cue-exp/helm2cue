@@ -42,12 +42,18 @@ webhook: [
 		apiVersion: "v1"
 		kind:       "ConfigMap"
 		metadata: name: "test"
-		data: service: name: #values.name
-		if (_nonzero & {
-			#arg: #values.deployWebhook
-		}).out {
-			"-webhook"
+		data: service: {
+			if (_nonzero & {
+				#arg: #values.deployWebhook
+			}).out {
+				name: "\(#values.name)-webhook"
+			}
+			if !((_nonzero & {
+				#arg: #values.deployWebhook
+			}).out) {
+				name: "\(#values.name)"
+			}
+			path: "/validate"
 		}
-		path: "/validate"
 	},
 ]

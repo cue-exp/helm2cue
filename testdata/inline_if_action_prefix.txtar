@@ -1,0 +1,67 @@
+Key value starts with a template action followed by an inline
+{{ if }} conditional suffix. Both branches should be emitted,
+with the sibling field at the correct scope.
+-- values.yaml --
+name: my-service
+deployWebhook: true
+-- input.yaml --
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test
+data:
+  service:
+    name: {{ .Values.name }}{{ if .Values.deployWebhook }}-webhook{{ end }}
+    path: /validate
+-- helm_output.yaml --
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test
+data:
+  service:
+    name: my-service-webhook
+    path: /validate
+-- output.cue --
+import "struct"
+
+#values: {
+	name!:          bool | number | string | null
+	deployWebhook?: bool | number | string | null
+	...
+}
+
+output: [
+	{
+		apiVersion: "v1"
+		kind:       "ConfigMap"
+		metadata: name: "test"
+		data: service: {
+			if (_nonzero & {
+				#arg: #values.deployWebhook
+			}).out {
+				name: "\(#values.name)-webhook"
+			}
+			if !((_nonzero & {
+				#arg: #values.deployWebhook
+			}).out) {
+				name: "\(#values.name)"
+			}
+			path: "/validate"
+		}
+	},
+]
+_nonzero: {
+	#arg?: _
+	out: [if #arg != _|_ {
+		[
+			if (#arg & int) != _|_ {#arg != 0},
+			if (#arg & string) != _|_ {#arg != ""},
+			if (#arg & float) != _|_ {#arg != 0.0},
+			if (#arg & bool) != _|_ {#arg},
+			if (#arg & [...]) != _|_ {len(#arg) > 0},
+			if (#arg & {...}) != _|_ {(#arg & struct.MaxFields(0)) == _|_},
+			false,
+		][0]
+	}, false][0]
+}

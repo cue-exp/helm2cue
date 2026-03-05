@@ -6,11 +6,6 @@ prometheus_operator_admission_webhooks_mutatingWebhookConfiguration.0.metadata.a
     ./helpers.cue:835:65
 prometheus_operator_admission_webhooks_validatingWebhookConfiguration.0.metadata.annotations: cannot use {} (type struct) as string in argument 1 to strings.TrimSpace:
     ./helpers.cue:835:65
-prometheus_operator_admission_webhooks_validatingWebhookConfiguration.0.path: conflicting values "/admission-alertmanagerconfigs/validate" and "/admission-prometheusrules/validate":
-    ./prometheus_operator_admission_webhooks_validatingWebhookConfiguration.cue:12:9
-    ./prometheus_operator_admission_webhooks_validatingWebhookConfiguration.cue:13:3
-    ./prometheus_operator_admission_webhooks_validatingWebhookConfiguration.cue:86:10
-    ./prometheus_operator_admission_webhooks_validatingWebhookConfiguration.cue:160:10
 results: error in call to list.FlattenN: cannot use {} (type struct) as string in argument 1 to strings.TrimSpace:
     ./results.cue:7:10
     ./helpers.cue:835:65
@@ -26,11 +21,6 @@ prometheus_operator_admission_webhooks_mutatingWebhookConfiguration.0.metadata.a
     ./helpers.cue:835:65
 prometheus_operator_admission_webhooks_validatingWebhookConfiguration.0.metadata.annotations: cannot use {} (type struct) as string in argument 1 to strings.TrimSpace:
     ./helpers.cue:835:65
-prometheus_operator_admission_webhooks_validatingWebhookConfiguration.0.path: conflicting values "/admission-alertmanagerconfigs/validate" and "/admission-prometheusrules/validate":
-    ./prometheus_operator_admission_webhooks_validatingWebhookConfiguration.cue:12:9
-    ./prometheus_operator_admission_webhooks_validatingWebhookConfiguration.cue:13:3
-    ./prometheus_operator_admission_webhooks_validatingWebhookConfiguration.cue:86:10
-    ./prometheus_operator_admission_webhooks_validatingWebhookConfiguration.cue:160:10
 _kube_prometheus_stack_operator_admission_webhook_dnsNames: invalid interpolation: conflicting values "test-kube-prometheus-stack-operator" and ".default.svc":
     ./prometheus_operator_admission_webhooks_job_patch_job_createSecret.cue:87:10
     ./helpers.cue:768:61
