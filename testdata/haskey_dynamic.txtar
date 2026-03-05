@@ -1,6 +1,4 @@
 hasKey with dynamic (non-literal) key argument.
-No semantic comparison: dynamic key lookup uses CUE index notation
-which differs from Helm's runtime map access.
 
 -- values.yaml --
 presets:
@@ -13,6 +11,8 @@ size: small
 {{- if hasKey .Values.presets .Values.size }}
 found: true
 {{- end }}
+-- helm_output.yaml --
+found: true
 -- output.cue --
 import "struct"
 
