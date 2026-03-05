@@ -1,7 +1,5 @@
 Text helper with mixed content (field-like and bare string) inside
 a non-top-level if comprehension collapses to a string value.
-Helm comparison not possible: the text collapse normalizes whitespace
-(newlines become spaces), producing a different string than Helm.
 -- values.yaml --
 resources: {}
 -- helpers.tpl --
@@ -18,6 +16,9 @@ please check the logs
 -- input.yaml --
 data:
   warn: {{ include "test.warnings" . | trim | quote }}
+-- helm_output.yaml --
+data:
+  warn: "error: something went wrong\nplease check the logs"
 -- output.cue --
 import (
 	"strings"
@@ -28,7 +29,7 @@ import (
 	resources?: bool | number | string | null
 	...
 }
-_test_warnings: "error: something went wrong please check the logs"
+_test_warnings: "error: something went wrong\nplease check the logs"
 
 output: [
 	{

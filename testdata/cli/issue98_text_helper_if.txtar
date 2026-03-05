@@ -56,4 +56,4 @@ _nonzero: {
 	}, false][0]
 }
 
-_test_warnings: "WARNING: There are sections not set. +info https://example.com"
+_test_warnings: "WARNING: There are sections not set.\n+info https://example.com"
