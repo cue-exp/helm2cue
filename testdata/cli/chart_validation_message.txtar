@@ -44,7 +44,7 @@ import "struct"
 // A natural candidate for a CUE standard library builtin.
 _nonzero: {
 	#arg?: _
-	[if #arg != _|_ {
+	out: [if #arg != _|_ {
 		[
 			if (#arg & int) != _|_ {#arg != 0},
 			if (#arg & string) != _|_ {#arg != ""},
@@ -59,10 +59,8 @@ _nonzero: {
 
 _test_validateValues_cloneRepo: [if (_nonzero & {
 	#arg: #values.cloneRepo.enabled
-	_
-}) && !(_nonzero & {
+}).out && !((_nonzero & {
 	#arg: #values.cloneRepo.repository
-	_
-}) {
+}).out) {
 	"test: cloneRepo When enabling cloning a repo, both the repository and branch must be provided."
 }, ""][0]

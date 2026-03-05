@@ -42,8 +42,7 @@ package test_app
 hpa: [
 	if (_nonzero & {
 		#arg: #values.autoscaling.enabled
-		_
-	}) {
+	}).out {
 		{
 			apiVersion: "autoscaling/v2"
 			kind:       "HorizontalPodAutoscaler"

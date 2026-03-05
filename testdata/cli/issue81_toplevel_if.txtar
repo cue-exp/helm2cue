@@ -30,11 +30,9 @@ package test_app
 deploy: [
 	if (_nonzero & {
 		#arg: #values.config
-		_
-	}) && (_nonzero & {
+	}).out && (_nonzero & {
 		#arg: #values.config.extra
-		_
-	}) {
+	}).out {
 		{
 			apiVersion: "v1"
 			kind:       "ConfigMap"

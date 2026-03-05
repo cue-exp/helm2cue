@@ -36,15 +36,14 @@ output: [
 		metadata: name: "test"
 		data: port:     "\(int & [if (_nonzero & {
 			#arg: #values.metrics.port
-			_
-		}) {
+		}).out {
 			#values.metrics.port
 		}, #values.containerPorts.http][0])"
 	},
 ]
 _nonzero: {
 	#arg?: _
-	[if #arg != _|_ {
+	out: [if #arg != _|_ {
 		[
 			if (#arg & int) != _|_ {#arg != 0},
 			if (#arg & string) != _|_ {#arg != ""},

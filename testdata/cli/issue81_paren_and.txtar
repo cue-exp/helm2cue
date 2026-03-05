@@ -36,11 +36,9 @@ deploy: [
 		data: {
 			if (_nonzero & {
 				#arg: #values.x
-				_
-			}) && (_nonzero & {
+			}).out && (_nonzero & {
 				#arg: #values.y
-				_
-			}) {
+			}).out {
 				key: #values.y
 			}
 		}

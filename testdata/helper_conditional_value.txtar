@@ -37,8 +37,7 @@ import "struct"
 _myapp_enabled: {
 	if (_nonzero & {
 		#arg: #values.enabled
-		_
-	}) {
+	}).out {
 		true
 	}
 }
@@ -50,15 +49,14 @@ output: [
 		metadata: name: "test"
 		if (_nonzero & {
 			#arg: _myapp_enabled
-			_
-		}) {
+		}).out {
 			data: enabled: "yes"
 		}
 	},
 ]
 _nonzero: {
 	#arg?: _
-	[if #arg != _|_ {
+	out: [if #arg != _|_ {
 		[
 			if (#arg & int) != _|_ {#arg != 0},
 			if (#arg & string) != _|_ {#arg != ""},

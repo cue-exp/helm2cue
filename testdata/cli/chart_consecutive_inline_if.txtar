@@ -51,34 +51,28 @@ test: [
 				name: "test"
 				args: [if (_nonzero & {
 					#arg: #values.tls
-					_
-				}) {
+				}).out {
 					if (_nonzero & {
 						#arg: #values.x
-						_
-					}) {
+					}).out {
 						"\"a=1\""
 					}
-					if !(_nonzero & {
+					if !((_nonzero & {
 						#arg: #values.x
-						_
-					}) {
+					}).out) {
 						"\"a=2\""
 					}
 				}, if (_nonzero & {
 					#arg: #values.tls
-					_
-				}) {
+				}).out {
 					if (_nonzero & {
 						#arg: #values.x
-						_
-					}) {
+					}).out {
 						"\"b=3\""
 					}
-					if !(_nonzero & {
+					if !((_nonzero & {
 						#arg: #values.x
-						_
-					}) {
+					}).out) {
 						"\"b=4\""
 					}
 				},

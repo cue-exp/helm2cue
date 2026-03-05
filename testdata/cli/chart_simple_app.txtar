@@ -142,7 +142,7 @@ import (
 // A natural candidate for a CUE standard library builtin.
 _nonzero: {
 	#arg?: _
-	[if #arg != _|_ {
+	out: [if #arg != _|_ {
 		[
 			if (#arg & int) != _|_ {#arg != 0},
 			if (#arg & string) != _|_ {#arg != ""},
@@ -270,8 +270,7 @@ deployment: [
 		spec: {
 			replicas: [if (_nonzero & {
 				#arg: #values.replicaCount
-				_
-			}) {
+			}).out {
 				#values.replicaCount
 			}, 1][0]
 			selector: matchLabels: _simple_app_selectorLabels
@@ -283,14 +282,12 @@ deployment: [
 						image: "\(#values.image.repository):\(#values.image.tag)"
 						imagePullPolicy: [if (_nonzero & {
 							#arg: #values.image.pullPolicy
-							_
-						}) {
+						}).out {
 							#values.image.pullPolicy
 						}, "IfNotPresent"][0]
 						ports: [if (_nonzero & {
 							#arg: #values.ports
-							_
-						}) for _, _range0 in #values.ports {
+						}).out for _, _range0 in #values.ports {
 							name:          _range0.name
 							containerPort: _range0.containerPort
 						},
@@ -317,16 +314,14 @@ service: [
 		spec: {
 			type: [if (_nonzero & {
 				#arg: #values.service.type
-				_
-			}) {
+			}).out {
 				#values.service.type
 			}, "ClusterIP"][0]
 			ports: [
 				{
 					port: [if (_nonzero & {
 						#arg: #values.service.port
-						_
-					}) {
+					}).out {
 						#values.service.port
 					}, 80][0]
 					targetPort: "http"
@@ -354,20 +349,17 @@ configmap: [
 		data: {
 			environment: "\([if (_nonzero & {
 				#arg: #values.env
-				_
-			}) {
+			}).out {
 				#values.env
 			}, "development"][0])"
 			if (_nonzero & {
 				#arg: #values.debug
-				_
-			}) {
+			}).out {
 				logLevel: "debug"
 			}
-			if !(_nonzero & {
+			if !((_nonzero & {
 				#arg: #values.debug
-				_
-			}) {
+			}).out) {
 				logLevel: "info"
 			}
 		}

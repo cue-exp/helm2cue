@@ -59,20 +59,17 @@ output: [
 				name: "test"
 				args: [if (_nonzero & {
 					#arg: #values.tls.enabled
-					_
-				}) {
+				}).out {
 					#values.tls.port
-				}, if !(_nonzero & {
+				}, if !((_nonzero & {
 					#arg: #values.tls.enabled
-					_
-				}) {
+				}).out) {
 					"8080"
 				},
 				]
 				if (_nonzero & {
 					#arg: #values.tls.enabled
-					_
-				}) {
+				}).out {
 					ports: [
 						{
 							containerPort: #values.tls.port
@@ -80,10 +77,9 @@ output: [
 						},
 					]
 				}
-				if !(_nonzero & {
+				if !((_nonzero & {
 					#arg: #values.tls.enabled
-					_
-				}) {
+				}).out) {
 					ports: [
 						{
 							containerPort: 8080
@@ -97,7 +93,7 @@ output: [
 ]
 _nonzero: {
 	#arg?: _
-	[if #arg != _|_ {
+	out: [if #arg != _|_ {
 		[
 			if (#arg & int) != _|_ {#arg != 0},
 			if (#arg & string) != _|_ {#arg != ""},

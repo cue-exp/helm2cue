@@ -41,32 +41,23 @@ import "struct"
 _myapp_checkFolder: {
 	if !((_nonzero & {
 		#arg: #values.folder
-		_
-	}) && !(_nonzero & {
+	}).out && !((_nonzero & {
 		#arg: #values.folderUID
-		_
-	}) && !(_nonzero & {
+	}).out) && !((_nonzero & {
 		#arg: #values.folderRef
-		_
-	}) || (_nonzero & {
+	}).out) || (_nonzero & {
 		#arg: #values.folderUID
-		_
-	}) && !(_nonzero & {
+	}).out && !((_nonzero & {
 		#arg: #values.folder
-		_
-	}) && !(_nonzero & {
+	}).out) && !((_nonzero & {
 		#arg: #values.folderRef
-		_
-	}) || (_nonzero & {
+	}).out) || (_nonzero & {
 		#arg: #values.folderRef
-		_
-	}) && !(_nonzero & {
+	}).out && !((_nonzero & {
 		#arg: #values.folder
-		_
-	}) && !(_nonzero & {
+	}).out) && !((_nonzero & {
 		#arg: #values.folderUID
-		_
-	})) {
+	}).out)) {
 		error("exactly one of folder, folderUID, folderRef must be set")
 	}
 	folder: #values.folder
@@ -82,7 +73,7 @@ output: [
 ]
 _nonzero: {
 	#arg?: _
-	[if #arg != _|_ {
+	out: [if #arg != _|_ {
 		[
 			if (#arg & int) != _|_ {#arg != 0},
 			if (#arg & string) != _|_ {#arg != ""},

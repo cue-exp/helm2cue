@@ -3,16 +3,16 @@ converted 171/216 templates from kube-prometheus-stack
 -- cue vet --
 exit status 1
 grafana_configmaps_datasources.data."datasource.yaml": reference "_range0" not found:
-    ./grafana_configmaps_datasources.cue:130:57
+    ./grafana_configmaps_datasources.cue:110:57
 grafana_configmaps_datasources.data."datasource.yaml": reference "_range0" not found:
-    ./grafana_configmaps_datasources.cue:132:62
+    ./grafana_configmaps_datasources.cue:112:62
 grafana_configmaps_datasources.data."datasource.yaml": reference "_range0" not found:
-    ./grafana_configmaps_datasources.cue:133:73
+    ./grafana_configmaps_datasources.cue:113:73
 -- cue export --
 exit status 1
 grafana_configmaps_datasources.data."datasource.yaml": reference "_range0" not found:
-    ./grafana_configmaps_datasources.cue:130:57
+    ./grafana_configmaps_datasources.cue:110:57
 grafana_configmaps_datasources.data."datasource.yaml": reference "_range0" not found:
-    ./grafana_configmaps_datasources.cue:132:62
+    ./grafana_configmaps_datasources.cue:112:62
 grafana_configmaps_datasources.data."datasource.yaml": reference "_range0" not found:
-    ./grafana_configmaps_datasources.cue:133:73
+    ./grafana_configmaps_datasources.cue:113:73

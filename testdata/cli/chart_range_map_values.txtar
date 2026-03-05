@@ -55,16 +55,14 @@ package test_app
 test: [
 	if (_nonzero & {
 		#arg: #values.server.enabled
-		_
-	}) {
+	}).out {
 		{
 			apiVersion: "v1"
 			kind:       "ConfigMap"
 			metadata: name: "test"
 			data: paths: [if (_nonzero & {
 				#arg: #values.server.paths
-				_
-			}) for _, _range0 in #values.server.paths {
+			}).out for _, _range0 in #values.server.paths {
 				_range0
 			},
 			]

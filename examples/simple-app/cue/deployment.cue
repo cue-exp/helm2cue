@@ -13,8 +13,7 @@ deployment: [
 		spec: {
 			replicas: [if (_nonzero & {
 				#arg: #values.replicaCount
-				_
-			}) {
+			}).out {
 				#values.replicaCount
 			}, 1][0]
 			selector: matchLabels: _simple_app_selectorLabels
@@ -31,14 +30,12 @@ deployment: [
 							image: "\(#values.image.repository):\(#values.image.tag)"
 							imagePullPolicy: [if (_nonzero & {
 								#arg: #values.image.pullPolicy
-								_
-							}) {
+							}).out {
 								#values.image.pullPolicy
 							}, "IfNotPresent"][0]
 							ports: [if (_nonzero & {
 								#arg: #values.ports
-								_
-							}) for _, _range0 in #values.ports {
+							}).out for _, _range0 in #values.ports {
 								name:          _range0.name
 								containerPort: _range0.containerPort
 							},

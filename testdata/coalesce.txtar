@@ -33,20 +33,18 @@ output: [
 		metadata: name: "test"
 		data: result: [if (_nonzero & {
 			#arg: #values.a
-			_
-		}) {
+		}).out {
 			#values.a
 		}, if (_nonzero & {
 			#arg: #values.b
-			_
-		}) {
+		}).out {
 			#values.b
 		}, "default"][0]
 	},
 ]
 _nonzero: {
 	#arg?: _
-	[if #arg != _|_ {
+	out: [if #arg != _|_ {
 		[
 			if (#arg & int) != _|_ {#arg != 0},
 			if (#arg & string) != _|_ {#arg != ""},

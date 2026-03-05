@@ -63,8 +63,7 @@ output: [
 		metadata: name: "test"
 		data: rules: [if (_nonzero & {
 			#arg: #values.hosts
-			_
-		}) for _, _range0 in #values.hosts {
+		}).out for _, _range0 in #values.hosts {
 			host: _range0.name
 			port: _range0.port
 			paths: [
@@ -79,7 +78,7 @@ output: [
 ]
 _nonzero: {
 	#arg?: _
-	[if #arg != _|_ {
+	out: [if #arg != _|_ {
 		[
 			if (#arg & int) != _|_ {#arg != 0},
 			if (#arg & string) != _|_ {#arg != ""},

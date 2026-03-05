@@ -34,14 +34,12 @@ output: [
 		data: {
 			debug: "\([if (_nonzero & {
 				#arg: #values.debug
-				_
-			}) {
+			}).out {
 				"true"
 			}, "false"][0])"
 			scheme: [if (_nonzero & {
 				#arg: #values.debug
-				_
-			}) {
+			}).out {
 				"https"
 			}, "http"][0]
 		}
@@ -49,7 +47,7 @@ output: [
 ]
 _nonzero: {
 	#arg?: _
-	[if #arg != _|_ {
+	out: [if #arg != _|_ {
 		[
 			if (#arg & int) != _|_ {#arg != 0},
 			if (#arg & string) != _|_ {#arg != ""},

@@ -39,8 +39,7 @@ test: [
 		metadata: name: "test"
 		data: result: strings.Join([if (_nonzero & {
 			#arg: #values.items
-			_
-		}) for _, _range0 in #values.items {
+		}).out for _, _range0 in #values.items {
 			_range0
 		}], ",")
 	},

@@ -27,15 +27,14 @@ output: [
 	{
 		tag: [if (_nonzero & {
 			#arg: #values.image.tag
-			_
-		}) {
+		}).out {
 			#values.image.tag
 		}, "v\(#chart.AppVersion)"][0]
 	},
 ]
 _nonzero: {
 	#arg?: _
-	[if #arg != _|_ {
+	out: [if #arg != _|_ {
 		[
 			if (#arg & int) != _|_ {#arg != 0},
 			if (#arg & string) != _|_ {#arg != ""},

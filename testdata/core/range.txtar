@@ -24,8 +24,7 @@ output: [
 	{
 		items: [if (_nonzero & {
 			#arg: #input.items
-			_
-		}) for _, _range0 in #input.items {
+		}).out for _, _range0 in #input.items {
 			_range0
 		},
 		]
@@ -33,7 +32,7 @@ output: [
 ]
 _nonzero: {
 	#arg?: _
-	[if #arg != _|_ {
+	out: [if #arg != _|_ {
 		[
 			if (#arg & int) != _|_ {#arg != 0},
 			if (#arg & string) != _|_ {#arg != ""},

@@ -36,14 +36,12 @@ test: [
 		spec: secret: {
 			if (_nonzero & {
 				#arg: #values.useCert
-				_
-			}) {
+			}).out {
 				key: "ca.crt"
 			}
-			if !(_nonzero & {
+			if !((_nonzero & {
 				#arg: #values.useCert
-				_
-			}) {
+			}).out) {
 				key: "ca"
 			}
 			optional: false
