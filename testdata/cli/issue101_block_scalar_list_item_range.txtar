@@ -46,10 +46,13 @@ rules: [
 		metadata: name: "rules"
 		data: items: [
 			{
-				value: ""
-				"sum by (\(strings.Join([for _, _range0 in #values.labels {
+				value: """
+	sum by (\(strings.Join([for _, _range0 in #values.labels {
 					"\(_range0),"
-				}], ""))cluster) (", "rate(total[5m])", ")"
+				}], ""))cluster) (
+	  rate(total[5m])
+	)
+	"""
 			},
 		]
 	},

@@ -3632,6 +3632,28 @@ func (c *converter) processListItem(trimmed string, yamlIndent int, isLastLine, 
 			})
 			c.inlineKey = key
 			c.inlineParts = []inlinePart{{text: escapeCUEString(val)}}
+		} else if val == "|-" || val == "|" || val == ">-" || val == ">" {
+			// Block scalar as value of a key inside a list item.
+			itemStruct := &ast.StructLit{}
+			c.appendListExpr(itemStruct)
+			c.stack = append(c.stack, frame{
+				yamlIndent: itemContentIndent,
+				structLit:  itemStruct,
+				isListItem: true,
+			})
+			nextIsNindent := len(c.remainingNodes) > 0 && nodeHasNindent(c.remainingNodes[0])
+			if nextIsNindent {
+				c.state = statePendingKey
+				c.pendingKey = key
+				c.pendingKeyInd = itemContentIndent
+			} else {
+				c.blockScalarLines = []string{}
+				c.blockScalarBaseIndent = -1
+				c.blockScalarFolded = val[0] == '>'
+				c.blockScalarStrip = strings.HasSuffix(val, "-")
+				c.blockScalarPartialLine = false
+				c.blockScalarKey = key
+			}
 		} else {
 			// Open struct, emit first field.
 			itemStruct := &ast.StructLit{}
