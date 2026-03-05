@@ -264,6 +264,7 @@ type rangeContext struct {
 // helperArgInfo holds ref types collected from a helper body's #arg accesses.
 type helperArgInfo struct {
 	fieldRefs     [][]string
+	requiredRefs  [][]string
 	rangeRefs     [][]string
 	nonScalarRefs [][]string
 }
@@ -290,6 +291,7 @@ type converter struct {
 	helperArgRangeRefs          [][]string            // range refs on #arg in helper bodies
 	helperArgNonScalarRefs      [][]string            // nonScalar refs on #arg in helper bodies
 	helperArgFieldRefs          map[string][][]string // CUE helper name → field paths accessed on #arg
+	helperArgFieldRequiredRefs  map[string][][]string // CUE helper name → required field paths on #arg
 	helperArgFieldRangeRefs     map[string][][]string // CUE helper name → range refs on #arg
 	helperArgFieldNonScalarRefs map[string][][]string // CUE helper name → nonScalar refs on #arg
 	localVars                   map[string]ast.Expr   // $varName → CUE expression
@@ -1062,6 +1064,21 @@ func (c *converter) extractGuardedPaths(pipe *parse.PipeNode) map[string]bool {
 	return paths
 }
 
+// setGuardedPaths merges the given guarded paths into c.guardedPaths
+// and returns the previous value for later restoration.
+func (c *converter) setGuardedPaths(paths map[string]bool) map[string]bool {
+	saved := c.guardedPaths
+	if paths != nil {
+		if c.guardedPaths == nil {
+			c.guardedPaths = make(map[string]bool)
+		}
+		for k := range paths {
+			c.guardedPaths[k] = true
+		}
+	}
+	return saved
+}
+
 // collectGuardedPaths recursively collects field paths from truthiness
 // condition nodes. It handles simple field refs, and/not/or combinators,
 // and skips comparison functions (eq, ne, etc.) whose fields are required.
@@ -1070,14 +1087,20 @@ func (c *converter) collectGuardedPaths(node parse.Node, args []parse.Node, path
 	case *parse.FieldNode:
 		_, helmObj := c.fieldToCUEInContext(n.Ident)
 		if helmObj != "" && len(n.Ident) >= 2 {
-			paths[guardedPathKey(helmObj, n.Ident[1:])] = true
+			c.addGuardedPath(paths, helmObj, n.Ident[1:])
 		}
 	case *parse.VariableNode:
 		if len(n.Ident) >= 2 && n.Ident[0] == "$" {
 			_, helmObj := fieldToCUE(c.config.ContextObjects, n.Ident[1:])
 			if helmObj != "" && len(n.Ident) >= 3 {
-				paths[guardedPathKey(helmObj, n.Ident[2:])] = true
+				c.addGuardedPath(paths, helmObj, n.Ident[2:])
 			}
+		}
+	case *parse.PipeNode:
+		// Parenthesized sub-expressions like (and (.Values.x) (.Values.y))
+		// are parsed as PipeNode. Unwrap single-command pipes.
+		if len(n.Cmds) == 1 && len(n.Cmds[0].Args) > 0 {
+			c.collectGuardedPaths(n.Cmds[0].Args[0], n.Cmds[0].Args[1:], paths)
 		}
 	case *parse.IdentifierNode:
 		switch n.Ident {
@@ -1090,6 +1113,22 @@ func (c *converter) collectGuardedPaths(node parse.Node, args []parse.Node, path
 				c.collectGuardedPaths(args[0], nil, paths)
 			}
 		}
+	}
+}
+
+// addGuardedPath adds a field path and its parent prefix to the guarded
+// paths map. Adding the parent allows sibling fields to be considered
+// guarded: if .Values.config.enabled is the condition, all fields under
+// .Values.config are guarded in the body.
+func (c *converter) addGuardedPath(paths map[string]bool, helmObj string, path []string) {
+	paths[guardedPathKey(helmObj, path)] = true
+	// For multi-segment paths (e.g. config.enabled), also guard the
+	// parent prefix (config). This allows sibling fields like
+	// config.name to be considered guarded. Single-segment paths
+	// (e.g. config) do not add the empty root — that would guard
+	// everything under the context object.
+	if len(path) >= 2 {
+		paths[guardedPathKey(helmObj, path[:len(path)-1])] = true
 	}
 }
 
@@ -1208,6 +1247,7 @@ func convertStructured(cfg *Config, input []byte, templateName string, treeSet m
 		helperCUE:                   make(map[string]ast.Expr),
 		undefinedHelpers:            make(map[string]string),
 		helperArgFieldRefs:          make(map[string][][]string),
+		helperArgFieldRequiredRefs:  make(map[string][][]string),
 		helperArgFieldRangeRefs:     make(map[string][][]string),
 		helperArgFieldNonScalarRefs: make(map[string][][]string),
 	}
@@ -1242,6 +1282,9 @@ func convertStructured(cfg *Config, input []byte, templateName string, treeSet m
 		if argInfo != nil {
 			if len(argInfo.fieldRefs) > 0 {
 				c.helperArgFieldRefs[cueName] = argInfo.fieldRefs
+			}
+			if len(argInfo.requiredRefs) > 0 {
+				c.helperArgFieldRequiredRefs[cueName] = argInfo.requiredRefs
 			}
 			if len(argInfo.rangeRefs) > 0 {
 				c.helperArgFieldRangeRefs[cueName] = argInfo.rangeRefs
@@ -1677,6 +1720,7 @@ func (c *converter) convertHelperBody(nodes []parse.Node) (ast.Expr, *helperArgI
 		helperExprs:                 c.helperExprs,
 		helperCUE:                   c.helperCUE,
 		helperArgFieldRefs:          c.helperArgFieldRefs,
+		helperArgFieldRequiredRefs:  c.helperArgFieldRequiredRefs,
 		helperArgFieldRangeRefs:     c.helperArgFieldRangeRefs,
 		helperArgFieldNonScalarRefs: c.helperArgFieldNonScalarRefs,
 		undefinedHelpers:            c.undefinedHelpers,
@@ -1832,6 +1876,7 @@ func (c *converter) convertHelperBody(nodes []parse.Node) (ast.Expr, *helperArgI
 			sub.helperArgRangeRefs, sub.helperArgNonScalarRefs)
 		info := &helperArgInfo{
 			fieldRefs:     argRefs,
+			requiredRefs:  sub.helperArgRequiredRefs,
 			rangeRefs:     sub.helperArgRangeRefs,
 			nonScalarRefs: sub.helperArgNonScalarRefs,
 		}
@@ -1921,11 +1966,32 @@ func (c *converter) handleInclude(name string, pipe *parse.PipeNode) (string, st
 // passes .Values.serviceAccount, this records ["serviceAccount", "name"]
 // and ["serviceAccount", "version"] in fieldRefs["Values"].
 func (c *converter) propagateHelperArgRefs(cueName, helmObj string, basePath []string) {
+	// Record all field refs (for schema inference).
 	for _, ref := range c.helperArgFieldRefs[cueName] {
 		combined := make([]string, len(basePath)+len(ref))
 		copy(combined, basePath)
 		copy(combined[len(basePath):], ref)
-		c.trackFieldRef(helmObj, combined)
+		c.fieldRefs[helmObj] = append(c.fieldRefs[helmObj], combined)
+	}
+	// Record only required refs (respecting with/if guards in the helper body).
+	// Also mark the parent basePath as required when any sub-field is required
+	// (accessing a sub-field requires the parent to exist), or when the helper
+	// has no sub-field refs at all (the arg value itself is used directly).
+	allRefs := c.helperArgFieldRefs[cueName]
+	hasRequired := false
+	for _, ref := range c.helperArgFieldRequiredRefs[cueName] {
+		combined := make([]string, len(basePath)+len(ref))
+		copy(combined, basePath)
+		copy(combined[len(basePath):], ref)
+		if !c.suppressRequired && !c.isGuardedPath(helmObj, combined) {
+			c.requiredRefs[helmObj] = append(c.requiredRefs[helmObj], combined)
+			hasRequired = true
+		}
+	}
+	if len(basePath) > 0 && !c.suppressRequired && !c.isGuardedPath(helmObj, basePath) {
+		if hasRequired || len(allRefs) == 0 {
+			c.requiredRefs[helmObj] = append(c.requiredRefs[helmObj], basePath)
+		}
 	}
 	for _, ref := range c.helperArgFieldRangeRefs[cueName] {
 		combined := make([]string, len(basePath)+len(ref))
@@ -1945,6 +2011,7 @@ func (c *converter) propagateHelperArgRefs(cueName, helmObj string, basePath []s
 // context. Each arg ref's first path segment is matched to a dict key,
 // then combined with that key's source basePath and helmObj.
 func (c *converter) propagateDictHelperArgRefs(cueName string, dictMap map[string]contextSource) {
+	// Record all field refs (for schema inference).
 	for _, ref := range c.helperArgFieldRefs[cueName] {
 		if len(ref) == 0 {
 			continue
@@ -1954,7 +2021,21 @@ func (c *converter) propagateDictHelperArgRefs(cueName string, dictMap map[strin
 			continue
 		}
 		combined := append(append([]string(nil), src.basePath...), ref[1:]...)
-		c.trackFieldRef(src.helmObj, combined)
+		c.fieldRefs[src.helmObj] = append(c.fieldRefs[src.helmObj], combined)
+	}
+	// Record only required refs (respecting with/if guards in the helper body).
+	for _, ref := range c.helperArgFieldRequiredRefs[cueName] {
+		if len(ref) == 0 {
+			continue
+		}
+		src, ok := dictMap[ref[0]]
+		if !ok {
+			continue
+		}
+		combined := append(append([]string(nil), src.basePath...), ref[1:]...)
+		if !c.suppressRequired && !c.isGuardedPath(src.helmObj, combined) {
+			c.requiredRefs[src.helmObj] = append(c.requiredRefs[src.helmObj], combined)
+		}
 	}
 	for _, ref := range c.helperArgFieldRangeRefs[cueName] {
 		if len(ref) == 0 {
@@ -1998,7 +2079,12 @@ func (c *converter) convertIncludeContext(node parse.Node) (argExpr ast.Expr, he
 		if ho != "" {
 			c.usedContextObjects[ho] = true
 			if len(n.Ident) >= 2 {
-				c.trackFieldRef(ho, n.Ident[1:])
+				// Record the field ref but not as required here.
+				// Whether the arg path is required depends on
+				// whether the helper body has required sub-field
+				// accesses; propagateHelperArgRefs adds the parent
+				// to requiredRefs when it finds any.
+				c.fieldRefs[ho] = append(c.fieldRefs[ho], n.Ident[1:])
 			}
 		}
 		var bp []string
@@ -3104,7 +3190,10 @@ func (c *converter) processTopLevelIf(ifNode *parse.IfNode) (bool, error) {
 	// Simple if without else — use the guard optimization directly.
 	if ifNode.ElseList == nil {
 		c.topLevelGuards = append(c.topLevelGuards, condition)
-		return true, c.processNodes(ifNode.List.Nodes)
+		savedGuarded := c.setGuardedPaths(c.extractGuardedPaths(ifNode.Pipe))
+		err := c.processNodes(ifNode.List.Nodes)
+		c.guardedPaths = savedGuarded
+		return true, err
 	}
 
 	// Walk the else-if chain to collect branches with their guards.
@@ -3163,7 +3252,13 @@ func (c *converter) processTopLevelIf(ifNode *parse.IfNode) (bool, error) {
 		// Exactly one branch has content — use top-level guards.
 		br := branches[nonEmpty[0]]
 		c.topLevelGuards = append(c.topLevelGuards, br.guards...)
-		return true, c.processNodes(br.nodes)
+		// Extract guarded paths from all conditions in the selected branch's
+		// guard chain. For an else-if, guards include !cond1 && cond2 — we
+		// extract from all positive conditions to suppress required.
+		savedGuarded := c.setGuardedPaths(c.extractGuardedPaths(ifNode.Pipe))
+		err := c.processNodes(br.nodes)
+		c.guardedPaths = savedGuarded
+		return true, err
 	}
 
 	// Multiple branches have content — fall through to normal
@@ -4183,16 +4278,7 @@ func (c *converter) processIf(n *parse.IfNode) error {
 
 	// Extract field paths guarded by this condition so that references
 	// to the same field inside the if-body are not marked as required.
-	guardedPaths := c.extractGuardedPaths(n.Pipe)
-	savedGuarded := c.guardedPaths
-	if guardedPaths != nil {
-		if c.guardedPaths == nil {
-			c.guardedPaths = make(map[string]bool)
-		}
-		for k := range guardedPaths {
-			c.guardedPaths[k] = true
-		}
-	}
+	savedGuarded := c.setGuardedPaths(c.extractGuardedPaths(n.Pipe))
 
 	// Process the if body and emit as comprehension.
 	c.emitIfBranchComprehension([]ast.Expr{condition}, bodyIndent, inList && isList && !preOpenedListItem, preOpenedListItem, n.List.Nodes)
@@ -4217,7 +4303,11 @@ func (c *converter) processIf(n *parse.IfNode) error {
 				guard := append(append([]ast.Expr(nil), negChain...), innerCond)
 				elseIfIsList := isListBody(innerIf.List.Nodes)
 				elseIfBodyIndent := peekBodyIndent(innerIf.List.Nodes)
+
+				// Extract guarded paths for the else-if condition.
+				elseIfSaved := c.setGuardedPaths(c.extractGuardedPaths(innerIf.Pipe))
 				c.emitIfBranchComprehension(guard, elseIfBodyIndent, inList && elseIfIsList && !preOpenedListItem, preOpenedListItem, innerIf.List.Nodes)
+				c.guardedPaths = elseIfSaved
 
 				negChain = append(negChain, innerNeg)
 				elseList = innerIf.ElseList
@@ -4359,10 +4449,23 @@ func (c *converter) processWith(n *parse.WithNode) error {
 		basePath: basePath,
 	})
 
+	// Extract guarded paths — with acts as a guard (body only executes
+	// when the expression is non-nil). Use both extractGuardedPaths and
+	// the withPipeContext result.
+	guardedPaths := c.extractGuardedPaths(n.Pipe)
+	if helmObj != "" {
+		if guardedPaths == nil {
+			guardedPaths = make(map[string]bool)
+		}
+		c.addGuardedPath(guardedPaths, helmObj, basePath)
+	}
+	savedGuarded := c.setGuardedPaths(guardedPaths)
+
 	// Process body and emit as comprehension.
 	c.emitIfBranchComprehension([]ast.Expr{condition}, bodyIndent, inList && isList, false, n.List.Nodes)
 
-	// Pop from rangeVarStack (no dot rebinding in else).
+	// Restore guarded paths and pop from rangeVarStack.
+	c.guardedPaths = savedGuarded
 	c.rangeVarStack = c.rangeVarStack[:len(c.rangeVarStack)-1]
 
 	// Handle else branch.

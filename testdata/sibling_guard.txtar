@@ -1,64 +1,51 @@
-Range target accessed via a variable should infer the correct schema
-field, allowing both list and map types.
+Guard on a sibling field should make other fields under the same parent
+optional. Regression test for https://github.com/cue-exp/helm2cue/issues/81.
 
 -- values.yaml --
-server:
+name: myapp
+config:
   enabled: true
-  paths:
-    - /foo
-    - /bar
+  name: hello
 -- helm_output.yaml --
 apiVersion: v1
 kind: ConfigMap
 metadata:
   name: test
 data:
-  paths:
-    - /foo
-    - /bar
+  name: hello
 -- input.yaml --
-{{- if .Values.server.enabled -}}
-{{- $srv := .Values.server -}}
 apiVersion: v1
 kind: ConfigMap
 metadata:
   name: test
 data:
-  paths:
-    {{- range $p := $srv.paths }}
-    - {{ $p }}
-    {{- end }}
+{{- if .Values.config.enabled }}
+  name: {{ .Values.config.name }}
 {{- end }}
 -- output.cue --
 import "struct"
 
 #values: {
-	server?: {
+	config?: {
 		enabled?: bool | number | string | null
-		paths?: [...] | {
-			...
-		}
+		name?:    bool | number | string | null
 		...
 	}
 	...
 }
 
 output: [
-	if (_nonzero & {
-		#arg: #values.server.enabled
-		_
-	}) {
-		{
-			apiVersion: "v1"
-			kind:       "ConfigMap"
-			metadata: name: "test"
-			data: paths: [if (_nonzero & {
-				#arg: #values.server.paths
+	{
+		apiVersion: "v1"
+		kind:       "ConfigMap"
+		metadata: name: "test"
+		data: {
+			if (_nonzero & {
+				#arg: #values.config.enabled
 				_
-			}) for _, _range0 in #values.server.paths {
-				_range0
-			},
-			]
+			}) {
+				name: #values.config.name
+			}
 		}
 	},
 ]

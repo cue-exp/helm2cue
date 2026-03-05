@@ -50,7 +50,7 @@ package test_app
 
 #values: {
 	config?: {
-		extra!: _
+		extra?: _
 		...
 	}
 	...

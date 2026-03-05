@@ -6,17 +6,6 @@ error: values.yaml does not satisfy inferred schema: #values.enableServiceLinks:
 error: values.yaml does not satisfy inferred schema: #values.podPortName: field is required but not present
 error: values.yaml does not satisfy inferred schema: #values.gossipPortName: field is required but not present
 error: values.yaml does not satisfy inferred schema: #values.adminUser: field is required but not present
-error: values.yaml does not satisfy inferred schema: #values.alertmanager.service.clusterPort: field is required but not present
-error: values.yaml does not satisfy inferred schema: #values.prometheusOperator.namespaces.additional: field is required but not present
-error: values.yaml does not satisfy inferred schema: #values.prometheusOperator.namespaces.releaseNamespace: field is required but not present
-error: values.yaml does not satisfy inferred schema: #values.prometheus.prometheusSpec.thanos.secretProviderClass: field is required but not present
-error: values.yaml does not satisfy inferred schema: #values.prometheus.prometheusSpec.additionalScrapeConfigsSecret.name: field is required but not present
-error: values.yaml does not satisfy inferred schema: #values.prometheus.prometheusSpec.additionalScrapeConfigsSecret.key: field is required but not present
-error: values.yaml does not satisfy inferred schema: #values.prometheus.thanosServiceMonitor.sampleLimit: field is required but not present
-error: values.yaml does not satisfy inferred schema: #values.prometheus.thanosServiceMonitor.targetLimit: field is required but not present
-error: values.yaml does not satisfy inferred schema: #values.prometheus.thanosServiceMonitor.labelLimit: field is required but not present
-error: values.yaml does not satisfy inferred schema: #values.prometheus.thanosServiceMonitor.labelNameLengthLimit: field is required but not present
-error: values.yaml does not satisfy inferred schema: #values.prometheus.thanosServiceMonitor.labelValueLengthLimit: field is required but not present
 converted 171/216 templates from kube-prometheus-stack
 ConvertChart error: values schema validation failed
 -- cue vet --

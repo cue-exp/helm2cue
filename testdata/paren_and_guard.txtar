@@ -1,0 +1,64 @@
+Parenthesized and/or arguments should suppress required for guarded
+fields. Regression test for https://github.com/cue-exp/helm2cue/issues/81.
+
+-- values.yaml --
+name: myapp
+foo: hello
+bar: world
+-- helm_output.yaml --
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test
+data:
+  key: world
+-- input.yaml --
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test
+data:
+{{- if and (.Values.foo) (.Values.bar) }}
+  key: {{ .Values.bar }}
+{{- end }}
+-- output.cue --
+import "struct"
+
+#values: {
+	foo?: bool | number | string | null
+	bar?: bool | number | string | null
+	...
+}
+
+output: [
+	{
+		apiVersion: "v1"
+		kind:       "ConfigMap"
+		metadata: name: "test"
+		data: {
+			if (_nonzero & {
+				#arg: #values.foo
+				_
+			}) && (_nonzero & {
+				#arg: #values.bar
+				_
+			}) {
+				key: #values.bar
+			}
+		}
+	},
+]
+_nonzero: {
+	#arg?: _
+	[if #arg != _|_ {
+		[
+			if (#arg & int) != _|_ {#arg != 0},
+			if (#arg & string) != _|_ {#arg != ""},
+			if (#arg & float) != _|_ {#arg != 0.0},
+			if (#arg & bool) != _|_ {#arg},
+			if (#arg & [...]) != _|_ {len(#arg) > 0},
+			if (#arg & {...}) != _|_ {(#arg & struct.MaxFields(0)) == _|_},
+			false,
+		][0]
+	}, false][0]
+}
