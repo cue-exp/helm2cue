@@ -1,0 +1,40 @@
+toYaml piped to b64enc: the converter inserts yaml.Marshal before
+base64.Encode so the struct is serialized before encoding.
+
+-- values.yaml --
+config:
+  key1: val1
+-- input.yaml --
+apiVersion: v1
+kind: Secret
+metadata:
+  name: test
+data:
+  config: {{ toYaml .Values.config | b64enc | quote }}
+-- helm_output.yaml --
+apiVersion: v1
+kind: Secret
+metadata:
+  name: test
+data:
+  config: "a2V5MTogdmFsMQ=="
+-- output.cue --
+import (
+	"encoding/base64"
+	"strings"
+	"encoding/yaml"
+)
+
+#values: {
+	config!: _
+	...
+}
+
+output: [
+	{
+		apiVersion: "v1"
+		kind:       "Secret"
+		metadata: name: "test"
+		data: config:   "\(base64.Encode(null, strings.TrimRight(yaml.Marshal(#values.config), "\n")))"
+	},
+]
