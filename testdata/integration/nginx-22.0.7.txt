@@ -2,7 +2,7 @@
 warning: helper _common_tplvalues_render: if condition: contains argument 1: unsupported condition function: toJson
 warning: skipping ingress-tls-secret.yaml (doc 2): unsupported template action: {{$ca := genCA "nginx-ca" 365}}
 warning: skipping tls-secret.yaml (doc 0): unsupported template action: {{$ca := genCA "nginx-ca" 365}}
-converted 14/21 templates from nginx
+converted 14/16 templates from nginx
 -- cue vet --
 exit status 1
 _cMinor: error in call to strconv.Atoi: strconv.Atoi: parsing "25-0": invalid syntax:

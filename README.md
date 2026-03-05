@@ -229,6 +229,8 @@ standard library does not yet provide as builtins:
 | `_typeof` | Returns the CUE type name of a value, matching Sprig's `typeOf` semantics |
 | `_dig` | Nested map traversal with a default value, matching Sprig's `dig` |
 | `_omit` | Returns a struct with specified keys removed, matching Sprig's `omit` |
+| `_merge` | Shallow key-level merge of two structs where the first argument wins, matching Sprig's `merge` |
+| `_mergeOverwrite` | Shallow key-level merge of two structs where the last argument wins, matching Sprig's `mergeOverwrite` |
 
 These are natural candidates for CUE standard library builtins and will be
 removed once those exist.
@@ -271,7 +273,8 @@ removed once those exist.
 | `{{ tpl (toYaml .Values.x) . }}` | Wraps value in `yaml.Marshal(...)` before `template.Execute` | Done |
 | `{{ dig "a" "b" "default" .Values.x }}` | `(_dig & {#path: ["a","b"], #default: "default", #map: #values.x}).out` | Done |
 | `{{ omit .Values.x "key" }}` | `(_omit & {#arg: #values.x, #omit: ["key"]}).out` | Done |
-| `{{ kindIs "string" .Values.x }}` | Type test condition | Done |
+| `{{ kindIs "string" .Values.x }}` | Kind test condition: `(#values.x & string) != _\|_` | Done |
+| `{{ typeIs "string" .Values.x }}` | Type test condition: `(#values.x & string) != _\|_` | Done |
 | `{{ typeOf .Values.x }}` | `(_typeof & {#arg: #values.x}).out` | Done |
 | `{{ lookup ... }}` | Not supported (descriptive error) | Error |
 
@@ -327,7 +330,7 @@ removed once those exist.
 | `compact` | `(_compact & {#in: expr}).out` | — |
 | `dict` | `{key: val, ...}` (struct literal) | — |
 | `get` | `map.key` or `map[key]` | — |
-| `hasKey` | `(_nonzero & {#arg: map.key}).out` | — |
+| `hasKey` | Literal key: `(_nonzero & {#arg: map.key}).out`; dynamic key: `map[key] != _\|_` | — |
 | `keys` | `[ for k, _ in expr {k}]` | — |
 | `values` | `[ for _, v in expr {v}]` | — |
 | `coalesce` | `[if nz(a) {a}, ..., last][0]` | — |
@@ -335,7 +338,8 @@ removed once those exist.
 | `max` | `list.Max([a, b])` | `list` |
 | `min` | `list.Min([a, b])` | `list` |
 | `set` | Not supported (descriptive error) | — |
-| `merge`, `mergeOverwrite` | Not supported (descriptive error) | — |
+| `merge` | `(_merge & {#a: dst, #b: src}).out` (first arg wins) | — |
+| `mergeOverwrite` | `(_mergeOverwrite & {#a: dst, #b: src}).out` (last arg wins) | — |
 
 ## Not Yet Implemented
 
@@ -374,24 +378,25 @@ now passes for kube-prometheus-stack; nginx has one remaining
 issues because it requires concrete values that the unconstrained
 `#values` schema cannot provide.
 
-**nginx** (14/21 templates converted, 2 skipped due to `genCA`):
-four helpers from the Bitnami common subchart could not be converted
-(`typeIs`, `merge`, `hasKey` with non-literal key); these are reported
-as warnings and default to `_` in the output. `cue vet` reports one
-error: `strconv.Atoi` fails on a capability-version string (`"25-0"`)
-in a helper that parses `.Capabilities.KubeVersion.Minor`. This is a
-data issue (the test fixture provides a version string that Atoi
-cannot parse), not a converter bug.
+**nginx** (14/16 templates converted, 2 skipped due to `genCA`):
+one helper from the Bitnami common subchart could not be converted
+(`tplvalues.render` uses `toJson` in a condition sub-expression,
+[#108](https://github.com/cue-exp/helm2cue/issues/108)); it is
+reported as a warning and defaults to `_` in the output. `cue vet`
+reports two errors: `strconv.Atoi` fails on a capability-version
+string (`"25-0"`) in a helper that parses
+`.Capabilities.KubeVersion.Minor` (a data issue, not a converter
+bug), and the `_common_resources_preset` helper produces a runtime
+error because its `hasKey` dynamic key lookup evaluates `#arg.type`
+as a CUE field reference rather than a dict key.
 
-**kube-prometheus-stack** (171/216 templates converted): `cue vet`
+**kube-prometheus-stack** (171/171 templates converted): `cue vet`
 passes cleanly. `cue export` fails because many templates use `tpl`
 (converted to `text/template.Execute`) which requires concrete values
 to evaluate. With unconstrained `#values` the template engine cannot
 render, producing "cannot convert non-concrete value" errors. This
 primarily affects grafana dashboard configmap labels (dynamic keys
-from `tpl` calls) and servicemonitor relabeling fields. One helper
-evaluates to `_` (unconverted due to an unsupported function in its
-body); providing concrete values would resolve the `tpl` errors.
+from `tpl` calls) and servicemonitor relabeling fields.
 
 ## Key Issues
 
@@ -520,7 +525,9 @@ expects `Convert()` to fail and checks that the error message contains
 the given substring. This is used to verify that unsupported functions
 (`merge`, `set`, `lookup`) and invalid argument counts produce
 clear error messages. Error tests are named `error_*.txtar` by
-convention.
+convention. (Note: some former error tests like `error_merge.txtar`
+have been promoted to regular conversion tests now that the function
+is supported.)
 
 #### Broken tests
 
