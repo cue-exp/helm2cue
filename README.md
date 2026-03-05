@@ -150,7 +150,26 @@ In chart mode, the tool:
    - **`results.cue`** — a `results` list referencing all template fields,
      for use with `yaml.MarshalStream(results)` to produce a multi-document
      YAML stream like `helm template`
-5. Copies `values.yaml` into the output directory for use at export time.
+5. Copies `values.yaml` into the output directory and embeds it into
+   `#values` via CUE's `@embed` directive. Because `#values` is a CUE
+   definition (with required fields, optional fields, and structural
+   constraints), CUE validates the actual `values.yaml` against the
+   inferred schema automatically — no separate validation step is needed.
+
+A side effect of converting a Helm chart is that helm2cue derives an
+**implied schema for `values.yaml`** from how values are used across all
+templates. If a template accesses `.Values.image.repository`, that field
+appears in the schema as required. If a template uses
+`{{ .Values.debug | default false }}`, the field appears as optional with
+a CUE default. The [`examples/simple-app/`](examples/simple-app/)
+example illustrates this: the chart's
+[`values.yaml`](examples/simple-app/helm/values.yaml) is a plain YAML
+file, but the generated
+[`values.cue`](examples/simple-app/cue/values.cue) contains a `#values`
+definition with typed fields — and
+[`data.cue`](examples/simple-app/cue/data.cue) embeds the actual
+`values.yaml` into that definition so CUE validates it on every
+evaluation.
 
 ### Template conversion
 
