@@ -261,12 +261,19 @@ type rangeContext struct {
 	argBasePath []string // when non-nil, range target is #arg-based; sub-field accesses track back to #arg
 }
 
-// helperArgInfo holds ref types collected from a helper body's #arg accesses.
+// helperArgInfo holds ref types collected from a helper body's #arg accesses
+// and direct context object references.
 type helperArgInfo struct {
 	fieldRefs     [][]string
 	requiredRefs  [][]string
 	rangeRefs     [][]string
 	nonScalarRefs [][]string
+	// Direct context object refs (e.g. .Values.X accessed directly in
+	// the helper body, not via #arg). These are keyed by helmObj.
+	directFieldRefs     map[string][][]string
+	directRequiredRefs  map[string][][]string
+	directRangeRefs     map[string][][]string
+	directNonScalarRefs map[string][][]string
 }
 
 // contextSource maps a dict key to the context object field it references.
@@ -279,26 +286,32 @@ type contextSource struct {
 type converter struct {
 	config                      *Config
 	usedContextObjects          map[string]bool
-	fieldRefs                   map[string][][]string // helmObj → list of field paths referenced
-	requiredRefs                map[string][][]string // helmObj → field paths accessed as values (not conditions)
-	rangeRefs                   map[string][][]string // helmObj → field paths used as range targets
-	nonScalarRefs               map[string][][]string // helmObj → field paths known non-scalar (hasKey, toYaml) but not range
-	suppressRequired            bool                  // true during condition processing
-	guardedPaths                map[string]bool       // field paths guarded by enclosing if-conditions (helmObj + "\x00" + path)
-	rangeVarStack               []rangeContext        // stack of dot-rebinding contexts for nested range/with
-	helperArgRefs               [][]string            // field paths accessed on #arg in helper bodies
-	helperArgRequiredRefs       [][]string            // required (value-accessed) field paths on #arg
-	helperArgRangeRefs          [][]string            // range refs on #arg in helper bodies
-	helperArgNonScalarRefs      [][]string            // nonScalar refs on #arg in helper bodies
-	helperArgFieldRefs          map[string][][]string // CUE helper name → field paths accessed on #arg
-	helperArgFieldRequiredRefs  map[string][][]string // CUE helper name → required field paths on #arg
-	helperArgFieldRangeRefs     map[string][][]string // CUE helper name → range refs on #arg
-	helperArgFieldNonScalarRefs map[string][][]string // CUE helper name → nonScalar refs on #arg
-	localVars                   map[string]ast.Expr   // $varName → CUE expression
-	topLevelGuards              []ast.Expr            // CUE conditions wrapping entire output
-	topLevelRange               []ast.Clause          // range clauses for top-level range
-	topLevelRangeBody           []ast.Decl            // body inside the range
-	topLevelRangeIsList         bool                  // true when range body emits YAML list items
+	fieldRefs                   map[string][][]string            // helmObj → list of field paths referenced
+	requiredRefs                map[string][][]string            // helmObj → field paths accessed as values (not conditions)
+	rangeRefs                   map[string][][]string            // helmObj → field paths used as range targets
+	nonScalarRefs               map[string][][]string            // helmObj → field paths known non-scalar (hasKey, toYaml) but not range
+	suppressRequired            bool                             // true during condition processing
+	guardedPaths                map[string]bool                  // field paths guarded by enclosing if-conditions (helmObj + "\x00" + path)
+	rangeVarStack               []rangeContext                   // stack of dot-rebinding contexts for nested range/with
+	helperArgRefs               [][]string                       // field paths accessed on #arg in helper bodies
+	helperArgRequiredRefs       [][]string                       // required (value-accessed) field paths on #arg
+	helperArgRangeRefs          [][]string                       // range refs on #arg in helper bodies
+	helperArgNonScalarRefs      [][]string                       // nonScalar refs on #arg in helper bodies
+	helperArgFieldRefs          map[string][][]string            // CUE helper name → field paths accessed on #arg
+	helperArgFieldRequiredRefs  map[string][][]string            // CUE helper name → required field paths on #arg
+	helperArgFieldRangeRefs     map[string][][]string            // CUE helper name → range refs on #arg
+	helperArgFieldNonScalarRefs map[string][][]string            // CUE helper name → nonScalar refs on #arg
+	helperDirectFieldRefs       map[string]map[string][][]string // CUE name → helmObj → direct context field refs
+	helperDirectRequiredRefs    map[string]map[string][][]string // CUE name → helmObj → direct context required refs
+	helperDirectRangeRefs       map[string]map[string][][]string // CUE name → helmObj → direct context range refs
+	helperDirectNonScalarRefs   map[string]map[string][][]string // CUE name → helmObj → direct context nonScalar refs
+	helperIncludes              map[string][]string              // CUE name → CUE names of helpers it includes
+	currentHelperCUEName        string                           // set during Phase 0b helper conversion
+	localVars                   map[string]ast.Expr              // $varName → CUE expression
+	topLevelGuards              []ast.Expr                       // CUE conditions wrapping entire output
+	topLevelRange               []ast.Clause                     // range clauses for top-level range
+	topLevelRangeBody           []ast.Decl                       // body inside the range
+	topLevelRangeIsList         bool                             // true when range body emits YAML list items
 	imports                     map[string]bool
 	hasConditions               bool                 // true if any if blocks or top-level guards exist
 	hasDefault                  bool                 // true if any default expressions exist
@@ -1271,6 +1284,11 @@ func convertStructured(cfg *Config, input []byte, templateName string, treeSet m
 		helperArgFieldRequiredRefs:  make(map[string][][]string),
 		helperArgFieldRangeRefs:     make(map[string][][]string),
 		helperArgFieldNonScalarRefs: make(map[string][][]string),
+		helperDirectFieldRefs:       make(map[string]map[string][][]string),
+		helperDirectRequiredRefs:    make(map[string]map[string][][]string),
+		helperDirectRangeRefs:       make(map[string]map[string][][]string),
+		helperDirectNonScalarRefs:   make(map[string]map[string][][]string),
+		helperIncludes:              make(map[string][]string),
 	}
 
 	if cfg.RootExpr != "" {
@@ -1294,6 +1312,7 @@ func convertStructured(cfg *Config, input []byte, templateName string, treeSet m
 		if tree.Root == nil {
 			continue
 		}
+		c.currentHelperCUEName = c.helperExprs[name]
 		cueExpr, argInfo, err := c.convertHelperBody(tree.Root.Nodes)
 		if err != nil {
 			continue
@@ -1313,8 +1332,21 @@ func convertStructured(cfg *Config, input []byte, templateName string, treeSet m
 			if len(argInfo.nonScalarRefs) > 0 {
 				c.helperArgFieldNonScalarRefs[cueName] = argInfo.nonScalarRefs
 			}
+			if len(argInfo.directFieldRefs) > 0 {
+				c.helperDirectFieldRefs[cueName] = argInfo.directFieldRefs
+			}
+			if len(argInfo.directRequiredRefs) > 0 {
+				c.helperDirectRequiredRefs[cueName] = argInfo.directRequiredRefs
+			}
+			if len(argInfo.directRangeRefs) > 0 {
+				c.helperDirectRangeRefs[cueName] = argInfo.directRangeRefs
+			}
+			if len(argInfo.directNonScalarRefs) > 0 {
+				c.helperDirectNonScalarRefs[cueName] = argInfo.directNonScalarRefs
+			}
 		}
 	}
+	c.currentHelperCUEName = "" // clear for main template processing
 
 	// Phase 1: Walk template AST and emit CUE directly.
 	if err := c.processNodes(root.Nodes); err != nil {
@@ -1731,10 +1763,10 @@ func (c *converter) convertHelperBody(nodes []parse.Node) (ast.Expr, *helperArgI
 	sub := &converter{
 		config:                      c.config,
 		usedContextObjects:          c.usedContextObjects,
-		fieldRefs:                   c.fieldRefs,
-		requiredRefs:                c.requiredRefs,
-		rangeRefs:                   c.rangeRefs,
-		nonScalarRefs:               c.nonScalarRefs,
+		fieldRefs:                   make(map[string][][]string),
+		requiredRefs:                make(map[string][][]string),
+		rangeRefs:                   make(map[string][][]string),
+		nonScalarRefs:               make(map[string][][]string),
 		imports:                     c.imports,
 		usedHelpers:                 c.usedHelpers,
 		treeSet:                     c.treeSet,
@@ -1744,6 +1776,12 @@ func (c *converter) convertHelperBody(nodes []parse.Node) (ast.Expr, *helperArgI
 		helperArgFieldRequiredRefs:  c.helperArgFieldRequiredRefs,
 		helperArgFieldRangeRefs:     c.helperArgFieldRangeRefs,
 		helperArgFieldNonScalarRefs: c.helperArgFieldNonScalarRefs,
+		helperDirectFieldRefs:       c.helperDirectFieldRefs,
+		helperDirectRequiredRefs:    c.helperDirectRequiredRefs,
+		helperDirectRangeRefs:       c.helperDirectRangeRefs,
+		helperDirectNonScalarRefs:   c.helperDirectNonScalarRefs,
+		helperIncludes:              c.helperIncludes,
+		currentHelperCUEName:        c.currentHelperCUEName,
 		undefinedHelpers:            c.undefinedHelpers,
 		localVars:                   make(map[string]ast.Expr),
 		comments:                    make(map[ast.Expr]string),
@@ -1871,7 +1909,7 @@ func (c *converter) convertHelperBody(nodes []parse.Node) (ast.Expr, *helperArgI
 				X:     &ast.ListLit{Elts: []ast.Expr{comp, cueString("")}},
 				Index: cueInt(0),
 			}
-			return result, nil, nil
+			return result, sub.directRefInfo(), nil
 		}
 
 		// Struct body: nest comprehensions from inside out, one per guard.
@@ -1888,7 +1926,7 @@ func (c *converter) convertHelperBody(nodes []parse.Node) (ast.Expr, *helperArgI
 	}
 
 	if len(bodyDecls) == 0 {
-		return cueString(""), nil, nil
+		return cueString(""), sub.directRefInfo(), nil
 	}
 
 	hasFields := declsHaveFields(bodyDecls)
@@ -1898,12 +1936,14 @@ func (c *converter) convertHelperBody(nodes []parse.Node) (ast.Expr, *helperArgI
 		argRefs := sub.helperArgRefs
 		schemaExpr := buildArgSchemaExpr(argRefs, sub.helperArgRequiredRefs,
 			sub.helperArgRangeRefs, sub.helperArgNonScalarRefs)
-		info := &helperArgInfo{
-			fieldRefs:     argRefs,
-			requiredRefs:  sub.helperArgRequiredRefs,
-			rangeRefs:     sub.helperArgRangeRefs,
-			nonScalarRefs: sub.helperArgNonScalarRefs,
+		info := sub.directRefInfo()
+		if info == nil {
+			info = &helperArgInfo{}
 		}
+		info.fieldRefs = argRefs
+		info.requiredRefs = sub.helperArgRequiredRefs
+		info.rangeRefs = sub.helperArgRangeRefs
+		info.nonScalarRefs = sub.helperArgNonScalarRefs
 		elts := []ast.Decl{
 			&ast.Field{Label: ast.NewIdent("#arg"), Value: schemaExpr},
 		}
@@ -1912,23 +1952,39 @@ func (c *converter) convertHelperBody(nodes []parse.Node) (ast.Expr, *helperArgI
 	}
 
 	if hasFields {
-		return &ast.StructLit{Elts: bodyDecls}, nil, nil
+		return &ast.StructLit{Elts: bodyDecls}, sub.directRefInfo(), nil
 	}
 
 	// Comprehension bodies need struct wrapping — CUE's if/for are
 	// field comprehensions, not value expressions. When the condition
 	// is false the result is {} which _nonzero treats as zero.
 	if declsStartWithComprehension(bodyDecls) {
-		return &ast.StructLit{Elts: bodyDecls}, nil, nil
+		return &ast.StructLit{Elts: bodyDecls}, sub.directRefInfo(), nil
 	}
 
 	// Bare expression: extract from single EmbedDecl if possible.
 	if len(bodyDecls) == 1 {
 		if embed, ok := bodyDecls[0].(*ast.EmbedDecl); ok {
-			return embed.Expr, nil, nil
+			return embed.Expr, sub.directRefInfo(), nil
 		}
 	}
-	return &ast.StructLit{Elts: bodyDecls}, nil, nil
+	return &ast.StructLit{Elts: bodyDecls}, sub.directRefInfo(), nil
+}
+
+// directRefInfo returns a helperArgInfo containing only the converter's
+// direct context object references (fieldRefs, requiredRefs, etc.).
+// Returns nil if there are no direct refs.
+func (c *converter) directRefInfo() *helperArgInfo {
+	if len(c.fieldRefs) == 0 && len(c.requiredRefs) == 0 &&
+		len(c.rangeRefs) == 0 && len(c.nonScalarRefs) == 0 {
+		return nil
+	}
+	return &helperArgInfo{
+		directFieldRefs:     c.fieldRefs,
+		directRequiredRefs:  c.requiredRefs,
+		directRangeRefs:     c.rangeRefs,
+		directNonScalarRefs: c.nonScalarRefs,
+	}
 }
 
 // isStringHelperBody checks if a helper body contains non-YAML content (raw strings).
@@ -1977,11 +2033,52 @@ func escapeCUEString(s string) string {
 
 func (c *converter) handleInclude(name string, pipe *parse.PipeNode) (string, string, error) {
 	if cueName, ok := c.helperExprs[name]; ok {
+		// Record the include relationship for transitive propagation.
+		if c.currentHelperCUEName != "" {
+			c.helperIncludes[c.currentHelperCUEName] = append(
+				c.helperIncludes[c.currentHelperCUEName], cueName)
+		} else {
+			c.propagateHelperDirectRefs(cueName, nil)
+		}
 		return cueName, "", nil
 	}
 	cueName := helperToCUEName(name)
 	c.undefinedHelpers[name] = cueName
 	return cueName, "", nil
+}
+
+// propagateHelperDirectRefs merges a helper's direct context object
+// references (e.g. .Values.X accessed in the helper body) into the
+// parent converter's field ref maps. This is called when the helper
+// is actually included, ensuring unused helpers don't pollute the schema.
+// It transitively follows the helper's own includes (helperIncludes).
+// The visited set prevents infinite recursion on circular includes.
+func (c *converter) propagateHelperDirectRefs(cueName string, visited map[string]bool) {
+	if visited == nil {
+		visited = make(map[string]bool)
+	}
+	if visited[cueName] {
+		return
+	}
+	visited[cueName] = true
+
+	for helmObj, refs := range c.helperDirectFieldRefs[cueName] {
+		c.fieldRefs[helmObj] = append(c.fieldRefs[helmObj], refs...)
+	}
+	for helmObj, refs := range c.helperDirectRequiredRefs[cueName] {
+		c.requiredRefs[helmObj] = append(c.requiredRefs[helmObj], refs...)
+	}
+	for helmObj, refs := range c.helperDirectRangeRefs[cueName] {
+		c.rangeRefs[helmObj] = append(c.rangeRefs[helmObj], refs...)
+	}
+	for helmObj, refs := range c.helperDirectNonScalarRefs[cueName] {
+		c.nonScalarRefs[helmObj] = append(c.nonScalarRefs[helmObj], refs...)
+	}
+
+	// Transitively propagate refs from helpers that this helper includes.
+	for _, dep := range c.helperIncludes[cueName] {
+		c.propagateHelperDirectRefs(dep, visited)
+	}
 }
 
 // propagateHelperArgRefs records sub-field references from a helper's #arg
