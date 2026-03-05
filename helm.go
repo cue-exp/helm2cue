@@ -168,8 +168,8 @@ func HelmConfig() *Config {
 			"toString":     {Passthrough: true},
 
 			// Pipeline no-ops (strip whitespace manipulation — CUE handles formatting).
-			"nindent": {},
-			"indent":  {},
+			"nindent": {Cosmetic: true},
+			"indent":  {Cosmetic: true},
 
 			// Sprig string functions.
 			"quote": {
@@ -209,7 +209,8 @@ func HelmConfig() *Config {
 				},
 			},
 			"trim": {
-				Imports: []string{"strings"},
+				Cosmetic: true,
+				Imports:  []string{"strings"},
 				Convert: func(expr ast.Expr, _ []ast.Expr) ast.Expr {
 					return importCall("strings", "TrimSpace", expr)
 				},

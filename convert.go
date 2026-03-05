@@ -58,6 +58,12 @@ type PipelineFunc struct {
 	// type. When true, field references used as input to this function
 	// are not constrained to the scalar type in the schema.
 	NonScalar bool
+
+	// Cosmetic indicates that the function only affects whitespace or
+	// formatting (e.g. trim, nindent, indent). When the piped expression
+	// is known to be non-scalar (struct/list), cosmetic functions are
+	// skipped entirely rather than inserting yaml.Marshal.
+	Cosmetic bool
 }
 
 // HelperDef is a named CUE helper definition that gets emitted when needed.
@@ -312,6 +318,8 @@ type converter struct {
 	helperDirectNonScalarRefs   map[string]map[string][][]string // CUE name → helmObj → direct context nonScalar refs
 	helperIncludes              map[string][]string              // CUE name → CUE names of helpers it includes
 	currentHelperCUEName        string                           // set during Phase 0b helper conversion
+	currentActionPipe           *parse.PipeNode                  // set during actionToCUE for deferred helper context
+	warnings                    []string                         // non-fatal issues collected during conversion
 	localVars                   map[string]ast.Expr              // $varName → CUE expression
 	topLevelGuards              []ast.Expr                       // CUE conditions wrapping entire output
 	topLevelRange               []ast.Clause                     // range clauses for top-level range
@@ -384,11 +392,13 @@ type converter struct {
 
 	// Helper template state (shared across main and sub-converters).
 	treeSet           map[string]*parse.Tree
-	helperExprs       map[string]string   // template name → CUE hidden field name
-	helperCUE         map[string]ast.Expr // CUE field name → CUE expression
-	helperOrder       []string            // deterministic emission order
-	undefinedHelpers  map[string]string   // original template name → CUE name (referenced but not defined)
-	hasDynamicInclude bool                // true if any include uses a computed template name
+	helperExprs       map[string]string       // template name → CUE hidden field name
+	helperCUE         map[string]ast.Expr     // CUE field name → CUE expression
+	helperNodes       map[string][]parse.Node // CUE field name → original body nodes
+	helperOutputType  map[string]string       // CUE field name → "scalar" or "struct" (set on first include)
+	helperOrder       []string                // deterministic emission order
+	undefinedHelpers  map[string]string       // original template name → CUE name (referenced but not defined)
+	hasDynamicInclude bool                    // true if any include uses a computed template name
 }
 
 // mustParseExpr parses a CUE expression string. Panics on error since
@@ -1250,10 +1260,12 @@ type convertResult struct {
 	needsNonzero       bool
 	usedHelpers        map[string]HelperDef
 	helpers            map[string]ast.Expr // CUE name → CUE expression
+	helperOutputType   map[string]string   // CUE name → "scalar" or "struct"
 	helperOrder        []string            // original template names, sorted
 	helperExprs        map[string]string   // original name → CUE name
 	undefinedHelpers   map[string]string   // original name → CUE name
 	hasDynamicInclude  bool
+	warnings           []string // non-fatal issues from conversion
 	usedContextObjects map[string]bool
 	fieldRefs          map[string][][]string
 	requiredRefs       map[string][][]string
@@ -1347,6 +1359,8 @@ func convertStructured(cfg *Config, input []byte, templateName string, treeSet m
 		treeSet:                     treeSet,
 		helperExprs:                 make(map[string]string),
 		helperCUE:                   make(map[string]ast.Expr),
+		helperNodes:                 make(map[string][]parse.Node),
+		helperOutputType:            make(map[string]string),
 		undefinedHelpers:            make(map[string]string),
 		helperArgFieldRefs:          make(map[string][][]string),
 		helperArgFieldRequiredRefs:  make(map[string][][]string),
@@ -1375,48 +1389,41 @@ func convertStructured(cfg *Config, input []byte, templateName string, treeSet m
 	slices.Sort(c.helperOrder)
 
 	// Phase 0b: Convert helper bodies.
+	// Helpers whose bodies contain control structures (if/range/with) are
+	// deferred until Phase 1, when the call site's YAML context and
+	// pipeline determine whether to convert as scalar or struct.
+	// All other helpers are converted eagerly — their output form is
+	// context-independent.
 	for _, name := range c.helperOrder {
 		tree := treeSet[name]
 		if tree.Root == nil {
 			continue
 		}
-		c.currentHelperCUEName = c.helperExprs[name]
-		cueExpr, argInfo, err := c.convertHelperBody(tree.Root.Nodes)
+		cueName := c.helperExprs[name]
+		nodes := tree.Root.Nodes
+		c.helperNodes[cueName] = nodes
+		c.currentHelperCUEName = cueName
+
+		if helperBodyHasControlStructures(nodes) {
+			// Defer: the call site context determines the conversion mode.
+			continue
+		}
+
+		// Eagerly convert — no control structures, so the result is
+		// context-independent.
+		cueExpr, argInfo, err := c.convertHelperBody(nodes)
 		if err != nil {
 			continue
 		}
-		cueName := c.helperExprs[name]
 		c.helperCUE[cueName] = cueExpr
-		if argInfo != nil {
-			if len(argInfo.fieldRefs) > 0 {
-				c.helperArgFieldRefs[cueName] = argInfo.fieldRefs
-			}
-			if len(argInfo.requiredRefs) > 0 {
-				c.helperArgFieldRequiredRefs[cueName] = argInfo.requiredRefs
-			}
-			if len(argInfo.rangeRefs) > 0 {
-				c.helperArgFieldRangeRefs[cueName] = argInfo.rangeRefs
-			}
-			if len(argInfo.nonScalarRefs) > 0 {
-				c.helperArgFieldNonScalarRefs[cueName] = argInfo.nonScalarRefs
-			}
-			if len(argInfo.directFieldRefs) > 0 {
-				c.helperDirectFieldRefs[cueName] = argInfo.directFieldRefs
-			}
-			if len(argInfo.directRequiredRefs) > 0 {
-				c.helperDirectRequiredRefs[cueName] = argInfo.directRequiredRefs
-			}
-			if len(argInfo.directRangeRefs) > 0 {
-				c.helperDirectRangeRefs[cueName] = argInfo.directRangeRefs
-			}
-			if len(argInfo.directNonScalarRefs) > 0 {
-				c.helperDirectNonScalarRefs[cueName] = argInfo.directNonScalarRefs
-			}
-		}
+		c.storeHelperArgInfo(cueName, argInfo)
 	}
 	c.currentHelperCUEName = "" // clear for main template processing
 
 	// Phase 1: Walk template AST and emit CUE directly.
+	// During this phase, deferred helpers are converted on demand when
+	// their first include is encountered. The call site's YAML context
+	// and pipeline determine whether to convert as scalar or struct.
 	if err := c.processNodes(root.Nodes); err != nil {
 		return nil, err
 	}
@@ -1434,10 +1441,12 @@ func convertStructured(cfg *Config, input []byte, templateName string, treeSet m
 		needsNonzero:       c.hasConditions || c.hasDefault || len(c.topLevelGuards) > 0,
 		usedHelpers:        c.usedHelpers,
 		helpers:            c.helperCUE,
+		helperOutputType:   c.helperOutputType,
 		helperOrder:        c.helperOrder,
 		helperExprs:        c.helperExprs,
 		undefinedHelpers:   c.undefinedHelpers,
 		hasDynamicInclude:  c.hasDynamicInclude,
+		warnings:           c.warnings,
 		usedContextObjects: c.usedContextObjects,
 		fieldRefs:          c.fieldRefs,
 		requiredRefs:       c.requiredRefs,
@@ -1685,6 +1694,8 @@ func mergeConvertResults(results []*convertResult) *convertResult {
 			merged.hasDynamicInclude = true
 		}
 
+		merged.warnings = append(merged.warnings, r.warnings...)
+
 		// Take helper info from the first result (all share the same treeSet).
 		if i == 0 {
 			merged.helpers = r.helpers
@@ -1817,6 +1828,150 @@ func helperToCUEName(name string) string {
 }
 
 // convertHelperBody converts the body nodes of a {{ define }} block to a CUE expression.
+// storeHelperArgInfo stores the arg info collected during helper conversion.
+func (c *converter) storeHelperArgInfo(cueName string, argInfo *helperArgInfo) {
+	if argInfo == nil {
+		return
+	}
+	if len(argInfo.fieldRefs) > 0 {
+		c.helperArgFieldRefs[cueName] = argInfo.fieldRefs
+	}
+	if len(argInfo.requiredRefs) > 0 {
+		c.helperArgFieldRequiredRefs[cueName] = argInfo.requiredRefs
+	}
+	if len(argInfo.rangeRefs) > 0 {
+		c.helperArgFieldRangeRefs[cueName] = argInfo.rangeRefs
+	}
+	if len(argInfo.nonScalarRefs) > 0 {
+		c.helperArgFieldNonScalarRefs[cueName] = argInfo.nonScalarRefs
+	}
+	if len(argInfo.directFieldRefs) > 0 {
+		c.helperDirectFieldRefs[cueName] = argInfo.directFieldRefs
+	}
+	if len(argInfo.directRequiredRefs) > 0 {
+		c.helperDirectRequiredRefs[cueName] = argInfo.directRequiredRefs
+	}
+	if len(argInfo.directRangeRefs) > 0 {
+		c.helperDirectRangeRefs[cueName] = argInfo.directRangeRefs
+	}
+	if len(argInfo.directNonScalarRefs) > 0 {
+		c.helperDirectNonScalarRefs[cueName] = argInfo.directNonScalarRefs
+	}
+}
+
+// helperRequiredType determines the required output type for a helper based
+// on the call site's YAML context and pipeline. The first non-cosmetic,
+// non-passthrough pipeline function's input type takes precedence. If no
+// such function exists, the YAML position determines the type.
+func (c *converter) helperRequiredType(pipe *parse.PipeNode) string {
+	if pipe == nil {
+		// No pipeline info (e.g. condition context). Use YAML position.
+		if c.isScalarContext() {
+			return "scalar"
+		}
+		return "struct"
+	}
+	for _, cmd := range pipe.Cmds[1:] {
+		if len(cmd.Args) == 0 {
+			continue
+		}
+		id, ok := cmd.Args[0].(*parse.IdentifierNode)
+		if !ok {
+			continue
+		}
+		if pf, ok := c.config.Funcs[id.Ident]; ok {
+			if pf.Cosmetic {
+				continue
+			}
+			if pf.Passthrough {
+				continue
+			}
+			if pf.Convert == nil && pf.NonScalar {
+				continue // no-op passthrough-like
+			}
+			if pf.NonScalar {
+				return "struct" // function expects non-scalar input
+			}
+			return "scalar" // function expects string input
+		}
+		// Core funcs (printf, print, etc.) don't constrain helper type.
+	}
+	// No constraining pipeline function — use YAML position.
+	if c.isScalarContext() {
+		return "scalar"
+	}
+	return "struct"
+}
+
+// convertDeferredHelper converts a helper body that was deferred from Phase 0b.
+// The requiredType ("scalar" or "struct") is determined by the call site.
+// If the helper was already converted with a different type, the first
+// encounter wins — this is common for helpers like tplvalues.render that
+// are used in both struct and scalar YAML positions.
+func (c *converter) convertDeferredHelper(cueName string, requiredType string, nodes []parse.Node) error {
+	// Already converted: use the existing type regardless of conflict.
+	// TODO: when a helper is used in both struct and scalar contexts,
+	// consider producing dual forms or choosing the more general form.
+	if _, ok := c.helperOutputType[cueName]; ok {
+		return nil
+	}
+	c.helperOutputType[cueName] = requiredType
+
+	// Already converted eagerly (string/text form)?
+	if _, ok := c.helperCUE[cueName]; ok {
+		return nil
+	}
+
+	savedHelperName := c.currentHelperCUEName
+	c.currentHelperCUEName = cueName
+	defer func() { c.currentHelperCUEName = savedHelperName }()
+
+	if requiredType == "scalar" {
+		return c.convertDeferredHelperAsScalar(cueName, nodes)
+	}
+	return c.convertDeferredHelperAsStruct(cueName, nodes)
+}
+
+// convertDeferredHelperAsScalar converts a deferred helper body as a scalar
+// (string expression). Tries extended text conversion first, then falls back
+// to the general converter which may produce a string via mixed-content
+// collapsing (e.g. "error: something\nplease check" bodies).
+func (c *converter) convertDeferredHelperAsScalar(cueName string, nodes []parse.Node) error {
+	// Try extended text conversion (text + actions + control structures,
+	// no YAML structure).
+	if isExtendedTextHelperBody(nodes) {
+		expr, argInfo, err := c.convertExtendedTextHelperBody(cueName, nodes)
+		if err == nil {
+			c.helperCUE[cueName] = expr
+			c.storeHelperArgInfo(cueName, argInfo)
+			return nil
+		}
+	}
+
+	// Fall back to general conversion. This handles bodies that look like
+	// YAML structure but are actually text messages (e.g. "error: something")
+	// via the declsHaveMixedFieldsAndStrings collapsing in convertHelperBody.
+	cueExpr, argInfo, err := c.convertHelperBody(nodes)
+	if err != nil {
+		return err
+	}
+	c.helperCUE[cueName] = cueExpr
+	c.storeHelperArgInfo(cueName, argInfo)
+	return nil
+}
+
+// convertDeferredHelperAsStruct converts a deferred helper body as a struct
+// using the general converter (processNodes).
+func (c *converter) convertDeferredHelperAsStruct(cueName string, nodes []parse.Node) error {
+	cueExpr, argInfo, err := c.convertHelperBody(nodes)
+	if err != nil {
+		return err
+	}
+	c.helperCUE[cueName] = cueExpr
+	c.storeHelperArgInfo(cueName, argInfo)
+	return nil
+}
+
 func (c *converter) convertHelperBody(nodes []parse.Node) (ast.Expr, *helperArgInfo, error) {
 	// Check if the body is a raw string (non-YAML content without key: value patterns).
 	if isStringHelperBody(nodes) {
@@ -1850,6 +2005,8 @@ func (c *converter) convertHelperBody(nodes []parse.Node) (ast.Expr, *helperArgI
 		treeSet:                     c.treeSet,
 		helperExprs:                 c.helperExprs,
 		helperCUE:                   c.helperCUE,
+		helperNodes:                 c.helperNodes,
+		helperOutputType:            c.helperOutputType,
 		helperArgFieldRefs:          c.helperArgFieldRefs,
 		helperArgFieldRequiredRefs:  c.helperArgFieldRequiredRefs,
 		helperArgFieldRangeRefs:     c.helperArgFieldRangeRefs,
@@ -2066,6 +2223,19 @@ func (c *converter) directRefInfo() *helperArgInfo {
 }
 
 // isStringHelperBody checks if a helper body contains non-YAML content (raw strings).
+// helperBodyHasControlStructures reports whether a helper body contains
+// control structure nodes (if/range/with). These helpers need context-driven
+// conversion: the call site determines whether to convert as scalar or struct.
+func helperBodyHasControlStructures(nodes []parse.Node) bool {
+	for _, node := range nodes {
+		switch node.(type) {
+		case *parse.IfNode, *parse.RangeNode, *parse.WithNode:
+			return true
+		}
+	}
+	return false
+}
+
 func isStringHelperBody(nodes []parse.Node) bool {
 	text := textContent(nodes)
 	for _, line := range strings.Split(text, "\n") {
@@ -2127,6 +2297,55 @@ func isTextHelperBody(nodes []parse.Node) bool {
 	return strings.Contains(text, "\n")
 }
 
+// isExtendedTextHelperBody reports whether a helper body contains text,
+// actions, and control structures (if/range/with) but no YAML structure.
+// Unlike isTextHelperBody which only accepts simple text+action bodies,
+// this accepts bodies with control structures and variable assignments.
+// These are text-producing helpers whose output is newline-separated
+// strings, not YAML key:value pairs.
+func isExtendedTextHelperBody(nodes []parse.Node) bool {
+	// Must have at least one non-assignment action or control structure,
+	// AND at least one TextNode with non-whitespace content or a control
+	// structure. A body with only actions (e.g. {{ . }}) is a simple
+	// pass-through and should stay as struct form.
+	hasOutput := false
+	hasTextOrControl := false
+	for _, node := range nodes {
+		switch n := node.(type) {
+		case *parse.TextNode:
+			if strings.TrimSpace(string(n.Text)) != "" {
+				hasTextOrControl = true
+			}
+		case *parse.ActionNode:
+			if len(n.Pipe.Decl) == 0 {
+				hasOutput = true
+			}
+			// Variable assignments are fine.
+		case *parse.IfNode, *parse.RangeNode, *parse.WithNode:
+			hasOutput = true
+			hasTextOrControl = true
+		default:
+			return false
+		}
+	}
+	if !hasOutput || !hasTextOrControl {
+		return false
+	}
+	// Check that ALL text content (recursively into control structures)
+	// has no YAML structure.
+	text := deepTextContent(nodes)
+	for _, line := range strings.Split(text, "\n") {
+		trimmed := strings.TrimSpace(line)
+		if trimmed == "" {
+			continue
+		}
+		if strings.Contains(trimmed, ": ") || strings.HasSuffix(trimmed, ":") || strings.HasPrefix(trimmed, "- ") {
+			return false
+		}
+	}
+	return true
+}
+
 // convertTextHelperBody converts a helper body of text+actions into
 // a CUE string expression with interpolations. It also returns arg
 // info for schema generation.
@@ -2144,6 +2363,8 @@ func (c *converter) convertTextHelperBody(nodes []parse.Node) (ast.Expr, *helper
 		treeSet:                     c.treeSet,
 		helperExprs:                 c.helperExprs,
 		helperCUE:                   c.helperCUE,
+		helperOutputType:            c.helperOutputType,
+		helperNodes:                 c.helperNodes,
 		helperArgFieldRefs:          c.helperArgFieldRefs,
 		helperArgFieldRequiredRefs:  c.helperArgFieldRequiredRefs,
 		helperArgFieldRangeRefs:     c.helperArgFieldRangeRefs,
@@ -2217,6 +2438,233 @@ func (c *converter) convertTextHelperBody(nodes []parse.Node) (ast.Expr, *helper
 	return result, argInfo, nil
 }
 
+// convertExtendedTextHelperBody converts a helper body with text, actions,
+// and control structures (if/range/with) into a CUE string expression.
+// This handles helpers that produce text output with conditional parts,
+// which isTextHelperBody rejects due to control structures.
+func (c *converter) convertExtendedTextHelperBody(cueName string, nodes []parse.Node) (ast.Expr, *helperArgInfo, error) {
+	sub := &converter{
+		config:                      c.config,
+		usedContextObjects:          c.usedContextObjects,
+		fieldRefs:                   make(map[string][][]string),
+		requiredRefs:                make(map[string][][]string),
+		rangeRefs:                   make(map[string][][]string),
+		nonScalarRefs:               make(map[string][][]string),
+		imports:                     c.imports,
+		usedHelpers:                 c.usedHelpers,
+		treeSet:                     c.treeSet,
+		helperExprs:                 c.helperExprs,
+		helperCUE:                   c.helperCUE,
+		helperOutputType:            c.helperOutputType,
+		helperNodes:                 c.helperNodes,
+		helperArgFieldRefs:          c.helperArgFieldRefs,
+		helperArgFieldRequiredRefs:  c.helperArgFieldRequiredRefs,
+		helperArgFieldRangeRefs:     c.helperArgFieldRangeRefs,
+		helperArgFieldNonScalarRefs: c.helperArgFieldNonScalarRefs,
+		helperDirectFieldRefs:       c.helperDirectFieldRefs,
+		helperDirectRequiredRefs:    c.helperDirectRequiredRefs,
+		helperDirectRangeRefs:       c.helperDirectRangeRefs,
+		helperDirectNonScalarRefs:   c.helperDirectNonScalarRefs,
+		helperIncludes:              c.helperIncludes,
+		currentHelperCUEName:        cueName,
+		undefinedHelpers:            c.undefinedHelpers,
+		localVars:                   make(map[string]ast.Expr),
+		comments:                    make(map[ast.Expr]string),
+	}
+	useArg := sub.config.RootExpr == ""
+	if useArg {
+		sub.rangeVarStack = []rangeContext{{cueExpr: ast.NewIdent("#arg")}}
+		sub.helperArgRefs = [][]string{}
+		sub.helperArgRequiredRefs = [][]string{}
+		sub.helperArgRangeRefs = [][]string{}
+		sub.helperArgNonScalarRefs = [][]string{}
+	}
+
+	// Walk nodes, building parts for a string expression.
+	// Variable assignments are processed for their side effects;
+	// text, actions, and control structures produce string parts.
+	parts, err := sub.textHelperNodesToParts(nodes)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	if len(parts) == 0 {
+		return cueString(""), nil, nil
+	}
+
+	// Propagate state to parent.
+	if sub.hasConditions {
+		c.hasConditions = true
+	}
+	if sub.hasDefault {
+		c.hasDefault = true
+	}
+
+	result := partsToExpr(parts)
+
+	// Trim the result (Helm helpers produce leading/trailing whitespace).
+	c.addImport("strings")
+	result = importCall("strings", "TrimSpace", result)
+
+	var argInfo *helperArgInfo
+	if useArg {
+		argInfo = &helperArgInfo{
+			fieldRefs:           sub.helperArgRefs,
+			requiredRefs:        sub.helperArgRequiredRefs,
+			rangeRefs:           sub.helperArgRangeRefs,
+			nonScalarRefs:       sub.helperArgNonScalarRefs,
+			directFieldRefs:     sub.fieldRefs,
+			directRequiredRefs:  sub.requiredRefs,
+			directRangeRefs:     sub.rangeRefs,
+			directNonScalarRefs: sub.nonScalarRefs,
+		}
+	}
+
+	return result, argInfo, nil
+}
+
+// textHelperNodesToParts converts a slice of template nodes into inline
+// parts for a string expression. Handles text, actions (including variable
+// assignments), and control structures (if/range/with).
+func (c *converter) textHelperNodesToParts(nodes []parse.Node) ([]inlinePart, error) {
+	var parts []inlinePart
+	for _, node := range nodes {
+		switch n := node.(type) {
+		case *parse.TextNode:
+			s := string(n.Text)
+			if s != "" {
+				parts = append(parts, inlinePart{text: escapeCUEString(s)})
+			}
+		case *parse.ActionNode:
+			if len(n.Pipe.Decl) > 0 {
+				// Variable assignment — process for side effect only.
+				varName := n.Pipe.Decl[0].Ident[0]
+				expr, helmObj, err := c.actionToCUE(n)
+				if err != nil {
+					return nil, err
+				}
+				if helmObj != "" {
+					c.usedContextObjects[helmObj] = true
+				}
+				c.localVars[varName] = expr
+				continue
+			}
+			expr, helmObj, err := c.actionToCUE(n)
+			if err != nil {
+				return nil, err
+			}
+			if helmObj != "" {
+				c.usedContextObjects[helmObj] = true
+			}
+			parts = append(parts, toInlinePart(expr))
+		case *parse.TemplateNode:
+			cueName, helmObj, err := c.handleInclude(n.Name, n.Pipe)
+			if err != nil {
+				return nil, err
+			}
+			if helmObj != "" {
+				c.usedContextObjects[helmObj] = true
+			}
+			parts = append(parts, toInlinePart(ast.NewIdent(cueName)))
+		case *parse.IfNode:
+			expr, err := c.textHelperIfToExpr(n)
+			if err != nil {
+				return nil, err
+			}
+			parts = append(parts, toInlinePart(expr))
+		case *parse.RangeNode:
+			expr, err := c.textHelperRangeToExpr(n)
+			if err != nil {
+				return nil, err
+			}
+			parts = append(parts, toInlinePart(expr))
+		case *parse.WithNode:
+			expr, err := c.textHelperWithToExpr(n)
+			if err != nil {
+				return nil, err
+			}
+			parts = append(parts, toInlinePart(expr))
+		}
+	}
+	return parts, nil
+}
+
+// textHelperBranchToExpr converts branch body nodes into a CUE string
+// expression for text helper conversion.
+func (c *converter) textHelperBranchToExpr(nodes []parse.Node) (ast.Expr, error) {
+	parts, err := c.textHelperNodesToParts(nodes)
+	if err != nil {
+		return nil, err
+	}
+	return partsToExpr(parts), nil
+}
+
+// textHelperIfToExpr converts an IfNode in a text helper body to a
+// conditional string expression: [if cond {text}, ""][0].
+func (c *converter) textHelperIfToExpr(n *parse.IfNode) (ast.Expr, error) {
+	c.hasConditions = true
+
+	condition, negCondition, err := c.pipeToCUECondition(n.Pipe)
+	if err != nil {
+		return nil, fmt.Errorf("text helper if: %w", err)
+	}
+
+	ifExpr, err := c.textHelperBranchToExpr(n.List.Nodes)
+	if err != nil {
+		return nil, err
+	}
+
+	joinExpr := conditionalStringSelect(condition, ifExpr)
+
+	if n.ElseList != nil && len(n.ElseList.Nodes) > 0 {
+		elseExpr, err := c.textHelperBranchToExpr(n.ElseList.Nodes)
+		if err != nil {
+			return nil, err
+		}
+		elseJoin := conditionalStringSelect(negCondition, elseExpr)
+		joinExpr = binOp(token.ADD, joinExpr, elseJoin)
+	}
+
+	return joinExpr, nil
+}
+
+// textHelperRangeToExpr converts a RangeNode in a text helper body to a
+// string expression. Currently returns an error; range in text helpers
+// is not yet supported.
+func (c *converter) textHelperRangeToExpr(n *parse.RangeNode) (ast.Expr, error) {
+	return nil, fmt.Errorf("range in text helper not yet supported")
+}
+
+// textHelperWithToExpr converts a WithNode in a text helper body to a
+// conditional string expression.
+func (c *converter) textHelperWithToExpr(n *parse.WithNode) (ast.Expr, error) {
+	c.hasConditions = true
+
+	condition, _, err := c.pipeToCUECondition(n.Pipe)
+	if err != nil {
+		return nil, fmt.Errorf("text helper with: %w", err)
+	}
+
+	bodyExpr, err := c.textHelperBranchToExpr(n.List.Nodes)
+	if err != nil {
+		return nil, err
+	}
+
+	joinExpr := conditionalStringSelect(condition, bodyExpr)
+
+	if n.ElseList != nil && len(n.ElseList.Nodes) > 0 {
+		elseExpr, err := c.textHelperBranchToExpr(n.ElseList.Nodes)
+		if err != nil {
+			return nil, err
+		}
+		negCondition := &ast.UnaryExpr{Op: token.NOT, X: &ast.ParenExpr{X: condition}}
+		elseJoin := conditionalStringSelect(negCondition, elseExpr)
+		joinExpr = binOp(token.ADD, joinExpr, elseJoin)
+	}
+
+	return joinExpr, nil
+}
+
 // escapeCUEString escapes a string for embedding in a CUE quoted string.
 func escapeCUEString(s string) string {
 	v := sharedCueCtx.Encode(s)
@@ -2239,6 +2687,24 @@ func escapeCUEString(s string) string {
 
 func (c *converter) handleInclude(name string, pipe *parse.PipeNode) (string, string, error) {
 	if cueName, ok := c.helperExprs[name]; ok {
+		// Trigger deferred helper conversion if needed. This must
+		// happen before ref propagation so the helper's arg/direct
+		// refs are available.
+		if nodes, deferred := c.helperNodes[cueName]; deferred {
+			if _, converted := c.helperCUE[cueName]; !converted {
+				// Use the full action pipe for context when called
+				// from convertInclude (which passes nil pipe).
+				contextPipe := pipe
+				if contextPipe == nil {
+					contextPipe = c.currentActionPipe
+				}
+				requiredType := c.helperRequiredType(contextPipe)
+				if err := c.convertDeferredHelper(cueName, requiredType, nodes); err != nil {
+					c.warnings = append(c.warnings, fmt.Sprintf("helper %s: %v", cueName, err))
+				}
+			}
+		}
+
 		// Record the include relationship for transitive propagation.
 		if c.currentHelperCUEName != "" {
 			c.helperIncludes[c.currentHelperCUEName] = append(
@@ -7115,6 +7581,13 @@ func (c *converter) actionToCUE(n *parse.ActionNode) (expr ast.Expr, helmObj str
 		return nil, "", fmt.Errorf("empty pipe in action: %s", n)
 	}
 
+	// Set currentActionPipe so that handleInclude (called from core
+	// funcs like convertInclude) can determine the helper's required
+	// type from the full pipeline context.
+	saved := c.currentActionPipe
+	c.currentActionPipe = pipe
+	defer func() { c.currentActionPipe = saved }()
+
 	var fieldPath []string
 	var argFieldPath []string // #arg field path for nonScalar tracking in helper bodies
 	var gatedFunc string      // set when a core func is rejected by CoreFuncs
@@ -7331,8 +7804,16 @@ func (c *converter) actionToCUE(n *parse.ActionNode) (expr ast.Expr, helmObj str
 
 	// Track whether the expression is known non-scalar (struct/list).
 	// When a function that expects string input receives a non-scalar,
-	// insert yaml.Marshal to serialize it first.
+	// insert yaml.Marshal to serialize it first. Cosmetic functions
+	// (trim, nindent, indent) are skipped entirely for non-scalar values.
 	nonScalar := c.firstCmdNonScalar(first)
+
+	// Set nonScalar based on the helper's output type (determined during
+	// deferred conversion triggered by handleInclude).
+	helperName := identFromExpr(expr)
+	if helperName != "" && c.helperOutputType[helperName] == "struct" {
+		nonScalar = true
+	}
 
 	for _, cmd := range pipe.Cmds[1:] {
 		if len(cmd.Args) == 0 {
@@ -7375,6 +7856,13 @@ func (c *converter) actionToCUE(n *parse.ActionNode) (expr ast.Expr, helmObj str
 				if pf.NonScalar {
 					nonScalar = true
 				}
+				continue
+			}
+			// Cosmetic functions (trim, nindent, indent) are pure
+			// whitespace formatting — skip them when the piped
+			// expression is non-scalar (struct/list), since CUE
+			// structs don't have whitespace to trim.
+			if nonScalar && pf.Cosmetic {
 				continue
 			}
 			// When the piped expression is known non-scalar
@@ -7430,6 +7918,33 @@ func (c *converter) firstCmdNonScalar(cmd *parse.CommandNode) bool {
 		return pf.Passthrough && pf.NonScalar
 	}
 	return false
+}
+
+// identFromExpr extracts the helper name from an expression that may be
+// a bare ident (_helperName) or a unification (_helperName & {#arg: ...}).
+func identFromExpr(expr ast.Expr) string {
+	switch e := expr.(type) {
+	case *ast.Ident:
+		return e.Name
+	case *ast.BinaryExpr:
+		if e.Op == token.AND {
+			if id, ok := e.X.(*ast.Ident); ok {
+				return id.Name
+			}
+		}
+	}
+	return ""
+}
+
+// isScalarContext reports whether the converter is currently in a YAML
+// context that unambiguously expects a scalar value. This is true when
+// accumulating an inline string, block scalar, or quoted scalar.
+// Note: statePendingKey (key: <value>) is NOT included because the
+// value could be either scalar or struct — the include result determines it.
+func (c *converter) isScalarContext() bool {
+	return c.inlineParts != nil ||
+		c.blockScalarLines != nil ||
+		c.quotedScalarParts != nil
 }
 
 // marshalExpr wraps expr in strings.TrimRight(yaml.Marshal(expr), "\n")
