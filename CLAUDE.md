@@ -453,6 +453,36 @@ chart manually:
     helm pull prometheus-community/kube-prometheus-stack \
       --version 82.2.1 --untar --untardir tmp/kps
 
+### CUE error masking in integration tests
+
+Integration golden files (`testdata/integration/*.txt`) capture raw
+`cue vet` and `cue export` output. CUE evaluates all files in a
+package together, and **a reference error in any one file suppresses
+error reporting for the entire package**. This means:
+
+- Fixing a reference error (e.g. `_range0 not found`) can "unmask"
+  large numbers of pre-existing errors in completely unrelated files.
+- The golden file may grow dramatically even though the commit only
+  changed a few files and none of the error-producing files were
+  modified.
+
+When investigating integration golden file changes:
+
+1. **Diff the generated CUE directories** (baseline vs fix) to
+   identify which files actually changed.
+2. **Check whether error-producing files changed.** If they didn't,
+   the errors are pre-existing — just newly visible.
+3. **Verify by experiment.** Replace the fixed file with a dummy
+   valid file (same package, minimal content). If the same errors
+   appear, they are pre-existing and were masked by the old error.
+   Introducing any reference error in any file will suppress them
+   again.
+
+Do not assume that a large golden file growth is a regression caused
+by the commit's code changes. Always check whether the newly-visible
+errors exist in unchanged files (pre-existing, unmasked) versus
+errors in files the commit actually modified.
+
 ## Core vs Helm test split
 
 Core tests (`testdata/core/*.txtar`, run by `TestConvertCore`) must use **only
