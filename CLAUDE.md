@@ -395,6 +395,52 @@ constructing AST directly over building text strings and parsing them:
   substitution, block scalar content, `config.RootExpr` (a string in
   the public API). All other CUE expressions should be built as AST.
 
+### Fixing CUE formatting issues
+
+When the converter produces valid but poorly-formatted CUE (e.g. fields
+on one line instead of expanded, or braces on the wrong line), use this
+approach:
+
+1. **Parse the desired output.** Write a small program in `tmp/` that
+   calls `parser.ParseFile` on the exact CUE text you want, then walks
+   the AST printing position info for the relevant nodes:
+
+       fmt.Printf("Lbrace=%v HasRelPos=%v\n", s.Lbrace, s.Lbrace.HasRelPos())
+       fmt.Printf("Rbrace=%v HasRelPos=%v\n", s.Rbrace, s.Rbrace.HasRelPos())
+       fmt.Printf("Elts[0] relpos=%v hasRelPos=%v\n",
+           s.Elts[0].Pos().RelPos(), s.Elts[0].Pos().HasRelPos())
+
+   Then call `format.Node` to confirm the parsed AST round-trips to
+   the desired text.
+
+2. **Compare with the programmatic AST.** The converter builds AST
+   without real source positions. The CUE formatter uses `HasRelPos()`
+   checks to decide layout. The key rule for `StructLit` (in
+   `format/node.go`):
+
+       case !x.Rbrace.HasRelPos() || !x.Elts[0].Pos().HasRelPos():
+           ws |= newline | nooverride
+
+   If **either** Rbrace or first element lacks a relative position,
+   the formatter forces newlines (expanded mode). If **both** have
+   positions, the formatter respects those positions — which may be
+   compact.
+
+3. **Set positions to match.** Use `newlinePos()` for positions that
+   should trigger newline-relative placement, `token.NoSpace` /
+   `token.Blank` / `token.Newline` via `ast.SetRelPos` for element
+   positioning. Key patterns:
+   - Expanded struct: `Lbrace = newlinePos()`, `Rbrace = newlinePos()`,
+     `ast.SetRelPos(elts[0], token.Newline)` — all three needed.
+   - Compact struct: use `compactStruct(fields...)` helper.
+   - Inline opening (e.g. `{[`): `Rbrace = newlinePos()` on wrapper,
+     `ast.SetRelPos(embed, token.NoSpace)` on first element.
+
+4. **Test with `-update` and review.** Changes to position hints can
+   have non-obvious effects on nested structures. Always run the full
+   test suite and check diffs carefully — a fix for one node may
+   inadvertently compact or expand siblings.
+
 ### Template parse tree model
 
 The Go template parser splits templates into node types. Understanding
