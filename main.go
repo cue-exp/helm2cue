@@ -65,15 +65,17 @@ func cmdChart(args []string) int {
 	fs := flag.NewFlagSet("chart", flag.ContinueOnError)
 	fs.SetOutput(os.Stderr)
 	allowDup := fs.Bool("allow-duplicate-helpers", false, "allow conflicting helper definitions (last wins)")
+	experiments := fs.Bool("experiments", false, "enable CUE language experiments (try, explicitopen)")
 	if err := fs.Parse(args); err != nil {
 		return 1
 	}
 	if fs.NArg() != 2 {
-		fmt.Fprintf(os.Stderr, "usage: helm2cue chart [-allow-duplicate-helpers] <chart-dir> <output-dir>\n")
+		fmt.Fprintf(os.Stderr, "usage: helm2cue chart [-allow-duplicate-helpers] [-experiments] <chart-dir> <output-dir>\n")
 		return 1
 	}
 	opts := ChartOptions{
 		AllowDuplicateHelpers: *allowDup,
+		Experiments:           *experiments,
 	}
 	if err := ConvertChart(fs.Arg(0), fs.Arg(1), opts); err != nil {
 		fmt.Fprintf(os.Stderr, "helm2cue: %v\n", err)

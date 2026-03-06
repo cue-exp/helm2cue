@@ -122,9 +122,9 @@ func runHelmConvertTest(t *testing.T, helmPath string, ar *txtar.Archive,
 	file string, requireHelmOutput bool) {
 	t.Helper()
 
-	var input, expectedOutput, valuesYAML, expectedHelmOutput, expectedError, expectedBroken []byte
+	var input, expectedOutput, expectedExpOutput, valuesYAML, expectedHelmOutput, expectedError, expectedBroken []byte
 	var helpers [][]byte
-	var hasOutput, hasHelmOutput, hasError, hasBroken bool
+	var hasOutput, hasExpOutput, hasHelmOutput, hasError, hasBroken bool
 	for _, f := range ar.Files {
 		switch {
 		case f.Name == "input.yaml":
@@ -132,6 +132,9 @@ func runHelmConvertTest(t *testing.T, helmPath string, ar *txtar.Archive,
 		case f.Name == "output.cue":
 			expectedOutput = f.Data
 			hasOutput = true
+		case f.Name == "experiments_output.cue":
+			expectedExpOutput = f.Data
+			hasExpOutput = true
 		case f.Name == "values.yaml":
 			valuesYAML = f.Data
 		case f.Name == "helm_output.yaml":
@@ -221,10 +224,31 @@ func runHelmConvertTest(t *testing.T, helmPath string, ar *txtar.Archive,
 		}
 	}
 
+	// Run experiments conversion if opted in (has experiments_output.cue section).
+	var expGot []byte
+	if hasExpOutput {
+		expCfg := HelmConfig()
+		expCfg.Experiments = true
+		var expErr error
+		expGot, expErr = Convert(expCfg, input, helpers...)
+		if expErr != nil {
+			t.Fatalf("Convert(experiments) error: %v", expErr)
+		}
+
+		// Round-trip check: experiments output should produce the same
+		// YAML as helm template.
+		if valuesYAML != nil && hasHelmOutput && helmErr == nil {
+			expCueOut := cueExport(t, expGot, valuesYAML)
+			if err := yamlSemanticEqual(helmOut, expCueOut); err != nil {
+				t.Errorf("experiments cue export vs helm template: %v", err)
+			}
+		}
+	}
+
 	if *update {
 		var newFiles []txtar.File
 		for _, f := range ar.Files {
-			if f.Name == "output.cue" {
+			if f.Name == "output.cue" || f.Name == "experiments_output.cue" {
 				continue
 			}
 			newFiles = append(newFiles, f)
@@ -233,6 +257,12 @@ func runHelmConvertTest(t *testing.T, helmPath string, ar *txtar.Archive,
 			Name: "output.cue",
 			Data: got,
 		})
+		if hasExpOutput {
+			newFiles = append(newFiles, txtar.File{
+				Name: "experiments_output.cue",
+				Data: expGot,
+			})
+		}
 		ar.Files = newFiles
 		if err := os.WriteFile(filepath.Join("testdata", file), txtar.Format(ar), 0o644); err != nil {
 			t.Fatal(err)
@@ -246,6 +276,11 @@ func runHelmConvertTest(t *testing.T, helmPath string, ar *txtar.Archive,
 
 	if !bytes.Equal(got, expectedOutput) {
 		t.Errorf("output mismatch (-want +got):\n--- want:\n%s\n--- got:\n%s", expectedOutput, got)
+	}
+
+	if hasExpOutput && !bytes.Equal(expGot, expectedExpOutput) {
+		t.Errorf("experiments output mismatch (-want +got):\n--- want:\n%s\n--- got:\n%s",
+			expectedExpOutput, expGot)
 	}
 }
 
