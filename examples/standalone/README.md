@@ -77,10 +77,11 @@ The same `data.yaml` works with both the Go template and the CUE file. To
 evaluate the CUE using the YAML data:
 
 ```bash
-cue export examples/standalone/config.cue examples/standalone/data.yaml -l '#values:' --out yaml
+cue export examples/standalone/config.cue examples/standalone/data.yaml -l '#values:' --out yaml -e output[0]
 ```
 
-This produces the same output as the Go program.
+This produces the same data as the Go program (key ordering may differ since
+YAML maps are unordered).
 
 ## Note on `.Values`
 

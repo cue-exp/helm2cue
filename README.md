@@ -110,18 +110,17 @@ simple-app/cue/
 
 #### Exporting from the CUE module
 
-Export a single resource:
+Export a single resource (each template field is a list of YAML documents,
+so `[0]` extracts the first):
 
 ```bash
-cd examples/simple-app/cue
-cue export . -t release_name=my-release -e configmap --out yaml
+cue export ./examples/simple-app/cue -t release_name=my-release -e configmap[0] --out yaml
 ```
 
 Export all resources as a multi-document YAML stream (like `helm template`):
 
 ```bash
-cd examples/simple-app/cue
-cue export . -t release_name=my-release --out text -e 'yaml.MarshalStream(results)'
+cue export ./examples/simple-app/cue -t release_name=my-release --out text -e 'yaml.MarshalStream(results)'
 ```
 
 ## How It Works

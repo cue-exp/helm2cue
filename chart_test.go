@@ -71,8 +71,8 @@ const (
 	readmeHelmTemplate       = "helm template my-release ./examples/simple-app/helm"
 	readmeHelmTemplateSingle = "helm template my-release ./examples/simple-app/helm -s templates/configmap.yaml"
 	readmeChart              = "helm2cue chart ./examples/simple-app/helm ./examples/simple-app/cue"
-	readmeCueExportSingle    = "cue export . -t release_name=my-release -e configmap --out yaml"
-	readmeCueExportAll       = "cue export . -t release_name=my-release --out text -e 'yaml.MarshalStream(results)'"
+	readmeCueExportSingle    = "cue export ./examples/simple-app/cue -t release_name=my-release -e configmap[0] --out yaml"
+	readmeCueExportAll       = "cue export ./examples/simple-app/cue -t release_name=my-release --out text -e 'yaml.MarshalStream(results)'"
 )
 
 func TestReadmeExample(t *testing.T) {
@@ -130,7 +130,7 @@ func TestReadmeExample(t *testing.T) {
 
 	// Run cue export (single resource).
 	exportSingleCmd := exec.Command(cuePath, "export", ".",
-		"-t", "release_name=my-release", "-e", "configmap", "--out", "yaml")
+		"-t", "release_name=my-release", "-e", "configmap[0]", "--out", "yaml")
 	exportSingleCmd.Dir = cueOutDir
 	singleOut, err := exportSingleCmd.CombinedOutput()
 	if err != nil {

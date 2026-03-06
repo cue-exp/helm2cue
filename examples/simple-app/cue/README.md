@@ -23,10 +23,18 @@ conversion result is browsable without running the tool.
 
 ## Evaluating
 
-Export the rendered manifests as YAML:
+Export the rendered manifests as a multi-document YAML stream (like
+`helm template`):
 
 ```bash
-cue export ./examples/simple-app/cue -t release_name=my-release --out yaml -e results
+cue export ./examples/simple-app/cue -t release_name=my-release --out text -e 'yaml.MarshalStream(results)'
+```
+
+Export a single resource (each template field is a list of YAML documents,
+so `[0]` extracts the first):
+
+```bash
+cue export ./examples/simple-app/cue -t release_name=my-release -e configmap[0] --out yaml
 ```
 
 ## Regenerating
