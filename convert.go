@@ -103,6 +103,12 @@ type Config struct {
 	// top level (outside range/with). If empty, bare dot at the top
 	// level produces an error.
 	RootExpr string
+
+	// Experiments enables CUE language experiment-aware output.
+	// When true, generated CUE uses @experiment(try,explicitopen)
+	// and leverages try clauses with optional reference markers (?)
+	// instead of _nonzero-based patterns.
+	Experiments bool
 }
 
 // TemplateConfig returns a Config for converting pure Go text/template
