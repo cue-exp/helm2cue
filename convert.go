@@ -351,6 +351,7 @@ type converter struct {
 	helperIncludes              map[string][]string              // CUE name → CUE names of helpers it includes
 	currentHelperCUEName        string                           // set during deferred helper conversion
 	currentActionPipe           *parse.PipeNode                  // set during actionToCUE for deferred helper context
+	inCondition                 bool                             // set during condition evaluation for helper type inference
 	warnings                    []string                         // non-fatal issues collected during conversion
 	localVars                   map[string]ast.Expr              // $varName → CUE expression
 	topLevelGuards              []ast.Expr                       // CUE conditions wrapping entire output
@@ -1890,8 +1891,14 @@ type helperTypeInfo struct {
 // templates where the converter's scalar context tracking is imprecise).
 func (c *converter) helperRequiredType(pipe *parse.PipeNode) helperTypeInfo {
 	if pipe == nil {
-		// No pipeline info (e.g. condition context). Use YAML position.
+		// No pipeline info. Use YAML position or condition context.
 		if c.isScalarContext() {
+			return helperTypeInfo{typ: "scalar"}
+		}
+		// Condition context: helpers used in {{ if include "name" . }}
+		// are almost always checking bare string truthiness, not
+		// structured key-value pairs. Default to scalar.
+		if c.inCondition {
 			return helperTypeInfo{typ: "scalar"}
 		}
 		return helperTypeInfo{typ: "struct"}
@@ -1923,6 +1930,10 @@ func (c *converter) helperRequiredType(pipe *parse.PipeNode) helperTypeInfo {
 	}
 	// No constraining pipeline function — use YAML position.
 	if c.isScalarContext() {
+		return helperTypeInfo{typ: "scalar"}
+	}
+	// Condition context: see above.
+	if c.inCondition {
 		return helperTypeInfo{typ: "scalar"}
 	}
 	// Variable assignment or include inside a helper body: the position
@@ -6696,6 +6707,10 @@ func (c *converter) applyRangePipelineFunc(pf PipelineFunc, name string, expr as
 }
 
 func (c *converter) pipeToCUECondition(pipe *parse.PipeNode) (ast.Expr, ast.Expr, error) {
+	saved := c.inCondition
+	c.inCondition = true
+	defer func() { c.inCondition = saved }()
+
 	pos, err := c.conditionPipeToExpr(pipe)
 	if err != nil {
 		return nil, nil, err

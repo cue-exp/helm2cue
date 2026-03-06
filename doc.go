@@ -195,10 +195,13 @@
 //	{{- end }}
 //
 // The include appears in a condition (IfNode), not in a YAML value
-// position. pipe is nil here. isScalarContext returns false (no
-// special state active). Result: struct, weak signal — the converter
-// uses the default. This is an area where the heuristic may produce
-// sub-optimal output.
+// position. The converter detects condition context (inCondition
+// flag, set during pipeToCUECondition) and defaults to scalar.
+// Helm conditions evaluate truthiness based on string content —
+// empty string is false, any non-empty string is true — so
+// condition helpers are almost exclusively producing bare strings
+// like "true", not structured key-value pairs. Result: scalar,
+// weak signal.
 //
 // # Signal confidence and conflict detection
 //
@@ -286,11 +289,6 @@
 // a struct-looking position will be converted as struct even if a later
 // call site uses it as scalar. Reordering templates in a chart could
 // change the output.
-//
-// Condition context: helpers used only in conditions ({{ if include
-// "name" . }}) get the weak struct default, which may not match the
-// helper's actual content. A dedicated "condition" type or truthiness
-// conversion could improve this.
 //
 // Same helper, genuinely dual-use: some charts use the same helper as
 // both structured output and scalar text in different templates. The
