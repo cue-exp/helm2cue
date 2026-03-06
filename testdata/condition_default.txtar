@@ -33,13 +33,9 @@ output: [
 		apiVersion: "v1"
 		kind:       "ConfigMap"
 		metadata: name: #values.name
-		if !((_nonzero & {
-			#arg: [if (_nonzero & {
-				#arg: #values.disabled
-			}).out {
-				#values.disabled
-			}, false][0]
-		}).out) {
+		if !((_nonzero & {#arg: [if (_nonzero & {#arg: #values.disabled}).out {
+			#values.disabled
+		}, false][0]}).out) {
 			data: status: "active"
 		}
 	},

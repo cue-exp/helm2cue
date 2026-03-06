@@ -18,10 +18,7 @@ data: {{ mergeOverwrite .Values.a .Values.b | toYaml | nindent 2 }}
 
 output: [
 	{
-		data: (_mergeOverwrite & {
-			#a: #values.a
-			#b: #values.b
-		}).out
+		data: (_mergeOverwrite & {#a: #values.a, #b: #values.b}).out
 	},
 ]
 _mergeOverwrite: {

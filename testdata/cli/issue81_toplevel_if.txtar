@@ -28,11 +28,7 @@ converted 1/1 templates from test-app
 package test_app
 
 deploy: [
-	if (_nonzero & {
-		#arg: #values.config
-	}).out && (_nonzero & {
-		#arg: #values.config.extra
-	}).out {
+	if (_nonzero & {#arg: #values.config}).out && (_nonzero & {#arg: #values.config.extra}).out {
 		{
 			apiVersion: "v1"
 			kind:       "ConfigMap"

@@ -31,9 +31,7 @@ test: [
 	{
 		apiVersion: "v1"
 		kind:       "ConfigMap"
-		metadata: name: [if (_nonzero & {
-			#arg: #values.name
-		}).out {
+		metadata: name: [if (_nonzero & {#arg: #values.name}).out {
 			#values.name
 		}, "fallback"][0]
 	},

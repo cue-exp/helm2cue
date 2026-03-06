@@ -29,9 +29,7 @@ import "struct"
 }
 
 output: [
-	if (_nonzero & {
-		#arg: #values.enabled
-	}).out {
+	if (_nonzero & {#arg: #values.enabled}).out {
 		{
 			apiVersion: "v1"
 			kind:       "ConfigMap"

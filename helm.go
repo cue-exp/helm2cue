@@ -43,7 +43,12 @@ const uniqDef = `// _uniq removes duplicate elements from a list.
 // A natural candidate for a CUE standard library builtin.
 _uniq: {
 	#in: [...]
-	out: [ for i, x in #in if !list.Contains(list.Slice(#in, 0, i), x) {x}]
+	out: [
+		for i, x in #in
+		if !list.Contains(list.Slice(#in, 0, i), x) {
+			x
+		},
+	]
 }
 `
 

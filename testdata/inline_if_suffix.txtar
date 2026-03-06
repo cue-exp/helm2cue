@@ -35,14 +35,10 @@ output: [
 		kind:       "ConfigMap"
 		metadata: name: "test"
 		data: service: {
-			if (_nonzero & {
-				#arg: #values.deployWebhook
-			}).out {
+			if (_nonzero & {#arg: #values.deployWebhook}).out {
 				name: "my-service-webhook"
 			}
-			if !((_nonzero & {
-				#arg: #values.deployWebhook
-			}).out) {
+			if !((_nonzero & {#arg: #values.deployWebhook}).out) {
 				name: "my-service"
 			}
 			path: "/validate"

@@ -38,9 +38,7 @@ test: [
 		kind:       "ConfigMap"
 		metadata: name:    "test"
 		data: datasources: """
-	datasources:\([if (_nonzero & {
-			#arg: #values.enabled
-		}).out {
+	datasources:\([if (_nonzero & {#arg: #values.enabled}).out {
 			"\n- name: \(#values.firstName)\n  type: first"
 		}, ""][0])
 	- name: \(#values.secondName)

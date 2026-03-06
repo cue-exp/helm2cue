@@ -29,14 +29,10 @@ output: [
 		apiVersion: "v1"
 		kind:       "Pod"
 		spec: secret: {
-			if (_nonzero & {
-				#arg: #values.useCert
-			}).out {
+			if (_nonzero & {#arg: #values.useCert}).out {
 				key: "ca.crt"
 			}
-			if !((_nonzero & {
-				#arg: #values.useCert
-			}).out) {
+			if !((_nonzero & {#arg: #values.useCert}).out) {
 				key: "ca"
 			}
 			optional: false

@@ -33,10 +33,7 @@ output: [
 		kind:       "ConfigMap"
 		metadata: {
 			name: "test"
-			labels: (_mergeOverwrite & {
-				#a: #values.defaults
-				#b: #values.overrides
-			}).out
+			labels: (_mergeOverwrite & {#a: #values.defaults, #b: #values.overrides}).out
 		}
 	},
 ]

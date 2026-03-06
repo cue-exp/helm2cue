@@ -37,16 +37,10 @@ output: [
 		kind:       "ConfigMap"
 		metadata: name: "test"
 		data: {
-			if (_nonzero & {
-				#arg: #values.foo
-			}).out {
+			if (_nonzero & {#arg: #values.foo}).out {
 				key: #values.foo
 			}
-			if !((_nonzero & {
-				#arg: #values.foo
-			}).out) if (_nonzero & {
-				#arg: #values.bar
-			}).out {
+			if !((_nonzero & {#arg: #values.foo}).out) if (_nonzero & {#arg: #values.bar}).out {
 				key: #values.bar
 			}
 		}

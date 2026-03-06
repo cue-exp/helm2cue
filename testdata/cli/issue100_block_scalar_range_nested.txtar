@@ -54,13 +54,9 @@ cm: [
 		kind:       "ConfigMap"
 		metadata: name:      "test"
 		data: "config.yaml": """
-	datasources:\([if (_nonzero & {
-			#arg: #values.enabled
-		}).out {
+	datasources:\([if (_nonzero & {#arg: #values.enabled}).out {
 			"\(strings.Join([for _, _range0 in list.Range(0, int & #values.replicas, 1) {
-				"\n- name: \"replica-\(_range0)\"\n  uid: \(#values.uid)-\(_range0)\([if (_nonzero & {
-					#arg: #values.enabled
-				}).out {
+				"\n- name: \"replica-\(_range0)\"\n  uid: \(#values.uid)-\(_range0)\([if (_nonzero & {#arg: #values.enabled}).out {
 					"\n  active: true"
 				}, ""][0])"
 			}], ""))"

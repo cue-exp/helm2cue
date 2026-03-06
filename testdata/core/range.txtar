@@ -22,11 +22,11 @@ import "struct"
 
 output: [
 	{
-		items: [if (_nonzero & {
-			#arg: #input.items
-		}).out for _, _range0 in #input.items {
-			_range0
-		},
+		items: [
+			if (_nonzero & {#arg: #input.items}).out
+			for _, _range0 in #input.items {
+				_range0
+			},
 		]
 	},
 ]
