@@ -57,3 +57,41 @@ _nonzero: {
 		][0]
 	}, false][0]
 }
+-- experiments_output.cue --
+import "struct"
+
+#values: {
+	name!:  bool | number | string | null
+	debug?: bool | number | string | null
+	...
+}
+
+output: [
+	{
+		apiVersion: "v1"
+		kind:       "ConfigMap"
+		metadata: {
+			name: #values.name
+			if (_nonzero & {#arg: #values.debug}).out {
+				env: "debug"
+			}
+			if !((_nonzero & {#arg: #values.debug}).out) {
+				env: "release"
+			}
+		}
+	},
+]
+_nonzero: {
+	#arg?: _
+	out: [if #arg != _|_ {
+		[
+			if (#arg & int) != _|_ {#arg != 0},
+			if (#arg & string) != _|_ {#arg != ""},
+			if (#arg & float) != _|_ {#arg != 0.0},
+			if (#arg & bool) != _|_ {#arg},
+			if (#arg & [...]) != _|_ {len(#arg) > 0},
+			if (#arg & {...}) != _|_ {(#arg & struct.MaxFields(0)) == _|_},
+			false,
+		][0]
+	}, false][0]
+}
