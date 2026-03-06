@@ -8766,6 +8766,64 @@ func formatResolvedFile(f *ast.File, knownImports map[string]bool) ([]byte, erro
 	if err := astutil.Sanitize(f); err != nil {
 		return nil, fmt.Errorf("sanitize: %w", err)
 	}
+	b, err := format.Node(f, format.Simplify())
+	if err != nil {
+		return nil, err
+	}
+	return compactRangeCompBodies(b)
+}
+
+// compactRangeCompBodies re-parses formatted CUE and compacts range
+// comprehension bodies that embed lists. It changes:
+//
+//	for ... {
+//	    [...]
+//	},
+//
+// into the more compact:
+//
+//	for ... {[
+//	    ...
+//	]},
+//
+// This two-pass approach works around a CUE formatter bug where
+// programmatic AST cannot achieve the same formatting as parsed AST.
+// See https://github.com/cue-lang/cue/issues/4296.
+// When that is fixed, this function can be removed and the compact
+// formatting can be achieved directly via AST position hints.
+func compactRangeCompBodies(b []byte) ([]byte, error) {
+	f, err := parser.ParseFile("", b)
+	if err != nil {
+		return b, nil // If parse fails, return original bytes
+	}
+
+	modified := false
+	ast.Walk(f, func(n ast.Node) bool {
+		comp, ok := n.(*ast.Comprehension)
+		if !ok {
+			return true
+		}
+		sl, ok := comp.Value.(*ast.StructLit)
+		if !ok || len(sl.Elts) != 1 {
+			return true
+		}
+		ed, ok := sl.Elts[0].(*ast.EmbedDecl)
+		if !ok {
+			return true
+		}
+		if _, ok := ed.Expr.(*ast.ListLit); !ok {
+			return true
+		}
+		// This is a comprehension with a single list embed — compact it.
+		sl.Rbrace = token.NoSpace.Pos()
+		ast.SetRelPos(ed, token.NoSpace)
+		modified = true
+		return true
+	}, nil)
+
+	if !modified {
+		return b, nil
+	}
 	return format.Node(f, format.Simplify())
 }
 

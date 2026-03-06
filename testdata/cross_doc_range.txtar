@@ -71,22 +71,20 @@ import (
 
 output: list.FlattenN([
 	if (_nonzero & {#arg: #values.items}).out
-	for _, _range0 in #values.items {
-		[
-			{
-				apiVersion: "v1"
-				kind:       "ConfigMap"
-				metadata: name: _range0.name
-				data: key:      "one"
-			},
-			{
-				apiVersion: "v1"
-				kind:       "ConfigMap"
-				metadata: name: _range0.name
-				data: key:      "two"
-			},
-		]
-	},
+	for _, _range0 in #values.items {[
+		{
+			apiVersion: "v1"
+			kind:       "ConfigMap"
+			metadata: name: _range0.name
+			data: key:      "one"
+		},
+		{
+			apiVersion: "v1"
+			kind:       "ConfigMap"
+			metadata: name: _range0.name
+			data: key:      "two"
+		},
+	]},
 ], -1)
 _nonzero: {
 	#arg?: _
