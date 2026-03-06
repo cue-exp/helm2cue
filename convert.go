@@ -542,7 +542,13 @@ func nonzeroExpr(expr ast.Expr) ast.Expr {
 // this produces [if (_nonzero & {#arg: expr, _}) {expr}, defaultVal][0]
 // which falls back when expr is a zero value (null, "", 0, false, [], {}),
 // matching Helm's default semantics.
+//
+// In experiments mode, produces: (try {out: expr?} else {out: defaultVal}).out
+// which uses field-existence semantics (not truthiness).
 func (c *converter) defaultExpr(expr, defaultVal ast.Expr) ast.Expr {
+	if c.config.Experiments {
+		return c.tryDefaultExpr(expr, defaultVal)
+	}
 	c.hasDefault = true
 	return &ast.IndexExpr{
 		X: &ast.ListLit{
@@ -560,6 +566,51 @@ func (c *converter) defaultExpr(expr, defaultVal ast.Expr) ast.Expr {
 		},
 		Index: cueInt(0),
 	}
+}
+
+// tryDefaultExpr builds a try/fallback default expression for experiments mode:
+//
+//	{try _x = expr? if (_nonzero & {#arg: _x}).out {out: _x} fallback {out: defaultVal}}.out
+//
+// The try clause handles field existence (absent optional fields),
+// and the if clause preserves Helm's full truthiness semantics
+// (zero values like "", 0, false also trigger the fallback).
+func (c *converter) tryDefaultExpr(expr, defaultVal ast.Expr) ast.Expr {
+	c.hasDefault = true
+	varIdent := ast.NewIdent("_x")
+	return selExpr(
+		&ast.StructLit{Elts: []ast.Decl{
+			&ast.Comprehension{
+				Clauses: []ast.Clause{
+					&ast.TryClause{
+						Ident: varIdent,
+						Expr: &ast.PostfixExpr{
+							X:  expr,
+							Op: token.OPTION,
+						},
+					},
+					&ast.IfClause{
+						Condition: nonzeroExpr(varIdent),
+					},
+				},
+				Value: &ast.StructLit{Elts: []ast.Decl{
+					&ast.Field{
+						Label: ast.NewIdent("out"),
+						Value: ast.NewIdent("_x"),
+					},
+				}},
+				Fallback: &ast.FallbackClause{
+					Body: &ast.StructLit{Elts: []ast.Decl{
+						&ast.Field{
+							Label: ast.NewIdent("out"),
+							Value: defaultVal,
+						},
+					}},
+				},
+			},
+		}},
+		"out",
+	)
 }
 
 // negExpr builds !(x).
@@ -1652,7 +1703,14 @@ func assembleSingleFile(cfg *Config, r *convertResult) ([]byte, error) {
 	}
 
 	f := &ast.File{Decls: allDecls}
-	return formatResolvedFile(f, allImports)
+	formatted, err := formatResolvedFile(f, allImports)
+	if err != nil {
+		return nil, err
+	}
+	if cfg.Experiments {
+		formatted = append([]byte("@experiment(try)\n\n"), formatted...)
+	}
+	return formatted, nil
 }
 
 // Convert transforms a template YAML file into CUE using the given config.
