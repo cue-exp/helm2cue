@@ -346,6 +346,13 @@ removed once those exist.
 | `merge` | `(_merge & {#a: dst, #b: src}).out` (first arg wins) | — |
 | `mergeOverwrite` | `(_mergeOverwrite & {#a: dst, #b: src}).out` (last arg wins) | — |
 
+## CUE Language Experiments Mode
+
+The `--experiments` flag enables experimental CUE output that uses
+in-progress CUE language features (`try`, `explicitopen`). Generated
+files include `@experiment(try,explicitopen)` attributes. This mode
+is under active development; see the tracking issues below.
+
 ## Not Yet Implemented
 
 The following template constructs and functions are not yet converted.
@@ -524,6 +531,7 @@ Each file uses the same txtar format with additional optional sections:
 - `-- helm_output.yaml --` — expected rendered output from `helm template`
 - `-- error --` — expected error substring (negative test; see below)
 - `-- broken --` — marks a known converter bug (see below)
+- `-- experiments_output.cue --` — experiments mode output (see below)
 
 Each test case:
 
@@ -555,6 +563,21 @@ If `-- broken --` is present, the test marks a known converter bug.
 bug is fixed, `-- broken --` is replaced with `-- output.cue --`.
 This keeps the test in the verified directory from the start so the fix
 produces a clean diff.
+
+#### Experiments mode output
+
+Tests can opt in to experiments mode by adding an
+`-- experiments_output.cue --` section. When present, the test runs
+`Convert()` a second time with `Experiments: true` and compares the
+output against this section. Round-trip validation against
+`helm template` is also performed for the experiments output.
+
+Tests opt in gradually — only add `-- experiments_output.cue --` when
+ready to track experiments output for that case. Use
+`go test -run <pattern> -update` to populate both `output.cue` and
+`experiments_output.cue` in one pass. Currently experiments mode
+produces the same output as normal mode; as experiment-aware patterns
+are implemented, opted-in tests will capture the differences.
 
 #### Noverify tests
 
