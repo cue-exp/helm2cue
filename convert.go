@@ -349,7 +349,7 @@ type converter struct {
 	helperDirectRangeRefs       map[string]map[string][][]string // CUE name → helmObj → direct context range refs
 	helperDirectNonScalarRefs   map[string]map[string][][]string // CUE name → helmObj → direct context nonScalar refs
 	helperIncludes              map[string][]string              // CUE name → CUE names of helpers it includes
-	currentHelperCUEName        string                           // set during Phase 0b helper conversion
+	currentHelperCUEName        string                           // set during deferred helper conversion
 	currentActionPipe           *parse.PipeNode                  // set during actionToCUE for deferred helper context
 	warnings                    []string                         // non-fatal issues collected during conversion
 	localVars                   map[string]ast.Expr              // $varName → CUE expression
@@ -364,17 +364,18 @@ type converter struct {
 	rootExprAST                 ast.Expr             // parsed config.RootExpr, cached
 
 	// AST construction state.
-	rootDecls           []ast.Decl // top-level declarations built during conversion
-	stack               []frame
-	state               emitState
-	pendingKey          string              // the key name when in statePendingKey
-	pendingKeyLabel     ast.Label           // non-nil for dynamic keys — use directly instead of cueKeyLabel(pendingKey)
-	pendingKeyInd       int                 // YAML indent of the pending key
-	deferredKV          *pendingResolution  // non-nil when action resolved pendingKey but deeper content may follow
-	comments            map[ast.Expr]string // expr → trailing comment
-	inRangeBody         bool                // true when processing range body (suppresses list item struct wrapping)
-	rangeBodyStackDepth int                 // stack depth when inRangeBody was set; only suppress at this depth
-	remainingNodes      []parse.Node        // sibling nodes not yet processed (set by processBodyNodes)
+	rootDecls             []ast.Decl // top-level declarations built during conversion
+	stack                 []frame
+	state                 emitState
+	pendingKey            string              // the key name when in statePendingKey
+	pendingKeyLabel       ast.Label           // non-nil for dynamic keys — use directly instead of cueKeyLabel(pendingKey)
+	pendingKeyInd         int                 // YAML indent of the pending key
+	pendingKeyBlockScalar bool                // true when statePendingKey was set for a block scalar (key: |-)
+	deferredKV            *pendingResolution  // non-nil when action resolved pendingKey but deeper content may follow
+	comments              map[ast.Expr]string // expr → trailing comment
+	inRangeBody           bool                // true when processing range body (suppresses list item struct wrapping)
+	rangeBodyStackDepth   int                 // stack depth when inRangeBody was set; only suppress at this depth
+	remainingNodes        []parse.Node        // sibling nodes not yet processed (set by processBodyNodes)
 
 	// Deferred action: action expression waiting to see if next text starts with ": " (dynamic key).
 	pendingActionExpr    ast.Expr
@@ -1420,37 +1421,80 @@ func convertStructured(cfg *Config, input []byte, templateName string, treeSet m
 	}
 	slices.Sort(c.helperOrder)
 
-	// Phase 0b: Convert helper bodies.
-	// Helpers whose bodies contain control structures (if/range/with) are
-	// deferred until Phase 1, when the call site's YAML context and
-	// pipeline determine whether to convert as scalar or struct.
-	// All other helpers are converted eagerly — their output form is
-	// context-independent.
+	// Phase 0b: Record helper bodies for deferred conversion.
+	//
+	// Helper output type detection
+	//
+	// Helm helpers ({{ define "name" }}) produce text that is spliced
+	// into YAML via {{ include "name" . }}. In Helm everything is a
+	// string, but in CUE we must decide whether a helper's output is:
+	//
+	//   - Structured YAML (CUE struct fields): e.g. labels, annotations,
+	//     selector blocks — the helper body contains key: value pairs.
+	//   - Plain text (CUE string): e.g. a config file snippet, a list
+	//     of DNS names, a validation error message.
+	//
+	// The same helper can even appear in both contexts in different
+	// charts, making body-only analysis inherently ambiguous.
+	//
+	// Strategy: call-site-driven deferred conversion.
+	//
+	// All helpers are deferred: Phase 0b records their body nodes but
+	// does not convert them. Conversion is triggered on first
+	// {{ include }} during Phase 1, when the call site provides two
+	// signals that together determine the output type:
+	//
+	//  1. Pipeline functions: if the include result is piped to a
+	//     function that operates on strings (quote, b64enc, etc.),
+	//     the helper is "scalar". If piped to a function that expects
+	//     non-scalar input, it is "struct". Cosmetic functions
+	//     (nindent, indent) and passthrough functions (toYaml) are
+	//     skipped — they are ambiguous on their own.
+	//
+	//  2. YAML position: when no constraining pipeline function is
+	//     found, the converter's current state determines the type
+	//     (see isScalarContext). If we are inside a block scalar
+	//     (key: |-), an inline string, a quoted scalar, or a pending
+	//     key that originated from a block scalar indicator, the
+	//     context is unambiguously scalar. A plain statePendingKey
+	//     (key: <value>) is NOT scalar because the value could be
+	//     either — only pendingKeyBlockScalar qualifies. When none
+	//     of these hold, the type defaults to struct.
+	//
+	// See helperRequiredType for the full decision logic.
+	//
+	// Scalar conversion (convertDeferredHelperAsScalar) has three
+	// tiers:
+	//
+	//  1. isPureTextBody: body has only TextNodes (no actions or
+	//     control structures). Collapsed to a single CUE string
+	//     literal with normalized whitespace.
+	//
+	//  2. isExtendedTextHelperBody: body has text, actions, and
+	//     possibly control structures, but no YAML structure
+	//     (no key:value or list items in the text). Converted to
+	//     a CUE string with \(...) interpolations.
+	//
+	//  3. General converter fallback (convertHelperBody): runs the
+	//     full processNodes pipeline. For bodies that look like YAML
+	//     but are semantically text (e.g. "error: something"),
+	//     declsHaveMixedFieldsAndStrings collapses the mixed
+	//     fields+strings output into a single string.
+	//
+	// Struct conversion (convertDeferredHelperAsStruct) always uses
+	// the general converter (convertHelperBody / processNodes).
+	//
+	// When a helper is included multiple times with conflicting
+	// types, the first encounter wins. This is noted as a TODO for
+	// future improvement (dual-form helpers).
 	for _, name := range c.helperOrder {
 		tree := treeSet[name]
 		if tree.Root == nil {
 			continue
 		}
 		cueName := c.helperExprs[name]
-		nodes := tree.Root.Nodes
-		c.helperNodes[cueName] = nodes
-		c.currentHelperCUEName = cueName
-
-		if helperBodyHasControlStructures(nodes) {
-			// Defer: the call site context determines the conversion mode.
-			continue
-		}
-
-		// Eagerly convert — no control structures, so the result is
-		// context-independent.
-		cueExpr, argInfo, err := c.convertHelperBody(nodes)
-		if err != nil {
-			continue
-		}
-		c.helperCUE[cueName] = cueExpr
-		c.storeHelperArgInfo(cueName, argInfo)
+		c.helperNodes[cueName] = tree.Root.Nodes
 	}
-	c.currentHelperCUEName = "" // clear for main template processing
 
 	// Phase 1: Walk template AST and emit CUE directly.
 	// During this phase, deferred helpers are converted on demand when
@@ -1949,11 +1993,6 @@ func (c *converter) convertDeferredHelper(cueName string, requiredType string, n
 	}
 	c.helperOutputType[cueName] = requiredType
 
-	// Already converted eagerly (string/text form)?
-	if _, ok := c.helperCUE[cueName]; ok {
-		return nil
-	}
-
 	savedHelperName := c.currentHelperCUEName
 	c.currentHelperCUEName = cueName
 	defer func() { c.currentHelperCUEName = savedHelperName }()
@@ -1965,10 +2004,22 @@ func (c *converter) convertDeferredHelper(cueName string, requiredType string, n
 }
 
 // convertDeferredHelperAsScalar converts a deferred helper body as a scalar
-// (string expression). Tries extended text conversion first, then falls back
-// to the general converter which may produce a string via mixed-content
-// collapsing (e.g. "error: something\nplease check" bodies).
+// (string expression). Tries pure-text and extended-text conversion first,
+// then falls back to the general converter which may produce a string via
+// mixed-content collapsing (e.g. "error: something\nplease check" bodies).
 func (c *converter) convertDeferredHelperAsScalar(cueName string, nodes []parse.Node) error {
+	// Pure text body (no actions, no control structures): collapse to
+	// a single string literal with normalized whitespace.
+	if isPureTextBody(nodes) {
+		text := strings.TrimSpace(textContent(nodes))
+		if text == "" {
+			c.helperCUE[cueName] = cueString("")
+		} else {
+			c.helperCUE[cueName] = cueString(strings.Join(strings.Fields(text), " "))
+		}
+		return nil
+	}
+
 	// Try extended text conversion (text + actions + control structures,
 	// no YAML structure).
 	if isExtendedTextHelperBody(nodes) {
@@ -2004,27 +2055,10 @@ func (c *converter) convertDeferredHelperAsStruct(cueName string, nodes []parse.
 	return nil
 }
 
+// convertHelperBody converts a helper body using the general converter
+// (processNodes). This is the common path for struct conversion and the
+// fallback for scalar conversion when text-specific converters don't apply.
 func (c *converter) convertHelperBody(nodes []parse.Node) (ast.Expr, *helperArgInfo, error) {
-	// Check if the body is a raw string (non-YAML content without key: value patterns).
-	if isStringHelperBody(nodes) {
-		text := strings.TrimSpace(textContent(nodes))
-		if text == "" {
-			return cueString(""), nil, nil
-		}
-		// Normalize whitespace: join lines with single space.
-		return cueString(strings.Join(strings.Fields(text), " ")), nil, nil
-	}
-
-	// Check if the body is text with interpolated actions (no YAML structure).
-	// These produce a CUE string with \(...) interpolations.
-	if isTextHelperBody(nodes) {
-		expr, argInfo, err := c.convertTextHelperBody(nodes)
-		if err == nil {
-			return expr, argInfo, nil
-		}
-		// Fall through to general converter on error.
-	}
-
 	sub := &converter{
 		config:                      c.config,
 		usedContextObjects:          c.usedContextObjects,
@@ -2254,85 +2288,22 @@ func (c *converter) directRefInfo() *helperArgInfo {
 	}
 }
 
-// isStringHelperBody checks if a helper body contains non-YAML content (raw strings).
-// helperBodyHasControlStructures reports whether a helper body contains
-// control structure nodes (if/range/with). These helpers need context-driven
-// conversion: the call site determines whether to convert as scalar or struct.
-func helperBodyHasControlStructures(nodes []parse.Node) bool {
+// isExtendedTextHelperBody reports whether a helper body contains text,
+// actions, and control structures (if/range/with) but no YAML structure.
+// Unlike isTextHelperBody which only accepts simple text+action bodies,
+// this accepts bodies with control structures and variable assignments.
+// isPureTextBody reports whether a helper body contains only TextNodes
+// (no actions, no control structures). These bodies produce static text
+// that can be collapsed to a single CUE string literal.
+func isPureTextBody(nodes []parse.Node) bool {
 	for _, node := range nodes {
-		switch node.(type) {
-		case *parse.IfNode, *parse.RangeNode, *parse.WithNode:
-			return true
-		}
-	}
-	return false
-}
-
-func isStringHelperBody(nodes []parse.Node) bool {
-	text := textContent(nodes)
-	for _, line := range strings.Split(text, "\n") {
-		trimmed := strings.TrimSpace(line)
-		if trimmed == "" {
-			continue
-		}
-		if strings.Contains(trimmed, ": ") || strings.HasSuffix(trimmed, ":") || strings.HasPrefix(trimmed, "- ") {
-			return false // looks like YAML
-		}
-	}
-	// Also check that there are no non-text nodes (actions inside the body would need special handling).
-	for _, node := range nodes {
-		switch node.(type) {
-		case *parse.TextNode:
-			// OK
-		default:
-			return false // has template actions, not a simple string
+		if _, ok := node.(*parse.TextNode); !ok {
+			return false
 		}
 	}
 	return true
 }
 
-// isTextHelperBody reports whether a helper body contains text and
-// actions but no YAML structure (no "key: value", no "- " list items).
-// These helpers produce text output that should be emitted as a CUE
-// string with interpolations, not as a struct with embeddings.
-func isTextHelperBody(nodes []parse.Node) bool {
-	hasAction := false
-	for _, node := range nodes {
-		switch node.(type) {
-		case *parse.TextNode:
-			// OK
-		case *parse.ActionNode:
-			hasAction = true
-		default:
-			// Control structures (if/range/with) need the general
-			// converter — only handle simple text+action bodies.
-			return false
-		}
-	}
-	if !hasAction {
-		return false // pure text is handled by isStringHelperBody
-	}
-	// Check that text content has no YAML structure.
-	text := textContent(nodes)
-	for _, line := range strings.Split(text, "\n") {
-		trimmed := strings.TrimSpace(line)
-		if trimmed == "" {
-			continue
-		}
-		if strings.Contains(trimmed, ": ") || strings.HasSuffix(trimmed, ":") || strings.HasPrefix(trimmed, "- ") {
-			return false
-		}
-	}
-	// Must be multi-line: the text nodes must contain at least one
-	// newline that separates action outputs. Single-line text+action
-	// helpers work fine as struct embeddings.
-	return strings.Contains(text, "\n")
-}
-
-// isExtendedTextHelperBody reports whether a helper body contains text,
-// actions, and control structures (if/range/with) but no YAML structure.
-// Unlike isTextHelperBody which only accepts simple text+action bodies,
-// this accepts bodies with control structures and variable assignments.
 // These are text-producing helpers whose output is newline-separated
 // strings, not YAML key:value pairs.
 func isExtendedTextHelperBody(nodes []parse.Node) bool {
@@ -2378,102 +2349,9 @@ func isExtendedTextHelperBody(nodes []parse.Node) bool {
 	return true
 }
 
-// convertTextHelperBody converts a helper body of text+actions into
-// a CUE string expression with interpolations. It also returns arg
-// info for schema generation.
-func (c *converter) convertTextHelperBody(nodes []parse.Node) (ast.Expr, *helperArgInfo, error) {
-	// Build a sub-converter to resolve expressions and track refs.
-	sub := &converter{
-		config:                      c.config,
-		usedContextObjects:          c.usedContextObjects,
-		fieldRefs:                   make(map[string][][]string),
-		requiredRefs:                make(map[string][][]string),
-		rangeRefs:                   make(map[string][][]string),
-		nonScalarRefs:               make(map[string][][]string),
-		imports:                     c.imports,
-		usedHelpers:                 c.usedHelpers,
-		treeSet:                     c.treeSet,
-		helperExprs:                 c.helperExprs,
-		helperCUE:                   c.helperCUE,
-		helperOutputType:            c.helperOutputType,
-		helperNodes:                 c.helperNodes,
-		helperArgFieldRefs:          c.helperArgFieldRefs,
-		helperArgFieldRequiredRefs:  c.helperArgFieldRequiredRefs,
-		helperArgFieldRangeRefs:     c.helperArgFieldRangeRefs,
-		helperArgFieldNonScalarRefs: c.helperArgFieldNonScalarRefs,
-		helperDirectFieldRefs:       c.helperDirectFieldRefs,
-		helperDirectRequiredRefs:    c.helperDirectRequiredRefs,
-		helperDirectRangeRefs:       c.helperDirectRangeRefs,
-		helperDirectNonScalarRefs:   c.helperDirectNonScalarRefs,
-		helperIncludes:              c.helperIncludes,
-		currentHelperCUEName:        c.currentHelperCUEName,
-		undefinedHelpers:            c.undefinedHelpers,
-		localVars:                   make(map[string]ast.Expr),
-		comments:                    make(map[ast.Expr]string),
-	}
-	useArg := sub.config.RootExpr == ""
-	if useArg {
-		sub.rangeVarStack = []rangeContext{{cueExpr: ast.NewIdent("#arg")}}
-		sub.helperArgRefs = [][]string{}
-		sub.helperArgRequiredRefs = [][]string{}
-		sub.helperArgRangeRefs = [][]string{}
-		sub.helperArgNonScalarRefs = [][]string{}
-	}
-
-	// Walk nodes, building inline parts for partsToExpr.
-	var parts []inlinePart
-	for _, node := range nodes {
-		switch n := node.(type) {
-		case *parse.TextNode:
-			s := string(n.Text)
-			if s != "" {
-				parts = append(parts, inlinePart{text: escapeCUEString(s)})
-			}
-		case *parse.ActionNode:
-			expr, _, err := sub.actionToCUE(n)
-			if err != nil {
-				return nil, nil, err
-			}
-			parts = append(parts, inlinePart{expr: expr})
-		}
-	}
-
-	if len(parts) == 0 {
-		return cueString(""), nil, nil
-	}
-
-	// Mark context objects used by the helper body.
-	for helmObj := range sub.fieldRefs {
-		c.usedContextObjects[helmObj] = true
-	}
-
-	result := partsToExpr(parts)
-
-	// Trim the result.
-	c.addImport("strings")
-	result = importCall("strings", "TrimSpace", result)
-
-	var argInfo *helperArgInfo
-	if useArg {
-		argInfo = &helperArgInfo{
-			fieldRefs:           sub.helperArgRefs,
-			requiredRefs:        sub.helperArgRequiredRefs,
-			rangeRefs:           sub.helperArgRangeRefs,
-			nonScalarRefs:       sub.helperArgNonScalarRefs,
-			directFieldRefs:     sub.fieldRefs,
-			directRequiredRefs:  sub.requiredRefs,
-			directRangeRefs:     sub.rangeRefs,
-			directNonScalarRefs: sub.nonScalarRefs,
-		}
-	}
-
-	return result, argInfo, nil
-}
-
 // convertExtendedTextHelperBody converts a helper body with text, actions,
 // and control structures (if/range/with) into a CUE string expression.
-// This handles helpers that produce text output with conditional parts,
-// which isTextHelperBody rejects due to control structures.
+// This handles helpers that produce text output with conditional parts.
 func (c *converter) convertExtendedTextHelperBody(cueName string, nodes []parse.Node) (ast.Expr, *helperArgInfo, error) {
 	sub := &converter{
 		config:                      c.config,
@@ -4095,6 +3973,7 @@ func (c *converter) emitTextNode(text []byte) {
 					c.state = statePendingKey
 					c.pendingKey = key
 					c.pendingKeyInd = yamlIndent
+					c.pendingKeyBlockScalar = true
 				} else {
 					c.blockScalarLines = []string{}
 					c.blockScalarBaseIndent = -1
@@ -4181,6 +4060,7 @@ func (c *converter) openPendingAsList(childYamlIndent int) {
 	c.state = stateNormal
 	c.pendingKey = ""
 	c.pendingKeyLabel = nil
+	c.pendingKeyBlockScalar = false
 }
 
 // openPendingAsMapping resolves a pending key as a mapping block.
@@ -4203,6 +4083,7 @@ func (c *converter) openPendingAsMapping(childYamlIndent int) {
 	c.state = stateNormal
 	c.pendingKey = ""
 	c.pendingKeyLabel = nil
+	c.pendingKeyBlockScalar = false
 }
 
 // processListItem handles a YAML list item line (starts with "- ").
@@ -4278,6 +4159,7 @@ func (c *converter) processListItem(trimmed string, yamlIndent int, isLastLine, 
 				c.state = statePendingKey
 				c.pendingKey = key
 				c.pendingKeyInd = itemContentIndent
+				c.pendingKeyBlockScalar = true
 			} else {
 				c.blockScalarLines = []string{}
 				c.blockScalarBaseIndent = -1
@@ -5029,6 +4911,7 @@ func (c *converter) emitActionExpr(expr ast.Expr, comment string) {
 			c.pendingListItemExpr = expr
 			c.pendingListItemComment = comment
 			c.state = stateNormal
+			c.pendingKeyBlockScalar = false
 		} else {
 			// Defer the resolution — deeper content may follow.
 			c.deferredKV = &pendingResolution{
@@ -5041,6 +4924,7 @@ func (c *converter) emitActionExpr(expr ast.Expr, comment string) {
 			c.state = stateNormal
 			c.pendingKey = ""
 			c.pendingKeyLabel = nil
+			c.pendingKeyBlockScalar = false
 		}
 	} else {
 		// Standalone expression — defer in case next text starts with ": " (dynamic key).
@@ -8057,13 +7941,13 @@ func identFromExpr(expr ast.Expr) string {
 
 // isScalarContext reports whether the converter is currently in a YAML
 // context that unambiguously expects a scalar value. This is true when
-// accumulating an inline string, block scalar, or quoted scalar.
-// Note: statePendingKey (key: <value>) is NOT included because the
-// value could be either scalar or struct — the include result determines it.
+// accumulating an inline string, block scalar, or quoted scalar, or
+// when a pending key originated from a block scalar indicator (key: |-).
 func (c *converter) isScalarContext() bool {
 	return c.inlineParts != nil ||
 		c.blockScalarLines != nil ||
-		c.quotedScalarParts != nil
+		c.quotedScalarParts != nil ||
+		c.pendingKeyBlockScalar
 }
 
 // marshalExpr wraps expr in strings.TrimRight(yaml.Marshal(expr), "\n")
