@@ -51,3 +51,48 @@ _nonzero: {
 		][0]
 	}, false][0]
 }
+-- experiments_output.cue --
+@experiment(try)
+
+import "struct"
+
+#values: {
+	name?: bool | number | string | null
+	env?:  bool | number | string | null
+	...
+}
+
+output: [
+	{
+		apiVersion: "v1"
+		kind:       "ConfigMap"
+		metadata: {
+			try _x = #values.name? if (_nonzero & {#arg: _x}).out {
+				name: _x
+			} fallback {
+				name: "fallback"
+			}
+		}
+		data: {
+			try _x = #values.env? if (_nonzero & {#arg: _x}).out {
+				env: _x
+			} fallback {
+				env: "production"
+			}
+		}
+	},
+]
+_nonzero: {
+	#arg?: _
+	out: [if #arg != _|_ {
+		[
+			if (#arg & int) != _|_ {#arg != 0},
+			if (#arg & string) != _|_ {#arg != ""},
+			if (#arg & float) != _|_ {#arg != 0.0},
+			if (#arg & bool) != _|_ {#arg},
+			if (#arg & [...]) != _|_ {len(#arg) > 0},
+			if (#arg & {...}) != _|_ {(#arg & struct.MaxFields(0)) == _|_},
+			false,
+		][0]
+	}, false][0]
+}
