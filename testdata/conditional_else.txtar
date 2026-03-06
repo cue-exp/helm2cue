@@ -58,6 +58,8 @@ _nonzero: {
 	}, false][0]
 }
 -- experiments_output.cue --
+@experiment(try)
+
 import "struct"
 
 #values: {
