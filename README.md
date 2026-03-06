@@ -414,6 +414,39 @@ ongoing refinement as more real-world charts are tested.
   broader than necessary, and the overall style should feel natural to
   CUE users. Tracks readability improvements as a cross-cutting concern.
 
+- [**#109 — Improve helper type inference
+  determinism**](https://github.com/cue-exp/helm2cue/issues/109) — Helper
+  type inference currently uses first-encounter-wins for weak signals,
+  making conversion order-dependent. Tracks the Phase 0.5 approach for
+  global call-site consensus. See [`doc.go`](doc.go) for the full
+  design discussion.
+
+### CUE language experiments
+
+Several in-progress CUE language experiments could improve the generated
+output. Each issue tracks exploration of a specific proposal — evaluating
+how it would change helm2cue's output and providing feedback upstream:
+
+- [**#110 — Explore `try`
+  experiment**](https://github.com/cue-exp/helm2cue/issues/110)
+  ([cue-lang/cue#4019](https://github.com/cue-lang/cue/discussions/4019))
+  — The `try`/`else` construct with `?` optional field markers could
+  simplify or eliminate the `_nonzero` truthiness helper and optional
+  field guarding patterns.
+
+- [**#111 — Explore postfix aliases
+  experiment**](https://github.com/cue-exp/helm2cue/issues/111)
+  ([cue-lang/cue#4014](https://github.com/cue-lang/cue/discussions/4014))
+  — Unified `~` alias syntax, `self` keyword, and `keyOf`/`refOf`/`valueOf`
+  builtins could improve readability of generated comprehensions and
+  scope references.
+
+- [**#112 — Explore embedding semantics
+  experiment**](https://github.com/cue-exp/helm2cue/issues/112)
+  ([cue-lang/cue#4032](https://github.com/cue-lang/cue/discussions/4032))
+  — Explicit struct opening (replacing implicit opening through embedding)
+  could affect how helper includes are embedded in the generated CUE.
+
 ## Related Projects
 
 Despite its name, helm2cue is narrowly focused on one question: how do you
@@ -461,7 +494,7 @@ while helm2cue infers the schema from how values are actually used in templates.
 
 ## Testing
 
-Tests are run against Helm v4.1.1 and CUE v0.16.0-alpha.2.
+Tests are run against Helm v4.1.1 and CUE v0.16.0.
 
 ### Core converter tests
 
