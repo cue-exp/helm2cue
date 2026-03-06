@@ -103,6 +103,12 @@ type Config struct {
 	// top level (outside range/with). If empty, bare dot at the top
 	// level produces an error.
 	RootExpr string
+
+	// Experiments enables CUE language experiment-aware output.
+	// When true, generated CUE uses @experiment(try,explicitopen)
+	// and leverages try clauses with optional reference markers (?)
+	// instead of _nonzero-based patterns.
+	Experiments bool
 }
 
 // TemplateConfig returns a Config for converting pure Go text/template
@@ -1646,7 +1652,14 @@ func assembleSingleFile(cfg *Config, r *convertResult) ([]byte, error) {
 	}
 
 	f := &ast.File{Decls: allDecls}
-	return formatResolvedFile(f, allImports)
+	formatted, err := formatResolvedFile(f, allImports)
+	if err != nil {
+		return nil, err
+	}
+	if cfg.Experiments {
+		formatted = append([]byte("@experiment(try)\n\n"), formatted...)
+	}
+	return formatted, nil
 }
 
 // Convert transforms a template YAML file into CUE using the given config.

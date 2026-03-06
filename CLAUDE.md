@@ -243,7 +243,9 @@ How it works for each test type:
   no content), then run `go test -run <TestFunc>/<name> -update`. The test
   framework replaces the `output.cue` section with the converter's actual
   output. For `-- error --` and `-- broken --` sections, write the expected
-  error substring manually (these are not auto-populated).
+  error substring manually (these are not auto-populated). If an empty
+  `-- experiments_output.cue --` section is also present, `-update`
+  populates it with the experiments-mode output alongside `output.cue`.
 - **CLI tests** (`TestCLI`): write a txtar with empty golden file sections
   (e.g. `-- stderr.golden --` and `-- expected/test.cue --` with no
   content), then run `go test -run TestCLI/<name> -update`. The
@@ -593,6 +595,37 @@ When adding new Helm tests:
   `testdata/noverify/`.
 - Promoting tests from `testdata/noverify/` to `testdata/` is encouraged when
   the underlying limitation is resolved.
+
+## Experiments mode testing
+
+The `--experiments` flag enables CUE language experiment-aware output
+(`@experiment(try,explicitopen)`). Tests opt in **individually** by
+adding an `-- experiments_output.cue --` section to their txtar file.
+
+How it works:
+
+- When a test has an `-- experiments_output.cue --` section, the test
+  framework runs `Convert()` twice: once with normal config, once with
+  `Experiments: true`. Both outputs are checked against their respective
+  golden sections. If `helm_output.yaml` and `values.yaml` are present,
+  the experiments output is also round-trip validated against
+  `helm template`.
+- Tests **without** the section skip experiments mode entirely. This
+  is the gradual opt-in mechanism: as experiment-mode patterns are
+  implemented, tests are opted in one at a time.
+- Use `-update` to populate the section: add an empty
+  `-- experiments_output.cue --` header (no content) to the txtar
+  file, then run `go test -run <TestFunc>/<name> -update`. The
+  framework populates both `output.cue` and `experiments_output.cue`.
+- Initially the experiments output is identical to normal output.
+  As converter patterns change for experiments mode, the opted-in
+  tests will show the difference.
+
+When adding or modifying experiment-mode converter patterns:
+- Opt in tests that exercise the changed pattern.
+- Verify round-trip equivalence passes for opted-in tests.
+- Do **not** bulk-opt-in all tests at once — opt in as patterns are
+  implemented and verified.
 
 ## Continuous improvement
 
