@@ -183,7 +183,8 @@ The core of the project: each template is converted by walking its Go
    `{{ include }}`/`{{ template }}` call site, which determines whether
    the helper produces structured YAML (CUE struct) or plain text (CUE
    string) based on the YAML context and pipeline functions. See
-   [`doc.go`](doc.go) for the full helper conversion strategy.
+   [`doc.go`](doc.go) for a detailed discussion of the fundamental
+   ambiguity in helper type inference and the approach used to resolve it.
 2. **Direct CUE emission** — the AST is walked node by node. Text nodes are
    parsed line-by-line as YAML fragments, tracking indent context via a frame
    stack. Template actions (e.g. `{{ .Values.x }}`) are emitted as CUE
