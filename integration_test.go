@@ -22,6 +22,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/rogpeppe/go-internal/diff"
 )
 
 // TestConvertChartIntegration pulls real-world charts via helm and verifies
@@ -139,38 +141,8 @@ func TestConvertChartIntegration(t *testing.T) {
 				t.Fatalf("reading golden file (run with -update to create): %v", err)
 			}
 			if string(want) != got {
-				t.Errorf("golden file mismatch (-want +got):\n%s", lineDiff(string(want), got))
+				t.Errorf("golden file mismatch:\n%s", diff.Diff("want", want, "got", []byte(got)))
 			}
 		})
 	}
-}
-
-// lineDiff returns a simple line-by-line diff between two strings.
-func lineDiff(want, got string) string {
-	wantLines := strings.Split(want, "\n")
-	gotLines := strings.Split(got, "\n")
-
-	var buf strings.Builder
-	max := len(wantLines)
-	if len(gotLines) > max {
-		max = len(gotLines)
-	}
-	for i := range max {
-		var w, g string
-		if i < len(wantLines) {
-			w = wantLines[i]
-		}
-		if i < len(gotLines) {
-			g = gotLines[i]
-		}
-		if w != g {
-			if i < len(wantLines) {
-				fmt.Fprintf(&buf, "-%s\n", w)
-			}
-			if i < len(gotLines) {
-				fmt.Fprintf(&buf, "+%s\n", g)
-			}
-		}
-	}
-	return buf.String()
 }

@@ -25,6 +25,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/rogpeppe/go-internal/diff"
 	"gopkg.in/yaml.v3"
 )
 
@@ -315,8 +316,8 @@ func yamlStreamSemanticEqual(a, b []byte) error {
 		return fmt.Errorf("parsing second stream: %w", err)
 	}
 	if len(docsA) != len(docsB) {
-		return fmt.Errorf("document count mismatch: %d vs %d\n--- stream a:\n%s\n--- stream b:\n%s",
-			len(docsA), len(docsB), a, b)
+		return fmt.Errorf("document count mismatch: %d vs %d\n%s",
+			len(docsA), len(docsB), diff.Diff("stream a", a, "stream b", b))
 	}
 	used := make([]bool, len(docsB))
 	for i, da := range docsA {

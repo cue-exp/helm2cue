@@ -29,6 +29,7 @@ import (
 	"testing"
 	"text/template"
 
+	"github.com/rogpeppe/go-internal/diff"
 	"golang.org/x/tools/txtar"
 	"gopkg.in/yaml.v3"
 )
@@ -191,7 +192,7 @@ func runHelmConvertTest(t *testing.T, helmPath string, ar *txtar.Archive,
 		}
 	} else if hasHelmOutput {
 		if !bytes.Equal(helmOut, expectedHelmOutput) {
-			t.Errorf("helm output mismatch (-want +got):\n--- want:\n%s\n--- got:\n%s", expectedHelmOutput, helmOut)
+			t.Errorf("helm output mismatch:\n%s", diff.Diff("want", expectedHelmOutput, "got", helmOut))
 		}
 	}
 
@@ -275,12 +276,12 @@ func runHelmConvertTest(t *testing.T, helmPath string, ar *txtar.Archive,
 	}
 
 	if !bytes.Equal(got, expectedOutput) {
-		t.Errorf("output mismatch (-want +got):\n--- want:\n%s\n--- got:\n%s", expectedOutput, got)
+		t.Errorf("output mismatch:\n%s", diff.Diff("want", expectedOutput, "got", got))
 	}
 
 	if hasExpOutput && !bytes.Equal(expGot, expectedExpOutput) {
-		t.Errorf("experiments output mismatch (-want +got):\n--- want:\n%s\n--- got:\n%s",
-			expectedExpOutput, expGot)
+		t.Errorf("experiments output mismatch:\n%s",
+			diff.Diff("want", expectedExpOutput, "got", expGot))
 	}
 }
 
@@ -408,10 +409,10 @@ func yamlSemanticEqual(a, b []byte) error {
 			return nil
 		}
 		if errA == io.EOF {
-			return fmt.Errorf("helm has fewer documents than cue:\n--- helm:\n%s\n--- cue:\n%s", a, b)
+			return fmt.Errorf("helm has fewer documents than cue:\n%s", diff.Diff("helm", a, "cue", b))
 		}
 		if errB == io.EOF {
-			return fmt.Errorf("cue has fewer documents than helm:\n--- helm:\n%s\n--- cue:\n%s", a, b)
+			return fmt.Errorf("cue has fewer documents than helm:\n%s", diff.Diff("helm", a, "cue", b))
 		}
 		if errA != nil {
 			return fmt.Errorf("parsing helm YAML document %d: %w", i, errA)
@@ -420,7 +421,7 @@ func yamlSemanticEqual(a, b []byte) error {
 			return fmt.Errorf("parsing cue YAML document %d: %w", i, errB)
 		}
 		if !reflect.DeepEqual(va, vb) {
-			return fmt.Errorf("semantic mismatch in document %d:\n--- helm:\n%s\n--- cue:\n%s", i, a, b)
+			return fmt.Errorf("semantic mismatch in document %d:\n%s", i, diff.Diff("helm", a, "cue", b))
 		}
 	}
 }
@@ -585,7 +586,7 @@ func TestConvertCore(t *testing.T) {
 			}
 
 			if !bytes.Equal(got, expectedOutput) {
-				t.Errorf("output mismatch (-want +got):\n--- want:\n%s\n--- got:\n%s", expectedOutput, got)
+				t.Errorf("output mismatch:\n%s", diff.Diff("want", expectedOutput, "got", got))
 			}
 
 			// If values.yaml is provided, verify the generated CUE produces
