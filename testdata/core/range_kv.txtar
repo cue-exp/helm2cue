@@ -22,9 +22,7 @@ import "struct"
 output: [
 	{
 		labels: {
-			if (_nonzero & {
-				#arg: #input.labels
-			}).out for _key0, _val0 in #input.labels {
+			if (_nonzero & {#arg: #input.labels}).out for _key0, _val0 in #input.labels {
 				(_key0): _val0
 			}
 		}

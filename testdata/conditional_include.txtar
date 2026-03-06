@@ -34,9 +34,7 @@ import (
 	enabled?: bool | number | string | null
 	...
 }
-_myapp_enabled: strings.TrimSpace("\([if (_nonzero & {
-	#arg: #values.enabled
-}).out {
+_myapp_enabled: strings.TrimSpace("\([if (_nonzero & {#arg: #values.enabled}).out {
 	"true"
 }, ""][0])")
 
@@ -45,9 +43,7 @@ output: [
 		apiVersion: "v1"
 		kind:       "ConfigMap"
 		metadata: name: #values.name
-		if (_nonzero & {
-			#arg: _myapp_enabled
-		}).out {
+		if (_nonzero & {#arg: _myapp_enabled}).out {
 			data: status: "active"
 		}
 	},

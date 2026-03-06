@@ -30,9 +30,7 @@ output: [
 	{
 		apiVersion: "v1"
 		kind:       "ConfigMap"
-		metadata: namespace: [if (_nonzero & {
-			#arg: #values.namespace
-		}).out {
+		metadata: namespace: [if (_nonzero & {#arg: #values.namespace}).out {
 			#values.namespace
 		}, _myapp_namespace][0]
 	},

@@ -43,13 +43,9 @@ output: [
 		spec: containers: [
 			{
 				name: "test"
-				args: [if (_nonzero & {
-					#arg: #values.tls
-				}).out {
+				args: [if (_nonzero & {#arg: #values.tls}).out {
 					"a"
-				}, if (_nonzero & {
-					#arg: #values.tls
-				}).out {
+				}, if (_nonzero & {#arg: #values.tls}).out {
 					"b"
 				},
 				]

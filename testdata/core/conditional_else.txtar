@@ -20,14 +20,10 @@ import "struct"
 output: [
 	{
 		result: {
-			if (_nonzero & {
-				#arg: #input.debug
-			}).out {
+			if (_nonzero & {#arg: #input.debug}).out {
 				mode: "debug"
 			}
-			if !((_nonzero & {
-				#arg: #input.debug
-			}).out) {
+			if !((_nonzero & {#arg: #input.debug}).out) {
 				mode: "release"
 			}
 		}

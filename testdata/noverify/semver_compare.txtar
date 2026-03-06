@@ -39,9 +39,7 @@ output: [
 		if (_semverCompare & {
 			#constraint: ">= 1.19.0-0"
 			#version:    #capabilities.KubeVersion.Version
-		}).out && (_nonzero & {
-			#arg: #values.enabled
-		}).out {
+		}).out && (_nonzero & {#arg: #values.enabled}).out {
 			data: status: "active"
 		}
 	},

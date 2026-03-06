@@ -34,24 +34,16 @@ output: [
 		kind:       "ConfigMap"
 		metadata: name: "test"
 		data: {
-			if (_nonzero & {
-				#arg: #values.x
-			}).out {
+			if (_nonzero & {#arg: #values.x}).out {
 				a: "x1y"
 			}
-			if !((_nonzero & {
-				#arg: #values.x
-			}).out) {
+			if !((_nonzero & {#arg: #values.x}).out) {
 				a: "x2y"
 			}
-			if (_nonzero & {
-				#arg: #values.x
-			}).out {
+			if (_nonzero & {#arg: #values.x}).out {
 				b: "x3y"
 			}
-			if !((_nonzero & {
-				#arg: #values.x
-			}).out) {
+			if !((_nonzero & {#arg: #values.x}).out) {
 				b: "x4y"
 			}
 		}

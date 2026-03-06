@@ -73,9 +73,7 @@ _myapp_labels: {
 		component?: bool | number | string | null
 		...
 	}
-	"app.kubernetes.io/component": [if (_nonzero & {
-		#arg: #arg.component
-	}).out {
+	"app.kubernetes.io/component": [if (_nonzero & {#arg: #arg.component}).out {
 		#arg.component
 	}, ""][0]
 }

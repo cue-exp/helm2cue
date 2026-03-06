@@ -57,10 +57,6 @@ _nonzero: {
 	}, false][0]
 }
 
-_test_validateValues_cloneRepo: [if (_nonzero & {
-	#arg: #values.cloneRepo.enabled
-}).out && !((_nonzero & {
-	#arg: #values.cloneRepo.repository
-}).out) {
+_test_validateValues_cloneRepo: [if (_nonzero & {#arg: #values.cloneRepo.enabled}).out && !((_nonzero & {#arg: #values.cloneRepo.repository}).out) {
 	"test: cloneRepo\n    When enabling cloning a repo, both\n    the repository and branch must be provided."
 }, ""][0]

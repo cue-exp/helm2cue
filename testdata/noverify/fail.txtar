@@ -17,9 +17,7 @@ import "struct"
 
 output: [
 	{
-		if !((_nonzero & {
-			#arg: #values.required
-		}).out) {
+		if !((_nonzero & {#arg: #values.required}).out) {
 			error("required must be set")
 		}
 		data: #values.name

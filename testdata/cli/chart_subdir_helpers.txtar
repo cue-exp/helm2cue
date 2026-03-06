@@ -113,9 +113,7 @@ deployment: [
 			labels: _subdir_helpers_operator_labels
 		}
 		spec: {
-			replicas: [if (_nonzero & {
-				#arg: #values.replicaCount
-			}).out {
+			replicas: [if (_nonzero & {#arg: #values.replicaCount}).out {
 				#values.replicaCount
 			}, 1][0]
 			selector: matchLabels: app: _subdir_helpers_name

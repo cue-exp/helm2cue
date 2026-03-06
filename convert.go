@@ -526,10 +526,14 @@ func parenExpr(x ast.Expr) *ast.ParenExpr {
 
 // nonzeroExpr builds (_nonzero & {#arg: expr}).out.
 func nonzeroExpr(expr ast.Expr) ast.Expr {
+	argLabel := ast.NewIdent("#arg")
+	ast.SetRelPos(argLabel, token.NoSpace)
 	return selExpr(parenExpr(binOp(token.AND, ast.NewIdent("_nonzero"),
-		&ast.StructLit{Elts: []ast.Decl{
-			&ast.Field{Label: ast.NewIdent("#arg"), Value: expr},
-		}})), "out")
+		&ast.StructLit{
+			Lbrace: token.Blank.Pos(),
+			Rbrace: token.Blank.Pos(),
+			Elts:   []ast.Decl{&ast.Field{Label: argLabel, Value: expr}},
+		})), "out")
 }
 
 // defaultExpr builds a Helm-compatible default expression.

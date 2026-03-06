@@ -37,9 +37,7 @@ output: [
 		kind:       "ConfigMap"
 		metadata: name: "test"
 		data: {
-			if (_nonzero & {
-				#arg: #values["prometheus-node-exporter"].kubeRBACProxy.enabled
-			}).out {
+			if (_nonzero & {#arg: #values["prometheus-node-exporter"].kubeRBACProxy.enabled}).out {
 				proxy: "enabled"
 				port:  "\(#values["prometheus-node-exporter"].kubeRBACProxy.port)"
 			}
