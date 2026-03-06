@@ -542,7 +542,13 @@ func nonzeroExpr(expr ast.Expr) ast.Expr {
 // this produces [if (_nonzero & {#arg: expr, _}) {expr}, defaultVal][0]
 // which falls back when expr is a zero value (null, "", 0, false, [], {}),
 // matching Helm's default semantics.
+//
+// In experiments mode, stores a pending try/fallback comprehension
+// on the converter for emitRawField to pick up.
 func (c *converter) defaultExpr(expr, defaultVal ast.Expr) ast.Expr {
+	if c.config.Experiments {
+		return c.tryDefaultExpr(expr, defaultVal)
+	}
 	c.hasDefault = true
 	return &ast.IndexExpr{
 		X: &ast.ListLit{
@@ -559,6 +565,45 @@ func (c *converter) defaultExpr(expr, defaultVal ast.Expr) ast.Expr {
 			},
 		},
 		Index: cueInt(0),
+	}
+}
+
+// deferredTryDefault carries the components for a try/fallback comprehension.
+// It satisfies ast.Expr (via embedded *ast.Ident) so it can flow through the
+// normal expression return path. emitRawField recognizes it via type assertion
+// and emits the comprehension with the actual field label.
+type deferredTryDefault struct {
+	*ast.Ident              // satisfies ast.Expr; never used as a real node
+	source     ast.Expr     // source expression (e.g. #values.name)
+	defaultVal ast.Expr     // fallback value
+	clauses    []ast.Clause // try + if clauses
+}
+
+// tryDefaultExpr builds a deferred try/fallback default for experiments mode.
+// Returns a deferredTryDefault that emitRawField will recognize and expand
+// into a comprehension with the actual field label.
+//
+// The try clause handles field existence (absent optional fields),
+// and the if clause preserves Helm's full truthiness semantics
+// (zero values like "", 0, false also trigger the fallback).
+func (c *converter) tryDefaultExpr(expr, defaultVal ast.Expr) ast.Expr {
+	c.hasDefault = true
+	varIdent := ast.NewIdent("_x")
+	return &deferredTryDefault{
+		source:     expr,
+		defaultVal: defaultVal,
+		clauses: []ast.Clause{
+			&ast.TryClause{
+				Ident: varIdent,
+				Expr: &ast.PostfixExpr{
+					X:  expr,
+					Op: token.OPTION,
+				},
+			},
+			&ast.IfClause{
+				Condition: nonzeroExpr(varIdent),
+			},
+		},
 	}
 }
 
@@ -956,14 +1001,28 @@ func (c *converter) appendListExpr(e ast.Expr) {
 // emitField creates an ast.Field and appends it to the current scope.
 func (c *converter) emitField(key string, value ast.Expr) {
 	label := cueKeyLabel(key)
-	c.appendToParent(&ast.Field{
-		Label: label,
-		Value: value,
-	})
+	c.emitRawField(label, value)
 }
 
 // emitRawField creates an ast.Field with a pre-built label and appends it.
+// In experiments mode, if value is a deferredTryDefault (from tryDefaultExpr),
+// the field is replaced by a try/fallback comprehension with the actual field
+// label on both branches.
 func (c *converter) emitRawField(label ast.Label, value ast.Expr) {
+	if td, ok := value.(*deferredTryDefault); ok {
+		c.appendToParent(&ast.Comprehension{
+			Clauses: td.clauses,
+			Value: &ast.StructLit{Elts: []ast.Decl{
+				&ast.Field{Label: label, Value: ast.NewIdent("_x")},
+			}},
+			Fallback: &ast.FallbackClause{
+				Body: &ast.StructLit{Elts: []ast.Decl{
+					&ast.Field{Label: label, Value: td.defaultVal},
+				}},
+			},
+		})
+		return
+	}
 	c.appendToParent(&ast.Field{
 		Label: label,
 		Value: value,
