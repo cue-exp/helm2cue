@@ -87,14 +87,8 @@ _trunc: {
 	if _r > #n {out: strings.SliceRunes(#in, 0, #n)}
 }
 
-_subdir_helpers_fullname: strings.TrimSuffix((_trunc & {
-	#in: "\(#release.Name)-\(#chart.Name)"
-	#n:  63
-}).out, "-")
-_subdir_helpers_name: strings.TrimSuffix((_trunc & {
-	#in: #chart.Name
-	#n:  63
-}).out, "-")
+_subdir_helpers_fullname: strings.TrimSuffix((_trunc & {#in: "\(#release.Name)-\(#chart.Name)", #n: 63}).out, "-")
+_subdir_helpers_name: strings.TrimSuffix((_trunc & {#in: #chart.Name, #n: 63}).out, "-")
 _subdir_helpers_operator_labels: {
 	"app.kubernetes.io/component": "operator"
 	"app.kubernetes.io/name":      _subdir_helpers_name
@@ -113,9 +107,7 @@ deployment: [
 			labels: _subdir_helpers_operator_labels
 		}
 		spec: {
-			replicas: [if (_nonzero & {
-				#arg: #values.replicaCount
-			}).out {
+			replicas: [if (_nonzero & {#arg: #values.replicaCount}).out {
 				#values.replicaCount
 			}, 1][0]
 			selector: matchLabels: app: _subdir_helpers_name

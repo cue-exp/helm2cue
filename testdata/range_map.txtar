@@ -44,18 +44,16 @@ import "struct"
 }
 
 output: [
-	if (_nonzero & {
-		#arg: #values.server.enabled
-	}).out {
+	if (_nonzero & {#arg: #values.server.enabled}).out {
 		{
 			apiVersion: "v1"
 			kind:       "ConfigMap"
 			metadata: name: "test"
-			data: paths: [if (_nonzero & {
-				#arg: #values.server.paths
-			}).out for _, _range0 in #values.server.paths {
-				_range0
-			},
+			data: paths: [
+				if (_nonzero & {#arg: #values.server.paths}).out
+				for _, _range0 in #values.server.paths {
+					_range0
+				},
 			]
 		}
 	},

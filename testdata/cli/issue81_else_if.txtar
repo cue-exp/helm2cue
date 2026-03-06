@@ -35,16 +35,10 @@ deploy: [
 		kind:       "ConfigMap"
 		metadata: name: "test"
 		data: {
-			if (_nonzero & {
-				#arg: #values.x
-			}).out {
+			if (_nonzero & {#arg: #values.x}).out {
 				key: #values.x
 			}
-			if !((_nonzero & {
-				#arg: #values.x
-			}).out) if (_nonzero & {
-				#arg: #values.y
-			}).out {
+			if !((_nonzero & {#arg: #values.x}).out) if (_nonzero & {#arg: #values.y}).out {
 				key: #values.y
 			}
 		}

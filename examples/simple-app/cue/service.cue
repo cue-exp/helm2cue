@@ -11,16 +11,12 @@ service: [
 			labels: _simple_app_labels
 		}
 		spec: {
-			type: [if (_nonzero & {
-				#arg: #values.service.type
-			}).out {
+			type: [if (_nonzero & {#arg: #values.service.type}).out {
 				#values.service.type
 			}, "ClusterIP"][0]
 			ports: [
 				{
-					port: [if (_nonzero & {
-						#arg: #values.service.port
-					}).out {
+					port: [if (_nonzero & {#arg: #values.service.port}).out {
 						#values.service.port
 					}, 80][0]
 					targetPort: "http"

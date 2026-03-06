@@ -38,19 +38,13 @@ output: [
 		kind:       "ConfigMap"
 		metadata: name: "test"
 		data: {
-			items: [if (_nonzero & {
-				#arg: #values.items
-			}).out {
+			items: [if (_nonzero & {#arg: #values.items}).out {
 				#values.items
 			}, []][0]
-			bare: [if (_nonzero & {
-				#arg: #values.items
-			}).out {
+			bare: [if (_nonzero & {#arg: #values.items}).out {
 				#values.items
 			}, []][0]
-			labels: [if (_nonzero & {
-				#arg: #values.labels
-			}).out {
+			labels: [if (_nonzero & {#arg: #values.labels}).out {
 				#values.labels
 			}, {}][0]
 		}

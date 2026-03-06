@@ -31,13 +31,9 @@ output: [
 		apiVersion: "v1"
 		kind:       "ConfigMap"
 		metadata: name: "test"
-		data: result: [if (_nonzero & {
-			#arg: #values.a
-		}).out {
+		data: result: [if (_nonzero & {#arg: #values.a}).out {
 			#values.a
-		}, if (_nonzero & {
-			#arg: #values.b
-		}).out {
+		}, if (_nonzero & {#arg: #values.b}).out {
 			#values.b
 		}, "default"][0]
 	},

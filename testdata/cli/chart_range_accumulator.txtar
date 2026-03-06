@@ -37,8 +37,9 @@ test: [
 		apiVersion: "v1"
 		kind:       "ConfigMap"
 		metadata: name: "test"
-		data: result: strings.Join([for _, _range0 in #values.items {
-			_range0
-		}], ",")
+		data: result: strings.Join([
+			for _, _range0 in #values.items {
+				_range0
+			}], ",")
 	},
 ]

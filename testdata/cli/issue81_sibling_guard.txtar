@@ -34,9 +34,7 @@ deploy: [
 		kind:       "ConfigMap"
 		metadata: name: "test"
 		data: {
-			if (_nonzero & {
-				#arg: #values.config.enabled
-			}).out {
+			if (_nonzero & {#arg: #values.config.enabled}).out {
 				name: #values.config.name
 			}
 		}

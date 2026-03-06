@@ -48,19 +48,13 @@ deployment: [
 		spec: containers: [
 			{
 				name: "test"
-				args: [if (_nonzero & {
-					#arg: #values.tls.enabled
-				}).out {
+				args: [if (_nonzero & {#arg: #values.tls.enabled}).out {
 					#values.tls.port
-				}, if !((_nonzero & {
-					#arg: #values.tls.enabled
-				}).out) {
+				}, if !((_nonzero & {#arg: #values.tls.enabled}).out) {
 					"8080"
 				},
 				]
-				if (_nonzero & {
-					#arg: #values.tls.enabled
-				}).out {
+				if (_nonzero & {#arg: #values.tls.enabled}).out {
 					ports: [
 						{
 							containerPort: #values.tls.port
@@ -68,9 +62,7 @@ deployment: [
 						},
 					]
 				}
-				if !((_nonzero & {
-					#arg: #values.tls.enabled
-				}).out) {
+				if !((_nonzero & {#arg: #values.tls.enabled}).out) {
 					ports: [
 						{
 							containerPort: 8080

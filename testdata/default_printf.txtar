@@ -25,9 +25,7 @@ import "struct"
 
 output: [
 	{
-		tag: [if (_nonzero & {
-			#arg: #values.image.tag
-		}).out {
+		tag: [if (_nonzero & {#arg: #values.image.tag}).out {
 			#values.image.tag
 		}, "v\(#chart.AppVersion)"][0]
 	},

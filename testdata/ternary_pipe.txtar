@@ -32,14 +32,10 @@ output: [
 		kind:       "ConfigMap"
 		metadata: name: "test"
 		data: {
-			debug: "\([if (_nonzero & {
-				#arg: #values.debug
-			}).out {
+			debug: "\([if (_nonzero & {#arg: #values.debug}).out {
 				"true"
 			}, "false"][0])"
-			scheme: [if (_nonzero & {
-				#arg: #values.debug
-			}).out {
+			scheme: [if (_nonzero & {#arg: #values.debug}).out {
 				"https"
 			}, "http"][0]
 		}

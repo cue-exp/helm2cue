@@ -37,9 +37,7 @@ output: [
 		apiVersion: "v1"
 		kind:       "ConfigMap"
 		metadata: name: "test"
-		data: items: [if (_nonzero & {
-			#arg: #values.extra
-		}).out {
+		data: items: [if (_nonzero & {#arg: #values.extra}).out {
 			#values.extra
 		},
 			{

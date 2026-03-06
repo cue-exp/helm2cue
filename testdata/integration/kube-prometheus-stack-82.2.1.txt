@@ -10,201 +10,201 @@ converted 171/171 templates from kube-prometheus-stack
 -- cue export --
 exit status 1
 alertmanager_alertmanager.0.metadata.labels.chart: incomplete value _:
-    ./helpers.cue:742:34
+    ./helpers.cue:531:34
 alertmanager_alertmanager.0.spec.alertmanagerConfigNamespaceSelector: error in call to text/template.Execute: cannot convert non-concrete value _:
-    ./alertmanager_alertmanager.cue:176:57
+    ./alertmanager_alertmanager.cue:100:57
     ./context.cue:20:1
 exporters_kube_api_server_servicemonitor.0.spec.endpoints.0.metricRelabelings: error in call to text/template.Execute: cannot convert non-concrete value _:
-    ./exporters_kube_api_server_servicemonitor.cue:66:42
+    ./exporters_kube_api_server_servicemonitor.cue:48:42
     ./context.cue:20:1
 exporters_kubelet_servicemonitor.0.spec.endpoints.0.metricRelabelings: error in call to text/template.Execute: cannot convert non-concrete value _:
-    ./exporters_kubelet_servicemonitor.cue:93:42
+    ./exporters_kubelet_servicemonitor.cue:67:42
     ./context.cue:20:1
 exporters_kubelet_servicemonitor.0.spec.endpoints.0.relabelings: error in call to text/template.Execute: cannot convert non-concrete value _:
-    ./exporters_kubelet_servicemonitor.cue:98:36
+    ./exporters_kubelet_servicemonitor.cue:70:36
     ./context.cue:20:1
 exporters_kubelet_servicemonitor.0.spec.endpoints.1.metricRelabelings: error in call to text/template.Execute: cannot convert non-concrete value _:
-    ./exporters_kubelet_servicemonitor.cue:144:42
+    ./exporters_kubelet_servicemonitor.cue:100:42
     ./context.cue:20:1
 exporters_kubelet_servicemonitor.0.spec.endpoints.1.relabelings: error in call to text/template.Execute: cannot convert non-concrete value _:
-    ./exporters_kubelet_servicemonitor.cue:149:36
+    ./exporters_kubelet_servicemonitor.cue:103:36
     ./context.cue:20:1
 exporters_kubelet_servicemonitor.0.spec.endpoints.2.relabelings: error in call to text/template.Execute: cannot convert non-concrete value _:
-    ./exporters_kubelet_servicemonitor.cue:185:36
+    ./exporters_kubelet_servicemonitor.cue:127:36
     ./context.cue:20:1
 grafana_configmaps_datasources.0.metadata.labels: invalid interpolation: error in call to text/template.Execute: cannot convert non-concrete value _:
-    ./grafana_configmaps_datasources.cue:31:13
+    ./grafana_configmaps_datasources.cue:23:13
     ./context.cue:20:1
-    ./grafana_configmaps_datasources.cue:31:124
+    ./grafana_configmaps_datasources.cue:23:124
 grafana_dashboards_1_14_alertmanager_overview.0.metadata.labels: key value of dynamic field must be concrete, found _|_(grafana_dashboards_1_14_alertmanager_overview.0.metadata.labels: error in call to text/template.Execute: cannot convert non-concrete value _):
-    ./grafana_dashboards_1_14_alertmanager_overview.cue:54:8
-    ./grafana_dashboards_1_14_alertmanager_overview.cue:54:23
+    ./grafana_dashboards_1_14_alertmanager_overview.cue:29:8
+    ./grafana_dashboards_1_14_alertmanager_overview.cue:29:23
 grafana_dashboards_1_14_alertmanager_overview.0.metadata.labels: error in call to text/template.Execute: cannot convert non-concrete value _:
-    ./grafana_dashboards_1_14_alertmanager_overview.cue:54:23
+    ./grafana_dashboards_1_14_alertmanager_overview.cue:29:23
     ./context.cue:20:1
 grafana_dashboards_1_14_apiserver.0.metadata.labels: key value of dynamic field must be concrete, found _|_(grafana_dashboards_1_14_apiserver.0.metadata.labels: error in call to text/template.Execute: cannot convert non-concrete value _):
-    ./grafana_dashboards_1_14_apiserver.cue:52:8
-    ./grafana_dashboards_1_14_apiserver.cue:52:23
+    ./grafana_dashboards_1_14_apiserver.cue:29:8
+    ./grafana_dashboards_1_14_apiserver.cue:29:23
 grafana_dashboards_1_14_apiserver.0.metadata.labels: error in call to text/template.Execute: cannot convert non-concrete value _:
-    ./grafana_dashboards_1_14_apiserver.cue:52:23
+    ./grafana_dashboards_1_14_apiserver.cue:29:23
     ./context.cue:20:1
 grafana_dashboards_1_14_cluster_total.0.metadata.labels: key value of dynamic field must be concrete, found _|_(grafana_dashboards_1_14_cluster_total.0.metadata.labels: error in call to text/template.Execute: cannot convert non-concrete value _):
-    ./grafana_dashboards_1_14_cluster_total.cue:50:8
-    ./grafana_dashboards_1_14_cluster_total.cue:50:23
+    ./grafana_dashboards_1_14_cluster_total.cue:29:8
+    ./grafana_dashboards_1_14_cluster_total.cue:29:23
 grafana_dashboards_1_14_cluster_total.0.metadata.labels: error in call to text/template.Execute: cannot convert non-concrete value _:
-    ./grafana_dashboards_1_14_cluster_total.cue:50:23
+    ./grafana_dashboards_1_14_cluster_total.cue:29:23
     ./context.cue:20:1
 grafana_dashboards_1_14_controller_manager.0.metadata.labels: key value of dynamic field must be concrete, found _|_(grafana_dashboards_1_14_controller_manager.0.metadata.labels: error in call to text/template.Execute: cannot convert non-concrete value _):
-    ./grafana_dashboards_1_14_controller_manager.cue:52:8
-    ./grafana_dashboards_1_14_controller_manager.cue:52:23
+    ./grafana_dashboards_1_14_controller_manager.cue:29:8
+    ./grafana_dashboards_1_14_controller_manager.cue:29:23
 grafana_dashboards_1_14_controller_manager.0.metadata.labels: error in call to text/template.Execute: cannot convert non-concrete value _:
-    ./grafana_dashboards_1_14_controller_manager.cue:52:23
+    ./grafana_dashboards_1_14_controller_manager.cue:29:23
     ./context.cue:20:1
 grafana_dashboards_1_14_etcd.0.metadata.labels: key value of dynamic field must be concrete, found _|_(grafana_dashboards_1_14_etcd.0.metadata.labels: error in call to text/template.Execute: cannot convert non-concrete value _):
-    ./grafana_dashboards_1_14_etcd.cue:52:8
-    ./grafana_dashboards_1_14_etcd.cue:52:23
+    ./grafana_dashboards_1_14_etcd.cue:29:8
+    ./grafana_dashboards_1_14_etcd.cue:29:23
 grafana_dashboards_1_14_etcd.0.metadata.labels: error in call to text/template.Execute: cannot convert non-concrete value _:
-    ./grafana_dashboards_1_14_etcd.cue:52:23
+    ./grafana_dashboards_1_14_etcd.cue:29:23
     ./context.cue:20:1
 grafana_dashboards_1_14_grafana_overview.0.metadata.labels: key value of dynamic field must be concrete, found _|_(grafana_dashboards_1_14_grafana_overview.0.metadata.labels: error in call to text/template.Execute: cannot convert non-concrete value _):
-    ./grafana_dashboards_1_14_grafana_overview.cue:50:8
-    ./grafana_dashboards_1_14_grafana_overview.cue:50:23
+    ./grafana_dashboards_1_14_grafana_overview.cue:29:8
+    ./grafana_dashboards_1_14_grafana_overview.cue:29:23
 grafana_dashboards_1_14_grafana_overview.0.metadata.labels: error in call to text/template.Execute: cannot convert non-concrete value _:
-    ./grafana_dashboards_1_14_grafana_overview.cue:50:23
+    ./grafana_dashboards_1_14_grafana_overview.cue:29:23
     ./context.cue:20:1
 grafana_dashboards_1_14_k8s_coredns.0.metadata.labels: key value of dynamic field must be concrete, found _|_(grafana_dashboards_1_14_k8s_coredns.0.metadata.labels: error in call to text/template.Execute: cannot convert non-concrete value _):
-    ./grafana_dashboards_1_14_k8s_coredns.cue:52:8
-    ./grafana_dashboards_1_14_k8s_coredns.cue:52:23
+    ./grafana_dashboards_1_14_k8s_coredns.cue:29:8
+    ./grafana_dashboards_1_14_k8s_coredns.cue:29:23
 grafana_dashboards_1_14_k8s_coredns.0.metadata.labels: error in call to text/template.Execute: cannot convert non-concrete value _:
-    ./grafana_dashboards_1_14_k8s_coredns.cue:52:23
+    ./grafana_dashboards_1_14_k8s_coredns.cue:29:23
     ./context.cue:20:1
 grafana_dashboards_1_14_k8s_resources_cluster.0.metadata.labels: key value of dynamic field must be concrete, found _|_(grafana_dashboards_1_14_k8s_resources_cluster.0.metadata.labels: error in call to text/template.Execute: cannot convert non-concrete value _):
-    ./grafana_dashboards_1_14_k8s_resources_cluster.cue:50:8
-    ./grafana_dashboards_1_14_k8s_resources_cluster.cue:50:23
+    ./grafana_dashboards_1_14_k8s_resources_cluster.cue:29:8
+    ./grafana_dashboards_1_14_k8s_resources_cluster.cue:29:23
 grafana_dashboards_1_14_k8s_resources_cluster.0.metadata.labels: error in call to text/template.Execute: cannot convert non-concrete value _:
-    ./grafana_dashboards_1_14_k8s_resources_cluster.cue:50:23
+    ./grafana_dashboards_1_14_k8s_resources_cluster.cue:29:23
     ./context.cue:20:1
 grafana_dashboards_1_14_k8s_resources_multicluster.0.metadata.labels: key value of dynamic field must be concrete, found _|_(grafana_dashboards_1_14_k8s_resources_multicluster.0.metadata.labels: error in call to text/template.Execute: cannot convert non-concrete value _):
-    ./grafana_dashboards_1_14_k8s_resources_multicluster.cue:50:8
-    ./grafana_dashboards_1_14_k8s_resources_multicluster.cue:50:23
+    ./grafana_dashboards_1_14_k8s_resources_multicluster.cue:29:8
+    ./grafana_dashboards_1_14_k8s_resources_multicluster.cue:29:23
 grafana_dashboards_1_14_k8s_resources_multicluster.0.metadata.labels: error in call to text/template.Execute: cannot convert non-concrete value _:
-    ./grafana_dashboards_1_14_k8s_resources_multicluster.cue:50:23
+    ./grafana_dashboards_1_14_k8s_resources_multicluster.cue:29:23
     ./context.cue:20:1
 grafana_dashboards_1_14_k8s_resources_namespace.0.metadata.labels: key value of dynamic field must be concrete, found _|_(grafana_dashboards_1_14_k8s_resources_namespace.0.metadata.labels: error in call to text/template.Execute: cannot convert non-concrete value _):
-    ./grafana_dashboards_1_14_k8s_resources_namespace.cue:50:8
-    ./grafana_dashboards_1_14_k8s_resources_namespace.cue:50:23
+    ./grafana_dashboards_1_14_k8s_resources_namespace.cue:29:8
+    ./grafana_dashboards_1_14_k8s_resources_namespace.cue:29:23
 grafana_dashboards_1_14_k8s_resources_namespace.0.metadata.labels: error in call to text/template.Execute: cannot convert non-concrete value _:
-    ./grafana_dashboards_1_14_k8s_resources_namespace.cue:50:23
+    ./grafana_dashboards_1_14_k8s_resources_namespace.cue:29:23
     ./context.cue:20:1
 grafana_dashboards_1_14_k8s_resources_node.0.metadata.labels: key value of dynamic field must be concrete, found _|_(grafana_dashboards_1_14_k8s_resources_node.0.metadata.labels: error in call to text/template.Execute: cannot convert non-concrete value _):
-    ./grafana_dashboards_1_14_k8s_resources_node.cue:50:8
-    ./grafana_dashboards_1_14_k8s_resources_node.cue:50:23
+    ./grafana_dashboards_1_14_k8s_resources_node.cue:29:8
+    ./grafana_dashboards_1_14_k8s_resources_node.cue:29:23
 grafana_dashboards_1_14_k8s_resources_node.0.metadata.labels: error in call to text/template.Execute: cannot convert non-concrete value _:
-    ./grafana_dashboards_1_14_k8s_resources_node.cue:50:23
+    ./grafana_dashboards_1_14_k8s_resources_node.cue:29:23
     ./context.cue:20:1
 grafana_dashboards_1_14_k8s_resources_pod.0.metadata.labels: key value of dynamic field must be concrete, found _|_(grafana_dashboards_1_14_k8s_resources_pod.0.metadata.labels: error in call to text/template.Execute: cannot convert non-concrete value _):
-    ./grafana_dashboards_1_14_k8s_resources_pod.cue:50:8
-    ./grafana_dashboards_1_14_k8s_resources_pod.cue:50:23
+    ./grafana_dashboards_1_14_k8s_resources_pod.cue:29:8
+    ./grafana_dashboards_1_14_k8s_resources_pod.cue:29:23
 grafana_dashboards_1_14_k8s_resources_pod.0.metadata.labels: error in call to text/template.Execute: cannot convert non-concrete value _:
-    ./grafana_dashboards_1_14_k8s_resources_pod.cue:50:23
+    ./grafana_dashboards_1_14_k8s_resources_pod.cue:29:23
     ./context.cue:20:1
 grafana_dashboards_1_14_k8s_resources_workload.0.metadata.labels: key value of dynamic field must be concrete, found _|_(grafana_dashboards_1_14_k8s_resources_workload.0.metadata.labels: error in call to text/template.Execute: cannot convert non-concrete value _):
-    ./grafana_dashboards_1_14_k8s_resources_workload.cue:50:8
-    ./grafana_dashboards_1_14_k8s_resources_workload.cue:50:23
+    ./grafana_dashboards_1_14_k8s_resources_workload.cue:29:8
+    ./grafana_dashboards_1_14_k8s_resources_workload.cue:29:23
 grafana_dashboards_1_14_k8s_resources_workload.0.metadata.labels: error in call to text/template.Execute: cannot convert non-concrete value _:
-    ./grafana_dashboards_1_14_k8s_resources_workload.cue:50:23
+    ./grafana_dashboards_1_14_k8s_resources_workload.cue:29:23
     ./context.cue:20:1
 grafana_dashboards_1_14_k8s_resources_workloads_namespace.0.metadata.labels: key value of dynamic field must be concrete, found _|_(grafana_dashboards_1_14_k8s_resources_workloads_namespace.0.metadata.labels: error in call to text/template.Execute: cannot convert non-concrete value _):
-    ./grafana_dashboards_1_14_k8s_resources_workloads_namespace.cue:50:8
-    ./grafana_dashboards_1_14_k8s_resources_workloads_namespace.cue:50:23
+    ./grafana_dashboards_1_14_k8s_resources_workloads_namespace.cue:29:8
+    ./grafana_dashboards_1_14_k8s_resources_workloads_namespace.cue:29:23
 grafana_dashboards_1_14_k8s_resources_workloads_namespace.0.metadata.labels: error in call to text/template.Execute: cannot convert non-concrete value _:
-    ./grafana_dashboards_1_14_k8s_resources_workloads_namespace.cue:50:23
+    ./grafana_dashboards_1_14_k8s_resources_workloads_namespace.cue:29:23
     ./context.cue:20:1
 grafana_dashboards_1_14_kubelet.0.metadata.labels: key value of dynamic field must be concrete, found _|_(grafana_dashboards_1_14_kubelet.0.metadata.labels: error in call to text/template.Execute: cannot convert non-concrete value _):
-    ./grafana_dashboards_1_14_kubelet.cue:52:8
-    ./grafana_dashboards_1_14_kubelet.cue:52:23
+    ./grafana_dashboards_1_14_kubelet.cue:29:8
+    ./grafana_dashboards_1_14_kubelet.cue:29:23
 grafana_dashboards_1_14_kubelet.0.metadata.labels: error in call to text/template.Execute: cannot convert non-concrete value _:
-    ./grafana_dashboards_1_14_kubelet.cue:52:23
+    ./grafana_dashboards_1_14_kubelet.cue:29:23
     ./context.cue:20:1
 grafana_dashboards_1_14_namespace_by_pod.0.metadata.labels: key value of dynamic field must be concrete, found _|_(grafana_dashboards_1_14_namespace_by_pod.0.metadata.labels: error in call to text/template.Execute: cannot convert non-concrete value _):
-    ./grafana_dashboards_1_14_namespace_by_pod.cue:50:8
-    ./grafana_dashboards_1_14_namespace_by_pod.cue:50:23
+    ./grafana_dashboards_1_14_namespace_by_pod.cue:29:8
+    ./grafana_dashboards_1_14_namespace_by_pod.cue:29:23
 grafana_dashboards_1_14_namespace_by_pod.0.metadata.labels: error in call to text/template.Execute: cannot convert non-concrete value _:
-    ./grafana_dashboards_1_14_namespace_by_pod.cue:50:23
+    ./grafana_dashboards_1_14_namespace_by_pod.cue:29:23
     ./context.cue:20:1
 grafana_dashboards_1_14_namespace_by_workload.0.metadata.labels: key value of dynamic field must be concrete, found _|_(grafana_dashboards_1_14_namespace_by_workload.0.metadata.labels: error in call to text/template.Execute: cannot convert non-concrete value _):
-    ./grafana_dashboards_1_14_namespace_by_workload.cue:50:8
-    ./grafana_dashboards_1_14_namespace_by_workload.cue:50:23
+    ./grafana_dashboards_1_14_namespace_by_workload.cue:29:8
+    ./grafana_dashboards_1_14_namespace_by_workload.cue:29:23
 grafana_dashboards_1_14_namespace_by_workload.0.metadata.labels: error in call to text/template.Execute: cannot convert non-concrete value _:
-    ./grafana_dashboards_1_14_namespace_by_workload.cue:50:23
+    ./grafana_dashboards_1_14_namespace_by_workload.cue:29:23
     ./context.cue:20:1
 grafana_dashboards_1_14_node_cluster_rsrc_use.0.metadata.labels: key value of dynamic field must be concrete, found _|_(grafana_dashboards_1_14_node_cluster_rsrc_use.0.metadata.labels: error in call to text/template.Execute: cannot convert non-concrete value _):
-    ./grafana_dashboards_1_14_node_cluster_rsrc_use.cue:54:8
-    ./grafana_dashboards_1_14_node_cluster_rsrc_use.cue:54:23
+    ./grafana_dashboards_1_14_node_cluster_rsrc_use.cue:29:8
+    ./grafana_dashboards_1_14_node_cluster_rsrc_use.cue:29:23
 grafana_dashboards_1_14_node_cluster_rsrc_use.0.metadata.labels: error in call to text/template.Execute: cannot convert non-concrete value _:
-    ./grafana_dashboards_1_14_node_cluster_rsrc_use.cue:54:23
+    ./grafana_dashboards_1_14_node_cluster_rsrc_use.cue:29:23
     ./context.cue:20:1
 grafana_dashboards_1_14_node_rsrc_use.0.metadata.labels: key value of dynamic field must be concrete, found _|_(grafana_dashboards_1_14_node_rsrc_use.0.metadata.labels: error in call to text/template.Execute: cannot convert non-concrete value _):
-    ./grafana_dashboards_1_14_node_rsrc_use.cue:54:8
-    ./grafana_dashboards_1_14_node_rsrc_use.cue:54:23
+    ./grafana_dashboards_1_14_node_rsrc_use.cue:29:8
+    ./grafana_dashboards_1_14_node_rsrc_use.cue:29:23
 grafana_dashboards_1_14_node_rsrc_use.0.metadata.labels: error in call to text/template.Execute: cannot convert non-concrete value _:
-    ./grafana_dashboards_1_14_node_rsrc_use.cue:54:23
+    ./grafana_dashboards_1_14_node_rsrc_use.cue:29:23
     ./context.cue:20:1
 grafana_dashboards_1_14_nodes.0.metadata.labels: key value of dynamic field must be concrete, found _|_(grafana_dashboards_1_14_nodes.0.metadata.labels: error in call to text/template.Execute: cannot convert non-concrete value _):
-    ./grafana_dashboards_1_14_nodes.cue:56:8
-    ./grafana_dashboards_1_14_nodes.cue:56:23
+    ./grafana_dashboards_1_14_nodes.cue:29:8
+    ./grafana_dashboards_1_14_nodes.cue:29:23
 grafana_dashboards_1_14_nodes.0.metadata.labels: error in call to text/template.Execute: cannot convert non-concrete value _:
-    ./grafana_dashboards_1_14_nodes.cue:56:23
+    ./grafana_dashboards_1_14_nodes.cue:29:23
     ./context.cue:20:1
 grafana_dashboards_1_14_nodes_aix.0.metadata.labels: key value of dynamic field must be concrete, found _|_(grafana_dashboards_1_14_nodes_aix.0.metadata.labels: error in call to text/template.Execute: cannot convert non-concrete value _):
-    ./grafana_dashboards_1_14_nodes_aix.cue:56:8
-    ./grafana_dashboards_1_14_nodes_aix.cue:56:23
+    ./grafana_dashboards_1_14_nodes_aix.cue:29:8
+    ./grafana_dashboards_1_14_nodes_aix.cue:29:23
 grafana_dashboards_1_14_nodes_aix.0.metadata.labels: error in call to text/template.Execute: cannot convert non-concrete value _:
-    ./grafana_dashboards_1_14_nodes_aix.cue:56:23
+    ./grafana_dashboards_1_14_nodes_aix.cue:29:23
     ./context.cue:20:1
 grafana_dashboards_1_14_nodes_darwin.0.metadata.labels: key value of dynamic field must be concrete, found _|_(grafana_dashboards_1_14_nodes_darwin.0.metadata.labels: error in call to text/template.Execute: cannot convert non-concrete value _):
-    ./grafana_dashboards_1_14_nodes_darwin.cue:56:8
-    ./grafana_dashboards_1_14_nodes_darwin.cue:56:23
+    ./grafana_dashboards_1_14_nodes_darwin.cue:29:8
+    ./grafana_dashboards_1_14_nodes_darwin.cue:29:23
 grafana_dashboards_1_14_nodes_darwin.0.metadata.labels: error in call to text/template.Execute: cannot convert non-concrete value _:
-    ./grafana_dashboards_1_14_nodes_darwin.cue:56:23
+    ./grafana_dashboards_1_14_nodes_darwin.cue:29:23
     ./context.cue:20:1
 grafana_dashboards_1_14_persistentvolumesusage.0.metadata.labels: key value of dynamic field must be concrete, found _|_(grafana_dashboards_1_14_persistentvolumesusage.0.metadata.labels: error in call to text/template.Execute: cannot convert non-concrete value _):
-    ./grafana_dashboards_1_14_persistentvolumesusage.cue:50:8
-    ./grafana_dashboards_1_14_persistentvolumesusage.cue:50:23
+    ./grafana_dashboards_1_14_persistentvolumesusage.cue:29:8
+    ./grafana_dashboards_1_14_persistentvolumesusage.cue:29:23
 grafana_dashboards_1_14_persistentvolumesusage.0.metadata.labels: error in call to text/template.Execute: cannot convert non-concrete value _:
-    ./grafana_dashboards_1_14_persistentvolumesusage.cue:50:23
+    ./grafana_dashboards_1_14_persistentvolumesusage.cue:29:23
     ./context.cue:20:1
 grafana_dashboards_1_14_pod_total.0.metadata.labels: key value of dynamic field must be concrete, found _|_(grafana_dashboards_1_14_pod_total.0.metadata.labels: error in call to text/template.Execute: cannot convert non-concrete value _):
-    ./grafana_dashboards_1_14_pod_total.cue:50:8
-    ./grafana_dashboards_1_14_pod_total.cue:50:23
+    ./grafana_dashboards_1_14_pod_total.cue:29:8
+    ./grafana_dashboards_1_14_pod_total.cue:29:23
 grafana_dashboards_1_14_pod_total.0.metadata.labels: error in call to text/template.Execute: cannot convert non-concrete value _:
-    ./grafana_dashboards_1_14_pod_total.cue:50:23
+    ./grafana_dashboards_1_14_pod_total.cue:29:23
     ./context.cue:20:1
 grafana_dashboards_1_14_prometheus.0.metadata.labels: key value of dynamic field must be concrete, found _|_(grafana_dashboards_1_14_prometheus.0.metadata.labels: error in call to text/template.Execute: cannot convert non-concrete value _):
-    ./grafana_dashboards_1_14_prometheus.cue:50:8
-    ./grafana_dashboards_1_14_prometheus.cue:50:23
+    ./grafana_dashboards_1_14_prometheus.cue:29:8
+    ./grafana_dashboards_1_14_prometheus.cue:29:23
 grafana_dashboards_1_14_prometheus.0.metadata.labels: error in call to text/template.Execute: cannot convert non-concrete value _:
-    ./grafana_dashboards_1_14_prometheus.cue:50:23
+    ./grafana_dashboards_1_14_prometheus.cue:29:23
     ./context.cue:20:1
 grafana_dashboards_1_14_proxy.0.metadata.labels: key value of dynamic field must be concrete, found _|_(grafana_dashboards_1_14_proxy.0.metadata.labels: error in call to text/template.Execute: cannot convert non-concrete value _):
-    ./grafana_dashboards_1_14_proxy.cue:52:8
-    ./grafana_dashboards_1_14_proxy.cue:52:23
+    ./grafana_dashboards_1_14_proxy.cue:29:8
+    ./grafana_dashboards_1_14_proxy.cue:29:23
 grafana_dashboards_1_14_proxy.0.metadata.labels: error in call to text/template.Execute: cannot convert non-concrete value _:
-    ./grafana_dashboards_1_14_proxy.cue:52:23
+    ./grafana_dashboards_1_14_proxy.cue:29:23
     ./context.cue:20:1
 grafana_dashboards_1_14_scheduler.0.metadata.labels: key value of dynamic field must be concrete, found _|_(grafana_dashboards_1_14_scheduler.0.metadata.labels: error in call to text/template.Execute: cannot convert non-concrete value _):
-    ./grafana_dashboards_1_14_scheduler.cue:52:8
-    ./grafana_dashboards_1_14_scheduler.cue:52:23
+    ./grafana_dashboards_1_14_scheduler.cue:29:8
+    ./grafana_dashboards_1_14_scheduler.cue:29:23
 grafana_dashboards_1_14_scheduler.0.metadata.labels: error in call to text/template.Execute: cannot convert non-concrete value _:
-    ./grafana_dashboards_1_14_scheduler.cue:52:23
+    ./grafana_dashboards_1_14_scheduler.cue:29:23
     ./context.cue:20:1
 grafana_dashboards_1_14_workload_total.0.metadata.labels: key value of dynamic field must be concrete, found _|_(grafana_dashboards_1_14_workload_total.0.metadata.labels: error in call to text/template.Execute: cannot convert non-concrete value _):
-    ./grafana_dashboards_1_14_workload_total.cue:50:8
-    ./grafana_dashboards_1_14_workload_total.cue:50:23
+    ./grafana_dashboards_1_14_workload_total.cue:29:8
+    ./grafana_dashboards_1_14_workload_total.cue:29:23
 grafana_dashboards_1_14_workload_total.0.metadata.labels: error in call to text/template.Execute: cannot convert non-concrete value _:
-    ./grafana_dashboards_1_14_workload_total.cue:50:23
+    ./grafana_dashboards_1_14_workload_total.cue:29:23
     ./context.cue:20:1
 prometheus_operator_deployment.0.spec.template.spec.containers.0.args.10: invalid interpolation: error in call to text/template.Execute: cannot convert non-concrete value _:
-    ./prometheus_operator_deployment.cue:253:11
+    ./prometheus_operator_deployment.cue:151:11
     ./context.cue:20:1
-    ./prometheus_operator_deployment.cue:253:53
+    ./prometheus_operator_deployment.cue:151:53

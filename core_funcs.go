@@ -674,10 +674,10 @@ func convertOmit(c *converter, args []funcArg) (ast.Expr, string, error) {
 	c.usedHelpers["_omit"] = HelperDef{
 		Name: "_omit", Def: omitDef, Imports: []string{"list"},
 	}
-	expr := parenExpr(binOp(token.AND, ast.NewIdent("_omit"), &ast.StructLit{Elts: []ast.Decl{
+	expr := parenExpr(binOp(token.AND, ast.NewIdent("_omit"), compactStruct(
 		&ast.Field{Label: ast.NewIdent("#arg"), Value: mapExpr},
 		&ast.Field{Label: ast.NewIdent("#omit"), Value: keyList},
-	}}))
+	)))
 	return expr, helmObj, nil
 }
 
@@ -726,10 +726,10 @@ func convertMergeImpl(c *converter, args []funcArg, helperName, helperDef string
 			}
 		}
 		result = selExpr(
-			parenExpr(binOp(token.AND, ast.NewIdent(helperName), &ast.StructLit{Elts: []ast.Decl{
+			parenExpr(binOp(token.AND, ast.NewIdent(helperName), compactStruct(
 				&ast.Field{Label: ast.NewIdent("#a"), Value: result},
 				&ast.Field{Label: ast.NewIdent("#b"), Value: srcExpr},
-			}})),
+			))),
 			"out",
 		)
 	}

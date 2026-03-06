@@ -35,11 +35,7 @@ output: [
 		apiVersion: "v1"
 		kind:       "ConfigMap"
 		metadata: name: #values.name
-		if (_nonzero & {
-			#arg: #values.alpha
-		}).out || (_nonzero & {
-			#arg: #values.beta
-		}).out {
+		if (_nonzero & {#arg: #values.alpha}).out || (_nonzero & {#arg: #values.beta}).out {
 			data: status: "enabled"
 		}
 	},

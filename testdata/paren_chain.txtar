@@ -15,9 +15,7 @@ import "struct"
 
 output: [
 	{
-		cpu: [if (_nonzero & {
-			#arg: #values.cpu
-		}).out {
+		cpu: [if (_nonzero & {#arg: #values.cpu}).out {
 			#values.cpu
 		}, 0][0]
 	},

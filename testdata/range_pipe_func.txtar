@@ -41,15 +41,11 @@ output: [
 		apiVersion: "v1"
 		kind:       "ConfigMap"
 		metadata: name: "test"
-		data: namespaces: [if (_nonzero & {
-			#arg: (_uniq & {
-				#in: #values.denyNamespaces
-			}).out
-		}).out for _, _range0 in (_uniq & {
-			#in: #values.denyNamespaces
-		}).out {
-			_range0
-		},
+		data: namespaces: [
+			if (_nonzero & {#arg: (_uniq & {#in: #values.denyNamespaces}).out}).out
+			for _, _range0 in (_uniq & {#in: #values.denyNamespaces}).out {
+				_range0
+			},
 		]
 	},
 ]
@@ -70,5 +66,10 @@ _nonzero: {
 
 _uniq: {
 	#in: [...]
-	out: [for i, x in #in if !list.Contains(list.Slice(#in, 0, i), x) {x}]
+	out: [
+		for i, x in #in
+		if !list.Contains(list.Slice(#in, 0, i), x) {
+			x
+		},
+	]
 }

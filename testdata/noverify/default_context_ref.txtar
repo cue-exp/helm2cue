@@ -21,9 +21,7 @@ import "struct"
 
 output: [
 	{
-		name: [if (_nonzero & {
-			#arg: #values.nameOverride
-		}).out {
+		name: [if (_nonzero & {#arg: #values.nameOverride}).out {
 			#values.nameOverride
 		}, #chart.Name][0]
 	},

@@ -33,13 +33,9 @@ cm: [
 		apiVersion: "v1"
 		kind:       "ConfigMap"
 		metadata: name: "test"
-		data: kube: [if (_nonzero & {
-			#arg: #values.global.kubeVersion
-		}).out {
+		data: kube: [if (_nonzero & {#arg: #values.global.kubeVersion}).out {
 			#values.global.kubeVersion
-		}, [if (_nonzero & {
-			#arg: #values.kubeVersion
-		}).out {
+		}, [if (_nonzero & {#arg: #values.kubeVersion}).out {
 			#values.kubeVersion
 		}, #capabilities.KubeVersion.Version][0]][0]
 	},
