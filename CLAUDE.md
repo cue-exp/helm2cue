@@ -450,10 +450,10 @@ when a particular node type is encountered.
 ### Helper conversion
 
 Helper output type detection (scalar vs struct) uses call-site-driven
-deferred conversion. See the large doc comment before Phase 0b in
-`convert.go` for the full explanation of the approach, including the
-type detection signals (pipeline functions, YAML position) and the
-scalar conversion tiers.
+deferred conversion. See `doc.go` for the full explanation of the
+approach, including the type detection signals (pipeline functions,
+YAML position), signal confidence (strong vs weak via
+`helperTypeInfo`), conflict detection, and the scalar conversion tiers.
 
 ### Pulling integration test charts
 

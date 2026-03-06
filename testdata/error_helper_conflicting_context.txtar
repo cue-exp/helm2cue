@@ -1,0 +1,20 @@
+Helper used with strong conflicting pipeline signals produces a
+conflicting context error. The first include pipes to join (strong
+struct signal, expects list input), the second pipes to quote
+(strong scalar signal, expects string input).
+
+-- _helpers.tpl --
+{{- define "my.items" -}}
+one two three
+{{- end -}}
+
+-- values.yaml --
+name: test
+-- input.yaml --
+items: {{ include "my.items" . | join "," }}
+label: {{ include "my.items" . | quote }}
+-- helm_output.yaml --
+items: one two three
+label: "one two three"
+-- broken --
+conflicting contexts

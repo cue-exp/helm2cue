@@ -1,4 +1,6 @@
 -- ConvertChart --
+warning: helper "common.resources.preset" used as scalar but was first converted as struct; output may be incorrect
+warning: helper "common.tplvalues.render" used as scalar but was first converted as struct; output may be incorrect
 warning: skipping ingress-tls-secret.yaml (doc 2): unsupported template action: {{$ca := genCA "nginx-ca" 365}}
 warning: skipping tls-secret.yaml (doc 0): unsupported template action: {{$ca := genCA "nginx-ca" 365}}
 converted 14/16 templates from nginx

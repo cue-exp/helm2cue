@@ -182,7 +182,8 @@ The core of the project: each template is converted by walking its Go
    bodies are recorded but not converted until their first
    `{{ include }}`/`{{ template }}` call site, which determines whether
    the helper produces structured YAML (CUE struct) or plain text (CUE
-   string) based on the YAML context and pipeline functions.
+   string) based on the YAML context and pipeline functions. See
+   [`doc.go`](doc.go) for the full helper conversion strategy.
 2. **Direct CUE emission** — the AST is walked node by node. Text nodes are
    parsed line-by-line as YAML fragments, tracking indent context via a frame
    stack. Template actions (e.g. `{{ .Values.x }}`) are emitted as CUE
@@ -404,19 +405,6 @@ The following issues track fundamental design questions that affect how
 templates are converted. They are not simple bugs — they represent tensions
 in the mapping from Go `text/template` semantics to CUE, and may require
 ongoing refinement as more real-world charts are tested.
-
-- [**#92 — Helper output type: body analysis vs call-site
-  analysis**](https://github.com/cue-exp/helm2cue/issues/92) — When a
-  helper produces multi-line output, the converter must decide whether it
-  is structured YAML (emitted as CUE struct fields) or plain text (emitted
-  as a CUE string). All helpers are deferred until their first
-  `include`/`template` call site, where the YAML context (inline string,
-  block scalar, etc.) and the pipeline's first non-cosmetic function
-  together determine the output form. This resolved the
-  `strings.TrimSpace on struct` errors in kube-prometheus-stack. Open
-  area: helpers used in both struct and scalar contexts currently use
-  first-encounter-wins; a more principled approach (dual forms or explicit
-  annotation) may be needed.
 
 - [**#93 — Improve readability of generated
   CUE**](https://github.com/cue-exp/helm2cue/issues/93) — The generated
