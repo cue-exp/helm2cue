@@ -49,30 +49,18 @@ test: [
 		spec: containers: [
 			{
 				name: "test"
-				args: [if (_nonzero & {
-					#arg: #values.tls
-				}).out {
-					if (_nonzero & {
-						#arg: #values.x
-					}).out {
+				args: [if (_nonzero & {#arg: #values.tls}).out {
+					if (_nonzero & {#arg: #values.x}).out {
 						"\"a=1\""
 					}
-					if !((_nonzero & {
-						#arg: #values.x
-					}).out) {
+					if !((_nonzero & {#arg: #values.x}).out) {
 						"\"a=2\""
 					}
-				}, if (_nonzero & {
-					#arg: #values.tls
-				}).out {
-					if (_nonzero & {
-						#arg: #values.x
-					}).out {
+				}, if (_nonzero & {#arg: #values.tls}).out {
+					if (_nonzero & {#arg: #values.x}).out {
 						"\"b=3\""
 					}
-					if !((_nonzero & {
-						#arg: #values.x
-					}).out) {
+					if !((_nonzero & {#arg: #values.x}).out) {
 						"\"b=4\""
 					}
 				},

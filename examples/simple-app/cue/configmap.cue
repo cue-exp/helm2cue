@@ -11,19 +11,13 @@ configmap: [
 			labels: _simple_app_labels
 		}
 		data: {
-			environment: "\([if (_nonzero & {
-				#arg: #values.env
-			}).out {
+			environment: "\([if (_nonzero & {#arg: #values.env}).out {
 				#values.env
 			}, "development"][0])"
-			if (_nonzero & {
-				#arg: #values.debug
-			}).out {
+			if (_nonzero & {#arg: #values.debug}).out {
 				logLevel: "debug"
 			}
-			if !((_nonzero & {
-				#arg: #values.debug
-			}).out) {
+			if !((_nonzero & {#arg: #values.debug}).out) {
 				logLevel: "info"
 			}
 		}

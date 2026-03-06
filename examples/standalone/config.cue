@@ -24,34 +24,27 @@ output: [
 	{
 		server: {
 			name: _fullname, address: "\(#values.host):\(#values.port)"
-			if (_nonzero & {
-				#arg: #values.debug
-			}).out {
+			if (_nonzero & {#arg: #values.debug}).out {
 				logLevel: "debug"
 			}
-			if !((_nonzero & {
-				#arg: #values.debug
-			}).out) {
+			if !((_nonzero & {#arg: #values.debug}).out) {
 				logLevel: "info"
 			}
-			if (_nonzero & {
-				#arg: #values.tls
-			}).out {
+			if (_nonzero & {#arg: #values.tls}).out {
 				tls: {
 					cert: #values.tls.cert, key: #values.tls.key
 				}
 			}, labels: {
-				if (_nonzero & {
-					#arg: #values.labels
-				}).out for _key0, _val0 in #values.labels {
+				if (_nonzero & {#arg: #values.labels}).out
+				for _key0, _val0 in #values.labels {
 					(_key0): _val0
 				}
 			}
-			features: [if (_nonzero & {
-				#arg: #values.features
-			}).out for _, _range0 in #values.features {
-				_range0
-			},
+			features: [
+				if (_nonzero & {#arg: #values.features}).out
+				for _, _range0 in #values.features {
+					_range0
+				},
 			]
 		}
 	},

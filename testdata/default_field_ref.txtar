@@ -26,9 +26,7 @@ output: [
 	{
 		apiVersion: "v1"
 		kind:       "ConfigMap"
-		metadata: name: [if (_nonzero & {
-			#arg: #values.primary
-		}).out {
+		metadata: name: [if (_nonzero & {#arg: #values.primary}).out {
 			#values.primary
 		}, #values.fallback][0]
 	},

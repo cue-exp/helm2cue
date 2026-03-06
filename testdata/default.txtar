@@ -29,14 +29,10 @@ output: [
 	{
 		apiVersion: "v1"
 		kind:       "ConfigMap"
-		metadata: name: [if (_nonzero & {
-			#arg: #values.name
-		}).out {
+		metadata: name: [if (_nonzero & {#arg: #values.name}).out {
 			#values.name
 		}, "fallback"][0]
-		data: env: [if (_nonzero & {
-			#arg: #values.env
-		}).out {
+		data: env: [if (_nonzero & {#arg: #values.env}).out {
 			#values.env
 		}, "production"][0]
 	},

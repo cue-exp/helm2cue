@@ -41,14 +41,10 @@ output: [
 		apiVersion: "v1"
 		kind:       "Deployment"
 		spec: {
-			if (_nonzero & {
-				#arg: #values.updateStrategy
-			}).out {
+			if (_nonzero & {#arg: #values.updateStrategy}).out {
 				strategy: #values.updateStrategy
 			}
-			if (_nonzero & {
-				#arg: #values.resources
-			}).out {
+			if (_nonzero & {#arg: #values.resources}).out {
 				resources: #values.resources
 			}
 		}

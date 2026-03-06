@@ -34,9 +34,7 @@ output: [
 		apiVersion: "v1"
 		kind:       "ConfigMap"
 		metadata: name: "test"
-		data: port:     "\(int & [if (_nonzero & {
-			#arg: #values.metrics.port
-		}).out {
+		data: port:     "\(int & [if (_nonzero & {#arg: #values.metrics.port}).out {
 			#values.metrics.port
 		}, #values.containerPorts.http][0])"
 	},

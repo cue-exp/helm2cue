@@ -39,25 +39,7 @@ import "struct"
 	...
 }
 _myapp_checkFolder: {
-	if !((_nonzero & {
-		#arg: #values.folder
-	}).out && !((_nonzero & {
-		#arg: #values.folderUID
-	}).out) && !((_nonzero & {
-		#arg: #values.folderRef
-	}).out) || (_nonzero & {
-		#arg: #values.folderUID
-	}).out && !((_nonzero & {
-		#arg: #values.folder
-	}).out) && !((_nonzero & {
-		#arg: #values.folderRef
-	}).out) || (_nonzero & {
-		#arg: #values.folderRef
-	}).out && !((_nonzero & {
-		#arg: #values.folder
-	}).out) && !((_nonzero & {
-		#arg: #values.folderUID
-	}).out)) {
+	if !((_nonzero & {#arg: #values.folder}).out && !((_nonzero & {#arg: #values.folderUID}).out) && !((_nonzero & {#arg: #values.folderRef}).out) || (_nonzero & {#arg: #values.folderUID}).out && !((_nonzero & {#arg: #values.folder}).out) && !((_nonzero & {#arg: #values.folderRef}).out) || (_nonzero & {#arg: #values.folderRef}).out && !((_nonzero & {#arg: #values.folder}).out) && !((_nonzero & {#arg: #values.folderUID}).out)) {
 		error("exactly one of folder, folderUID, folderRef must be set")
 	}
 	folder: #values.folder

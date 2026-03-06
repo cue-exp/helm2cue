@@ -22,14 +22,10 @@ import "struct"
 
 output: [
 	{
-		if (_nonzero & {
-			#arg: #input.config
-		}).out {
+		if (_nonzero & {#arg: #input.config}).out {
 			name: #input.config.name
 		}
-		if !((_nonzero & {
-			#arg: #input.config
-		}).out) {
+		if !((_nonzero & {#arg: #input.config}).out) {
 			name: "default"
 		}
 	},

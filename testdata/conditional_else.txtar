@@ -34,14 +34,10 @@ output: [
 		kind:       "ConfigMap"
 		metadata: {
 			name: #values.name
-			if (_nonzero & {
-				#arg: #values.debug
-			}).out {
+			if (_nonzero & {#arg: #values.debug}).out {
 				env: "debug"
 			}
-			if !((_nonzero & {
-				#arg: #values.debug
-			}).out) {
+			if !((_nonzero & {#arg: #values.debug}).out) {
 				env: "release"
 			}
 		}

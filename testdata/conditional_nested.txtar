@@ -35,11 +35,7 @@ output: [
 		apiVersion: "v1"
 		kind:       "ConfigMap"
 		metadata: name: #values.name
-		if (_nonzero & {
-			#arg: #values.enabled
-		}).out && !((_nonzero & {
-			#arg: #values.maintenance
-		}).out) {
+		if (_nonzero & {#arg: #values.enabled}).out && !((_nonzero & {#arg: #values.maintenance}).out) {
 			data: status: "running"
 		}
 	},

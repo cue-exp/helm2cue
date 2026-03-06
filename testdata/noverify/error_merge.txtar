@@ -18,10 +18,7 @@ data: {{ merge .Values.a .Values.b | toYaml | nindent 2 }}
 
 output: [
 	{
-		data: (_merge & {
-			#a: #values.a
-			#b: #values.b
-		}).out
+		data: (_merge & {#a: #values.a, #b: #values.b}).out
 	},
 ]
 _merge: {

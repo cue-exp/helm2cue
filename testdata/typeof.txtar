@@ -20,16 +20,10 @@ import "struct"
 
 output: [
 	{
-		if (_typeof & {
-			#arg: #values.config
-			_
-		}) == "string" {
+		if (_typeof & {#arg: #values.config, _}) == "string" {
 			stringVal: true
 		}
-		if !((_typeof & {
-			#arg: #values.config
-			_
-		}) == "string") {
+		if !((_typeof & {#arg: #values.config, _}) == "string") {
 			otherVal: true
 		}
 	},

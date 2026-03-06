@@ -44,15 +44,11 @@ output: [
 		apiVersion: "v1"
 		kind:       "ConfigMap"
 		metadata: name: "test"
-		if (_nonzero & {
-			#arg: #values.secret
-		}).out {
+		if (_nonzero & {#arg: #values.secret}).out {
 			data: {
 				secretName: #values.secret.name
 				secretKey:  #values.secret.key
-				if (_nonzero & {
-					#arg: #values.secret.optional
-				}).out {
+				if (_nonzero & {#arg: #values.secret.optional}).out {
 					optional: "\(#values.secret.optional)"
 				}
 			}

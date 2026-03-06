@@ -527,9 +527,8 @@ func parenExpr(x ast.Expr) *ast.ParenExpr {
 // nonzeroExpr builds (_nonzero & {#arg: expr}).out.
 func nonzeroExpr(expr ast.Expr) ast.Expr {
 	return selExpr(parenExpr(binOp(token.AND, ast.NewIdent("_nonzero"),
-		&ast.StructLit{Elts: []ast.Decl{
-			&ast.Field{Label: ast.NewIdent("#arg"), Value: expr},
-		}})), "out")
+		compactStruct(&ast.Field{Label: ast.NewIdent("#arg"), Value: expr}),
+	)), "out")
 }
 
 // defaultExpr builds a Helm-compatible default expression.
@@ -780,12 +779,29 @@ func sentinelizeTaggedImports(n ast.Node, record func(string)) {
 // helperOutExpr builds (helper & {#in: expr}).out.
 func helperOutExpr(helper string, fields ...ast.Decl) ast.Expr {
 	return selExpr(
-		binOp(token.AND,
+		parenExpr(binOp(token.AND,
 			ast.NewIdent(helper),
-			&ast.StructLit{Elts: fields},
-		),
+			compactStruct(fields...),
+		)),
 		"out",
 	)
+}
+
+// compactStruct builds a StructLit that the CUE formatter renders on
+// a single line: {#key: val, #key2: val2}.
+func compactStruct(fields ...ast.Decl) *ast.StructLit {
+	for i, f := range fields {
+		if i == 0 {
+			ast.SetRelPos(f, token.NoSpace)
+		} else {
+			ast.SetRelPos(f, token.Blank)
+		}
+	}
+	return &ast.StructLit{
+		Lbrace: token.Blank.Pos(),
+		Rbrace: token.Blank.Pos(),
+		Elts:   fields,
+	}
 }
 
 // inlinePart represents a fragment of an inline string interpolation.
@@ -4368,15 +4384,22 @@ func (c *converter) processNodes(nodes []parse.Node) error {
 			keyExpr = keyName
 		}
 		var clauses []ast.Clause
-		if helmObj != "" || exprStartsWithArg(overExpr) {
+		hasGuard := helmObj != "" || exprStartsWithArg(overExpr)
+		if hasGuard {
 			c.hasConditions = true
-			clauses = append(clauses, &ast.IfClause{Condition: nonzeroExpr(overExpr)})
+			ifClause := &ast.IfClause{Condition: nonzeroExpr(overExpr)}
+			ast.SetRelPos(ifClause, token.Newline)
+			clauses = append(clauses, ifClause)
 		}
-		clauses = append(clauses, &ast.ForClause{
+		forClause := &ast.ForClause{
 			Key:    ast.NewIdent(keyExpr),
 			Value:  ast.NewIdent(valName),
 			Source: overExpr,
-		})
+		}
+		if hasGuard {
+			ast.SetRelPos(forClause, token.Newline)
+		}
+		clauses = append(clauses, forClause)
 		c.topLevelRange = clauses
 		c.topLevelRangeIsList = isListBody(rangeNode.List.Nodes)
 
@@ -6045,15 +6068,22 @@ func (c *converter) processRange(n *parse.RangeNode) error {
 
 	// Build clauses: optional guard + for clause.
 	var clauses []ast.Clause
-	if helmObj != "" || exprStartsWithArg(overExpr) {
+	hasGuard := helmObj != "" || exprStartsWithArg(overExpr)
+	if hasGuard {
 		c.hasConditions = true
-		clauses = append(clauses, &ast.IfClause{Condition: nonzeroExpr(overExpr)})
+		ifClause := &ast.IfClause{Condition: nonzeroExpr(overExpr)}
+		ast.SetRelPos(ifClause, token.Newline)
+		clauses = append(clauses, ifClause)
 	}
-	clauses = append(clauses, &ast.ForClause{
+	forClause := &ast.ForClause{
 		Key:    ast.NewIdent(keyExpr),
 		Value:  ast.NewIdent(valName),
 		Source: overExpr,
-	})
+	}
+	if hasGuard {
+		ast.SetRelPos(forClause, token.Newline)
+	}
+	clauses = append(clauses, forClause)
 
 	// Process body.
 	savedStackLen := len(c.stack)
@@ -7235,10 +7265,10 @@ func (c *converter) conditionPipeToExpr(pipe *parse.PipeNode) (ast.Expr, error) 
 			}
 			c.usedHelpers["_typeof"] = HelperDef{Name: "_typeof", Def: typeofDef}
 			return parenExpr(binOp(token.AND, ast.NewIdent("_typeof"),
-				&ast.StructLit{Elts: []ast.Decl{
+				compactStruct(
 					&ast.Field{Label: ast.NewIdent("#arg"), Value: valExpr},
 					&ast.EmbedDecl{Expr: ast.NewIdent("_")},
-				}})), nil
+				))), nil
 		default:
 			if cf, ok := coreFuncs[id.Ident]; ok && c.isCoreFunc(id.Ident) {
 				funcArgs := make([]funcArg, len(args))
