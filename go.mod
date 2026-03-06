@@ -3,7 +3,7 @@ module github.com/cue-exp/helm2cue
 go 1.25.0
 
 require (
-	cuelang.org/go v0.16.0-alpha.2
+	cuelang.org/go v0.16.0
 	github.com/rogpeppe/go-internal v1.14.1
 	golang.org/x/tools v0.42.0
 	gopkg.in/yaml.v3 v3.0.1
