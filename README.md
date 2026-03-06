@@ -177,8 +177,12 @@ The core of the project: each template is converted by walking its Go
 `text/template` AST and emitting CUE directly.
 
 1. **Template parsing** — the template and helpers are parsed using Go's
-   `text/template/parse`. `{{ define }}` blocks are converted to CUE hidden
-   fields (e.g. `_myapp_fullname: "\(#release.Name)-\(#chart.Name)"`).
+   `text/template/parse`. `{{ define }}` blocks become CUE hidden fields
+   (e.g. `_myapp_fullname: "\(#release.Name)-\(#chart.Name)"`). Helper
+   bodies are recorded but not converted until their first
+   `{{ include }}`/`{{ template }}` call site, which determines whether
+   the helper produces structured YAML (CUE struct) or plain text (CUE
+   string) based on the YAML context and pipeline functions.
 2. **Direct CUE emission** — the AST is walked node by node. Text nodes are
    parsed line-by-line as YAML fragments, tracking indent context via a frame
    stack. Template actions (e.g. `{{ .Values.x }}`) are emitted as CUE
@@ -379,12 +383,8 @@ issues because it requires concrete values that the unconstrained
 `#values` schema cannot provide.
 
 **nginx** (14/16 templates converted, 2 skipped due to `genCA`):
-one helper from the Bitnami common subchart could not be converted
-(`tplvalues.render` uses `toJson` in a condition sub-expression,
-[#108](https://github.com/cue-exp/helm2cue/issues/108)); it is
-reported as a warning and defaults to `_` in the output. `cue vet`
-reports two errors: `strconv.Atoi` fails on a capability-version
-string (`"25-0"`) in a helper that parses
+`cue vet` reports two errors: `strconv.Atoi` fails on a
+capability-version string (`"25-0"`) in a helper that parses
 `.Capabilities.KubeVersion.Minor` (a data issue, not a converter
 bug), and the `_common_resources_preset` helper produces a runtime
 error because its `hasKey` dynamic key lookup evaluates `#arg.type`
@@ -409,11 +409,11 @@ ongoing refinement as more real-world charts are tested.
   analysis**](https://github.com/cue-exp/helm2cue/issues/92) — When a
   helper produces multi-line output, the converter must decide whether it
   is structured YAML (emitted as CUE struct fields) or plain text (emitted
-  as a CUE string). Helpers with control structures (if/range/with) are
-  now deferred until their first `include` call site, where the YAML
-  context (inline string, block scalar, etc.) and the pipeline's first
-  non-cosmetic function together determine the output form. This resolved
-  the `strings.TrimSpace on struct` errors in kube-prometheus-stack. Open
+  as a CUE string). All helpers are deferred until their first
+  `include`/`template` call site, where the YAML context (inline string,
+  block scalar, etc.) and the pipeline's first non-cosmetic function
+  together determine the output form. This resolved the
+  `strings.TrimSpace on struct` errors in kube-prometheus-stack. Open
   area: helpers used in both struct and scalar contexts currently use
   first-encounter-wins; a more principled approach (dual forms or explicit
   annotation) may be needed.
@@ -523,11 +523,8 @@ Each test case:
 If `-- error --` is present instead of `-- output.cue --`, the test
 expects `Convert()` to fail and checks that the error message contains
 the given substring. This is used to verify that unsupported functions
-(`merge`, `set`, `lookup`) and invalid argument counts produce
-clear error messages. Error tests are named `error_*.txtar` by
-convention. (Note: some former error tests like `error_merge.txtar`
-have been promoted to regular conversion tests now that the function
-is supported.)
+(`set`, `lookup`) and invalid argument counts produce clear error
+messages. Error tests are named `error_*.txtar` by convention.
 
 #### Broken tests
 
