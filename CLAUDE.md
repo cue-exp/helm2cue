@@ -442,6 +442,14 @@ RangeNode/IfNode should be embedded inline or processed as blocks.
 A bug often manifests as the wrong state being active (or not active)
 when a particular node type is encountered.
 
+### Helper conversion
+
+Helper output type detection (scalar vs struct) uses call-site-driven
+deferred conversion. See the large doc comment before Phase 0b in
+`convert.go` for the full explanation of the approach, including the
+type detection signals (pipeline functions, YAML position) and the
+scalar conversion tiers.
+
 ### Pulling integration test charts
 
 Integration tests pull charts to a temporary directory that is cleaned

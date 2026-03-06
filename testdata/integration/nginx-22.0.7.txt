@@ -7,12 +7,12 @@ exit status 1
 _cMinor: error in call to strconv.Atoi: strconv.Atoi: parsing "25-0": invalid syntax:
     ./helpers.cue:101:16
 _common_resources_preset: ERROR: Preset key '#arg.type' invalid. Allowed values are nano,micro,small,medium,large,xlarge,2xlarge:
-    ./helpers.cue:1809:3
-    ./helpers.cue:1809:31
+    ./helpers.cue:1814:3
+    ./helpers.cue:1814:31
 -- cue export --
 exit status 1
 _cMinor: error in call to strconv.Atoi: strconv.Atoi: parsing "25-0": invalid syntax:
     ./helpers.cue:101:16
 _common_resources_preset: ERROR: Preset key '#arg.type' invalid. Allowed values are nano,micro,small,medium,large,xlarge,2xlarge:
-    ./helpers.cue:1809:3
-    ./helpers.cue:1809:31
+    ./helpers.cue:1814:3
+    ./helpers.cue:1814:31
