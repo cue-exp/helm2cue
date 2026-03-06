@@ -425,13 +425,13 @@ type converter struct {
 
 	// Helper template state (shared across main and sub-converters).
 	treeSet           map[string]*parse.Tree
-	helperExprs       map[string]string       // template name → CUE hidden field name
-	helperCUE         map[string]ast.Expr     // CUE field name → CUE expression
-	helperNodes       map[string][]parse.Node // CUE field name → original body nodes
-	helperOutputType  map[string]string       // CUE field name → "scalar" or "struct" (set on first include)
-	helperOrder       []string                // deterministic emission order
-	undefinedHelpers  map[string]string       // original template name → CUE name (referenced but not defined)
-	hasDynamicInclude bool                    // true if any include uses a computed template name
+	helperExprs       map[string]string         // template name → CUE hidden field name
+	helperCUE         map[string]ast.Expr       // CUE field name → CUE expression
+	helperNodes       map[string][]parse.Node   // CUE field name → original body nodes
+	helperOutputType  map[string]helperTypeInfo // CUE field name → type info (set on first include)
+	helperOrder       []string                  // deterministic emission order
+	undefinedHelpers  map[string]string         // original template name → CUE name (referenced but not defined)
+	hasDynamicInclude bool                      // true if any include uses a computed template name
 }
 
 // mustParseExpr parses a CUE expression string. Panics on error since
@@ -1292,11 +1292,11 @@ type convertResult struct {
 	imports            map[string]bool
 	needsNonzero       bool
 	usedHelpers        map[string]HelperDef
-	helpers            map[string]ast.Expr // CUE name → CUE expression
-	helperOutputType   map[string]string   // CUE name → "scalar" or "struct"
-	helperOrder        []string            // original template names, sorted
-	helperExprs        map[string]string   // original name → CUE name
-	undefinedHelpers   map[string]string   // original name → CUE name
+	helpers            map[string]ast.Expr       // CUE name → CUE expression
+	helperOutputType   map[string]helperTypeInfo // CUE name → type info
+	helperOrder        []string                  // original template names, sorted
+	helperExprs        map[string]string         // original name → CUE name
+	undefinedHelpers   map[string]string         // original name → CUE name
 	hasDynamicInclude  bool
 	warnings           []string // non-fatal issues from conversion
 	usedContextObjects map[string]bool
@@ -1393,7 +1393,7 @@ func convertStructured(cfg *Config, input []byte, templateName string, treeSet m
 		helperExprs:                 make(map[string]string),
 		helperCUE:                   make(map[string]ast.Expr),
 		helperNodes:                 make(map[string][]parse.Node),
-		helperOutputType:            make(map[string]string),
+		helperOutputType:            make(map[string]helperTypeInfo),
 		undefinedHelpers:            make(map[string]string),
 		helperArgFieldRefs:          make(map[string][][]string),
 		helperArgFieldRequiredRefs:  make(map[string][][]string),
@@ -1463,6 +1463,17 @@ func convertStructured(cfg *Config, input []byte, templateName string, treeSet m
 	//     of these hold, the type defaults to struct.
 	//
 	// See helperRequiredType for the full decision logic.
+	//
+	// Type signals have a confidence level (helperTypeInfo.strong):
+	// pipeline functions give strong signals (definitively require
+	// scalar or struct input), while YAML position gives weak signals
+	// (the position tracking can be imprecise in complex templates).
+	// When a helper is used in multiple call sites with different
+	// inferred types, a conflict error is raised only when BOTH
+	// signals are strong. Weak conflicts (where at least one side
+	// is position-inferred) emit a warning but still proceed with
+	// first-encounter-wins, since the position tracking can be
+	// imprecise in complex templates.
 	//
 	// Scalar conversion (convertDeferredHelperAsScalar) has three
 	// tiers:
@@ -1936,17 +1947,27 @@ func (c *converter) storeHelperArgInfo(cueName string, argInfo *helperArgInfo) {
 	}
 }
 
+// helperTypeInfo holds the result of helper type determination.
+type helperTypeInfo struct {
+	typ    string // "scalar", "struct", or "" (unknown/deferred)
+	strong bool   // true when determined by pipeline functions (high confidence)
+}
+
 // helperRequiredType determines the required output type for a helper based
 // on the call site's YAML context and pipeline. The first non-cosmetic,
 // non-passthrough pipeline function's input type takes precedence. If no
 // such function exists, the YAML position determines the type.
-func (c *converter) helperRequiredType(pipe *parse.PipeNode) string {
+//
+// Returns strong=true when determined by pipeline functions, strong=false
+// when inferred from YAML position (which may be incorrect in complex
+// templates where the converter's scalar context tracking is imprecise).
+func (c *converter) helperRequiredType(pipe *parse.PipeNode) helperTypeInfo {
 	if pipe == nil {
 		// No pipeline info (e.g. condition context). Use YAML position.
 		if c.isScalarContext() {
-			return "scalar"
+			return helperTypeInfo{typ: "scalar"}
 		}
-		return "struct"
+		return helperTypeInfo{typ: "struct"}
 	}
 	for _, cmd := range pipe.Cmds[1:] {
 		if len(cmd.Args) == 0 {
@@ -1967,38 +1988,36 @@ func (c *converter) helperRequiredType(pipe *parse.PipeNode) string {
 				continue // no-op passthrough-like
 			}
 			if pf.NonScalar {
-				return "struct" // function expects non-scalar input
+				return helperTypeInfo{typ: "struct", strong: true}
 			}
-			return "scalar" // function expects string input
+			return helperTypeInfo{typ: "scalar", strong: true}
 		}
 		// Core funcs (printf, print, etc.) don't constrain helper type.
 	}
 	// No constraining pipeline function — use YAML position.
 	if c.isScalarContext() {
-		return "scalar"
+		return helperTypeInfo{typ: "scalar"}
 	}
-	return "struct"
+	// Variable assignment or include inside a helper body: the position
+	// default may be wrong, but we still need to convert. Use struct as
+	// weak default — a later strong signal (from pipeline functions) will
+	// take precedence without triggering a conflict error.
+	return helperTypeInfo{typ: "struct"}
 }
 
 // convertDeferredHelper converts a helper body that was deferred from Phase 0b.
-// The requiredType ("scalar" or "struct") is determined by the call site.
-// If the helper was already converted with a different type, the first
-// encounter wins — this is common for helpers like tplvalues.render that
-// are used in both struct and scalar YAML positions.
-func (c *converter) convertDeferredHelper(cueName string, requiredType string, nodes []parse.Node) error {
-	// Already converted: use the existing type regardless of conflict.
-	// TODO: when a helper is used in both struct and scalar contexts,
-	// consider producing dual forms or choosing the more general form.
-	if _, ok := c.helperOutputType[cueName]; ok {
-		return nil
-	}
-	c.helperOutputType[cueName] = requiredType
+// The typeInfo is determined by the call site. Strong-strong conflicting
+// contexts (same helper used as both scalar and struct, with both determined
+// by pipeline functions) are detected and reported as errors by handleInclude
+// before this is called.
+func (c *converter) convertDeferredHelper(cueName string, typeInfo helperTypeInfo, nodes []parse.Node) error {
+	c.helperOutputType[cueName] = typeInfo
 
 	savedHelperName := c.currentHelperCUEName
 	c.currentHelperCUEName = cueName
 	defer func() { c.currentHelperCUEName = savedHelperName }()
 
-	if requiredType == "scalar" {
+	if typeInfo.typ == "scalar" {
 		return c.convertDeferredHelperAsScalar(cueName, nodes)
 	}
 	return c.convertDeferredHelperAsStruct(cueName, nodes)
@@ -2601,16 +2620,29 @@ func (c *converter) handleInclude(name string, pipe *parse.PipeNode) (string, st
 		// happen before ref propagation so the helper's arg/direct
 		// refs are available.
 		if nodes, deferred := c.helperNodes[cueName]; deferred {
+			// Use the full action pipe for context when called
+			// from convertInclude (which passes nil pipe).
+			contextPipe := pipe
+			if contextPipe == nil {
+				contextPipe = c.currentActionPipe
+			}
+			typeInfo := c.helperRequiredType(contextPipe)
 			if _, converted := c.helperCUE[cueName]; !converted {
-				// Use the full action pipe for context when called
-				// from convertInclude (which passes nil pipe).
-				contextPipe := pipe
-				if contextPipe == nil {
-					contextPipe = c.currentActionPipe
+				// Don't convert if the type is unknown (e.g. variable
+				// assignment). A later call site with YAML context will
+				// determine the type.
+				if typeInfo.typ != "" {
+					if err := c.convertDeferredHelper(cueName, typeInfo, nodes); err != nil {
+						c.warnings = append(c.warnings, fmt.Sprintf("helper %s: %v", cueName, err))
+					}
 				}
-				requiredType := c.helperRequiredType(contextPipe)
-				if err := c.convertDeferredHelper(cueName, requiredType, nodes); err != nil {
-					c.warnings = append(c.warnings, fmt.Sprintf("helper %s: %v", cueName, err))
+			} else if typeInfo.typ != "" {
+				existing := c.helperOutputType[cueName]
+				if existing.typ != typeInfo.typ {
+					if existing.strong && typeInfo.strong {
+						return "", "", fmt.Errorf("helper %q used in conflicting contexts: first as %s, now as %s; split into separate helpers or adjust call sites", name, existing.typ, typeInfo.typ)
+					}
+					c.warnings = append(c.warnings, fmt.Sprintf("helper %q used as %s but was first converted as %s; output may be incorrect", name, typeInfo.typ, existing.typ))
 				}
 			}
 		}
@@ -7814,7 +7846,7 @@ func (c *converter) actionToCUE(n *parse.ActionNode) (expr ast.Expr, helmObj str
 	// Set nonScalar based on the helper's output type (determined during
 	// deferred conversion triggered by handleInclude).
 	helperName := identFromExpr(expr)
-	if helperName != "" && c.helperOutputType[helperName] == "struct" {
+	if helperName != "" && c.helperOutputType[helperName].typ == "struct" {
 		nonScalar = true
 	}
 

@@ -413,10 +413,13 @@ ongoing refinement as more real-world charts are tested.
   `include`/`template` call site, where the YAML context (inline string,
   block scalar, etc.) and the pipeline's first non-cosmetic function
   together determine the output form. This resolved the
-  `strings.TrimSpace on struct` errors in kube-prometheus-stack. Open
-  area: helpers used in both struct and scalar contexts currently use
-  first-encounter-wins; a more principled approach (dual forms or explicit
-  annotation) may be needed.
+  `strings.TrimSpace on struct` errors in kube-prometheus-stack.
+  Pipeline functions give strong type signals; YAML position gives
+  weak signals. If a helper is used in conflicting contexts where
+  both signals are strong (e.g. piped to both `join` and `quote`),
+  the converter reports an error. Weak conflicts (where at least
+  one side is position-inferred) emit a warning and proceed with
+  first-encounter-wins.
 
 - [**#93 — Improve readability of generated
   CUE**](https://github.com/cue-exp/helm2cue/issues/93) — The generated

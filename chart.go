@@ -241,7 +241,7 @@ func ConvertChart(chartDir, outDir string, opts ChartOptions) error {
 	// have converted different deferred helpers depending on which
 	// templates include them. Take the first conversion of each helper.
 	mergedHelpers := make(map[string]ast.Expr)
-	mergedHelperOutputType := make(map[string]string)
+	mergedHelperOutputType := make(map[string]helperTypeInfo)
 	firstResult := results[0].result
 
 	for _, tr := range results {
@@ -1265,7 +1265,7 @@ func mergeChartDocResults(results []*convertResult) *convertResult {
 		// taking the first conversion of each helper.
 		if i == 0 {
 			merged.helpers = make(map[string]ast.Expr)
-			merged.helperOutputType = make(map[string]string)
+			merged.helperOutputType = make(map[string]helperTypeInfo)
 			merged.helperOrder = r.helperOrder
 			merged.helperExprs = r.helperExprs
 			merged.undefinedHelpers = r.undefinedHelpers
