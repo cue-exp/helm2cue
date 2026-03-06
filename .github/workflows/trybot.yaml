@@ -81,7 +81,7 @@ jobs:
           Dispatch-Trailer: {"type":"')))) || (github.ref == 'refs/heads/ci/test'))
         run: go env -w GOFLAGS=-count=1
       - name: Early git and code sanity checks
-        run: go run cuelang.org/go/internal/ci/checks@v0.15.0
+        run: go run cuelang.org/go/internal/ci/checks@v0.16.0
       - name: Install Helm v4.1.1
         uses: azure/setup-helm@v4
         with:
