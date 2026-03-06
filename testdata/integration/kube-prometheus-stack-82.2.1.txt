@@ -1,4 +1,10 @@
 -- ConvertChart --
+warning: helper "kube-prometheus-stack.alertmanager.crname" used as scalar but was first converted as struct; output may be incorrect
+warning: helper "kube-prometheus-stack.fullname" used as scalar but was first converted as struct; output may be incorrect
+warning: helper "kube-prometheus-stack.namespace" used as scalar but was first converted as struct; output may be incorrect
+warning: helper "kube-prometheus-stack.namespace" used as struct but was first converted as scalar; output may be incorrect
+warning: helper "kube-prometheus-stack.prometheus.crname" used as struct but was first converted as scalar; output may be incorrect
+warning: helper "kube-prometheus-stack.thanosRuler.name" used as scalar but was first converted as struct; output may be incorrect
 converted 171/171 templates from kube-prometheus-stack
 -- cue vet --
 -- cue export --
