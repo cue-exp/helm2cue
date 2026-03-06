@@ -1441,8 +1441,9 @@ func convertStructured(cfg *Config, input []byte, templateName string, treeSet m
 	//
 	// All helpers are deferred: Phase 0b records their body nodes but
 	// does not convert them. Conversion is triggered on first
-	// {{ include }} during Phase 1, when the call site provides two
-	// signals that together determine the output type:
+	// {{ include }} or {{ template }} during Phase 1 (both call
+	// handleInclude), when the call site provides two signals that
+	// together determine the output type:
 	//
 	//  1. Pipeline functions: if the include result is piped to a
 	//     function that operates on strings (quote, b64enc, etc.),
@@ -2288,10 +2289,6 @@ func (c *converter) directRefInfo() *helperArgInfo {
 	}
 }
 
-// isExtendedTextHelperBody reports whether a helper body contains text,
-// actions, and control structures (if/range/with) but no YAML structure.
-// Unlike isTextHelperBody which only accepts simple text+action bodies,
-// this accepts bodies with control structures and variable assignments.
 // isPureTextBody reports whether a helper body contains only TextNodes
 // (no actions, no control structures). These bodies produce static text
 // that can be collapsed to a single CUE string literal.
@@ -2304,8 +2301,11 @@ func isPureTextBody(nodes []parse.Node) bool {
 	return true
 }
 
-// These are text-producing helpers whose output is newline-separated
-// strings, not YAML key:value pairs.
+// isExtendedTextHelperBody reports whether a helper body contains text,
+// actions, and possibly control structures (if/range/with) but no YAML
+// structure. These are text-producing helpers whose output is
+// newline-separated strings, not YAML key:value pairs. Unlike
+// isPureTextBody, this accepts bodies with actions and control structures.
 func isExtendedTextHelperBody(nodes []parse.Node) bool {
 	// Must have at least one non-assignment action or control structure,
 	// AND at least one TextNode with non-whitespace content or a control

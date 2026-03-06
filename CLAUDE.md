@@ -407,10 +407,15 @@ this model is important when working on the converter:
   Processed via `emitActionExpr`.
 - **IfNode / RangeNode / WithNode**: block control structures.
   `processIf`, `processRange`, `processWith` handle these.
+- **TemplateNode**: the `{{ template "name" . }}` directive. Processed
+  via `handleInclude` (same as `{{ include }}`) which triggers deferred
+  helper conversion. Unlike `{{ include }}` (an IdentifierNode in an
+  ActionNode, handled by the `convertInclude` core func),
+  `{{ template }}` is its own node type in the parse tree.
 
 Key implication: YAML structural analysis (indentation, list detection,
 scope exit) can be determined from TextNode content alone. ActionNodes
-are inline and never affect the indent structure.
+and TemplateNodes are inline and never affect the indent structure.
 
 ### Converter state machine
 
