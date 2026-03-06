@@ -288,7 +288,9 @@
 // on source order of include call sites. A helper first encountered in
 // a struct-looking position will be converted as struct even if a later
 // call site uses it as scalar. Reordering templates in a chart could
-// change the output.
+// change the output. More critically, a strong signal in a later-
+// processed template is lost if a weak signal from an earlier template
+// already triggered conversion.
 //
 // Same helper, genuinely dual-use: some charts use the same helper as
 // both structured output and scalar text in different templates. The
@@ -301,4 +303,59 @@
 // tracking block scalars, inline parts, and quoted scalars. Complex
 // nested templates with interleaved control structures can cause the
 // state to be imprecise, leading to incorrect weak signals.
+//
+// # Future direction: Phase 0.5 global call-site consensus
+//
+// The first-encounter-wins limitation can be addressed by separating
+// signal discovery from CUE emission. The idea is to introduce an
+// intermediate traversal (Phase 0.5) between parsing (Phase 0) and
+// emission (Phase 1) that scans all call sites across all templates,
+// collects type signals, and resolves a definitive type for every
+// helper before any CUE is generated.
+//
+// The full Phase 0.5 vision: walk the AST of every template, find
+// every include/template call site, evaluate the same signal logic
+// (pipeline functions, YAML position, condition context), and
+// accumulate signals per helper in a global registry. After the walk,
+// resolve each helper's type using a consensus algorithm:
+//
+//  1. Strong–strong conflict → error with cross-template diagnostics.
+//  2. Any strong signal exists → strong wins, warn if weak disagrees.
+//  3. Only weak signals → vote or apply a deterministic tie-breaker.
+//  4. No call sites → helper is dead code, skip conversion.
+//
+// This would make conversion 100% deterministic regardless of
+// template processing order, and produce better error messages that
+// reference all conflicting call sites across the chart.
+//
+// However, there is a fundamental constraint: pipeline function
+// signals (strong) are purely syntactic — they can be extracted from
+// the AST with a stateless walk. But YAML position signals (weak)
+// depend on the converter's state machine (blockScalarLines,
+// inlineParts, quotedScalarParts, the indent frame stack, etc.).
+// These states are the cumulative result of processing every
+// preceding TextNode line-by-line with full indentation tracking.
+// Replicating this in Phase 0.5 would essentially mean running
+// Phase 1's full YAML processing logic without emitting CUE —
+// duplicating the state machine rather than isolating it.
+//
+// A practical stepping stone: Phase 0.5 collects only pipeline-based
+// (strong) signals via a stateless AST walk. Weak signals remain
+// Phase 1's responsibility. The resolution becomes:
+//
+//  1. Phase 0.5 walks all templates, recording strong signals.
+//  2. Strong–strong conflicts fail immediately with full diagnostics.
+//  3. Any strong signal for a helper → Phase 1 uses it directly,
+//     regardless of which template is processed first.
+//  4. Only helpers with exclusively weak signals fall back to
+//     Phase 1's current state-machine-based inference.
+//
+// This hybrid eliminates the most impactful ordering problem — a
+// strong signal in a later-processed template being lost because a
+// weak signal from an earlier template already triggered conversion —
+// without needing to replicate the state machine. The weak-weak
+// ordering issue remains, but both sides are already imprecise, so
+// the practical impact is smaller.
+//
+// See https://github.com/cue-exp/helm2cue/issues/109 for tracking.
 package main
