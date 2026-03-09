@@ -1,8 +1,7 @@
-# Nested range with same variable name ($i) panics when the inner
-# range deletes the variable and the outer range's post-body check
-# finds nil in localVars.
-! exec helm2cue chart chartdir outdir
-stderr 'nil pointer'
+# Nested range with same variable name ($i) should not panic
+# when the inner range deletes the variable from localVars.
+exec helm2cue chart chartdir outdir
+cmp stderr stderr.golden
 
 -- chartdir/Chart.yaml --
 apiVersion: v2
@@ -35,3 +34,5 @@ item {{ $i }}
   {{- end }}
 {{- end }}
 {{- end -}}
+-- stderr.golden --
+converted 2/2 templates from test-app

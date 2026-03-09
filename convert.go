@@ -6239,7 +6239,7 @@ func (c *converter) processRange(n *parse.RangeNode) error {
 	}
 	for varName, preExpr := range preRangeVars {
 		curExpr := c.localVars[varName]
-		if curExpr == preExpr { // pointer equality — unchanged
+		if curExpr == nil || curExpr == preExpr { // pointer equality — unchanged
 			continue
 		}
 		elem, ok := decomposeAppend(curExpr, preExpr)
