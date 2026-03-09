@@ -2591,10 +2591,76 @@ func (c *converter) textHelperIfToExpr(n *parse.IfNode) (ast.Expr, error) {
 }
 
 // textHelperRangeToExpr converts a RangeNode in a text helper body to a
-// string expression. Currently returns an error; range in text helpers
-// is not yet supported.
+// string expression: strings.Join([for key, val in source { bodyExpr }], "").
 func (c *converter) textHelperRangeToExpr(n *parse.RangeNode) (ast.Expr, error) {
-	return nil, fmt.Errorf("range in text helper not yet supported")
+	// Resolve range expression.
+	saved := c.suppressRequired
+	c.suppressRequired = true
+	overExpr, helmObj, fieldPath, err := c.pipeToFieldExpr(n.Pipe)
+	c.suppressRequired = saved
+	if err != nil {
+		return nil, fmt.Errorf("text helper range: %w", err)
+	}
+	if helmObj != "" {
+		c.usedContextObjects[helmObj] = true
+		if fieldPath != nil {
+			c.rangeRefs[helmObj] = append(c.rangeRefs[helmObj], fieldPath)
+		}
+	}
+
+	// Determine loop variable names.
+	blockIdx := len(c.rangeVarStack)
+	var keyName, valName string
+	if len(n.Pipe.Decl) == 2 {
+		keyName = fmt.Sprintf("_key%d", blockIdx)
+		valName = fmt.Sprintf("_val%d", blockIdx)
+		c.localVars[n.Pipe.Decl[0].Ident[0]] = ast.NewIdent(keyName)
+		c.localVars[n.Pipe.Decl[1].Ident[0]] = ast.NewIdent(valName)
+	} else if len(n.Pipe.Decl) == 1 {
+		valName = fmt.Sprintf("_range%d", blockIdx)
+		c.localVars[n.Pipe.Decl[0].Ident[0]] = ast.NewIdent(valName)
+	} else {
+		valName = fmt.Sprintf("_range%d", blockIdx)
+	}
+
+	// Push range context for dot rebinding.
+	ctx := rangeContext{cueExpr: ast.NewIdent(valName)}
+	c.rangeVarStack = append(c.rangeVarStack, ctx)
+
+	// Convert body to string expression.
+	bodyExpr, err := c.textHelperBranchToExpr(n.List.Nodes)
+
+	// Pop range context and clean up local vars.
+	c.rangeVarStack = c.rangeVarStack[:blockIdx]
+	for _, decl := range n.Pipe.Decl {
+		delete(c.localVars, decl.Ident[0])
+	}
+
+	if err != nil {
+		return nil, err
+	}
+
+	// Build strings.Join([for key, val in overExpr { bodyExpr }], "").
+	c.addImport("strings")
+	keyExpr := "_"
+	if keyName != "" {
+		keyExpr = keyName
+	}
+	listComp := &ast.ListLit{Elts: []ast.Expr{
+		&ast.Comprehension{
+			Clauses: []ast.Clause{
+				&ast.ForClause{
+					Key:    ast.NewIdent(keyExpr),
+					Value:  ast.NewIdent(valName),
+					Source: overExpr,
+				},
+			},
+			Value: &ast.StructLit{Elts: []ast.Decl{
+				&ast.EmbedDecl{Expr: bodyExpr},
+			}},
+		},
+	}}
+	return importCall("strings", "Join", listComp, cueString("")), nil
 }
 
 // textHelperWithToExpr converts a WithNode in a text helper body to a
