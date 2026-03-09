@@ -83,6 +83,7 @@ func init() {
 		"gt":             {nargs: 2, convert: makeConvertCmp(token.GTR)},
 		"le":             {nargs: 2, convert: makeConvertCmp(token.LEQ)},
 		"ge":             {nargs: 2, convert: makeConvertCmp(token.GEQ)},
+		"concat":         {nargs: -1, convert: convertConcat},
 	}
 }
 
@@ -824,4 +825,28 @@ func makeConvertCmp(op token.Token) func(c *converter, args []funcArg) (ast.Expr
 		}
 		return binOp(op, a, b), "", nil
 	}
+}
+
+// convertConcat handles Sprig's concat function which concatenates
+// multiple lists: concat $list1 $list2 ... → list.Concat([list1, list2, ...]).
+func convertConcat(c *converter, args []funcArg) (ast.Expr, string, error) {
+	if len(args) < 1 {
+		return nil, "", fmt.Errorf("concat requires at least 1 argument, got %d", len(args))
+	}
+	elts := make([]ast.Expr, len(args))
+	for i, a := range args {
+		e, helmObj, err := c.resolveExpr(a)
+		if err != nil {
+			return nil, "", fmt.Errorf("concat argument %d: %w", i, err)
+		}
+		elts[i] = e
+		// Track as non-scalar since concat arguments are lists.
+		if helmObj != "" {
+			if f, ok := a.node.(*parse.FieldNode); ok && len(f.Ident) >= 2 {
+				c.trackNonScalarRef(helmObj, f.Ident[1:])
+			}
+		}
+	}
+	c.addImport("list")
+	return importCall("list", "Concat", &ast.ListLit{Elts: elts}), "", nil
 }

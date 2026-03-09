@@ -380,13 +380,7 @@ func HelmConfig() *Config {
 					return importCall("list", "SortStrings", expr)
 				},
 			},
-			"concat": {
-				NonScalar: true,
-				Imports:   []string{"list"},
-				Convert: func(expr ast.Expr, _ []ast.Expr) ast.Expr {
-					return importCall("list", "Concat", expr)
-				},
-			},
+			// concat is handled as a core func (convertConcat).
 			"first": {
 				NonScalar: true,
 				Convert: func(expr ast.Expr, _ []ast.Expr) ast.Expr {
