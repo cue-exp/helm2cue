@@ -1,8 +1,6 @@
 -- ConvertChart --
 warning: helper "argo-cd.namespace" used as struct but was first converted as scalar; output may be incorrect
 warning: helper "argo-cd.server.fullname" used as scalar but was first converted as struct; output may be incorrect
-warning: helper _argo_cd_config_cm: range: unsupported pipe: $key, $value := mergeOverwrite $preset $config
-warning: helper _argo_cd_config_params: range: unsupported pipe: $key, $value := mergeOverwrite $preset $config
 warning: skipping argocd-application-controller/deployment.yaml (doc 0): with: unsupported pipe shape: .Values.controller.runtimeClassName | default .Values.global.runtimeClassName
 warning: skipping argocd-application-controller/statefulset.yaml (doc 0): top-level if condition: unsupported multi-command condition: not .Values.controller.dynamicClusterDistribution | default false
 warning: skipping argocd-applicationset/deployment.yaml (doc 0): with: unsupported pipe shape: .Values.applicationSet.runtimeClassName | default .Values.global.runtimeClassName
