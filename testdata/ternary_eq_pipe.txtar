@@ -1,0 +1,69 @@
+ternary with eq piped condition and variable assignment
+-- values.yaml --
+server:
+  insecure: "true"
+  service:
+    servicePortHttp: 80
+    servicePortHttps: 443
+-- input.yaml --
+{{- $insecure := .Values.server.insecure }}
+{{- $servicePort := eq $insecure "true" | ternary .Values.server.service.servicePortHttp .Values.server.service.servicePortHttps }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: test
+spec:
+  ports:
+    - port: {{ $servicePort }}
+-- helm_output.yaml --
+apiVersion: v1
+kind: Service
+metadata:
+  name: test
+spec:
+  ports:
+    - port: 80
+-- output.cue --
+import "struct"
+
+#values: {
+	server?: {
+		insecure!: bool | number | string | null
+		service?: {
+			servicePortHttp!:  bool | number | string | null
+			servicePortHttps!: bool | number | string | null
+			...
+		}
+		...
+	}
+	...
+}
+
+output: [
+	{
+		apiVersion: "v1"
+		kind:       "Service"
+		metadata: name: "test"
+		spec: ports: [
+			{
+				port: [if (_nonzero & {#arg: #values.server.insecure == "true"}).out {
+					#values.server.service.servicePortHttp
+				}, #values.server.service.servicePortHttps][0]
+			},
+		]
+	},
+]
+_nonzero: {
+	#arg?: _
+	out: [if #arg != _|_ {
+		[
+			if (#arg & int) != _|_ {#arg != 0},
+			if (#arg & string) != _|_ {#arg != ""},
+			if (#arg & float) != _|_ {#arg != 0.0},
+			if (#arg & bool) != _|_ {#arg},
+			if (#arg & [...]) != _|_ {len(#arg) > 0},
+			if (#arg & {...}) != _|_ {(#arg & struct.MaxFields(0)) == _|_},
+			false,
+		][0]
+	}, false][0]
+}
