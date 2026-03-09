@@ -1,0 +1,79 @@
+Range deep list with toYaml inside with block: schema types field as
+scalar instead of non-scalar, causing values.yaml conflicts. The
+schema wraps the field in an extra struct layer (matches.matches)
+instead of typing it as _ (any). No helm comparison because the wrong
+schema makes cue export produce different output.
+-- values.yaml --
+rules:
+  - matches:
+      - method:
+          type: Exact
+    backendRef: svc
+-- input.yaml --
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test
+spec:
+  rules:
+    {{- range .Values.rules }}
+    {{- with .matches }}
+    - matches:
+        {{- toYaml . | nindent 8 }}
+    {{- end }}
+      backendRef: {{ .backendRef }}
+    {{- end }}
+-- output.cue --
+import "struct"
+
+#values: {
+	rules?: [...{
+		matches?: {
+			matches!: bool | number | string | null
+			...
+		}
+		backendRef!: bool | number | string | null
+		...
+	}] | {
+		[string]: {
+			matches?: {
+				matches!: bool | number | string | null
+				...
+			}
+			backendRef!: bool | number | string | null
+			...
+		}
+	}
+	...
+}
+
+output: [
+	{
+		apiVersion: "v1"
+		kind:       "ConfigMap"
+		metadata: name: "test"
+		spec: rules: [
+			if (_nonzero & {#arg: #values.rules}).out
+			for _, _range0 in #values.rules {
+				if (_nonzero & {#arg: _range0.matches}).out {
+					matches: _range0.matches
+				}
+				backendRef: _range0.backendRef
+			},
+		]
+	},
+]
+_nonzero: {
+	#arg?: _
+	out: [if #arg != _|_ {
+		[
+			if (#arg & int) != _|_ {#arg != 0},
+			if (#arg & string) != _|_ {#arg != ""},
+			if (#arg & float) != _|_ {#arg != 0.0},
+			if (#arg & bool) != _|_ {#arg},
+			if (#arg & [...]) != _|_ {len(#arg) > 0},
+			if (#arg & {...}) != _|_ {(#arg & struct.MaxFields(0)) == _|_},
+			false,
+		][0]
+	}, false][0]
+}
