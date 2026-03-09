@@ -1,0 +1,29 @@
+# Block scalar with backslash line continuations (shell script)
+# should escape backslashes in the CUE multi-line string output.
+# https://github.com/cue-exp/helm2cue/issues/113
+! exec helm2cue chart chartdir outdir
+stderr 'mustParseExpr'
+
+-- chartdir/Chart.yaml --
+apiVersion: v2
+name: test-app
+version: 0.1.0
+-- chartdir/values.yaml --
+port: 6379
+-- chartdir/templates/good.yaml --
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: good
+data:
+  key: value
+-- chartdir/templates/test.yaml --
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test
+data:
+  script.sh: |
+    redis-cli \
+      -p {{ .Values.port }} \
+      ping
