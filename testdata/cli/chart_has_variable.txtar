@@ -1,0 +1,45 @@
+# .Has with a variable argument should be supported.
+# https://github.com/cue-exp/helm2cue/issues/117
+
+# Helm renders correctly.
+exec helm template test chartdir
+cmp stdout helm-stdout.golden
+
+# The converter currently rejects .Has with a variable argument.
+exec helm2cue chart chartdir outdir
+cmp stderr stderr.golden
+
+-- chartdir/Chart.yaml --
+apiVersion: v2
+name: test-app
+version: 0.1.0
+-- chartdir/values.yaml --
+metrics:
+  enabled: true
+-- chartdir/templates/good.yaml --
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: good
+data:
+  key: value
+-- chartdir/templates/test.yaml --
+{{- $apiVersion := "monitoring.coreos.com/v1" }}
+{{- if and (.Capabilities.APIVersions.Has $apiVersion) .Values.metrics.enabled }}
+apiVersion: {{ $apiVersion }}
+kind: ServiceMonitor
+metadata:
+  name: test
+{{- end }}
+-- helm-stdout.golden --
+---
+# Source: test-app/templates/good.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: good
+data:
+  key: value
+-- stderr.golden --
+warning: skipping test.yaml (doc 0): if condition: .Has argument must be a string literal
+converted 1/2 templates from test-app
