@@ -53,6 +53,7 @@ func TestConvertChartIntegration(t *testing.T) {
 	}{
 		{"bitnami", "https://charts.bitnami.com/bitnami", "nginx", "22.0.7"},
 		{"prometheus-community", "https://prometheus-community.github.io/helm-charts", "kube-prometheus-stack", "82.2.1"},
+		{"argocd", "https://argoproj.github.io/argo-helm", "argo-cd", "9.4.7"},
 	}
 
 	// Add all helm repos before launching parallel subtests.
