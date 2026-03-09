@@ -433,8 +433,9 @@ type converter struct {
 	quotedScalarQuote       byte     // '\'' or '"'
 	quotedScalarPartialLine bool     // last part is incomplete (action mid-line)
 
-	stripListDash   bool           // strip "- " prefix from next list item line
-	pendingComments []*ast.Comment // buffered comments to attach to next declaration
+	stripListDash     bool           // strip "- " prefix from next list item line
+	rangeDeepListBody bool           // range body has list items only visible via deepTextContent
+	pendingComments   []*ast.Comment // buffered comments to attach to next declaration
 
 	// Helper template state (shared across main and sub-converters).
 	treeSet           map[string]*parse.Tree
@@ -5692,28 +5693,32 @@ func (c *converter) processIf(n *parse.IfNode) error {
 		}
 	}
 
+	// When inside a range body with deep list items, list item markers
+	// in the if body belong to the range's list.
+	isRangeListItem := c.rangeDeepListBody && isList
+
 	// Close outer blocks based on body indent.
-	if bodyIndent >= 0 {
+	if bodyIndent >= 0 && !isRangeListItem {
 		c.closeBlocksTo(bodyIndent)
 	}
 
 	inList := len(c.stack) > 0 && c.stack[len(c.stack)-1].isList
 
 	// Detect conditional body that exits the current list scope.
-	if inList && isList && bodyIndent >= 0 &&
+	if !isRangeListItem && inList && isList && bodyIndent >= 0 &&
 		bodyExitsScope(n.List.Nodes, bodyIndent) {
 		return c.processIfScopeExit(n, condition, negCondition, bodyIndent)
 	}
 
 	// Detect conditional body with multiple list items.
-	if inList && isList && bodyIndent >= 0 &&
+	if !isRangeListItem && inList && isList && bodyIndent >= 0 &&
 		countTopListItems(n.List.Nodes, bodyIndent) > 1 {
 		return c.processIfMultiListItems(n, condition, negCondition, bodyIndent)
 	}
 
 	// Detect conditional list item with continuation fields after {{end}}.
 	preOpenedListItem := false
-	if inList && isList && bodyIndent >= 0 && n.ElseList != nil {
+	if !isRangeListItem && inList && isList && bodyIndent >= 0 && n.ElseList != nil {
 		itemContentIndent := bodyIndent + 2
 		elseBI := peekBodyIndent(n.ElseList.Nodes)
 		if isListBody(n.ElseList.Nodes) &&
@@ -5736,7 +5741,11 @@ func (c *converter) processIf(n *parse.IfNode) error {
 	savedGuarded := c.setGuardedPaths(c.extractGuardedPaths(n.Pipe))
 
 	// Process the if body and emit as comprehension.
-	c.emitIfBranchComprehension([]ast.Expr{condition}, bodyIndent, inList && isList && !preOpenedListItem, preOpenedListItem, n.List.Nodes)
+	if isRangeListItem {
+		c.emitIfBranchComprehension([]ast.Expr{condition}, bodyIndent, false, true, n.List.Nodes)
+	} else {
+		c.emitIfBranchComprehension([]ast.Expr{condition}, bodyIndent, inList && isList && !preOpenedListItem, preOpenedListItem, n.List.Nodes)
+	}
 
 	// Restore guarded paths before processing else branches — the
 	// condition's field is not guaranteed present in the else body.
@@ -5761,7 +5770,11 @@ func (c *converter) processIf(n *parse.IfNode) error {
 
 				// Extract guarded paths for the else-if condition.
 				elseIfSaved := c.setGuardedPaths(c.extractGuardedPaths(innerIf.Pipe))
-				c.emitIfBranchComprehension(guard, elseIfBodyIndent, inList && elseIfIsList && !preOpenedListItem, preOpenedListItem, innerIf.List.Nodes)
+				if isRangeListItem && elseIfIsList {
+					c.emitIfBranchComprehension(guard, elseIfBodyIndent, false, true, innerIf.List.Nodes)
+				} else {
+					c.emitIfBranchComprehension(guard, elseIfBodyIndent, inList && elseIfIsList && !preOpenedListItem, preOpenedListItem, innerIf.List.Nodes)
+				}
 				c.guardedPaths = elseIfSaved
 
 				negChain = append(negChain, innerNeg)
@@ -5772,7 +5785,11 @@ func (c *converter) processIf(n *parse.IfNode) error {
 		// Plain else: emit with all accumulated negations.
 		elseIsList := isListBody(elseList.Nodes)
 		elseBodyIndent := peekBodyIndent(elseList.Nodes)
-		c.emitIfBranchComprehension(negChain, elseBodyIndent, inList && elseIsList && !preOpenedListItem, preOpenedListItem, elseList.Nodes)
+		if isRangeListItem && elseIsList {
+			c.emitIfBranchComprehension(negChain, elseBodyIndent, false, true, elseList.Nodes)
+		} else {
+			c.emitIfBranchComprehension(negChain, elseBodyIndent, inList && elseIsList && !preOpenedListItem, preOpenedListItem, elseList.Nodes)
+		}
 		break
 	}
 
@@ -5889,8 +5906,14 @@ func (c *converter) processWith(n *parse.WithNode) error {
 		}
 	}
 
+	// When inside a range body with deep list items, list item markers
+	// in the with body belong to the range's list. Skip closeBlocksTo
+	// (which would destroy the range body frame) and strip the dash
+	// instead of creating a list context.
+	isRangeListItem := c.rangeDeepListBody && isList
+
 	// Close outer blocks based on body indent.
-	if bodyIndent >= 0 {
+	if bodyIndent >= 0 && !isRangeListItem {
 		c.closeBlocksTo(bodyIndent)
 	}
 
@@ -5917,7 +5940,11 @@ func (c *converter) processWith(n *parse.WithNode) error {
 	savedGuarded := c.setGuardedPaths(guardedPaths)
 
 	// Process body and emit as comprehension.
-	c.emitIfBranchComprehension([]ast.Expr{condition}, bodyIndent, inList && isList, false, n.List.Nodes)
+	if isRangeListItem {
+		c.emitIfBranchComprehension([]ast.Expr{condition}, bodyIndent, false, true, n.List.Nodes)
+	} else {
+		c.emitIfBranchComprehension([]ast.Expr{condition}, bodyIndent, inList && isList, false, n.List.Nodes)
+	}
 
 	// Restore guarded paths and pop from rangeVarStack.
 	c.guardedPaths = savedGuarded
@@ -5927,7 +5954,11 @@ func (c *converter) processWith(n *parse.WithNode) error {
 	if n.ElseList != nil && len(n.ElseList.Nodes) > 0 {
 		elseIsList := isListBody(n.ElseList.Nodes)
 		elseBodyIndent := peekBodyIndent(n.ElseList.Nodes)
-		c.emitIfBranchComprehension([]ast.Expr{negCondition}, elseBodyIndent, inList && elseIsList, false, n.ElseList.Nodes)
+		if isRangeListItem && elseIsList {
+			c.emitIfBranchComprehension([]ast.Expr{negCondition}, elseBodyIndent, false, true, n.ElseList.Nodes)
+		} else {
+			c.emitIfBranchComprehension([]ast.Expr{negCondition}, elseBodyIndent, inList && elseIsList, false, n.ElseList.Nodes)
+		}
 	}
 
 	// Clean up declared variable.
@@ -6132,6 +6163,23 @@ func (c *converter) processRange(n *parse.RangeNode) error {
 	}
 
 	isList := isListBody(n.List.Nodes)
+	// When the shallow check misses list items hidden in nested control
+	// structures (e.g. {{with}} containing "- item"), use deep text search.
+	isDeepList := false
+	if !isList {
+		deepText := deepTextContent(n.List.Nodes)
+		for _, line := range strings.Split(deepText, "\n") {
+			if strings.TrimSpace(line) == "" {
+				continue
+			}
+			trimmed := strings.TrimLeft(line, " ")
+			if strings.HasPrefix(trimmed, "- ") {
+				isList = true
+				isDeepList = true
+			}
+			break
+		}
+	}
 	isMap := len(n.Pipe.Decl) == 2 && !isList
 	bodyIndent := peekBodyIndent(n.List.Nodes)
 
@@ -6240,8 +6288,10 @@ func (c *converter) processRange(n *parse.RangeNode) error {
 
 	savedRangeBody := c.inRangeBody
 	savedRangeDepth := c.rangeBodyStackDepth
+	savedRangeDeep := c.rangeDeepListBody
 	c.inRangeBody = true
 	c.rangeBodyStackDepth = len(c.stack)
+	c.rangeDeepListBody = isDeepList
 	if err := c.processBodyNodes(n.List.Nodes); err != nil {
 		return err
 	}
@@ -6251,6 +6301,7 @@ func (c *converter) processRange(n *parse.RangeNode) error {
 	c.flushDeferred()
 	c.inRangeBody = savedRangeBody
 	c.rangeBodyStackDepth = savedRangeDepth
+	c.rangeDeepListBody = savedRangeDeep
 
 	for len(c.stack) > savedStackLen+1 {
 		c.closeOneFrame()

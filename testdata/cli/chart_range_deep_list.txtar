@@ -1,4 +1,4 @@
-# Range over list where the first item is conditional (inside with)
+# Range over list where the first item is conditional (inside if)
 # should still produce a for comprehension.
 # https://github.com/cue-exp/helm2cue/issues/123
 
@@ -32,8 +32,8 @@ metadata:
 spec:
   rules:
     {{- range .Values.rules }}
-    {{- with .name }}
-    - name: {{ . }}
+    {{- if .name }}
+    - name: {{ .name }}
     {{- end }}
       backendRef: {{ .backendRef }}
     {{- end }}
@@ -68,10 +68,14 @@ test: [
 		apiVersion: "v1"
 		kind:       "ConfigMap"
 		metadata: name: "test"
-		spec: {
-			rules: {}
-			if (_nonzero & {#arg: _range0.name}).out {}
-			backendRef: _range0.backendRef
-		}
+		spec: rules: [
+			if (_nonzero & {#arg: #values.rules}).out
+			for _, _range0 in #values.rules {
+				if (_nonzero & {#arg: _range0.name}).out {
+					name: _range0.name
+				}
+				backendRef: _range0.backendRef
+			},
+		]
 	},
 ]
