@@ -1,0 +1,68 @@
+# Multi-command condition with not and default should be
+# supported.
+# https://github.com/cue-exp/helm2cue/issues/120
+
+exec helm template test chartdir
+cmp stdout helm-stdout.golden
+
+# The converter currently rejects multi-command conditions.
+exec helm2cue chart chartdir outdir
+cmp stderr stderr.golden
+
+-- chartdir/Chart.yaml --
+apiVersion: v2
+name: test-app
+version: 0.1.0
+-- chartdir/values.yaml --
+controller:
+  dynamicClusterDistribution: false
+  runtimeClassName: ""
+-- chartdir/templates/good.yaml --
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: good
+data:
+  key: value
+-- chartdir/templates/test.yaml --
+{{- if not .Values.controller.dynamicClusterDistribution | default false }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: test
+spec:
+  replicas: 1
+  template:
+    spec:
+      {{- with .Values.controller.runtimeClassName | default "" }}
+      runtimeClassName: {{ . }}
+      {{- end }}
+      containers:
+        - name: main
+          image: test:latest
+{{- end }}
+-- helm-stdout.golden --
+---
+# Source: test-app/templates/good.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: good
+data:
+  key: value
+---
+# Source: test-app/templates/test.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: test
+spec:
+  replicas: 1
+  template:
+    spec:
+      containers:
+        - name: main
+          image: test:latest
+-- stderr.golden --
+warning: skipping test.yaml (doc 0): top-level if condition: unsupported multi-command condition: not .Values.controller.dynamicClusterDistribution | default false
+converted 1/2 templates from test-app
