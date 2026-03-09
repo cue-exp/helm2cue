@@ -1,0 +1,37 @@
+# Nested range with same variable name ($i) panics when the inner
+# range deletes the variable and the outer range's post-body check
+# finds nil in localVars.
+! exec helm2cue chart chartdir outdir
+stderr 'nil pointer'
+
+-- chartdir/Chart.yaml --
+apiVersion: v2
+name: test-app
+version: 0.1.0
+-- chartdir/values.yaml --
+replicas: 3
+-- chartdir/templates/good.yaml --
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: good
+data:
+  key: value
+-- chartdir/templates/test.yaml --
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test
+data:
+  config: |
+    {{ include "test.helper" . | nindent 4 }}
+-- chartdir/templates/_helpers.tpl --
+{{- define "test.helper" -}}
+{{- $n := .Values.replicas -}}
+{{- range $i := until $n }}
+item {{ $i }}
+  {{- range $i := until $n }}
+  sub {{ $i }}
+  {{- end }}
+{{- end }}
+{{- end -}}
