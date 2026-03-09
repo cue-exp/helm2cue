@@ -76,6 +76,7 @@ func init() {
 		"dig":            {nargs: -1, convert: convertDig},
 		"omit":           {nargs: -1, convert: convertOmit},
 		"typeIs":         {nargs: 2, convert: convertTypeIs},
+		"deepCopy":       {nargs: 1, convert: convertDeepCopy},
 	}
 }
 
@@ -788,4 +789,13 @@ func convertTypeIs(c *converter, args []funcArg) (ast.Expr, string, error) {
 		typeExpr = ast.NewIdent(cueType)
 	}
 	return binOp(token.NEQ, parenExpr(binOp(token.AND, valExpr, typeExpr)), &ast.BottomLit{}), helmObj, nil
+}
+
+// convertDeepCopy handles Sprig's deepCopy function. CUE values are
+// immutable so deepCopy is a no-op — return the argument unchanged.
+func convertDeepCopy(c *converter, args []funcArg) (ast.Expr, string, error) {
+	if len(args) != 1 {
+		return nil, "", fmt.Errorf("deepCopy requires 1 argument, got %d", len(args))
+	}
+	return c.resolveExpr(args[0])
 }
