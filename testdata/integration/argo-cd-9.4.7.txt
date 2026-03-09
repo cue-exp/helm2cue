@@ -1,16 +1,11 @@
 -- ConvertChart --
 warning: helper "argo-cd.affinity" used as struct but was first converted as scalar; output may be incorrect
+warning: helper "argo-cd.namespace" used as scalar but was first converted as struct; output may be incorrect
 warning: helper "argo-cd.namespace" used as struct but was first converted as scalar; output may be incorrect
 warning: helper "argo-cd.server.fullname" used as scalar but was first converted as struct; output may be incorrect
-warning: skipping argocd-application-controller/deployment.yaml (doc 0): with condition: condition function concat: expected 1 argument, got 2
-warning: skipping argocd-application-controller/statefulset.yaml (doc 0): with condition: condition function concat: expected 1 argument, got 2
-warning: skipping argocd-applicationset/deployment.yaml (doc 0): with condition: condition function concat: expected 1 argument, got 2
-warning: skipping argocd-commit-server/deployment.yaml (doc 0): with condition: condition function concat: expected 1 argument, got 2
-warning: skipping argocd-notifications/deployment.yaml (doc 0): with condition: condition function concat: expected 1 argument, got 2
-warning: skipping argocd-repo-server/deployment.yaml (doc 0): with condition: condition function concat: expected 1 argument, got 2
-warning: skipping argocd-server/deployment.yaml (doc 0): with condition: condition function concat: expected 1 argument, got 2
-warning: skipping dex/deployment.yaml (doc 0): with condition: condition function concat: expected 1 argument, got 2
-converted 114/122 templates from argo-cd
+warning: helper "argo-cd.strategy" used as struct but was first converted as scalar; output may be incorrect
+warning: helper _argo_cd_redisPasswordSecretRef: top-level else-if condition: and requires at least 2 arguments, got 1
+converted 122/122 templates from argo-cd
 -- cue vet --
 exit status 1
 argocd_server_grpcroute.spec.#arg: reference "_range0" not found:
