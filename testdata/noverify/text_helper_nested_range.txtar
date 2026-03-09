@@ -1,0 +1,49 @@
+Text helper with nested range using same variable name ($i) should
+produce a string expression using strings.Join, not a struct with
+conflicting values. No helm comparison because strings.TrimSpace in
+scalar helper conversion strips leading whitespace that Helm preserves
+(leading \n from range body text).
+-- values.yaml --
+replicas: 2
+-- helpers.tpl --
+{{- define "test.helper" -}}
+{{- $n := int .Values.replicas -}}
+{{- range $i := until $n }}
+item {{ $i }}
+  {{- range $i := until $n }}
+  sub {{ $i }}
+  {{- end }}
+{{- end }}
+{{- end -}}
+-- input.yaml --
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test
+data:
+  config: |
+    {{ include "test.helper" . | nindent 4 }}
+-- output.cue --
+import (
+	"strings"
+	"list"
+)
+
+#values: {
+	replicas!: bool | number | string | null
+	...
+}
+_test_helper: strings.TrimSpace("\(strings.Join([for _, _range1 in list.Range(0, int & #values.replicas, 1) {
+	"\nitem \(_range1)\(strings.Join([for _, _range2 in list.Range(0, int & #values.replicas, 1) {
+		"\n  sub \(_range2)"
+	}], ""))"
+}], ""))")
+
+output: [
+	{
+		apiVersion: "v1"
+		kind:       "ConfigMap"
+		metadata: name: "test"
+		data: config:   _test_helper
+	},
+]
