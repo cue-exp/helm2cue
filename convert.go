@@ -5919,18 +5919,17 @@ func (c *converter) processWith(n *parse.WithNode) error {
 
 	inList := len(c.stack) > 0 && c.stack[len(c.stack)-1].isList
 
-	// Push context for dot rebinding inside the with body.
+	// Extract guarded paths BEFORE pushing the with context onto
+	// rangeVarStack, so that field refs in the condition resolve
+	// relative to the outer (pre-with) context. Resolving after
+	// the push would prepend the with's basePath again, creating
+	// a spurious double-nested field ref. Suppress required tracking
+	// since the condition fields are guarded (optional).
 	helmObj, basePath := c.withPipeContext(n.Pipe)
-	c.rangeVarStack = append(c.rangeVarStack, rangeContext{
-		cueExpr:  rawExpr,
-		helmObj:  helmObj,
-		basePath: basePath,
-	})
-
-	// Extract guarded paths — with acts as a guard (body only executes
-	// when the expression is non-nil). Use both extractGuardedPaths and
-	// the withPipeContext result.
+	savedSuppress := c.suppressRequired
+	c.suppressRequired = true
 	guardedPaths := c.extractGuardedPaths(n.Pipe)
+	c.suppressRequired = savedSuppress
 	if helmObj != "" {
 		if guardedPaths == nil {
 			guardedPaths = make(map[string]bool)
@@ -5938,6 +5937,13 @@ func (c *converter) processWith(n *parse.WithNode) error {
 		c.addGuardedPath(guardedPaths, helmObj, basePath)
 	}
 	savedGuarded := c.setGuardedPaths(guardedPaths)
+
+	// Push context for dot rebinding inside the with body.
+	c.rangeVarStack = append(c.rangeVarStack, rangeContext{
+		cueExpr:  rawExpr,
+		helmObj:  helmObj,
+		basePath: basePath,
+	})
 
 	// Process body and emit as comprehension.
 	if isRangeListItem {
@@ -7950,6 +7956,17 @@ func (c *converter) actionToCUE(n *parse.ActionNode) (expr ast.Expr, helmObj str
 					} else if pf.NonScalar && c.helperArgNonScalarRefs != nil && exprStartsWithArg(expr) {
 						c.helperArgNonScalarRefs = append(c.helperArgNonScalarRefs,
 							append([]string(nil), f.Ident...))
+					}
+				} else if _, ok := first.Args[1].(*parse.DotNode); ok && pf.NonScalar {
+					// DotNode inside with/range: resolve via rangeVarStack
+					// to track the original field as non-scalar.
+					if len(c.rangeVarStack) > 0 {
+						rc := c.rangeVarStack[len(c.rangeVarStack)-1]
+						if rc.helmObj != "" && rc.basePath != nil {
+							c.trackNonScalarRef(rc.helmObj, rc.basePath)
+							helmObj = rc.helmObj
+							fieldPath = rc.basePath
+						}
 					}
 				}
 			} else if pf.Convert != nil && len(first.Args) == pf.Nargs+2 {

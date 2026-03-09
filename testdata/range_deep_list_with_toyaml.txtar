@@ -1,8 +1,4 @@
-Range deep list with toYaml inside with block: schema types field as
-scalar instead of non-scalar, causing values.yaml conflicts. The
-schema wraps the field in an extra struct layer (matches.matches)
-instead of typing it as _ (any). No helm comparison because the wrong
-schema makes cue export produce different output.
+range deep list with toYaml inside with block: schema types field as non-scalar
 -- values.yaml --
 rules:
   - matches:
@@ -23,6 +19,17 @@ spec:
     {{- end }}
       backendRef: {{ .backendRef }}
     {{- end }}
+-- helm_output.yaml --
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test
+spec:
+  rules:
+    - matches:
+        - method:
+            type: Exact
+      backendRef: svc
 -- output.cue --
 import "struct"
 
