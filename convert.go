@@ -5942,8 +5942,8 @@ func (c *converter) processWith(n *parse.WithNode) error {
 // for use in dot rebinding. The tracking of field references and context
 // objects is already handled by pipeToCUECondition.
 func (c *converter) withPipeToRawExpr(pipe *parse.PipeNode) (ast.Expr, error) {
-	if len(pipe.Cmds) != 1 {
-		return nil, fmt.Errorf("with: unsupported pipe shape: %s", pipe)
+	if len(pipe.Cmds) > 1 {
+		return c.withMultiCmdPipe(pipe)
 	}
 	cmd := pipe.Cmds[0]
 	// Multi-arg: function call (e.g. omit .Values.x "key").
@@ -5997,6 +5997,46 @@ func (c *converter) withPipeToRawExpr(pipe *parse.PipeNode) (ast.Expr, error) {
 	default:
 		return nil, fmt.Errorf("with: unsupported expression for dot rebinding: %s", pipe)
 	}
+}
+
+// withMultiCmdPipe handles multi-command with pipes like
+// .Values.x | default .Values.y, processing the first command
+// for the base expression and applying subsequent pipeline functions.
+func (c *converter) withMultiCmdPipe(pipe *parse.PipeNode) (ast.Expr, error) {
+	first := pipe.Cmds[0]
+	saved := c.suppressRequired
+	c.suppressRequired = true
+
+	// Process first command as a single-command pipe.
+	singlePipe := &parse.PipeNode{Cmds: []*parse.CommandNode{first}}
+	expr, err := c.withPipeToRawExpr(singlePipe)
+	c.suppressRequired = saved
+	if err != nil {
+		return nil, err
+	}
+
+	// Apply subsequent pipeline commands.
+	for _, cmd := range pipe.Cmds[1:] {
+		if len(cmd.Args) == 0 {
+			return nil, fmt.Errorf("with: empty command in pipeline: %s", pipe)
+		}
+		id, ok := cmd.Args[0].(*parse.IdentifierNode)
+		if !ok {
+			return nil, fmt.Errorf("with: unsupported pipe shape: %s", pipe)
+		}
+		if cf, ok := coreFuncs[id.Ident]; ok && c.isCoreFunc(id.Ident) {
+			piped := funcArg{expr: expr}
+			args := buildPipeArgs(cf, cmd.Args[1:], piped)
+			cfExpr, _, cfErr := cf.convert(c, args)
+			if cfErr != nil {
+				return nil, fmt.Errorf("with: %w", cfErr)
+			}
+			expr = cfExpr
+		} else {
+			return nil, fmt.Errorf("with: unsupported pipe function: %s", id.Ident)
+		}
+	}
+	return expr, nil
 }
 
 // withPipeContext extracts the context object name and field path prefix
@@ -7457,15 +7497,22 @@ func (c *converter) conditionPipeToExpr(pipe *parse.PipeNode) (ast.Expr, error) 
 // conditionMultiCmdPipe handles multi-command pipes in conditions,
 // e.g. .Values.x | default false.
 func (c *converter) conditionMultiCmdPipe(pipe *parse.PipeNode) (ast.Expr, error) {
-	// Process first command to get base expression (no _nonzero wrapping).
+	// Process first command to get base expression.
 	// The base field is optional here because | default provides a fallback.
 	first := pipe.Cmds[0]
-	if len(first.Args) != 1 {
-		return nil, fmt.Errorf("unsupported multi-command condition: %s", pipe)
-	}
 	saved := c.suppressRequired
 	c.suppressRequired = true
-	expr, err := c.conditionNodeToRawExpr(first.Args[0])
+	var expr ast.Expr
+	var err error
+	if len(first.Args) == 1 {
+		expr, err = c.conditionNodeToRawExpr(first.Args[0])
+	} else {
+		// Multi-arg first command (e.g. "not .Values.x").
+		// Build a temporary single-command pipe and delegate to
+		// conditionPipeToExpr which handles not/and/or/eq/etc.
+		singlePipe := &parse.PipeNode{Cmds: []*parse.CommandNode{first}}
+		expr, err = c.conditionPipeToExpr(singlePipe)
+	}
 	c.suppressRequired = saved
 	if err != nil {
 		return nil, err
