@@ -1,0 +1,64 @@
+# Range over mergeOverwrite result should be supported.
+# https://github.com/cue-exp/helm2cue/issues/119
+
+exec helm template test chartdir
+cmp stdout helm-stdout.golden
+
+# The converter currently rejects mergeOverwrite in range pipe.
+exec helm2cue chart chartdir outdir
+cmp stderr stderr.golden
+
+-- chartdir/Chart.yaml --
+apiVersion: v2
+name: test-app
+version: 0.1.0
+-- chartdir/values.yaml --
+defaults:
+  a: "1"
+overrides:
+  a: "2"
+  b: "3"
+-- chartdir/templates/_helpers.tpl --
+{{- define "merged-config" -}}
+{{- $defaults := .Values.defaults -}}
+{{- $overrides := .Values.overrides -}}
+{{- range $key, $value := mergeOverwrite $defaults $overrides }}
+{{ $key }}: {{ $value }}
+{{- end }}
+{{- end -}}
+-- chartdir/templates/good.yaml --
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: good
+data:
+  key: value
+-- chartdir/templates/test.yaml --
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test
+data:
+  {{- include "merged-config" . | nindent 2 }}
+-- helm-stdout.golden --
+---
+# Source: test-app/templates/good.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: good
+data:
+  key: value
+---
+# Source: test-app/templates/test.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test
+data:
+  
+  a: 2
+  b: 3
+-- stderr.golden --
+warning: helper _merged_config: range: unsupported pipe: $key, $value := mergeOverwrite $defaults $overrides
+converted 2/2 templates from test-app
