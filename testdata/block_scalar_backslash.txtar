@@ -1,0 +1,43 @@
+# Block scalar with backslash line continuations and template interpolation.
+
+-- values.yaml --
+port: 6379
+-- input.yaml --
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test
+data:
+  script.sh: |
+    redis-cli \
+      -p {{ .Values.port }} \
+      ping
+-- helm_output.yaml --
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test
+data:
+  script.sh: |
+    redis-cli \
+      -p 6379 \
+      ping
+-- output.cue --
+#values: {
+	port!: bool | number | string | null
+	...
+}
+
+output: [
+	{
+		apiVersion: "v1"
+		kind:       "ConfigMap"
+		metadata: name:    "test"
+		data: "script.sh": """
+	redis-cli \\
+	  -p \(#values.port) \\
+	  ping
+	
+	"""
+	},
+]

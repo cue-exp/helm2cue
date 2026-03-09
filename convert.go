@@ -3610,6 +3610,14 @@ func conditionalStringSelect(condition, bodyExpr ast.Expr) ast.Expr {
 	}
 }
 
+// escapeForCUEMultilineString escapes backslashes in raw YAML text so they
+// are preserved as literal backslashes in a CUE multi-line string (""").
+// This must be applied to raw text before it enters blockScalarLines, so
+// that \(...) interpolations added later are not affected.
+func escapeForCUEMultilineString(s string) string {
+	return strings.ReplaceAll(s, `\`, `\\`)
+}
+
 // finalizeBlockScalar emits the accumulated block scalar content as a CUE
 // value. Literal scalars (|, |-) produce a multi-line string ("""); folded
 // scalars (>, >-) join lines with spaces into a quoted string.
@@ -3862,7 +3870,7 @@ func (c *converter) emitTextNode(text []byte) {
 				}
 				if len(c.blockScalarLines) > 0 {
 					last := len(c.blockScalarLines) - 1
-					c.blockScalarLines[last] += rawLine
+					c.blockScalarLines[last] += escapeForCUEMultilineString(rawLine)
 				}
 				continue
 			}
@@ -3879,7 +3887,7 @@ func (c *converter) emitTextNode(text []byte) {
 			}
 			lineIndent := len(rawLine) - len(strings.TrimLeft(rawLine, " "))
 			if lineIndent >= c.blockScalarBaseIndent {
-				c.blockScalarLines = append(c.blockScalarLines, rawLine[c.blockScalarBaseIndent:])
+				c.blockScalarLines = append(c.blockScalarLines, escapeForCUEMultilineString(rawLine[c.blockScalarBaseIndent:]))
 				continue
 			}
 			c.finalizeBlockScalar()
