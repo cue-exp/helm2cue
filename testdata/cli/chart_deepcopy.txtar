@@ -1,0 +1,58 @@
+# deepCopy in a mergeOverwrite argument should be treated as a
+# no-op since CUE values are immutable.
+# https://github.com/cue-exp/helm2cue/issues/116
+
+# Helm renders the merged annotations correctly.
+exec helm template test chartdir
+cmp stdout helm-stdout.golden
+
+# The converter currently skips this template.
+exec helm2cue chart chartdir outdir
+cmp stderr stderr.golden
+
+-- chartdir/Chart.yaml --
+apiVersion: v2
+name: test-app
+version: 0.1.0
+-- chartdir/values.yaml --
+annotations:
+  app: test
+extra:
+  env: prod
+-- chartdir/templates/good.yaml --
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: good
+data:
+  key: value
+-- chartdir/templates/test.yaml --
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test
+  {{- with mergeOverwrite (deepCopy .Values.annotations) .Values.extra }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+-- helm-stdout.golden --
+---
+# Source: test-app/templates/good.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: good
+data:
+  key: value
+---
+# Source: test-app/templates/test.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test
+  annotations:
+    app: test
+    env: prod
+-- stderr.golden --
+warning: skipping test.yaml (doc 0): with condition: mergeOverwrite: _mergeOverwrite destination: unsupported pipe node: deepCopy .Values.annotations
+converted 1/2 templates from test-app
