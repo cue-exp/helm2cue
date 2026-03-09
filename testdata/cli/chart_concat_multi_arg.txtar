@@ -1,0 +1,75 @@
+# concat with multiple arguments in a with condition should
+# be supported.
+# https://github.com/cue-exp/helm2cue/issues/121
+
+exec helm template test chartdir
+cmp stdout helm-stdout.golden
+
+# The converter currently rejects concat with multiple args.
+exec helm2cue chart chartdir outdir
+cmp stderr stderr.golden
+
+-- chartdir/Chart.yaml --
+apiVersion: v2
+name: test-app
+version: 0.1.0
+-- chartdir/values.yaml --
+global:
+  tolerations:
+    - key: "global"
+      operator: "Exists"
+controller:
+  tolerations:
+    - key: "controller"
+      operator: "Exists"
+-- chartdir/templates/good.yaml --
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: good
+data:
+  key: value
+-- chartdir/templates/test.yaml --
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: test
+spec:
+  template:
+    spec:
+      {{- with concat .Values.global.tolerations .Values.controller.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: main
+          image: test:latest
+-- helm-stdout.golden --
+---
+# Source: test-app/templates/good.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: good
+data:
+  key: value
+---
+# Source: test-app/templates/test.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: test
+spec:
+  template:
+    spec:
+      tolerations:
+        - key: global
+          operator: Exists
+        - key: controller
+          operator: Exists
+      containers:
+        - name: main
+          image: test:latest
+-- stderr.golden --
+warning: skipping test.yaml (doc 0): with condition: condition function concat: expected 1 argument, got 2
+converted 1/2 templates from test-app
