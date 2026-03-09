@@ -125,6 +125,12 @@ func TemplateConfig() *Config {
 		CoreFuncs: map[string]bool{
 			"printf": true,
 			"print":  true,
+			"eq":     true,
+			"ne":     true,
+			"lt":     true,
+			"gt":     true,
+			"le":     true,
+			"ge":     true,
 		},
 	}
 }

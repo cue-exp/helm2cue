@@ -77,6 +77,12 @@ func init() {
 		"omit":           {nargs: -1, convert: convertOmit},
 		"typeIs":         {nargs: 2, convert: convertTypeIs},
 		"deepCopy":       {nargs: 1, convert: convertDeepCopy},
+		"eq":             {nargs: 2, convert: makeConvertCmp(token.EQL)},
+		"ne":             {nargs: 2, convert: makeConvertCmp(token.NEQ)},
+		"lt":             {nargs: 2, convert: makeConvertCmp(token.LSS)},
+		"gt":             {nargs: 2, convert: makeConvertCmp(token.GTR)},
+		"le":             {nargs: 2, convert: makeConvertCmp(token.LEQ)},
+		"ge":             {nargs: 2, convert: makeConvertCmp(token.GEQ)},
 	}
 }
 
@@ -798,4 +804,24 @@ func convertDeepCopy(c *converter, args []funcArg) (ast.Expr, string, error) {
 		return nil, "", fmt.Errorf("deepCopy requires 1 argument, got %d", len(args))
 	}
 	return c.resolveExpr(args[0])
+}
+
+// makeConvertCmp returns a coreFunc converter for a comparison operator.
+// The Go template builtins eq, ne, lt, gt, le, ge take two arguments
+// and produce a boolean. In CUE this becomes a binary operation.
+func makeConvertCmp(op token.Token) func(c *converter, args []funcArg) (ast.Expr, string, error) {
+	return func(c *converter, args []funcArg) (ast.Expr, string, error) {
+		if len(args) != 2 {
+			return nil, "", fmt.Errorf("comparison requires 2 arguments, got %d", len(args))
+		}
+		a, _, err := c.resolveExpr(args[0])
+		if err != nil {
+			return nil, "", err
+		}
+		b, _, err := c.resolveExpr(args[1])
+		if err != nil {
+			return nil, "", err
+		}
+		return binOp(op, a, b), "", nil
+	}
 }
