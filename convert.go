@@ -7099,8 +7099,8 @@ func (c *converter) conditionPipeToExpr(pipe *parse.PipeNode) (ast.Expr, error) 
 			}
 			return negExpr(parenExpr(inner)), nil
 		case "and":
-			if len(args) < 2 {
-				return nil, fmt.Errorf("and requires at least 2 arguments, got %d", len(args))
+			if len(args) < 1 {
+				return nil, fmt.Errorf("and requires at least 1 argument, got %d", len(args))
 			}
 			exprs := make([]ast.Expr, len(args))
 			for i, arg := range args {
@@ -7116,8 +7116,8 @@ func (c *converter) conditionPipeToExpr(pipe *parse.PipeNode) (ast.Expr, error) 
 			}
 			return result, nil
 		case "or":
-			if len(args) < 2 {
-				return nil, fmt.Errorf("or requires at least 2 arguments, got %d", len(args))
+			if len(args) < 1 {
+				return nil, fmt.Errorf("or requires at least 1 argument, got %d", len(args))
 			}
 			exprs := make([]ast.Expr, len(args))
 			for i, arg := range args {

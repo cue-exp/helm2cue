@@ -4,7 +4,6 @@ warning: helper "argo-cd.namespace" used as scalar but was first converted as st
 warning: helper "argo-cd.namespace" used as struct but was first converted as scalar; output may be incorrect
 warning: helper "argo-cd.server.fullname" used as scalar but was first converted as struct; output may be incorrect
 warning: helper "argo-cd.strategy" used as struct but was first converted as scalar; output may be incorrect
-warning: helper _argo_cd_redisPasswordSecretRef: top-level else-if condition: and requires at least 2 arguments, got 1
 converted 122/122 templates from argo-cd
 -- cue vet --
 exit status 1
