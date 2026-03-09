@@ -7408,9 +7408,9 @@ func (c *converter) conditionPipeToExpr(pipe *parse.PipeNode) (ast.Expr, error) 
 	if f, ok := cmd.Args[0].(*parse.FieldNode); ok && len(cmd.Args) == 2 && len(f.Ident) >= 2 {
 		lastIdent := f.Ident[len(f.Ident)-1]
 		if lastIdent == "Has" {
-			strArg, ok := cmd.Args[1].(*parse.StringNode)
-			if !ok {
-				return nil, fmt.Errorf(".Has argument must be a string literal")
+			argExpr, _, err := c.nodeToExpr(cmd.Args[1])
+			if err != nil {
+				return nil, fmt.Errorf(".Has argument: %w", err)
 			}
 			// Strip "Has" to get the list field path.
 			listIdent := f.Ident[:len(f.Ident)-1]
@@ -7423,7 +7423,7 @@ func (c *converter) conditionPipeToExpr(pipe *parse.PipeNode) (ast.Expr, error) 
 				}
 			}
 			c.addImport("list")
-			return importCall("list", "Contains", expr, cueString(strArg.Text)), nil
+			return importCall("list", "Contains", expr, argExpr), nil
 		}
 	}
 
