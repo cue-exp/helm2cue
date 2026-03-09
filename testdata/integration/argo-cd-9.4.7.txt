@@ -1,28 +1,22 @@
 -- ConvertChart --
+warning: helper "argo-cd.namespace" used as struct but was first converted as scalar; output may be incorrect
 warning: helper _argo_cd_config_cm: range: unsupported pipe: $key, $value := mergeOverwrite $preset $config
 warning: helper _argo_cd_config_params: range: unsupported pipe: $key, $value := mergeOverwrite $preset $config
 warning: skipping argocd-application-controller/deployment.yaml (doc 0): with: unsupported pipe shape: .Values.controller.runtimeClassName | default .Values.global.runtimeClassName
-warning: skipping argocd-application-controller/servicemonitor.yaml (doc 0): if condition: .Has argument must be a string literal
 warning: skipping argocd-application-controller/statefulset.yaml (doc 0): top-level if condition: unsupported multi-command condition: not .Values.controller.dynamicClusterDistribution | default false
 warning: skipping argocd-applicationset/deployment.yaml (doc 0): with: unsupported pipe shape: .Values.applicationSet.runtimeClassName | default .Values.global.runtimeClassName
-warning: skipping argocd-applicationset/servicemonitor.yaml (doc 0): if condition: .Has argument must be a string literal
 warning: skipping argocd-commit-server/deployment.yaml (doc 0): with: unsupported pipe shape: .Values.commitServer.runtimeClassName | default .Values.global.runtimeClassName
 warning: skipping argocd-notifications/deployment.yaml (doc 0): with: unsupported pipe shape: .Values.notifications.runtimeClassName | default .Values.global.runtimeClassName
-warning: skipping argocd-notifications/servicemonitor.yaml (doc 0): if condition: .Has argument must be a string literal
 warning: skipping argocd-repo-server/deployment.yaml (doc 0): with: unsupported pipe shape: .Values.repoServer.runtimeClassName | default .Values.global.runtimeClassName
-warning: skipping argocd-repo-server/servicemonitor.yaml (doc 0): if condition: .Has argument must be a string literal
 warning: skipping argocd-server/aws/ingress.yaml (doc 0): unsupported template action: {{$servicePort := eq $insecure "true" | ternary .Values.server.service.servicePortHttp .Values.server.service.servicePortHttps}}
 warning: skipping argocd-server/deployment.yaml (doc 0): with: unsupported pipe shape: .Values.server.runtimeClassName | default .Values.global.runtimeClassName
 warning: skipping argocd-server/gke/ingress.yaml (doc 0): unsupported template action: {{$servicePort := eq $insecure "true" | ternary .Values.server.service.servicePortHttp .Values.server.service.servicePortHttps}}
 warning: skipping argocd-server/grpcroute.yaml (doc 0): unsupported template action: {{$servicePort := eq $insecure "true" | ternary .Values.server.service.servicePortHttp .Values.server.service.servicePortHttps}}
 warning: skipping argocd-server/httproute.yaml (doc 0): unsupported template action: {{$servicePort := eq $insecure "true" | ternary .Values.server.service.servicePortHttp .Values.server.service.servicePortHttps}}
 warning: skipping argocd-server/ingress.yaml (doc 0): unsupported template action: {{$servicePort := eq $insecure "true" | ternary .Values.server.service.servicePortHttp .Values.server.service.servicePortHttps}}
-warning: skipping argocd-server/servicemonitor.yaml (doc 0): if condition: .Has argument must be a string literal
 warning: skipping dex/deployment.yaml (doc 0): with: unsupported pipe shape: .Values.dex.runtimeClassName | default .Values.global.runtimeClassName
-warning: skipping dex/servicemonitor.yaml (doc 0): if condition: .Has argument must be a string literal
 warning: skipping redis-secret-init/job.yaml (doc 0): with: unsupported pipe shape: .Values.redisSecretInit.runtimeClassName | default .Values.global.runtimeClassName
-warning: skipping redis/servicemonitor.yaml (doc 0): if condition: .Has argument must be a string literal
-converted 101/122 templates from argo-cd
+converted 108/122 templates from argo-cd
 -- cue vet --
 exit status 1
 _config_haproxy_cfg: conflicting values "backend bk_redis_master" and "mode http":
