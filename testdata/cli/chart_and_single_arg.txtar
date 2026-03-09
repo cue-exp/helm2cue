@@ -1,0 +1,59 @@
+# and/or with a single argument should be supported (it is
+# valid in Go text/template and Helm).
+# https://github.com/cue-exp/helm2cue/issues/122
+
+exec helm template test chartdir
+cmp stdout helm-stdout.golden
+
+# The converter currently rejects and with 1 argument.
+exec helm2cue chart chartdir outdir
+cmp stderr stderr.golden
+
+-- chartdir/Chart.yaml --
+apiVersion: v2
+name: test-app
+version: 0.1.0
+-- chartdir/values.yaml --
+enabled: true
+-- chartdir/templates/_helpers.tpl --
+{{- define "test-helper" -}}
+{{- if .Values.enabled -}}
+name: primary
+{{- else if and .Values.fallback -}}
+name: fallback
+{{- end -}}
+{{- end -}}
+-- chartdir/templates/good.yaml --
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: good
+data:
+  key: value
+-- chartdir/templates/test.yaml --
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test
+data:
+  {{- include "test-helper" . | nindent 2 }}
+-- helm-stdout.golden --
+---
+# Source: test-app/templates/good.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: good
+data:
+  key: value
+---
+# Source: test-app/templates/test.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test
+data:
+  name: primary
+-- stderr.golden --
+warning: helper _test_helper: top-level else-if condition: and requires at least 2 arguments, got 1
+converted 2/2 templates from test-app
