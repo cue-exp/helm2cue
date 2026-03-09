@@ -6683,20 +6683,35 @@ func (c *converter) pipeToFieldExpr(pipe *parse.PipeNode) (ast.Expr, string, []s
 		if !ok {
 			return nil, "", nil, fmt.Errorf("unsupported pipe: %s", pipe)
 		}
-		pf, ok := c.config.Funcs[id.Ident]
-		if !ok {
+		pf, pfOK := c.config.Funcs[id.Ident]
+		cf, cfOK := coreFuncs[id.Ident]
+		if !pfOK && !(cfOK && c.isCoreFunc(id.Ident)) {
 			return nil, "", nil, fmt.Errorf("unsupported pipe: %s", pipe)
 		}
-		// The last argument is the input expression; any middle
-		// arguments are extra function parameters.
-		var err error
-		expr, helmObj, fieldPath, err = c.singleNodeToFieldExpr(cmd0.Args[len(cmd0.Args)-1])
-		if err != nil {
-			return nil, "", nil, err
-		}
-		expr, err = c.applyRangePipelineFunc(pf, id.Ident, expr, helmObj, fieldPath, cmd0.Args[1:len(cmd0.Args)-1])
-		if err != nil {
-			return nil, "", nil, err
+		if pfOK {
+			// Pipeline function: last argument is the input expression;
+			// any middle arguments are extra function parameters.
+			var err error
+			expr, helmObj, fieldPath, err = c.singleNodeToFieldExpr(cmd0.Args[len(cmd0.Args)-1])
+			if err != nil {
+				return nil, "", nil, err
+			}
+			expr, err = c.applyRangePipelineFunc(pf, id.Ident, expr, helmObj, fieldPath, cmd0.Args[1:len(cmd0.Args)-1])
+			if err != nil {
+				return nil, "", nil, err
+			}
+		} else {
+			// Core function: resolve all arguments through the
+			// core func handler to get the expression to range over.
+			args := make([]funcArg, len(cmd0.Args)-1)
+			for i, n := range cmd0.Args[1:] {
+				args[i] = funcArg{node: n}
+			}
+			var err error
+			expr, helmObj, err = cf.convert(c, args)
+			if err != nil {
+				return nil, "", nil, err
+			}
 		}
 		pipelineCmds = pipe.Cmds[1:]
 	} else if len(cmd0.Args) == 1 {
