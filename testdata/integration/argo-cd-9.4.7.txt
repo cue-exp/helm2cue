@@ -149,11 +149,11 @@ _redis_liveness_sh: conflicting values "redis-cli \\" and "response=$(":
 _redis_readiness_sh: conflicting values ")" and "response=$(":
     ./helpers.cue:878:22
     ./helpers.cue:891:5
-    ./helpers.cue:909:13
+    ./helpers.cue:900:13
 _redis_readiness_sh: conflicting values "-h localhost \\" and "response=$(":
     ./helpers.cue:878:22
     ./helpers.cue:891:5
-    ./helpers.cue:903:5
+    ./helpers.cue:894:5
 _redis_readiness_sh: conflicting values "echo \"ping=$response\"" and "response=$(":
     ./helpers.cue:878:22
     ./helpers.cue:891:5
@@ -165,7 +165,7 @@ _redis_readiness_sh: conflicting values "echo \"role=$role; repl=$repl\"" and "r
 _redis_readiness_sh: conflicting values "echo \"role=$role\"" and "response=$(":
     ./helpers.cue:878:22
     ./helpers.cue:891:5
-    ./helpers.cue:909:103
+    ./helpers.cue:909:341
 _redis_readiness_sh: conflicting values "elif [ \"$role\" = \"slave\" ]; then" and "response=$(":
     ./helpers.cue:878:22
     ./helpers.cue:891:5
@@ -181,7 +181,7 @@ _redis_readiness_sh: conflicting values "exit 0" and "response=$(":
 _redis_readiness_sh: conflicting values "exit 1" and "response=$(":
     ./helpers.cue:878:22
     ./helpers.cue:891:5
-    ./helpers.cue:900:88
+    ./helpers.cue:909:364
 _redis_readiness_sh: conflicting values "fi" and "response=$(":
     ./helpers.cue:878:22
     ./helpers.cue:891:5
@@ -293,7 +293,7 @@ _trigger_failover_if_master_sh: conflicting values "fi" and "get_redis_role() {"
 _trigger_failover_if_master_sh: conflicting values "get_redis_role" and "get_redis_role() {":
     ./helpers.cue:935:33
     ./helpers.cue:948:5
-    ./helpers.cue:969:220
+    ./helpers.cue:958:7
 _trigger_failover_if_master_sh: conflicting values "if [[ \"$is_master\" -eq 1 ]]; then" and "get_redis_role() {":
     ./helpers.cue:935:33
     ./helpers.cue:948:5
@@ -655,11 +655,11 @@ _redis_liveness_sh: conflicting values "redis-cli \\" and "response=$(":
 _redis_readiness_sh: conflicting values ")" and "response=$(":
     ./helpers.cue:878:22
     ./helpers.cue:891:5
-    ./helpers.cue:909:13
+    ./helpers.cue:900:13
 _redis_readiness_sh: conflicting values "-h localhost \\" and "response=$(":
     ./helpers.cue:878:22
     ./helpers.cue:891:5
-    ./helpers.cue:903:5
+    ./helpers.cue:894:5
 _redis_readiness_sh: conflicting values "echo \"ping=$response\"" and "response=$(":
     ./helpers.cue:878:22
     ./helpers.cue:891:5
@@ -671,7 +671,7 @@ _redis_readiness_sh: conflicting values "echo \"role=$role; repl=$repl\"" and "r
 _redis_readiness_sh: conflicting values "echo \"role=$role\"" and "response=$(":
     ./helpers.cue:878:22
     ./helpers.cue:891:5
-    ./helpers.cue:909:103
+    ./helpers.cue:909:341
 _redis_readiness_sh: conflicting values "elif [ \"$role\" = \"slave\" ]; then" and "response=$(":
     ./helpers.cue:878:22
     ./helpers.cue:891:5
@@ -687,7 +687,7 @@ _redis_readiness_sh: conflicting values "exit 0" and "response=$(":
 _redis_readiness_sh: conflicting values "exit 1" and "response=$(":
     ./helpers.cue:878:22
     ./helpers.cue:891:5
-    ./helpers.cue:900:88
+    ./helpers.cue:909:364
 _redis_readiness_sh: conflicting values "fi" and "response=$(":
     ./helpers.cue:878:22
     ./helpers.cue:891:5

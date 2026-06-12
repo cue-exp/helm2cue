@@ -797,7 +797,7 @@ func writeResultsCUE(outDir, pkgName string, results []templateResult, experimen
 			resultsField,
 		},
 	}
-	if err := astutil.Sanitize(f); err != nil {
+	if err := astutil.SanitizeFiles([]*ast.File{f}); err != nil {
 		return fmt.Errorf("sanitize results.cue: %w", err)
 	}
 	formatted, err := format.Node(f, format.Simplify())

@@ -69,14 +69,14 @@ output: [
 		metadata: {
 			try _x = #values.name? if (_nonzero & {#arg: _x}).out {
 				name: _x
-			} fallback {
+			} otherwise {
 				name: "fallback"
 			}
 		}
 		data: {
 			try _x = #values.env? if (_nonzero & {#arg: _x}).out {
 				env: _x
-			} fallback {
+			} otherwise {
 				env: "production"
 			}
 		}

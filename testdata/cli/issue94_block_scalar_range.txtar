@@ -47,11 +47,11 @@ cm: [
 		kind:       "ConfigMap"
 		metadata: name:      "test"
 		data: "config.yaml": """
-	primary:
-	  name: primary
-	\(strings.Join([for _, _range0 in list.Range(0, int & #values.replicas, 1) {
+			primary:
+			  name: primary
+			\(strings.Join([for _, _range0 in list.Range(0, int & #values.replicas, 1) {
 			"- name: \"replica-\(_range0)\""
 		}], "\n"))
-	"""
+			"""
 	},
 ]

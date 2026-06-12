@@ -9041,11 +9041,11 @@ func resolveImportSentinels(f *ast.File, knownImports map[string]bool) {
 	}, nil)
 }
 
-// formatResolvedFile applies resolveImportSentinels, astutil.Sanitize,
+// formatResolvedFile applies resolveImportSentinels, astutil.SanitizeFiles,
 // and format.Node to produce formatted CUE source from an AST file.
 func formatResolvedFile(f *ast.File, knownImports map[string]bool) ([]byte, error) {
 	resolveImportSentinels(f, knownImports)
-	if err := astutil.Sanitize(f); err != nil {
+	if err := astutil.SanitizeFiles([]*ast.File{f}); err != nil {
 		return nil, fmt.Errorf("sanitize: %w", err)
 	}
 	b, err := format.Node(f, format.Simplify())

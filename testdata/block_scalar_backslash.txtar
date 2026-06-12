@@ -34,10 +34,10 @@ output: [
 		kind:       "ConfigMap"
 		metadata: name:    "test"
 		data: "script.sh": """
-	redis-cli \\
-	  -p \(#values.port) \\
-	  ping
-	
-	"""
+			redis-cli \\
+			  -p \(#values.port) \\
+			  ping
+			
+			"""
 	},
 ]

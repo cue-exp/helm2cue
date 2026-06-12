@@ -39,13 +39,13 @@ test: [
 		kind:       "ConfigMap"
 		metadata: name: "test"
 		data: expr:     """
-	metric{job="test"}
-	< on (\(strings.Join([for _, _range0 in #values.labels {
+			metric{job="test"}
+			< on (\(strings.Join([for _, _range0 in #values.labels {
 			"\(_range0),"
 		}], ""))namespace) group_left
-	  count by (\(strings.Join([for _, _range0 in #values.labels {
+			  count by (\(strings.Join([for _, _range0 in #values.labels {
 			"\(_range0),"
 		}], ""))namespace) (metric{job="test"})
-	"""
+			"""
 	},
 ]
