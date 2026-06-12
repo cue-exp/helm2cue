@@ -65,7 +65,7 @@ func cmdChart(args []string) int {
 	fs := flag.NewFlagSet("chart", flag.ContinueOnError)
 	fs.SetOutput(os.Stderr)
 	allowDup := fs.Bool("allow-duplicate-helpers", false, "allow conflicting helper definitions (last wins)")
-	experiments := fs.Bool("experiments", false, "enable CUE language experiments (try, explicitopen)")
+	experiments := fs.Bool("experiments", false, "enable CUE language experiments (try, explicitopen, predicates)")
 	if err := fs.Parse(args); err != nil {
 		return 1
 	}

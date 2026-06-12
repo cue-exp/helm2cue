@@ -47,3 +47,43 @@ _nonzero: {
 		][0]
 	}, false][0]
 }
+-- experiments_output.cue --
+@experiment(try,predicates)
+
+import "struct"
+
+#values: {
+	config?: {
+		name?: bool | number | string | null
+		...
+	}
+	...
+}
+
+output: [
+	{
+		apiVersion: "v1"
+		kind:       "ConfigMap"
+		metadata: {
+			try _x = #values.config.name? if (_nonzero & {#arg: _x}).out {
+				name: _x
+			} otherwise {
+				name: "fallback"
+			}
+		}
+	},
+]
+_nonzero: {
+	#arg?: _
+	out: [if isValid(#arg) {
+		[
+			if isValid(#arg & int) {#arg != 0},
+			if isValid(#arg & string) {#arg != ""},
+			if isValid(#arg & float) {#arg != 0.0},
+			if isValid(#arg & bool) {#arg},
+			if isValid(#arg & [...]) {len(#arg) > 0},
+			if isValid(#arg & {...}) {!isValid(#arg & struct.MaxFields(0))},
+			false,
+		][0]
+	}, false][0]
+}

@@ -1,0 +1,88 @@
+Pipeline default piped into quote: the default expression is consumed by
+another function rather than emitted as a whole field value. In experiments
+mode this must emit the classic [if ...][0] form inside the interpolation,
+not a try comprehension (regression test for a nil-node panic when the
+deferred try default leaked into the quote interpolation).
+
+-- values.yaml --
+name: my-app
+-- input.yaml --
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test
+data:
+  environment: {{ .Values.env | default "development" | quote }}
+-- helm_output.yaml --
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test
+data:
+  environment: "development"
+-- output.cue --
+import "struct"
+
+#values: {
+	env?: bool | number | string | null
+	...
+}
+
+output: [
+	{
+		apiVersion: "v1"
+		kind:       "ConfigMap"
+		metadata: name:    "test"
+		data: environment: "\([if (_nonzero & {#arg: #values.env}).out {
+			#values.env
+		}, "development"][0])"
+	},
+]
+_nonzero: {
+	#arg?: _
+	out: [if #arg != _|_ {
+		[
+			if (#arg & int) != _|_ {#arg != 0},
+			if (#arg & string) != _|_ {#arg != ""},
+			if (#arg & float) != _|_ {#arg != 0.0},
+			if (#arg & bool) != _|_ {#arg},
+			if (#arg & [...]) != _|_ {len(#arg) > 0},
+			if (#arg & {...}) != _|_ {(#arg & struct.MaxFields(0)) == _|_},
+			false,
+		][0]
+	}, false][0]
+}
+-- experiments_output.cue --
+@experiment(try,predicates)
+
+import "struct"
+
+#values: {
+	env?: bool | number | string | null
+	...
+}
+
+output: [
+	{
+		apiVersion: "v1"
+		kind:       "ConfigMap"
+		metadata: name:    "test"
+		data: environment: "\([if (_nonzero & {#arg: #values.env}).out {
+			#values.env
+		}, "development"][0])"
+	},
+]
+_nonzero: {
+	#arg?: _
+	out: [if isValid(#arg) {
+		[
+			if isValid(#arg & int) {#arg != 0},
+			if isValid(#arg & string) {#arg != ""},
+			if isValid(#arg & float) {#arg != 0.0},
+			if isValid(#arg & bool) {#arg},
+			if isValid(#arg & [...]) {len(#arg) > 0},
+			if isValid(#arg & {...}) {!isValid(#arg & struct.MaxFields(0))},
+			false,
+		][0]
+	}, false][0]
+}

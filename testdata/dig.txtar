@@ -50,3 +50,47 @@ _dig: {
 		#default,
 	][0]
 }
+-- experiments_output.cue --
+@experiment(try,predicates)
+
+#values: {
+	customRules!: _
+	...
+}
+
+output: [
+	{
+		result: (_dig & {
+			#path: ["key1", "key2"]
+			#default: "notfound"
+			#arg:     #values.customRules
+		}).res
+	},
+]
+_dig: {
+	#path!:    _
+	#default!: _
+	#arg?:     _
+
+	_prep: [if isValid(#arg) for i, v in #path {
+		if i == 0 {
+			#arg[v]
+		}
+		if i > 0 {
+			if isValid(_prep[i-1][v]) {
+				_prep[i-1][v]
+			}
+			if !isValid(_prep[i-1][v]) && i == len(#path)-1 {
+				#default
+			}
+		}
+	}]
+
+	res: [
+		if len(#path) > 0 && len(#path) == len(_prep) if isValid(_prep[len(#path)-1]) {
+			_prep[len(#path)-1]
+		},
+
+		#default,
+	][0]
+}

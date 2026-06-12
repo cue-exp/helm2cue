@@ -105,9 +105,10 @@ type Config struct {
 	RootExpr string
 
 	// Experiments enables CUE language experiment-aware output.
-	// When true, generated CUE uses @experiment(try,explicitopen)
-	// and leverages try clauses with optional reference markers (?)
-	// instead of _nonzero-based patterns.
+	// When true, generated CUE uses @experiment(try,predicates):
+	// try clauses with optional reference markers (?) replace
+	// _nonzero-based default patterns, and predicate builtins
+	// (isValid) replace comparisons against _|_.
 	Experiments bool
 }
 
@@ -155,6 +156,29 @@ _nonzero: {
 }
 `
 
+// nonzeroExpDef is the experiments-mode variant of nonzeroDef. It uses the
+// isValid predicate builtin (@experiment(predicates)) instead of comparisons
+// against _|_. isValid(x) reproduces the x != _|_ idiom exactly: false when
+// x is absent or a reference that does not resolve, true otherwise.
+const nonzeroExpDef = `// _nonzero tests whether a value is "truthy" (non-zero,
+// non-empty, non-null), matching Go text/template semantics.
+// A natural candidate for a CUE standard library builtin.
+_nonzero: {
+	#arg?: _
+	out: [if isValid(#arg) {
+		[
+			if isValid(#arg & int) {#arg != 0},
+			if isValid(#arg & string) {#arg != ""},
+			if isValid(#arg & float) {#arg != 0.0},
+			if isValid(#arg & bool) {#arg},
+			if isValid(#arg & [...]) {len(#arg) > 0},
+			if isValid(#arg & {...}) {!isValid(#arg & struct.MaxFields(0))},
+			false,
+		][0]
+	}, false][0]
+}
+`
+
 // typeofDef is the CUE definition for Go type name checks matching Helm's
 // typeOf (Sprig's fmt.Sprintf("%T", v)) for YAML-parsed values.
 const typeofDef = `_typeof: {
@@ -167,6 +191,24 @@ const typeofDef = `_typeof: {
 			if (#arg & string) != _|_ {"string"},
 			if (#arg & [...]) != _|_ {"[]interface {}"},
 			if (#arg & {...}) != _|_ {"map[string]interface {}"},
+			"<invalid>",
+		][0]
+	}, "<invalid>"][0]
+}
+`
+
+// typeofExpDef is the experiments-mode variant of typeofDef, using the
+// isValid predicate builtin instead of comparisons against _|_.
+const typeofExpDef = `_typeof: {
+	#arg?: _
+	[if isValid(#arg) {
+		[
+			if isValid(#arg & bool) {"bool"},
+			if isValid(#arg & int) {"int"},
+			if isValid(#arg & float) {"float64"},
+			if isValid(#arg & string) {"string"},
+			if isValid(#arg & [...]) {"[]interface {}"},
+			if isValid(#arg & {...}) {"map[string]interface {}"},
 			"<invalid>",
 		][0]
 	}, "<invalid>"][0]
@@ -204,6 +246,37 @@ const digDef = `_dig: {
 }
 `
 
+// digExpDef is the experiments-mode variant of digDef, using the
+// isValid predicate builtin instead of comparisons against _|_.
+const digExpDef = `_dig: {
+	#path!:    _
+	#default!: _
+	#arg?:     _
+
+	_prep: [if isValid(#arg) for i, v in #path {
+		if i == 0 {
+			#arg[v]
+		}
+		if i > 0 {
+			if isValid(_prep[i-1][v]) {
+				_prep[i-1][v]
+			}
+			if !isValid(_prep[i-1][v]) && i == len(#path)-1 {
+				#default
+			}
+		}
+	}]
+
+	res: [
+		if len(#path) > 0 && len(#path) == len(_prep) if isValid(_prep[len(#path)-1]) {
+			_prep[len(#path)-1]
+		},
+
+		#default,
+	][0]
+}
+`
+
 // omitDef is the CUE definition for returning a dict with specified
 // keys removed, matching Sprig's omit function.
 const omitDef = `_omit: {
@@ -232,6 +305,25 @@ const mergeDef = `_merge: {
 }
 `
 
+// mergeExpDef is the experiments-mode variant of mergeDef, using the
+// isValid predicate builtin instead of comparison against _|_. isValid
+// (rather than exists) preserves behavior when #a is bound to an absent
+// reference: exists would leave the comprehension unresolved, while
+// isValid yields false, matching #a[k] == _|_.
+const mergeExpDef = `_merge: {
+	#a!: _
+	#b!: _
+	out: {
+		for k, v in #a {
+			(k): v
+		}
+		for k, v in #b if !isValid(#a[k]) {
+			(k): v
+		}
+	}
+}
+`
+
 // mergeOverwriteDef is the CUE definition for shallow key-level merge
 // of two structs where the last argument wins, matching Sprig's mergeOverwrite.
 const mergeOverwriteDef = `_mergeOverwrite: {
@@ -239,6 +331,22 @@ const mergeOverwriteDef = `_mergeOverwrite: {
 	#b!: _
 	out: {
 		for k, v in #a if #b[k] == _|_ {
+			(k): v
+		}
+		for k, v in #b {
+			(k): v
+		}
+	}
+}
+`
+
+// mergeOverwriteExpDef is the experiments-mode variant of mergeOverwriteDef,
+// using the isValid predicate builtin instead of comparison against _|_.
+const mergeOverwriteExpDef = `_mergeOverwrite: {
+	#a!: _
+	#b!: _
+	out: {
+		for k, v in #a if !isValid(#b[k]) {
 			(k): v
 		}
 		for k, v in #b {
@@ -375,6 +483,11 @@ type converter struct {
 	hasDefault                  bool                 // true if any default expressions exist
 	usedHelpers                 map[string]HelperDef // collected during conversion
 	rootExprAST                 ast.Expr             // parsed config.RootExpr, cached
+
+	// pendingTryDefaults maps classic default expressions (by node
+	// identity) to their try/fallback components in experiments mode.
+	// See recordTryDefault and emitRawField.
+	pendingTryDefaults map[ast.Expr]*tryDefaultInfo
 
 	// AST construction state.
 	rootDecls             []ast.Decl // top-level declarations built during conversion
@@ -544,20 +657,36 @@ func nonzeroExpr(expr ast.Expr) ast.Expr {
 	)), "out")
 }
 
+// isValidExpr builds isValid(x), the predicates-experiment replacement
+// for the x != _|_ idiom. isValid(x) is false when x is absent, an
+// unresolvable reference, or a permanent error, matching x != _|_.
+func isValidExpr(x ast.Expr) ast.Expr {
+	return callExpr("isValid", x)
+}
+
+// typeCheckExpr builds the experiments-mode type test for "val is of
+// type T": isValid(val) && isValid(val & T). The leading isValid(val)
+// preserves the absent-reference semantics of the historical
+// (val & T) != _|_ pattern: isValid(absentRef & T) is true (incomplete,
+// not a permanent error) whereas (absentRef & T) != _|_ is false.
+func typeCheckExpr(val, typeExpr ast.Expr) ast.Expr {
+	return binOp(token.LAND, isValidExpr(val), isValidExpr(binOp(token.AND, val, typeExpr)))
+}
+
 // defaultExpr builds a Helm-compatible default expression.
 // Instead of *expr | defaultVal (which only falls back on bottom),
 // this produces [if (_nonzero & {#arg: expr, _}) {expr}, defaultVal][0]
 // which falls back when expr is a zero value (null, "", 0, false, [], {}),
 // matching Helm's default semantics.
 //
-// In experiments mode, stores a pending try/fallback comprehension
-// on the converter for emitRawField to pick up.
+// In experiments mode, the returned expression is additionally recorded
+// in pendingTryDefaults so that emitRawField can replace a whole-value
+// default with a try/fallback comprehension. Consumers that wrap the
+// expression (quote, condition pipelines, interpolations) emit the
+// classic form unchanged, which is correct in any expression position.
 func (c *converter) defaultExpr(expr, defaultVal ast.Expr) ast.Expr {
-	if c.config.Experiments {
-		return c.tryDefaultExpr(expr, defaultVal)
-	}
 	c.hasDefault = true
-	return &ast.IndexExpr{
+	classic := &ast.IndexExpr{
 		X: &ast.ListLit{
 			Elts: []ast.Expr{
 				&ast.Comprehension{
@@ -573,31 +702,34 @@ func (c *converter) defaultExpr(expr, defaultVal ast.Expr) ast.Expr {
 		},
 		Index: cueInt(0),
 	}
+	if c.config.Experiments {
+		c.recordTryDefault(classic, expr, defaultVal)
+	}
+	return classic
 }
 
-// deferredTryDefault carries the components for a try/fallback comprehension.
-// It satisfies ast.Expr (via embedded *ast.Ident) so it can flow through the
-// normal expression return path. emitRawField recognizes it via type assertion
-// and emits the comprehension with the actual field label.
-type deferredTryDefault struct {
-	*ast.Ident              // satisfies ast.Expr; never used as a real node
-	source     ast.Expr     // source expression (e.g. #values.name)
+// tryDefaultInfo carries the components for a try/fallback comprehension
+// recorded for a default expression in experiments mode.
+type tryDefaultInfo struct {
 	defaultVal ast.Expr     // fallback value
 	clauses    []ast.Clause // try + if clauses
 }
 
-// tryDefaultExpr builds a deferred try/fallback default for experiments mode.
-// Returns a deferredTryDefault that emitRawField will recognize and expand
-// into a comprehension with the actual field label.
+// recordTryDefault records the try/fallback components for a default
+// expression, keyed by the identity of the classic expression node.
+// emitRawField looks up emitted field values in this map: a hit means
+// the default is the entire field value and can be emitted as a try
+// comprehension with the field label on both branches.
 //
 // The try clause handles field existence (absent optional fields),
 // and the if clause preserves Helm's full truthiness semantics
 // (zero values like "", 0, false also trigger the fallback).
-func (c *converter) tryDefaultExpr(expr, defaultVal ast.Expr) ast.Expr {
-	c.hasDefault = true
+func (c *converter) recordTryDefault(classic, expr, defaultVal ast.Expr) {
 	varIdent := ast.NewIdent("_x")
-	return &deferredTryDefault{
-		source:     expr,
+	if c.pendingTryDefaults == nil {
+		c.pendingTryDefaults = make(map[ast.Expr]*tryDefaultInfo)
+	}
+	c.pendingTryDefaults[classic] = &tryDefaultInfo{
 		defaultVal: defaultVal,
 		clauses: []ast.Clause{
 			&ast.TryClause{
@@ -1012,11 +1144,12 @@ func (c *converter) emitField(key string, value ast.Expr) {
 }
 
 // emitRawField creates an ast.Field with a pre-built label and appends it.
-// In experiments mode, if value is a deferredTryDefault (from tryDefaultExpr),
-// the field is replaced by a try/fallback comprehension with the actual field
-// label on both branches.
+// In experiments mode, if value is a recorded default expression (see
+// recordTryDefault), the field is replaced by a try/fallback comprehension
+// with the actual field label on both branches.
 func (c *converter) emitRawField(label ast.Label, value ast.Expr) {
-	if td, ok := value.(*deferredTryDefault); ok {
+	if td, ok := c.pendingTryDefaults[value]; ok {
+		delete(c.pendingTryDefaults, value)
 		c.appendToParent(&ast.Comprehension{
 			Clauses: td.clauses,
 			Value: &ast.StructLit{Elts: []ast.Decl{
@@ -1692,7 +1825,11 @@ func assembleSingleFile(cfg *Config, r *convertResult) ([]byte, error) {
 	// separated by blank lines.
 	helperDefCount := 0
 	if r.needsNonzero {
-		defDecls, err := parseHelperDefDecls(nonzeroDef, []string{"struct"}, true)
+		nzDef := nonzeroDef
+		if cfg.Experiments {
+			nzDef = nonzeroExpDef
+		}
+		defDecls, err := parseHelperDefDecls(nzDef, []string{"struct"}, true)
 		if err != nil {
 			return nil, fmt.Errorf("parsing nonzero def: %w", err)
 		}
@@ -1723,7 +1860,7 @@ func assembleSingleFile(cfg *Config, r *convertResult) ([]byte, error) {
 		return nil, err
 	}
 	if cfg.Experiments {
-		formatted = append([]byte("@experiment(try)\n\n"), formatted...)
+		formatted = append([]byte("@experiment(try,predicates)\n\n"), formatted...)
 	}
 	return formatted, nil
 }
@@ -7308,12 +7445,18 @@ func (c *converter) conditionPipeToExpr(pipe *parse.PipeNode) (ast.Expr, error) 
 			}
 			keyNode, ok := args[1].(*parse.StringNode)
 			if ok {
+				if c.config.Experiments {
+					return isValidExpr(selExpr(mapExpr, cueKey(keyNode.Text))), nil
+				}
 				return nonzeroExpr(selExpr(mapExpr, cueKey(keyNode.Text))), nil
 			}
 			// Dynamic key: map[key] != _|_
 			keyExpr, err := c.conditionNodeToRawExpr(args[1])
 			if err != nil {
 				return nil, fmt.Errorf("hasKey key argument: %w", err)
+			}
+			if c.config.Experiments {
+				return isValidExpr(indexExpr(mapExpr, keyExpr)), nil
 			}
 			return binOp(token.NEQ, indexExpr(mapExpr, keyExpr), &ast.BottomLit{}), nil
 		case "coalesce":
@@ -7451,6 +7594,9 @@ func (c *converter) conditionPipeToExpr(pipe *parse.PipeNode) (ast.Expr, error) 
 				"slice":  "[...]",
 			}
 			if kindNode.Text == "invalid" {
+				if c.config.Experiments {
+					return negExpr(isValidExpr(valExpr)), nil
+				}
 				return binOp(token.EQL, valExpr, &ast.BottomLit{}), nil
 			}
 			cueType, ok := kindMap[kindNode.Text]
@@ -7469,6 +7615,9 @@ func (c *converter) conditionPipeToExpr(pipe *parse.PipeNode) (ast.Expr, error) 
 				}
 			default:
 				typeExpr = ast.NewIdent(cueType)
+			}
+			if c.config.Experiments {
+				return typeCheckExpr(valExpr, typeExpr), nil
 			}
 			return binOp(token.NEQ, parenExpr(binOp(token.AND, valExpr, typeExpr)), &ast.BottomLit{}), nil
 		case "typeIs":
@@ -7496,6 +7645,9 @@ func (c *converter) conditionPipeToExpr(pipe *parse.PipeNode) (ast.Expr, error) 
 				"[]interface {}":          "[...]",
 			}
 			if typeIsNode.Text == "<nil>" || typeIsNode.Text == "<invalid>" {
+				if c.config.Experiments {
+					return negExpr(isValidExpr(typeIsValExpr)), nil
+				}
 				return binOp(token.EQL, typeIsValExpr, &ast.BottomLit{}), nil
 			}
 			typeIsCueType, ok := typeIsMap[typeIsNode.Text]
@@ -7515,6 +7667,9 @@ func (c *converter) conditionPipeToExpr(pipe *parse.PipeNode) (ast.Expr, error) 
 			default:
 				typeIsTypeExpr = ast.NewIdent(typeIsCueType)
 			}
+			if c.config.Experiments {
+				return typeCheckExpr(typeIsValExpr, typeIsTypeExpr), nil
+			}
 			return binOp(token.NEQ, parenExpr(binOp(token.AND, typeIsValExpr, typeIsTypeExpr)), &ast.BottomLit{}), nil
 		case "typeOf":
 			if !c.isCoreFunc(id.Ident) {
@@ -7527,7 +7682,11 @@ func (c *converter) conditionPipeToExpr(pipe *parse.PipeNode) (ast.Expr, error) 
 			if err != nil {
 				return nil, fmt.Errorf("typeOf argument: %w", err)
 			}
-			c.usedHelpers["_typeof"] = HelperDef{Name: "_typeof", Def: typeofDef}
+			tDef := typeofDef
+			if c.config.Experiments {
+				tDef = typeofExpDef
+			}
+			c.usedHelpers["_typeof"] = HelperDef{Name: "_typeof", Def: tDef}
 			return parenExpr(binOp(token.AND, ast.NewIdent("_typeof"),
 				compactStruct(
 					&ast.Field{Label: ast.NewIdent("#arg"), Value: valExpr},

@@ -52,7 +52,7 @@ _nonzero: {
 	}, false][0]
 }
 -- experiments_output.cue --
-@experiment(try)
+@experiment(try,predicates)
 
 import "struct"
 
@@ -84,14 +84,14 @@ output: [
 ]
 _nonzero: {
 	#arg?: _
-	out: [if #arg != _|_ {
+	out: [if isValid(#arg) {
 		[
-			if (#arg & int) != _|_ {#arg != 0},
-			if (#arg & string) != _|_ {#arg != ""},
-			if (#arg & float) != _|_ {#arg != 0.0},
-			if (#arg & bool) != _|_ {#arg},
-			if (#arg & [...]) != _|_ {len(#arg) > 0},
-			if (#arg & {...}) != _|_ {(#arg & struct.MaxFields(0)) == _|_},
+			if isValid(#arg & int) {#arg != 0},
+			if isValid(#arg & string) {#arg != ""},
+			if isValid(#arg & float) {#arg != 0.0},
+			if isValid(#arg & bool) {#arg},
+			if isValid(#arg & [...]) {len(#arg) > 0},
+			if isValid(#arg & {...}) {!isValid(#arg & struct.MaxFields(0))},
 			false,
 		][0]
 	}, false][0]

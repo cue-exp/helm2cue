@@ -49,3 +49,34 @@ _mergeOverwrite: {
 		}
 	}
 }
+-- experiments_output.cue --
+@experiment(try,predicates)
+
+#values: {
+	defaults!:  _
+	overrides!: _
+	...
+}
+
+output: [
+	{
+		apiVersion: "v1"
+		kind:       "ConfigMap"
+		metadata: {
+			name: "test"
+			labels: (_mergeOverwrite & {#a: #values.defaults, #b: #values.overrides}).out
+		}
+	},
+]
+_mergeOverwrite: {
+	#a!: _
+	#b!: _
+	out: {
+		for k, v in #a if !isValid(#b[k]) {
+			(k): v
+		}
+		for k, v in #b {
+			(k): v
+		}
+	}
+}

@@ -637,7 +637,11 @@ func convertDig(c *converter, args []funcArg) (ast.Expr, string, error) {
 	}
 	pathList := &ast.ListLit{Elts: pathElts}
 
-	c.usedHelpers["_dig"] = HelperDef{Name: "_dig", Def: digDef}
+	dDef := digDef
+	if c.config.Experiments {
+		dDef = digExpDef
+	}
+	c.usedHelpers["_dig"] = HelperDef{Name: "_dig", Def: dDef}
 	expr := selExpr(
 		parenExpr(binOp(token.AND, ast.NewIdent("_dig"), &ast.StructLit{Elts: []ast.Decl{
 			&ast.Field{Label: ast.NewIdent("#path"), Value: pathList},
@@ -693,13 +697,21 @@ func convertOmit(c *converter, args []funcArg) (ast.Expr, string, error) {
 // The destination (first arg) wins over sources. We chain pairwise
 // _merge helpers for each source argument.
 func convertMerge(c *converter, args []funcArg) (ast.Expr, string, error) {
-	return convertMergeImpl(c, args, "_merge", mergeDef)
+	def := mergeDef
+	if c.config.Experiments {
+		def = mergeExpDef
+	}
+	return convertMergeImpl(c, args, "_merge", def)
 }
 
 // convertMergeOverwrite handles Sprig's mergeOverwrite function:
 // mergeOverwrite dst src1 src2 ... where sources override the destination.
 func convertMergeOverwrite(c *converter, args []funcArg) (ast.Expr, string, error) {
-	return convertMergeImpl(c, args, "_mergeOverwrite", mergeOverwriteDef)
+	def := mergeOverwriteDef
+	if c.config.Experiments {
+		def = mergeOverwriteExpDef
+	}
+	return convertMergeImpl(c, args, "_mergeOverwrite", def)
 }
 
 func convertMergeImpl(c *converter, args []funcArg, helperName, helperDef string) (ast.Expr, string, error) {
@@ -776,6 +788,9 @@ func convertTypeIs(c *converter, args []funcArg) (ast.Expr, string, error) {
 		"[]interface {}":          "[...]",
 	}
 	if typeName == "<nil>" || typeName == "<invalid>" {
+		if c.config.Experiments {
+			return negExpr(isValidExpr(valExpr)), helmObj, nil
+		}
 		return binOp(token.EQL, valExpr, &ast.BottomLit{}), helmObj, nil
 	}
 	cueType, ok := typeIsMap[typeName]
@@ -794,6 +809,9 @@ func convertTypeIs(c *converter, args []funcArg) (ast.Expr, string, error) {
 		}
 	default:
 		typeExpr = ast.NewIdent(cueType)
+	}
+	if c.config.Experiments {
+		return typeCheckExpr(valExpr, typeExpr), helmObj, nil
 	}
 	return binOp(token.NEQ, parenExpr(binOp(token.AND, valExpr, typeExpr)), &ast.BottomLit{}), helmObj, nil
 }
